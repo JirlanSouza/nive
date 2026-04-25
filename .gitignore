@@ -10,8 +10,20 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+target
 *.local
 temp
+
+# Python sidecar
+sidecar/.venv/
+sidecar/.pyinstaller-cache/
+sidecar/build/
+sidecar/dist/
+sidecar/__pycache__/
+sidecar/tests/__pycache__/
+sidecar/*.spec.bak
+sidecar/*.pyc
+src-tauri/binaries/docling-parser-*
 
 # Editor directories and files
 .vscode/*
