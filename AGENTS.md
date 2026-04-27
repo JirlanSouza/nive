@@ -25,6 +25,18 @@ Keep new frontend tests under `src-ui/src/__tests__/`. Keep Rust tests close to 
 
 Use 2 spaces in TypeScript/TSX and default Rust formatting in `src-tauri/`. Prettier is configured for `printWidth: 120`, semicolons, and double quotes. Frontend files use `kebab-case` and named exports only; component symbols stay `PascalCase` (`document-status-icon.tsx` exports `DocumentStatusIcon`). In Rust, follow the `<name>.rs` + `<name>/` module pattern, use `snake_case` for files/functions, and keep imports grouped as `std`, external crates, then `crate::`. Do not add code comments unless a public Rust API truly needs a short doc comment.
 
+## Architecture & Error Handling
+
+- **Domain Errors:** Use domain-specific errors (e.g. `DocumentError`, `ParseError`) instead of relying solely on the global `AppError`. Integrate domain errors into `AppError` using `#[from]`.
+- **Memory Efficiency:** Service methods should prefer references (`&str`) instead of owned strings (`String`) for IDs to avoid unnecessary allocations. The Tauri Command layer acts as the data owner and passes references down to the services.
+- **Data Isolation:** All database repository methods must explicitly require a `project_id` parameter to enforce strict multi-tenant data isolation directly at the SQL query level (e.g., `WHERE project_id = ?`).
+- **Error Message Formatting:** Use the Key-Value format for error messages to ensure consistency in logs and ease of parsing in the UI. 
+  - Instantiation should remain simple: `NotFound(String)` or `NotFound { id1, id2 }`.
+  - Format messages explicitly with keys in parentheses: `#[error("Document not found (document_id: {0})")]`.
+  - For multiple IDs, use struct variants: `#[error("Chunk not found (chunk_id: {chunk_id}, document_id: {document_id})")] ChunkNotFound { chunk_id: String, document_id: String }`.
+  - The frontend will gracefully handle these by splitting the error message by `(` to display a clean, user-friendly text, while the backend retains the full contextual logs.
+
+
 ## Agent Working Rules
 
 - Clarify before acting when the request is ambiguous. Do not guess hidden intent.
