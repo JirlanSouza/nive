@@ -23,7 +23,7 @@ sidecar/__pycache__/
 sidecar/tests/__pycache__/
 sidecar/*.spec.bak
 sidecar/*.pyc
-src-tauri/binaries/docling-parser-*
+src-tauri/binaries/document-parser-*
 
 # Editor directories and files
 .vscode/*
