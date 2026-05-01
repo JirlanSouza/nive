@@ -5,7 +5,7 @@
 `rag-studio` is a pnpm workspace with two active app layers:
 
 - `src-ui/`: React + TypeScript + Vite frontend. Main code lives in `src-ui/src`, organized by `components/`, `screens/`, `stores/`, `data/`, and `styles/`.
-- `src-tauri/`: Tauri v2 Rust backend. Core modules live in `src-tauri/src`, with domain areas such as `app/`, `commands/`, `db/`, `models/`, `search/`, and `sidecar/`.
+- `src-tauri/`: Tauri v2 Rust backend. Core modules live in `src-tauri/src`, with domain areas such as `app/`, `commands/`, `db/`, `models/`, `search/`, and `document_parser/`.
 - `src-tauri/migrations/`: SQLite schema migrations for global and project databases.
 - `design/` and `.kiro/specs/`: design references and feature specs.
 
@@ -52,4 +52,4 @@ Frontend tests use Vitest with Testing Library and live under `src-ui/src/__test
 
 Recent history follows Conventional Commit style: `feat: ...`, `refactor: ...`, and scoped variants like `refactor(workspace): ...`. Keep messages imperative and specific.
 
-PRs should include a short problem statement, a summary of user-visible changes, linked issues or specs when applicable, and screenshots or recordings for UI work. Call out schema changes, new migrations, or sidecar/protocol updates explicitly.
+PRs should include a short problem statement, a summary of user-visible changes, linked issues or specs when applicable, and screenshots or recordings for UI work. Call out schema changes, new migrations, or document parser protocol updates explicitly.
