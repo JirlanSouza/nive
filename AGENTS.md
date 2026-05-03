@@ -49,6 +49,9 @@ Use 2 spaces in TypeScript/TSX and default Rust formatting in `src-tauri/`. Pret
 
 Frontend tests use Vitest with Testing Library and live under `src-ui/src/__tests__/property/*.test.ts`. Add new files as `featureName.test.ts`. Rust uses `cargo test`, with focused test modules such as `docling_tests.rs` and regression fixtures in `src-tauri/proptest-regressions/`. Add or update tests with every behavior change; cover parsing, chunking, and IPC-facing flows when touched.
 
+- **Rust test naming:** Use descriptive `snake_case` names without redundant prefixes. The `#[test]` attribute and module path already provide context, so avoid repeating the module or type name (e.g. write `rejects_incompatible_format`, not `test_payload_reader_rejects_incompatible_format` or `payload_reader_open_rejects_incompatible_format`).
+- **Rust test module layout:** Keep tests close to the module they cover, following the `*_tests.rs` pattern. When a test module grows large, split it into sub-modules for cohesion: a `*_tests.rs` entry point declaring `mod` sub-modules, a `support.rs` for shared helpers (fixtures, builders, assertions), and one file per logical group of tests. Follow the `<name>.rs` + `<name>/` module convention (no `mod.rs`). Shared helpers use `pub(super)` visibility.
+
 ## Commit & Pull Request Guidelines
 
 Recent history follows Conventional Commit style: `feat: ...`, `refactor: ...`, and scoped variants like `refactor(workspace): ...`. Keep messages imperative and specific.
