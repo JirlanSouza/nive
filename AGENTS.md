@@ -23,7 +23,7 @@ Keep new frontend tests under `src-ui/src/__tests__/`. Keep Rust tests close to 
 
 ## Coding Style & Naming Conventions
 
-Use 2 spaces in TypeScript/TSX and default Rust formatting in `src-tauri/`. Prettier is configured for `printWidth: 120`, semicolons, and double quotes. Frontend files use `kebab-case` and named exports only; component symbols stay `PascalCase` (`document-status-icon.tsx` exports `DocumentStatusIcon`). In Rust, follow the `<name>.rs` + `<name>/` module pattern, use `snake_case` for files/functions, and keep imports grouped as `std`, external crates, then `crate::`. Do not add code comments unless a public Rust API truly needs a short doc comment.
+Use 2 spaces in TypeScript/TSX and default Rust formatting in `src-tauri/`. Prettier is configured for `printWidth: 120`, semicolons, and double quotes. Frontend files use `kebab-case` and named exports only; component symbols stay `PascalCase` (`document-status-icon.tsx` exports `DocumentStatusIcon`). In Rust, follow the `<name>.rs` + `<name>/` module pattern, use `snake_case` for files/functions, and keep imports grouped as `std`, external crates, `super::`/`self::`, then `crate::`. Do not add code comments unless a public Rust API truly needs a short doc comment.
 
 ## Architecture & Error Handling
 
