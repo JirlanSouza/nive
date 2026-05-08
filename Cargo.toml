@@ -1,0 +1,37 @@
+[workspace]
+members = [
+  "crates/app-tauri",
+  "crates/app-database",
+  "crates/app-core",
+  "crates/app-models",
+  "crates/document-parser-worker",
+  "crates/docling-payload-core",
+  "crates/docling-payload-py",
+]
+resolver = "2"
+
+[workspace.dependencies]
+async-trait = "0.1"
+bytecheck = "0.6"
+dirs = "6.0"
+futures = "0.3"
+hex = "0.4"
+log = "0.4"
+proptest = "1.11"
+rkyv = { version = "0.7", features = ["validation", "strict"] }
+serde = "1"
+serde_json = "1"
+serde-pyobject = "0.8"
+sha2 = "0.10"
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate"] }
+tauri = { version = "2", default-features = true }
+tauri-build = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-log = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-shell = "2"
+tempfile = "3"
+thiserror = "1"
+time = "0.3"
+tokio = "1"
+uuid = { version = "1", features = ["v7"] }
