@@ -2,14 +2,21 @@
 
 ## Project Structure & Module Organization
 
-`rag-studio` is a pnpm workspace with two active app layers:
+`rag-studio` is a pnpm workspace with two active app layers and a Cargo workspace:
 
-- `src-ui/`: React + TypeScript + Vite frontend. Main code lives in `src-ui/src`, organized by `components/`, `screens/`, `stores/`, `data/`, and `styles/`.
-- `src-tauri/`: Tauri v2 Rust backend. Core modules live in `src-tauri/src`, with domain areas such as `app/`, `commands/`, `db/`, `models/`, `search/`, and `document_parser/`.
-- `src-tauri/migrations/`: SQLite schema migrations for global and project databases.
+- `app-ui/`: React + TypeScript + Vite frontend. Main code lives in `app-ui/src`, organized by `components/`, `screens/`, `stores/`, `data/`, and `styles/`.
+- `crates/`: Rust workspace crates. Each crate is a separate module under `crates/`:
+  - `app-tauri/`: Tauri v2 shell, commands, and IPC bridge.
+  - `app-core/`: Domain services, event bus, file system, parsing orchestration.
+  - `app-database/`: SQLite persistence layer (SQLx + migrations).
+  - `app-models/`: Shared domain models and types.
+  - `document-parser-worker/`: Child-process manager for the Python document parser.
+  - `docling-payload-core/`: Rkyv payload read/write for Docling documents.
+  - `docling-payload-py/`: PyO3 binding for docling-payload-core.
+- `crates/app-database/migrations/`: SQLite schema migrations for global and project databases.
 - `design/` and `.kiro/specs/`: design references and feature specs.
 
-Keep new frontend tests under `src-ui/src/__tests__/`. Keep Rust tests close to the module they cover, following the existing `*_tests.rs` pattern.
+Keep new frontend tests under `app-ui/src/__tests__/`. Keep Rust tests close to the module they cover, following the existing `*_tests.rs` pattern.
 
 ## Build, Test, and Development Commands
 
@@ -18,12 +25,12 @@ Keep new frontend tests under `src-ui/src/__tests__/`. Keep Rust tests close to 
 - `pnpm ui:dev`: run only the Vite frontend.
 - `pnpm ui:build`: type-check and build the UI bundle.
 - `pnpm --filter rag-studio-ui exec vitest run`: run frontend tests in `jsdom`.
-- `cargo test --manifest-path src-tauri/Cargo.toml`: run Rust unit and property tests.
-- `cargo fmt --manifest-path src-tauri/Cargo.toml`: format Rust code before opening a PR.
+- `cargo test`: run Rust unit and property tests (workspace-level).
+- `cargo fmt`: format Rust code before opening a PR.
 
 ## Coding Style & Naming Conventions
 
-Use 2 spaces in TypeScript/TSX and default Rust formatting in `src-tauri/`. Prettier is configured for `printWidth: 120`, semicolons, and double quotes. Frontend files use `kebab-case` and named exports only; component symbols stay `PascalCase` (`document-status-icon.tsx` exports `DocumentStatusIcon`). In Rust, follow the `<name>.rs` + `<name>/` module pattern, use `snake_case` for files/functions, and keep imports grouped as `std`, external crates, `super::`/`self::`, then `crate::`. Do not add code comments unless a public Rust API truly needs a short doc comment.
+Use 2 spaces in TypeScript/TSX and default Rust formatting. Prettier is configured for `printWidth: 120`, semicolons, and double quotes. Frontend files use `kebab-case` and named exports only; component symbols stay `PascalCase` (`document-status-icon.tsx` exports `DocumentStatusIcon`). In Rust, follow the `<name>.rs` + `<name>/` module pattern, use `snake_case` for files/functions, and keep imports grouped as `std`, external crates, `super::`/`self::`/`crate::`. Do not add code comments unless a public Rust API truly needs a short doc comment.
 
 ## Architecture & Error Handling
 
@@ -47,7 +54,7 @@ Use 2 spaces in TypeScript/TSX and default Rust formatting in `src-tauri/`. Pret
 
 ## Testing Guidelines
 
-Frontend tests use Vitest with Testing Library and live under `src-ui/src/__tests__/property/*.test.ts`. Add new files as `featureName.test.ts`. Rust uses `cargo test`, with focused test modules such as `docling_tests.rs` and regression fixtures in `src-tauri/proptest-regressions/`. Add or update tests with every behavior change; cover parsing, chunking, and IPC-facing flows when touched.
+Frontend tests use Vitest with Testing Library and live under `app-ui/src/__tests__/property/*.test.ts`. Add new files as `featureName.test.ts`. Rust uses `cargo test`, with focused test modules such as `docling_tests.rs` and regression fixtures in `crates/*/proptest-regressions/`. Add or update tests with every behavior change; cover parsing, chunking, and IPC-facing flows when touched.
 
 - **Rust test naming:** Use descriptive `snake_case` names without redundant prefixes. The `#[test]` attribute and module path already provide context, so avoid repeating the module or type name (e.g. write `rejects_incompatible_format`, not `test_payload_reader_rejects_incompatible_format` or `payload_reader_open_rejects_incompatible_format`).
 - **Rust test module layout:** Keep tests close to the module they cover, following the `*_tests.rs` pattern. When a test module grows large, split it into sub-modules for cohesion: a `*_tests.rs` entry point declaring `mod` sub-modules, a `support.rs` for shared helpers (fixtures, builders, assertions), and one file per logical group of tests. Follow the `<name>.rs` + `<name>/` module convention (no `mod.rs`). Shared helpers use `pub(super)` visibility.
