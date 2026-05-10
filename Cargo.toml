@@ -7,6 +7,7 @@ members = [
   "crates/document-parser-worker",
   "crates/docling-payload-core",
   "crates/docling-payload-py",
+  "crates/app-gui",
 ]
 resolver = "2"
 
@@ -34,4 +35,5 @@ tempfile = "3"
 thiserror = "1"
 time = "0.3"
 tokio = "1"
+iced = "0.13"
 uuid = { version = "1", features = ["v7"] }
