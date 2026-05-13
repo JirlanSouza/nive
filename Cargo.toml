@@ -8,6 +8,7 @@ members = [
   "crates/docling-payload-core",
   "crates/docling-payload-py",
   "crates/app-gui",
+  "crates/xtask",
 ]
 resolver = "2"
 
@@ -35,5 +36,5 @@ tempfile = "3"
 thiserror = "1"
 time = "0.3"
 tokio = "1"
-iced = { version = "0.13", features = ["tokio"] }
+iced = { version = "0.13", features = ["tokio", "svg"] }
 uuid = { version = "1", features = ["v7"] }
