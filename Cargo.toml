@@ -36,5 +36,5 @@ tempfile = "3"
 thiserror = "1"
 time = "0.3"
 tokio = "1"
-iced = { version = "0.14", features = ["tokio", "svg", "advanced"] }
+iced = { version = "0.14", features = ["tokio", "svg", "advanced", "canvas"] }
 uuid = { version = "1", features = ["v7"] }
