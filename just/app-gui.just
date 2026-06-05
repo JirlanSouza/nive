@@ -40,7 +40,15 @@ app-gui-dev:
     trap cleanup EXIT INT TERM
 
     while :; do
-      cargo build --package app-gui
+      if [ -n "${RAG_STUDIO_APP_GUI_FEATURES:-}" ]; then
+        cargo build --package app-gui --features "$RAG_STUDIO_APP_GUI_FEATURES"
+      else
+        cargo build --package app-gui
+      fi
+
+      if [ -n "${RAG_STUDIO_UI_ERROR:-}" ]; then
+        printf 'UI error injection enabled: %s\n' "$RAG_STUDIO_UI_ERROR"
+      fi
       ./target/debug/app-gui 2>&1 &
       app_pid=$!
       reload_requested=0
@@ -86,6 +94,14 @@ app-gui-dev:
       fi
     done
 
+# Run app-gui in development with a UI error scenario. Usage: just dev-error create_project
+dev-error ui_error:
+    RAG_STUDIO_APP_GUI_FEATURES="ui-error-injection" RAG_STUDIO_UI_ERROR="{{ ui_error }}" just app-gui-dev
+
+# List available UI error-injection scenarios.
+dev-error-list:
+    cargo run --package app-gui --features ui-error-injection -- --list-ui-error-scenarios
+
 # Build app-gui in debug mode.
 app-gui-build:
     cargo build --package app-gui
@@ -103,5 +119,7 @@ app-gui-test:
     cargo test --package app-gui
 
 alias gui-dev := app-gui-dev
+alias gui-dev-error := dev-error
+alias gui-dev-error-list := dev-error-list
 alias gui-build := app-gui-build
 alias gui-release := app-gui-release
