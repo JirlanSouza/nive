@@ -1,66 +1,33 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Active Stack
 
-`rag-studio` is a pnpm workspace with two active app layers and a Cargo workspace:
+`rag-studio` is centered on the Rust/Iced application stack:
 
-- `app-ui/`: React + TypeScript + Vite frontend. Main code lives in `app-ui/src`, organized by `components/`, `screens/`, `stores/`, `data/`, and `styles/`.
-- `crates/`: Rust workspace crates. Each crate is a separate module under `crates/`:
-  - `app-tauri/`: Tauri v2 shell, commands, and IPC bridge.
-  - `app-core/`: Domain services, event bus, file system, parsing orchestration.
-  - `app-database/`: SQLite persistence layer (SQLx + migrations).
-  - `app-models/`: Shared domain models and types.
-  - `document-parser-worker/`: Child-process manager for the Python document parser.
-  - `docling-payload-core/`: Rkyv payload read/write for Docling documents.
-  - `docling-payload-py/`: PyO3 binding for docling-payload-core.
-- `crates/app-database/migrations/`: SQLite schema migrations for global and project databases.
-- `design/` and `.kiro/specs/`: design references and feature specs.
+- `crates/app-gui`
+- `crates/app-core`
+- `crates/app-models`
+- `crates/app-database`
+- parser and payload crates when a task touches document parsing
 
-Keep new frontend tests under `app-ui/src/__tests__/`. Keep Rust tests close to the module they cover, following the existing `*_tests.rs` pattern.
+Deprecated UI shell areas are out of scope unless the user explicitly asks for migration, compatibility, or historical comparison.
 
-## Build, Test, and Development Commands
+## Context Docs
 
-- `pnpm install`: install workspace dependencies.
-- `pnpm dev`: run the full Tauri desktop app in development.
-- `pnpm ui:dev`: run only the Vite frontend.
-- `pnpm ui:build`: type-check and build the UI bundle.
-- `pnpm --filter rag-studio-ui exec vitest run`: run frontend tests in `jsdom`.
-- `cargo test`: run Rust unit and property tests (workspace-level).
-- `cargo fmt`: format Rust code before opening a PR.
+Read only the context needed for the task:
 
-## Coding Style & Naming Conventions
-
-Use 2 spaces in TypeScript/TSX and default Rust formatting. Prettier is configured for `printWidth: 120`, semicolons, and double quotes. Frontend files use `kebab-case` and named exports only; component symbols stay `PascalCase` (`document-status-icon.tsx` exports `DocumentStatusIcon`). In Rust, follow the `<name>.rs` + `<name>/` module pattern, use `snake_case` for files/functions, and keep imports grouped as `std`, external crates, `super::`/`self::`/`crate::`. Do not add code comments unless a public Rust API truly needs a short doc comment.
-
-## Architecture & Error Handling
-
-- **Domain Errors:** Use domain-specific errors (e.g. `DocumentError`, `ParseError`) instead of relying solely on the global `AppError`. Integrate domain errors into `AppError` using `#[from]`.
-- **Memory Efficiency:** Service methods should prefer references (`&str`) instead of owned strings (`String`) for IDs to avoid unnecessary allocations. The Tauri Command layer acts as the data owner and passes references down to the services.
-- **Data Isolation:** All database repository methods must explicitly require a `project_id` parameter to enforce strict multi-tenant data isolation directly at the SQL query level (e.g., `WHERE project_id = ?`).
-- **Log Message Formatting:** Use concise, sentence-style log messages. When including values, append them in Key-Value format with spaces inside parentheses: `Message ( key: value, key: value )`. Include only identifiers and context needed to debug the event; avoid dumping full structs with `{:?}` on normal paths. Use `trace` for noisy internal flow or high-frequency progress, `debug` for routine lifecycle details, `info` for important successful milestones, `warn` for unexpected but recoverable states, and `error` for failures that need attention.
-- **Error Message Formatting:** Use the Key-Value format for error messages to ensure consistency in logs and ease of parsing in the UI. 
-  - Instantiation should remain simple: `NotFound(String)` or `NotFound { id1, id2 }`.
-  - Format messages explicitly with keys in parentheses: `#[error("Document not found (document_id: {0})")]`.
-  - For multiple IDs, use struct variants: `#[error("Chunk not found (chunk_id: {chunk_id}, document_id: {document_id})")] ChunkNotFound { chunk_id: String, document_id: String }`.
-  - The frontend will gracefully handle these by splitting the error message by `(` to display a clean, user-friendly text, while the backend retains the full contextual logs.
-
+- Architecture and module boundaries: `docs/agents/architecture.md`
+- Rust style and naming conventions: `docs/agents/rust-style.md`
+- Database isolation and migrations: `docs/agents/database.md`
+- Errors and logging: `docs/agents/errors-and-logging.md`
+- Testing rules and commands: `docs/agents/testing.md`
+- Commits and PRs: `docs/agents/commits-and-prs.md`
 
 ## Agent Working Rules
 
 - Clarify before acting when the request is ambiguous. Do not guess hidden intent.
-- Keep output minimal and task-focused. Do not add features, explanations, or scope that were not requested.
+- Convert vague requests into a verifiable target before execution.
 - Edit surgically. Change only the lines or sections needed for the verified target.
-- Convert vague requests into a verifiable target before execution. State the target briefly when needed.
-
-## Testing Guidelines
-
-Frontend tests use Vitest with Testing Library and live under `app-ui/src/__tests__/property/*.test.ts`. Add new files as `featureName.test.ts`. Rust uses `cargo test`, with focused test modules such as `docling_tests.rs` and regression fixtures in `crates/*/proptest-regressions/`. Add or update tests with every behavior change; cover parsing, chunking, and IPC-facing flows when touched.
-
-- **Rust test naming:** Use descriptive `snake_case` names without redundant prefixes. The `#[test]` attribute and module path already provide context, so avoid repeating the module or type name (e.g. write `rejects_incompatible_format`, not `test_payload_reader_rejects_incompatible_format` or `payload_reader_open_rejects_incompatible_format`).
-- **Rust test module layout:** Keep tests close to the module they cover, following the `*_tests.rs` pattern. When a test module grows large, split it into sub-modules for cohesion: a `*_tests.rs` entry point declaring `mod` sub-modules, a `support.rs` for shared helpers (fixtures, builders, assertions), and one file per logical group of tests. Follow the `<name>.rs` + `<name>/` module convention (no `mod.rs`). Shared helpers use `pub(super)` visibility.
-
-## Commit & Pull Request Guidelines
-
-Recent history follows Conventional Commit style: `feat: ...`, `refactor: ...`, and scoped variants like `refactor(workspace): ...`. Keep messages imperative and specific.
-
-PRs should include a short problem statement, a summary of user-visible changes, linked issues or specs when applicable, and screenshots or recordings for UI work. Call out schema changes, new migrations, or document parser protocol updates explicitly.
+- Prefer existing project patterns over new abstractions.
+- Add or update tests for behavior changes.
+- Keep output minimal and task-focused.
