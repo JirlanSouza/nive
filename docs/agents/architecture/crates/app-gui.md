@@ -62,6 +62,7 @@ Do:
 - use existing widgets and theme tokens
 - keep reducers deterministic when possible
 - preserve cached async content where existing `AsyncState` patterns do so
+- follow `docs/agents/architecture/app-gui-feedback.md` for new resource and operation feedback
 - map service errors into user-facing errors at client boundaries
 
 Do not:

@@ -4,6 +4,7 @@ Use this file as the architecture index. Read only the sub-docs relevant to the 
 
 - Workspace and active crates: `docs/agents/architecture/workspace.md`
 - Rust/Iced UI architecture: `docs/agents/architecture/app-gui.md`
+- Rust/Iced UI state and operation feedback: `docs/agents/architecture/app-gui-feedback.md`
 - Domain services and orchestration: `docs/agents/architecture/app-core.md`
 - Persistence and repository boundaries: `docs/agents/architecture/app-database.md`
 - Parser worker and Docling payloads: `docs/agents/architecture/parser-and-payload.md`

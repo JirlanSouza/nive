@@ -35,4 +35,5 @@ Use existing modules before adding new ones:
 - Keep database access out of `app-gui`.
 - Keep `State/reducer` logic deterministic when possible.
 - Use `AsyncState`, `OperationState`, and request IDs for resource loading and stale-response handling.
+- Follow `docs/agents/architecture/app-gui-feedback.md` for loading, error, retry, and operation feedback.
 - Prefer existing widgets and theme tokens over ad hoc styling.
