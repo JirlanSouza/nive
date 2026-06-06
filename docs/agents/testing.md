@@ -2,11 +2,12 @@
 
 ## Commands
 
-- `cargo test`: run Rust unit and property tests.
-- `cargo fmt`: format Rust code.
-- `cargo clippy`: run Rust lint checks when the change risk justifies it.
-
-Use `rtk` when running shell commands in Codex sessions.
+- `just fmt`: format active Rust crates.
+- `just fmt-check`: check formatting for active Rust crates.
+- `just check`: check active Rust crates.
+- `just lint`: run clippy for active Rust crates.
+- `just rust-test`: run tests for active Rust crates.
+- `just test`: run active Rust tests plus parser tests.
 
 ## Rust Tests
 

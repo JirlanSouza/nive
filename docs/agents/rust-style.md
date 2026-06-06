@@ -2,7 +2,7 @@
 
 ## Formatting
 
-- Run `cargo fmt` before opening a PR or finishing broad Rust edits.
+- Run `just fmt` before opening a PR or finishing broad Rust edits.
 - Follow default Rust formatting.
 - Keep imports grouped as `std`, external crates, `super::`/`self::`/`crate::`.
 
