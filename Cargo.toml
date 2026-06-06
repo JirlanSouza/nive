@@ -1,6 +1,5 @@
 [workspace]
 members = [
-  "crates/app-tauri",
   "crates/app-database",
   "crates/app-core",
   "crates/app-models",
