@@ -57,11 +57,14 @@ Operation loading should be targeted:
 
 Choose feedback chrome by weight:
 
+- full-window feedback for bootstrap failures before app services exist, owned by `bootstrap_screen`
 - full panel/section feedback for resource failures that replace missing content
 - compact stale feedback above cached content when stale data remains usable
 - `InlineAlert::new(error.summary()).danger()` for dialog or form command failures
 - `ErrorStatusLine` for footer or inline form failures where full alert chrome is too heavy
 - extra-small `InlineAlert` with `ErrorFeedbackActionRow::xs()` for nested compact operations
+
+Bootstrap failures should not be modeled as Welcome screen errors, toasts, or generic global notices. Keep the startup surface visible, provide retry, and show diagnostic details only through the same `UserFacingError::has_diagnostic_detail()` policy used elsewhere.
 
 Show diagnostic details only when `UserFacingError::has_diagnostic_detail()` is true. Avoid duplicating error text: if a surface already has title/description plus a details action, do not repeat diagnostic detail as visible body text.
 

@@ -8,6 +8,7 @@
 
 - `app`: top-level Iced application, routing, shell integration, and screen updates.
 - `app_shell`: window policy, dialogs, toasts, keyboard navigation, and `ScreenUpdate`/`ScreenView`.
+- `bootstrap_screen`: startup splash and startup failure feedback before app services are available.
 - `welcome_screen`: welcome flow, project catalog UI, project creation, selection, reducers, actions, and view composition.
 - `workspace_screen`: active workspace screen boundary.
 - `client`: GUI-facing async clients that wrap `app-core` services in `iced::Task`.
@@ -47,6 +48,8 @@ UI behavior should usually flow through:
 7. result message with request ID when stale responses are possible
 
 Keep view files focused on composition from state. Keep service calls out of views.
+
+Startup readiness is owned by `app`. The Welcome window may be opened as the initial host window, but its content must route through `Bootstrapping`, `BootstrapFailed`, and `Ready`: render `bootstrap_screen` until bootstrap succeeds, create `Clients` only on success, and render/load `welcome_screen` only after `Ready`. Startup failures belong to `bootstrap_screen`, not `welcome_screen`. The minimum splash duration is an app readiness gate, not a view delay; fast successful bootstraps should wait for that gate before transitioning, while failures can surface immediately.
 
 ## Testing
 
