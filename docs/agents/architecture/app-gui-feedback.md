@@ -47,7 +47,11 @@ Use request IDs for operations that can receive stale async completions. `finish
 
 Operation loading should be targeted:
 
-- primary command buttons use `.loading(is_running)` plus disabled guards
+- dialog or form footers use `DialogActionFooter` with `OperationStatusLine` for running and failed operation status
+- command buttons in those footers keep stable labels and use disabled guards while running
+- non-dialog action groups use `OperationActionGroup` with `OperationStatusLine` when there is a local action area but no footer; the status slot stays reserved across idle, running, and failed states to avoid layout shift
+- primary command buttons use `.loading(is_running)` plus disabled guards only when there is no local footer/status slot
+- button and toolbar-action loading keep command labels stable and reserve an indicator slot when `.loading(...)` is configured
 - cancel/close controls are disabled only when canceling conflicts with the running command
 - inputs feeding the command are disabled while it runs
 - nested operations disable only their related subtree
@@ -61,7 +65,9 @@ Choose feedback chrome by weight:
 - full panel/section feedback for resource failures that replace missing content
 - compact stale feedback above cached content when stale data remains usable
 - `InlineAlert::new(error.summary()).danger()` for dialog or form command failures
-- `ErrorStatusLine` for footer or inline form failures where full alert chrome is too heavy
+- `OperationStatusLine` inside `DialogActionFooter` for dialog/footer command running and failure feedback
+- `OperationStatusLine` inside `OperationActionGroup` for local panel, row, card, or inline action groups
+- `ErrorStatusLine` for footer or inline form failures where full alert chrome is too heavy and no running state is needed
 - extra-small `InlineAlert` with `ErrorFeedbackActionRow::xs()` for nested compact operations
 
 Bootstrap failures should not be modeled as Welcome screen errors, toasts, or generic global notices. Keep the startup surface visible, provide retry, and show diagnostic details only through the same `UserFacingError::has_diagnostic_detail()` policy used elsewhere.
@@ -91,4 +97,4 @@ Focused checks for `app-gui` feedback changes: `just fmt` and `cargo test -p app
 
 For a resource: store `AsyncState<T>`, return request IDs when needed, pass full state to feedback views, render shaped skeletons for cold load, preserve cached content during refresh/failure, keep errors local, and test reducer transitions/request correlation.
 
-For an operation: store `OperationState<C>`, keep minimal retry context in `C`, show loading on the initiating control, disable only conflicting controls, preserve input/context for retry, keep errors local, and test success, failure, stale request handling, retry, dismiss, and clearing behavior.
+For an operation: store `OperationState<C>`, keep minimal retry context in `C`, show running feedback on the initiating surface, disable only conflicting controls, preserve input/context for retry, keep errors local, and test success, failure, stale request handling, retry, dismiss, and clearing behavior. In dialog footers, prefer `DialogActionFooter` plus `OperationStatusLine` over changing the initiating button label. Outside dialogs, prefer `OperationActionGroup` plus `OperationStatusLine` when the command has a local action area.
