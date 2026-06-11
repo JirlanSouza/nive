@@ -10,6 +10,7 @@
 
 - Use `snake_case` for files, modules, functions, and tests.
 - Follow the `<name>.rs` plus `<name>/` module pattern.
+- Divide modules into submodules when they become too large over 300 to 350 lines.
 - Keep Rust tests close to the module they cover.
 
 ## Ownership
