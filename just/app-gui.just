@@ -1,133 +1,38 @@
-# Run app-gui in development.
+# Run app-gui in development mode.
 app-gui-dev:
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    app_pid=""
-    original_stty=""
-
-    cleanup() {
-      if [ -n "$original_stty" ]; then
-        stty "$original_stty" 2>/dev/null || true
-      fi
-
-      if [ -n "$app_pid" ] && kill -0 "$app_pid" 2>/dev/null; then
-        kill "$app_pid" 2>/dev/null || true
-        wait "$app_pid" 2>/dev/null || true
-      fi
-    }
-
-    app_running() {
-      local pid
-
-      for pid in $(jobs -pr); do
-        if [ "$pid" = "$app_pid" ]; then
-          return 0
-        fi
-      done
-
-      return 1
-    }
-
-    drain_keys() {
-      local ignored
-
-      while IFS= read -rsn1 -t 1 ignored; do
-        :
-      done
-    }
-
-    trap cleanup EXIT INT TERM
-
-    while :; do
-      if [ -n "${RAG_STUDIO_APP_GUI_FEATURES:-}" ]; then
-        cargo build --package app-gui --features "$RAG_STUDIO_APP_GUI_FEATURES"
-      else
-        cargo build --package app-gui
-      fi
-
-      if [ -n "${RAG_STUDIO_DEV_ERROR:-}" ]; then
-        printf 'Dev probes enabled: %s\n' "$RAG_STUDIO_DEV_ERROR"
-      fi
-      if [ -n "${RAG_STUDIO_DEVTOOLS:-}" ]; then
-        printf 'Devtools overlay enabled: %s\n' "$RAG_STUDIO_DEVTOOLS"
-      fi
-      ./target/debug/app-gui 2>&1 &
-      app_pid=$!
-      reload_requested=0
-
-      printf '\napp-gui running. stdout/stderr are shown here. Focus this terminal and press r to rebuild/reload, Ctrl+R to rebuild/reload, or q to quit.\n'
-
-      original_stty="$(stty -g)"
-      stty raw -echo
-
-      while app_running; do
-        key=""
-        IFS= read -rsn1 -t 1 key || true
-
-        case "$key" in
-          r|R|$'\022')
-            reload_requested=1
-            kill "$app_pid" 2>/dev/null || true
-            wait "$app_pid" 2>/dev/null || true
-            drain_keys
-            break
-            ;;
-          q|Q)
-            kill "$app_pid" 2>/dev/null || true
-            wait "$app_pid" 2>/dev/null || true
-            exit 0
-            ;;
-        esac
-      done
-
-      stty "$original_stty"
-      original_stty=""
-
-      if [ "$reload_requested" -eq 1 ]; then
-        printf '\nReload requested from terminal. Rebuilding app-gui...\n\n'
-        sleep 0.8
-      else
-        if wait "$app_pid"; then
-          status=0
-        else
-          status=$?
-        fi
-        exit "$status"
-      fi
-    done
+    just app-dev app-gui app-gui ""
 
 # Run app-gui in development with a UI error scenario. Usage: just dev-error create_project
 dev-error ui_error:
-    RAG_STUDIO_APP_GUI_FEATURES="dev" RAG_STUDIO_DEV_ERROR="{{ ui_error }}" just app-gui-dev
+    just app-dev-error app-gui app-gui "{{ ui_error }}"
 
 # Run app-gui with the Devtools overlay enabled.
 devtools:
-    RAG_STUDIO_APP_GUI_FEATURES="dev" RAG_STUDIO_DEVTOOLS=1 just app-gui-dev
+    just app-devtools app-gui app-gui
 
 # Deprecated alias for `just devtools`.
 dev-error-panel:
-    RAG_STUDIO_APP_GUI_FEATURES="dev" RAG_STUDIO_DEVTOOLS=1 just app-gui-dev
+    just app-devtools app-gui app-gui
 
 # List available UI error-injection scenarios.
 dev-error-list:
-    cargo run --package app-gui --features dev -- --list-ui-error-scenarios
+    just app-dev-error-list app-gui
 
 # Build app-gui in debug mode.
 app-gui-build:
-    cargo build --package app-gui
+    just app-build app-gui
 
 # Build app-gui in release mode.
 app-gui-release:
-    cargo build --package app-gui --release
+    just app-release app-gui
 
 # Check app-gui.
 app-gui-check:
-    cargo check --package app-gui --all-targets
+    just app-check app-gui
 
 # Test app-gui.
 app-gui-test:
-    cargo test --package app-gui
+    just app-test app-gui
 
 alias gui-dev := app-gui-dev
 alias gui-devtools := devtools

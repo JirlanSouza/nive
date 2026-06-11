@@ -2,19 +2,22 @@
 
 ## Role
 
-`crates/app-gui` owns the Rust/Iced desktop application. It handles UI state, screen composition, platform UI bridges, visual primitives, and conversion of user actions into `app-core` service calls.
+`crates/app-gui` owns the Rust/Iced desktop application. It handles screen composition, platform UI bridges, app-specific devtools wiring, product-aware widgets, and conversion of user actions into `app-core` service calls.
 
 ## Internal Modules
 
-- `app`: top-level Iced application, routing, shell integration, and screen updates.
-- `app_shell`: window policy, dialogs, toasts, keyboard navigation, and `ScreenUpdate`/`ScreenView`.
+- `app`: top-level Iced application, routing, shell integration, and screen updates. Uses `AppPhase` from `nive-runtime` (via local `AppReadiness` type alias) for splash/boot lifecycle state, and `SplashConfig` for minimum duration gating.
+- `app_shell`: window policy, concrete dialog/toast hosting, and keyboard navigation over runtime app-shell contracts.
 - `bootstrap_screen`: startup splash and startup failure feedback before app services are available.
 - `welcome_screen`: welcome flow, project catalog UI, project creation, selection, reducers, actions, and view composition.
 - `workspace_screen`: active workspace screen boundary.
-- `client`: GUI-facing async clients that wrap `app-core` services in `iced::Task`.
-- `platform`: file picker and platform UI integrations.
-- `theme`, `tokens`, `widgets`: visual system, reusable primitives, and composite widgets.
-- `async_state`, `operation_state`, `request`: reusable UI state helpers for async resources and request correlation.
+- `client`: GUI-facing async clients that wrap `app-core` services in `iced::Task` and declare dev probe keys through `devtools_derive::runtime_client`.
+- `platform`: app icon bytes plus thin calls/re-exports over `nive-runtime::platform` for app icon installation and the currently used folder picker.
+- `focus_trap` compatibility facade re-exported from `nive-runtime`, backed by `nive-ui::focus_trap`.
+- `dev`: app-specific devtools host adapter for translating runtime window specs into app shell window policies, concrete state bridge/fixtures, and UI composition over runtime devtools host/panel state. Implements `DevtoolsApp` for `RagStudioApp` to provide snapshot and command application hooks through the runtime trait contract.
+- `theme`: compatibility re-export facade for `nive-ui::theme`.
+- `widgets`: product-aware composite widgets plus a thin compatibility surface over extracted `nive-ui` primitives. Private primitive facades have been collapsed into direct `nive_ui` re-exports; only product assets such as `brand_mark` remain under local primitives.
+- `ui_state`: compatibility facade for runtime-owned async state, operation state, request IDs, and user-facing errors.
 
 ## Architectural Dependencies
 
@@ -22,8 +25,9 @@ Depends on:
 
 - `app-core` for domain services.
 - `app-models` for shared UI/domain data.
+- `nive-runtime` for shared UI state, app-shell contracts, devtools model/panel contracts, and generic probe runtime behavior.
+- `nive-ui` for design tokens, theme contracts, focus helpers, and reusable visual primitives.
 - `iced` for UI runtime and tasks.
-- `rfd` for platform file picking.
 
 Used by:
 
@@ -49,7 +53,7 @@ UI behavior should usually flow through:
 
 Keep view files focused on composition from state. Keep service calls out of views.
 
-Startup readiness is owned by `app`. The Welcome window may be opened as the initial host window, but its content must route through `Bootstrapping`, `BootstrapFailed`, and `Ready`: render `bootstrap_screen` until bootstrap succeeds, create `Clients` only on success, and render/load `welcome_screen` only after `Ready`. Startup failures belong to `bootstrap_screen`, not `welcome_screen`. The minimum splash duration is an app readiness gate, not a view delay; fast successful bootstraps should wait for that gate before transitioning, while failures can surface immediately.
+Startup readiness is owned by `app`. The Welcome window may be opened as the initial host window, but its content must route through `AppPhase::Booting`, `AppPhase::BootFailed`, and `AppPhase::Ready`: render `bootstrap_screen` until bootstrap succeeds, create `Clients` only on success, and render/load `welcome_screen` only after `Ready`. The minimum splash duration is enforced through `SplashConfig` on `AppPhase`, not through a local session struct. Fast successful bootstraps wait for the splash gate before transitioning; failures surface immediately.
 
 ## Testing
 
@@ -67,6 +71,8 @@ Do:
 - preserve cached async content where existing `AsyncState` patterns do so
 - follow `docs/agents/architecture/app-gui-feedback.md` for new resource and operation feedback
 - map service errors into user-facing errors at client boundaries
+- keep devtools host state, panel reducers/effect handling, and generic window specs in `nive-runtime`; app-gui should only provide the transitional shell policy translation, view adapter, fixtures/state bridge traits, probe env ownership, Iced view composition, and the `DevtoolsApp` impl for snapshot/command routing until lifecycle extraction
+- keep client probe declarations on client impls with `devtools_derive::runtime_client`; `UiErrorProbe` should preserve app-owned metadata such as bootstrap and wrap runtime `ComposedProbeId` values rather than manually modeling client probe variants
 
 Do not:
 

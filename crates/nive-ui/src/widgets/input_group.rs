@@ -1,0 +1,288 @@
+mod frame;
+mod style;
+
+use iced::{
+    widget::{container, text, Row},
+    Alignment, Length, Padding,
+};
+
+use crate::theme::ControlSize;
+use crate::Element;
+
+use self::frame::InputGroupFrame;
+use self::style::{self as theme_input_group, GroupSlotPosition};
+use super::{button::Button, icon as icon_widget, input::Input, AppIcon};
+
+pub use style::InputGroupVariant;
+
+pub struct InputGroup<'a, Message> {
+    input: Input<'a, Message>,
+    leading_slots: Vec<InputGroupSlot<'a, Message>>,
+    trailing_slots: Vec<InputGroupSlot<'a, Message>>,
+    size: ControlSize,
+    fill: bool,
+    variant: InputGroupVariant,
+}
+
+enum InputGroupSlot<'a, Message> {
+    Text(&'a str),
+    Icon(AppIcon),
+    Action(Button<'a, Message>),
+    Visual(Element<'a, Message>),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InputGroupSlotSide {
+    Leading,
+    Trailing,
+}
+
+impl<'a, Message> InputGroup<'a, Message>
+where
+    Message: Clone + 'a,
+{
+    pub fn new(input: Input<'a, Message>) -> Self {
+        Self {
+            input,
+            leading_slots: Vec::new(),
+            trailing_slots: Vec::new(),
+            size: ControlSize::Sm,
+            fill: true,
+            variant: InputGroupVariant::Default,
+        }
+    }
+
+    pub fn leading_text(self, leading: &'a str) -> Self {
+        self.push_slot(InputGroupSlotSide::Leading, InputGroupSlot::Text(leading))
+    }
+
+    pub fn leading_icon(self, leading: AppIcon) -> Self {
+        self.push_slot(InputGroupSlotSide::Leading, InputGroupSlot::Icon(leading))
+    }
+
+    pub fn leading_action(self, leading: Button<'a, Message>) -> Self {
+        self.push_slot(InputGroupSlotSide::Leading, InputGroupSlot::Action(leading))
+    }
+
+    pub fn leading_slot(self, leading: impl Into<Element<'a, Message>>) -> Self {
+        self.push_slot(
+            InputGroupSlotSide::Leading,
+            InputGroupSlot::Visual(leading.into()),
+        )
+    }
+
+    pub fn trailing_text(self, trailing: &'a str) -> Self {
+        self.push_slot(InputGroupSlotSide::Trailing, InputGroupSlot::Text(trailing))
+    }
+
+    pub fn trailing_icon(self, trailing: AppIcon) -> Self {
+        self.push_slot(InputGroupSlotSide::Trailing, InputGroupSlot::Icon(trailing))
+    }
+
+    pub fn trailing_action(self, trailing: Button<'a, Message>) -> Self {
+        self.push_slot(
+            InputGroupSlotSide::Trailing,
+            InputGroupSlot::Action(trailing),
+        )
+    }
+
+    pub fn trailing_slot(self, trailing: impl Into<Element<'a, Message>>) -> Self {
+        self.push_slot(
+            InputGroupSlotSide::Trailing,
+            InputGroupSlot::Visual(trailing.into()),
+        )
+    }
+
+    pub fn xs(mut self) -> Self {
+        self.size = ControlSize::Xs;
+        self
+    }
+
+    pub fn sm(mut self) -> Self {
+        self.size = ControlSize::Sm;
+        self
+    }
+
+    pub fn md(mut self) -> Self {
+        self.size = ControlSize::Md;
+        self
+    }
+
+    pub fn lg(mut self) -> Self {
+        self.size = ControlSize::Lg;
+        self
+    }
+
+    pub fn size(mut self, size: ControlSize) -> Self {
+        self.size = size;
+        self
+    }
+
+    pub fn fill(mut self) -> Self {
+        self.fill = true;
+        self
+    }
+
+    pub fn shrink(mut self) -> Self {
+        self.fill = false;
+        self
+    }
+
+    pub fn variant(mut self, variant: InputGroupVariant) -> Self {
+        self.variant = variant;
+        self
+    }
+
+    pub fn ghost(self) -> Self {
+        self.variant(InputGroupVariant::Ghost)
+    }
+
+    fn into_element(self) -> Element<'a, Message> {
+        let metrics = theme_input_group::metrics(self.size);
+        let input_disabled = self.input.is_disabled();
+        let input_validation = self.input.field_validation();
+        let slot_count = self.leading_slots.len() + 1 + self.trailing_slots.len();
+        let mut row = Row::new()
+            .spacing(0)
+            .align_y(Alignment::Center)
+            .height(Length::Fill);
+
+        let mut index = 0;
+
+        for slot in self.leading_slots {
+            row = row.push(slot.into_element(
+                self.size,
+                self.fill,
+                input_disabled,
+                metrics,
+                position_for_index(index, slot_count),
+            ));
+            index += 1;
+        }
+
+        let input_radius =
+            theme_input_group::slot_radius(position_for_index(index, slot_count), metrics.radius);
+        row = row.push(self.input.into_group_element(
+            self.fill,
+            input_radius,
+            metrics.font_size,
+            metrics.input_padding_v,
+            metrics.input_padding_h,
+        ));
+        index += 1;
+
+        for slot in self.trailing_slots {
+            row = row.push(slot.into_element(
+                self.size,
+                self.fill,
+                input_disabled,
+                metrics,
+                position_for_index(index, slot_count),
+            ));
+            index += 1;
+        }
+
+        let mut group = container(row).height(Length::Fixed(metrics.height));
+
+        if self.fill {
+            group = group.width(Length::Fill);
+        }
+
+        Element::new(InputGroupFrame {
+            content: group.into(),
+            variant: self.variant,
+            input_validation,
+            radius: metrics.radius,
+            disabled: input_disabled,
+        })
+    }
+
+    fn push_slot(mut self, side: InputGroupSlotSide, slot: InputGroupSlot<'a, Message>) -> Self {
+        match side {
+            InputGroupSlotSide::Leading => self.leading_slots.push(slot),
+            InputGroupSlotSide::Trailing => self.trailing_slots.push(slot),
+        }
+
+        self
+    }
+}
+
+impl<'a, Message> InputGroupSlot<'a, Message>
+where
+    Message: Clone + 'a,
+{
+    fn into_element(
+        self,
+        size: ControlSize,
+        _fill: bool,
+        disabled: bool,
+        metrics: theme_input_group::InputGroupMetrics,
+        position: GroupSlotPosition,
+    ) -> Element<'a, Message> {
+        let radius = theme_input_group::slot_radius(position, metrics.radius);
+
+        match self {
+            InputGroupSlot::Text(label) => container(
+                text(label)
+                    .size(metrics.font_size)
+                    .shaping(text::Shaping::Auto),
+            )
+            .style(theme_input_group::slot_style(radius, disabled))
+            .padding(Padding::ZERO.horizontal(metrics.slot_padding_h))
+            .height(Length::Fill)
+            .align_y(Alignment::Center)
+            .into(),
+            InputGroupSlot::Icon(icon) => container(icon_widget::new(icon).size(metrics.icon_size))
+                .style(theme_input_group::slot_style(radius, disabled))
+                .padding(Padding::ZERO.horizontal(metrics.slot_padding_h))
+                .height(Length::Fill)
+                .align_y(Alignment::Center)
+                .into(),
+            InputGroupSlot::Action(action) => {
+                action.into_group_action(size, radius, metrics.height, metrics.slot_padding_h)
+            }
+            InputGroupSlot::Visual(content) => container(content)
+                .style(theme_input_group::slot_style(radius, disabled))
+                .padding(Padding::ZERO.horizontal(metrics.slot_padding_h))
+                .height(Length::Fill)
+                .align_x(Alignment::Center)
+                .align_y(Alignment::Center)
+                .into(),
+        }
+    }
+}
+
+impl<'a, Message> From<InputGroup<'a, Message>> for Element<'a, Message>
+where
+    Message: Clone + 'a,
+{
+    fn from(group: InputGroup<'a, Message>) -> Self {
+        group.into_element()
+    }
+}
+
+fn position_for_index(index: usize, len: usize) -> GroupSlotPosition {
+    match (index, len) {
+        (_, 1) => GroupSlotPosition::Single,
+        (0, _) => GroupSlotPosition::First,
+        (index, len) if index + 1 == len => GroupSlotPosition::Last,
+        _ => GroupSlotPosition::Middle,
+    }
+}
+
+#[cfg(test)]
+mod input_group_tests {
+    use super::*;
+
+    #[test]
+    fn maps_single_slot_to_single_position() {
+        assert_eq!(position_for_index(0, 1), GroupSlotPosition::Single);
+    }
+
+    #[test]
+    fn maps_multi_slot_edges_and_middle_positions() {
+        assert_eq!(position_for_index(0, 3), GroupSlotPosition::First);
+        assert_eq!(position_for_index(1, 3), GroupSlotPosition::Middle);
+        assert_eq!(position_for_index(2, 3), GroupSlotPosition::Last);
+    }
+}
