@@ -6,6 +6,8 @@ members = [
   "crates/document-parser-worker",
   "crates/docling-payload-core",
   "crates/docling-payload-py",
+  "crates/nive-runtime",
+  "crates/nive-ui",
   "crates/app-gui",
   "crates/app-gui-devtools-derive",
   "crates/xtask",

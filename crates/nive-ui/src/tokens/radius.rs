@@ -1,0 +1,9 @@
+pub const BASE: f32 = 8.0;
+pub const XS: f32 = BASE * 0.4;
+pub const SM: f32 = BASE * 0.7;
+pub const MD: f32 = BASE * 0.9;
+pub const LG: f32 = BASE;
+pub const XL: f32 = BASE * 1.4;
+pub const XXL: f32 = BASE * 1.8;
+pub const XXXL: f32 = BASE * 2.2;
+pub const XXXXL: f32 = BASE * 2.6;

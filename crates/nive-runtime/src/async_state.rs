@@ -1,0 +1,185 @@
+use crate::UserFacingError;
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum AsyncState<T> {
+    #[default]
+    Idle,
+    Loading {
+        value: Option<T>,
+    },
+    Loaded(T),
+    Failed {
+        value: Option<T>,
+        error: UserFacingError,
+    },
+}
+
+impl<T> AsyncState<T> {
+    pub fn new(value: T) -> Self {
+        Self::Loaded(value)
+    }
+
+    pub fn value(&self) -> Option<&T> {
+        match self {
+            Self::Loaded(value)
+            | Self::Loading { value: Some(value) }
+            | Self::Failed {
+                value: Some(value), ..
+            } => Some(value),
+            Self::Idle | Self::Loading { value: None } | Self::Failed { value: None, .. } => None,
+        }
+    }
+
+    pub fn is_loading(&self) -> bool {
+        matches!(self, Self::Loading { .. })
+    }
+
+    pub fn error(&self) -> Option<&UserFacingError> {
+        match self {
+            Self::Failed { error, .. } => Some(error),
+            Self::Idle | Self::Loading { .. } | Self::Loaded(_) => None,
+        }
+    }
+
+    pub fn set_idle(&mut self) {
+        *self = Self::Idle;
+    }
+
+    pub fn set_loading(&mut self) {
+        *self = Self::Loading { value: None };
+    }
+
+    pub fn set_refreshing(&mut self) {
+        let value = self.take_value();
+        *self = Self::Loading { value };
+    }
+
+    pub fn set_loaded(&mut self, value: T) {
+        *self = Self::Loaded(value);
+    }
+
+    pub fn set_failed(&mut self, error: UserFacingError) {
+        let value = self.take_value();
+        *self = Self::Failed { value, error };
+    }
+
+    pub fn set_failed_empty(&mut self, error: UserFacingError) {
+        *self = Self::Failed { value: None, error };
+    }
+
+    pub fn dismiss_error(&mut self) {
+        let current = std::mem::take(self);
+        *self = match current {
+            Self::Failed {
+                value: Some(value), ..
+            } => Self::Loaded(value),
+            Self::Failed { value: None, .. } => Self::Idle,
+            other => other,
+        };
+    }
+
+    fn take_value(&mut self) -> Option<T> {
+        match std::mem::replace(self, Self::Idle) {
+            Self::Loaded(value)
+            | Self::Loading { value: Some(value) }
+            | Self::Failed {
+                value: Some(value), ..
+            } => Some(value),
+            Self::Idle | Self::Loading { value: None } | Self::Failed { value: None, .. } => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod async_state_tests {
+    use super::*;
+
+    #[test]
+    fn set_loaded_updates_value_and_clears_error() {
+        let mut state = AsyncState::new(1);
+        state.set_failed(UserFacingError::project_catalog(
+            "Project not found (project_id: p1)",
+        ));
+
+        state.set_loaded(2);
+
+        assert_eq!(state.value(), Some(&2));
+        assert!(!state.is_loading());
+        assert!(state.error().is_none());
+    }
+
+    #[test]
+    fn set_refreshing_preserves_cached_value() {
+        let mut state = AsyncState::new("cached");
+
+        state.set_refreshing();
+
+        assert!(state.is_loading());
+        assert_eq!(state.value(), Some(&"cached"));
+    }
+
+    #[test]
+    fn set_loading_clears_cached_value() {
+        let mut state = AsyncState::new("cached");
+
+        state.set_loading();
+
+        assert!(state.is_loading());
+        assert!(state.value().is_none());
+    }
+
+    #[test]
+    fn set_failed_preserves_cached_value_and_exposes_error() {
+        let mut state = AsyncState::new("cached");
+
+        state.set_failed(UserFacingError::project_catalog(
+            "Project not found (project_id: p1)",
+        ));
+
+        assert_eq!(state.value(), Some(&"cached"));
+        assert_eq!(
+            state.error().map(UserFacingError::summary),
+            Some("Project not found")
+        );
+    }
+
+    #[test]
+    fn set_failed_empty_clears_cached_value_and_exposes_error() {
+        let mut state = AsyncState::new("cached");
+
+        state.set_failed_empty(UserFacingError::project_catalog(
+            "Project not found (project_id: p1)",
+        ));
+
+        assert!(state.value().is_none());
+        assert_eq!(
+            state.error().map(UserFacingError::summary),
+            Some("Project not found")
+        );
+    }
+
+    #[test]
+    fn dismiss_error_preserves_cached_value() {
+        let mut state = AsyncState::new("cached");
+        state.set_failed(UserFacingError::project_catalog(
+            "Project not found (project_id: p1)",
+        ));
+
+        state.dismiss_error();
+
+        assert_eq!(state.value(), Some(&"cached"));
+        assert!(state.error().is_none());
+    }
+
+    #[test]
+    fn dismiss_error_without_cache_returns_to_idle() {
+        let mut state = AsyncState::<&str>::Idle;
+        state.set_failed_empty(UserFacingError::project_catalog(
+            "Project not found (project_id: p1)",
+        ));
+
+        state.dismiss_error();
+
+        assert_eq!(state, AsyncState::Idle);
+    }
+}

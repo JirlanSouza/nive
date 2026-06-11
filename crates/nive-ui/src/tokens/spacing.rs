@@ -1,0 +1,14 @@
+pub const SPACE_0: f32 = 0.0;
+pub const SPACE_0_5: f32 = 2.0;
+pub const SPACE_1: f32 = 4.0;
+pub const SPACE_1_5: f32 = 6.0;
+pub const SPACE_2: f32 = 8.0;
+pub const SPACE_2_5: f32 = 10.0;
+pub const SPACE_3: f32 = 12.0;
+pub const SPACE_3_5: f32 = 14.0;
+pub const SPACE_4: f32 = 16.0;
+pub const SPACE_5: f32 = 20.0;
+pub const SPACE_6: f32 = 24.0;
+pub const SPACE_8: f32 = 32.0;
+pub const SPACE_10: f32 = 40.0;
+pub const SPACE_12: f32 = 48.0;

@@ -1,0 +1,18 @@
+[package]
+name = "nive-runtime"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+file-picker = ["dep:rfd"]
+
+[dependencies]
+iced = { workspace = true }
+nive-ui = { path = "../nive-ui" }
+rfd = { version = "0.16", optional = true }
+tokio = { workspace = true, features = ["time"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSImage", "NSResponder"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSData"] }
