@@ -46,8 +46,11 @@ app-gui-dev:
         cargo build --package app-gui
       fi
 
-      if [ -n "${RAG_STUDIO_UI_ERROR:-}" ]; then
-        printf 'UI error injection enabled: %s\n' "$RAG_STUDIO_UI_ERROR"
+      if [ -n "${RAG_STUDIO_DEV_ERROR:-}" ]; then
+        printf 'Dev probes enabled: %s\n' "$RAG_STUDIO_DEV_ERROR"
+      fi
+      if [ -n "${RAG_STUDIO_DEVTOOLS:-}" ]; then
+        printf 'Devtools overlay enabled: %s\n' "$RAG_STUDIO_DEVTOOLS"
       fi
       ./target/debug/app-gui 2>&1 &
       app_pid=$!
@@ -96,11 +99,19 @@ app-gui-dev:
 
 # Run app-gui in development with a UI error scenario. Usage: just dev-error create_project
 dev-error ui_error:
-    RAG_STUDIO_APP_GUI_FEATURES="ui-error-injection" RAG_STUDIO_UI_ERROR="{{ ui_error }}" just app-gui-dev
+    RAG_STUDIO_APP_GUI_FEATURES="dev" RAG_STUDIO_DEV_ERROR="{{ ui_error }}" just app-gui-dev
+
+# Run app-gui with the Devtools overlay enabled.
+devtools:
+    RAG_STUDIO_APP_GUI_FEATURES="dev" RAG_STUDIO_DEVTOOLS=1 just app-gui-dev
+
+# Deprecated alias for `just devtools`.
+dev-error-panel:
+    RAG_STUDIO_APP_GUI_FEATURES="dev" RAG_STUDIO_DEVTOOLS=1 just app-gui-dev
 
 # List available UI error-injection scenarios.
 dev-error-list:
-    cargo run --package app-gui --features ui-error-injection -- --list-ui-error-scenarios
+    cargo run --package app-gui --features dev -- --list-ui-error-scenarios
 
 # Build app-gui in debug mode.
 app-gui-build:
@@ -119,7 +130,9 @@ app-gui-test:
     cargo test --package app-gui
 
 alias gui-dev := app-gui-dev
+alias gui-devtools := devtools
 alias gui-dev-error := dev-error
+alias gui-dev-error-panel := dev-error-panel
 alias gui-dev-error-list := dev-error-list
 alias gui-build := app-gui-build
 alias gui-release := app-gui-release
