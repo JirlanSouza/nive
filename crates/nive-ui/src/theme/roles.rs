@@ -106,6 +106,12 @@ pub struct ControlState {
     pub interaction: InteractionState,
 }
 
+impl Default for ControlState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ControlState {
     pub const ENABLED: Self = Self::new();
     pub const DISABLED: Self = Self::new().disabled();

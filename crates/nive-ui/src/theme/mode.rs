@@ -1,6 +1,7 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ThemeMode {
     Light,
+    #[default]
     Dark,
 }
 
@@ -17,12 +18,6 @@ impl ThemeMode {
             iced::theme::Mode::Light => Self::Light,
             iced::theme::Mode::Dark | iced::theme::Mode::None => Self::Dark,
         }
-    }
-}
-
-impl Default for ThemeMode {
-    fn default() -> Self {
-        Self::Dark
     }
 }
 

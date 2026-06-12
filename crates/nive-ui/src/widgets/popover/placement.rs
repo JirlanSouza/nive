@@ -1,6 +1,6 @@
 use iced::{advanced::layout, Length, Point, Rectangle, Size, Vector};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PopoverPlacement {
     TopStart,
     TopCenter,
@@ -8,6 +8,7 @@ pub enum PopoverPlacement {
     RightStart,
     RightCenter,
     RightEnd,
+    #[default]
     BottomStart,
     BottomCenter,
     BottomEnd,
@@ -44,38 +45,22 @@ impl PopoverPlacement {
     }
 }
 
-impl Default for PopoverPlacement {
-    fn default() -> Self {
-        Self::BottomStart
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum PopoverWidth {
+    #[default]
     Content,
     MatchAnchor,
     AtLeastAnchor,
     Fixed(f32),
 }
 
-impl Default for PopoverWidth {
-    fn default() -> Self {
-        Self::Content
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PopoverCollision {
+    #[default]
     FlipAndShift,
     Flip,
     Shift,
     None,
-}
-
-impl Default for PopoverCollision {
-    fn default() -> Self {
-        Self::FlipAndShift
-    }
 }
 
 impl PopoverCollision {
