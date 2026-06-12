@@ -1,0 +1,244 @@
+use std::collections::VecDeque;
+use std::time::{Duration, Instant};
+
+const MAX_VISIBLE_TOASTS: usize = 3;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ToastId(pub(crate) u64);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToastTone {
+    Info,
+    Success,
+    Warning,
+    Danger,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToastDuration {
+    Short,
+    Long,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ToastRequest {
+    title: String,
+    body: Option<String>,
+    tone: ToastTone,
+    duration: ToastDuration,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ToastItem {
+    id: ToastId,
+    request: ToastRequest,
+    expires_at: Instant,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ToastMessage {
+    Dismiss(ToastId),
+    Tick(Instant),
+}
+
+#[derive(Debug, Default)]
+pub struct ToastState {
+    next_id: u64,
+    items: VecDeque<ToastItem>,
+    hidden_since: Option<Instant>,
+}
+
+impl ToastRequest {
+    pub fn success(title: impl Into<String>) -> Self {
+        Self::new(title, ToastTone::Success)
+    }
+
+    pub fn warning(title: impl Into<String>) -> Self {
+        Self::new(title, ToastTone::Warning)
+    }
+
+    pub fn danger(title: impl Into<String>) -> Self {
+        Self::new(title, ToastTone::Danger)
+    }
+
+    pub fn info(title: impl Into<String>) -> Self {
+        Self::new(title, ToastTone::Info)
+    }
+
+    pub fn with_body(mut self, body: impl Into<String>) -> Self {
+        self.body = Some(body.into());
+        self
+    }
+
+    pub fn long(mut self) -> Self {
+        self.duration = ToastDuration::Long;
+        self
+    }
+
+    pub fn title(&self) -> &str {
+        self.title.as_str()
+    }
+
+    pub fn body(&self) -> Option<&str> {
+        self.body.as_deref()
+    }
+
+    pub fn tone(&self) -> ToastTone {
+        self.tone
+    }
+
+    fn new(title: impl Into<String>, tone: ToastTone) -> Self {
+        Self {
+            title: title.into(),
+            body: None,
+            tone,
+            duration: ToastDuration::Short,
+        }
+    }
+}
+
+impl ToastDuration {
+    pub fn as_duration(self) -> Duration {
+        match self {
+            ToastDuration::Short => Duration::from_secs(4),
+            ToastDuration::Long => Duration::from_secs(8),
+        }
+    }
+}
+
+impl ToastItem {
+    pub fn id(&self) -> ToastId {
+        self.id
+    }
+
+    pub fn request(&self) -> &ToastRequest {
+        &self.request
+    }
+}
+
+impl ToastId {
+    pub fn new(id: u64) -> Self {
+        Self(id)
+    }
+}
+
+impl ToastState {
+    pub fn push(&mut self, request: ToastRequest, now: Instant) -> ToastId {
+        let id = ToastId(self.next_id);
+        self.next_id += 1;
+
+        self.items.push_front(ToastItem {
+            id,
+            expires_at: now + request.duration.as_duration(),
+            request,
+        });
+
+        while self.items.len() > MAX_VISIBLE_TOASTS {
+            self.items.pop_back();
+        }
+
+        id
+    }
+
+    pub fn dismiss(&mut self, id: ToastId) {
+        self.items.retain(|item| item.id != id);
+    }
+
+    pub fn expire(&mut self, now: Instant) {
+        self.items.retain(|item| item.expires_at > now);
+    }
+
+    pub fn pause_expiration(&mut self, now: Instant) {
+        if self.hidden_since.is_none() {
+            self.hidden_since = Some(now);
+        }
+    }
+
+    pub fn resume_expiration(&mut self, now: Instant) {
+        let Some(hidden_since) = self.hidden_since.take() else {
+            return;
+        };
+
+        let hidden_duration = now.saturating_duration_since(hidden_since);
+        for item in &mut self.items {
+            item.expires_at += hidden_duration;
+        }
+    }
+
+    pub fn update(&mut self, message: ToastMessage) {
+        match message {
+            ToastMessage::Dismiss(id) => self.dismiss(id),
+            ToastMessage::Tick(now) => self.expire(now),
+        }
+    }
+
+    pub fn has_visible(&self) -> bool {
+        !self.items.is_empty()
+    }
+
+    pub fn visible(&self) -> impl Iterator<Item = &ToastItem> {
+        self.items.iter()
+    }
+}
+
+#[cfg(test)]
+mod toast_tests {
+    use super::*;
+
+    #[test]
+    fn push_keeps_newest_three_toasts() {
+        let now = Instant::now();
+        let mut state = ToastState::default();
+
+        for index in 0..4 {
+            state.push(ToastRequest::info(format!("Toast {index}")), now);
+        }
+
+        let titles: Vec<&str> = state.visible().map(|item| item.request().title()).collect();
+        assert_eq!(titles, vec!["Toast 3", "Toast 2", "Toast 1"]);
+    }
+
+    #[test]
+    fn dismiss_removes_matching_toast() {
+        let now = Instant::now();
+        let mut state = ToastState::default();
+        let first = state.push(ToastRequest::info("First"), now);
+        state.push(ToastRequest::info("Second"), now);
+
+        state.dismiss(first);
+
+        let titles: Vec<&str> = state.visible().map(|item| item.request().title()).collect();
+        assert_eq!(titles, vec!["Second"]);
+    }
+
+    #[test]
+    fn expire_removes_elapsed_toasts() {
+        let now = Instant::now();
+        let mut state = ToastState::default();
+        state.push(ToastRequest::info("Short"), now);
+        state.push(ToastRequest::info("Long").long(), now);
+
+        state.expire(now + Duration::from_secs(5));
+
+        let titles: Vec<&str> = state.visible().map(|item| item.request().title()).collect();
+        assert_eq!(titles, vec!["Long"]);
+    }
+
+    #[test]
+    fn pause_and_resume_preserves_remaining_toast_duration() {
+        let now = Instant::now();
+        let mut state = ToastState::default();
+        state.push(ToastRequest::info("Short"), now);
+
+        state.pause_expiration(now + Duration::from_secs(1));
+        state.resume_expiration(now + Duration::from_secs(3));
+        state.expire(now + Duration::from_secs(5));
+
+        let titles: Vec<&str> = state.visible().map(|item| item.request().title()).collect();
+        assert_eq!(titles, vec!["Short"]);
+
+        state.expire(now + Duration::from_secs(7));
+
+        assert!(state.visible().next().is_none());
+    }
+}
