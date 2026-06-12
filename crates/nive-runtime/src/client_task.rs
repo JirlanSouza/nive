@@ -96,7 +96,7 @@ mod client_task_tests {
 
     #[test]
     fn fail_injection_exposes_error_and_delay() {
-        let error = UserFacingError::project_catalog("Could not load projects");
+        let error = UserFacingError::custom("project_catalog", "Could not load projects");
         let injection = ClientTaskInjection::fail(error.clone(), Some(Duration::from_millis(25)));
 
         assert_eq!(injection.effect(), ProbeEffect::Fail);

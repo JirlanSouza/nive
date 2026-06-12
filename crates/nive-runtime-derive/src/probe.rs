@@ -53,7 +53,7 @@ Self::{variant} => nive_runtime::ProbeMeta::new(
     "{key}",
     "{short_key}",
     "{summary}",
-    nive_runtime::ProbeErrorScope::{kind},
+    nive_runtime::ProbeErrorScope::{kind}
 )
 "#,
         variant = variant.name,
@@ -68,44 +68,26 @@ pub(crate) struct ProbeMetaParts {
     pub(crate) key: String,
     pub(crate) short_key: String,
     pub(crate) summary: String,
-    pub(crate) kind: &'static str,
+    pub(crate) kind: String,
 }
 
 fn probe_meta(words: &[String]) -> ProbeMetaParts {
+    let key = words.join("_");
+
     if words == ["bootstrap"] {
         return ProbeMetaParts {
             key: "bootstrap".to_string(),
             short_key: "bootstrap".to_string(),
             summary: "Couldn't initialize the app".to_string(),
-            kind: "Bootstrap",
-        };
-    }
-
-    if words.starts_with(&["project".to_string(), "catalog".to_string()]) {
-        let operation = &words[2..];
-        return ProbeMetaParts {
-            key: format!("project_catalog.{}", operation.join("_")),
-            short_key: project_catalog_short_key(operation),
-            summary: project_catalog_summary(operation),
-            kind: "ProjectCatalog",
-        };
-    }
-
-    if words.starts_with(&["tag".to_string()]) {
-        let operation = &words[1..];
-        return ProbeMetaParts {
-            key: format!("tag.{}", operation.join("_")),
-            short_key: tag_short_key(operation),
-            summary: tag_summary(operation),
-            kind: "Tag",
+            kind: "Bootstrap".to_string(),
         };
     }
 
     ProbeMetaParts {
-        key: words.join("_"),
+        key,
         short_key: words.join("_"),
         summary: format!("Couldn't run {}", words.join(" ")),
-        kind: "ProjectCatalog",
+        kind: custom_scope(&generic_scope(words)),
     }
 }
 
@@ -143,67 +125,22 @@ fn operation_words(method_name: &str) -> Vec<String> {
 }
 
 fn probe_meta_from_scope_operation(scope: &str, operation: &[String]) -> ProbeMetaParts {
-    match scope {
-        "project_catalog" => ProbeMetaParts {
-            key: format!("project_catalog.{}", operation.join("_")),
-            short_key: project_catalog_short_key(operation),
-            summary: project_catalog_summary(operation),
-            kind: "ProjectCatalog",
-        },
-        "tag" => ProbeMetaParts {
-            key: format!("tag.{}", operation.join("_")),
-            short_key: tag_short_key(operation),
-            summary: tag_summary(operation),
-            kind: "Tag",
-        },
-        _ => {
-            let label = scope.replace('_', " ");
-            ProbeMetaParts {
-                key: format!("{}.{}", scope, operation.join("_")),
-                short_key: operation.join("_"),
-                summary: format!("Couldn't run {} {}", label, operation.join(" ")),
-                kind: "ProjectCatalog",
-            }
-        }
+    let label = scope.replace('_', " ");
+
+    ProbeMetaParts {
+        key: format!("{}.{}", scope, operation.join("_")),
+        short_key: operation.join("_"),
+        summary: format!("Couldn't run {} {}", label, operation.join(" ")),
+        kind: custom_scope(scope),
     }
 }
 
-fn project_catalog_short_key(operation: &[String]) -> String {
-    match operation {
-        [word] if word == "list" => "list_projects".to_string(),
-        [word] if word == "summary" => "project_summary".to_string(),
-        [word] if word == "create" => "create_project".to_string(),
-        [word] if word == "delete" => "delete_project".to_string(),
-        [word] if word == "open" => "open_project".to_string(),
-        _ => operation.join("_"),
-    }
+fn generic_scope(words: &[String]) -> String {
+    words
+        .first()
+        .map_or_else(|| "probe".to_string(), Clone::clone)
 }
 
-fn tag_short_key(operation: &[String]) -> String {
-    match operation {
-        [word] if word == "list" => "list_tags".to_string(),
-        [first, second] if first == "update" && second == "color" => "update_tag_color".to_string(),
-        _ => operation.join("_"),
-    }
-}
-
-fn project_catalog_summary(operation: &[String]) -> String {
-    match operation {
-        [word] if word == "list" => "Couldn't load projects".to_string(),
-        [word] if word == "summary" => "Couldn't load project summary".to_string(),
-        [word] if word == "create" => "Couldn't create project".to_string(),
-        [word] if word == "delete" => "Couldn't delete project".to_string(),
-        [word] if word == "open" => "Couldn't open project".to_string(),
-        _ => format!("Couldn't run project catalog {}", operation.join(" ")),
-    }
-}
-
-fn tag_summary(operation: &[String]) -> String {
-    match operation {
-        [word] if word == "list" => "Couldn't load tags".to_string(),
-        [first, second] if first == "update" && second == "color" => {
-            "Couldn't update tag color".to_string()
-        }
-        _ => format!("Couldn't run tag {}", operation.join(" ")),
-    }
+fn custom_scope(scope: &str) -> String {
+    format!("Custom({scope:?})")
 }

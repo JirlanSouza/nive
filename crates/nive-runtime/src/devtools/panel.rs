@@ -425,7 +425,12 @@ mod tests {
         const ALL: &'static [Self] = &[Self::One];
 
         fn meta(self) -> ProbeMeta {
-            ProbeMeta::new("test.one", "one", "Couldn't run test", ProbeErrorScope::Tag)
+            ProbeMeta::new(
+                "test.one",
+                "one",
+                "Couldn't run test",
+                ProbeErrorScope::Custom("test"),
+            )
         }
     }
 

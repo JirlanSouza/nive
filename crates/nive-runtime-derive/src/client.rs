@@ -74,6 +74,9 @@ struct RuntimeClientArgs {
 struct ClientProbeSpec {
     method: String,
     key: Option<String>,
+    short_key: Option<String>,
+    summary: Option<String>,
+    scope: Option<String>,
 }
 
 impl RuntimeClientArgs {
@@ -107,7 +110,13 @@ impl Parse for RuntimeClientArgs {
 
 fn parse_probe_spec(input: ParseStream<'_>) -> syn::Result<ClientProbeSpec> {
     let method: Ident = input.parse()?;
-    let mut key = None;
+    let mut spec = ClientProbeSpec {
+        method: method.to_string(),
+        key: None,
+        short_key: None,
+        summary: None,
+        scope: None,
+    };
 
     while input.peek(Token![,]) {
         input.parse::<Token![,]>()?;
@@ -117,17 +126,23 @@ fn parse_probe_spec(input: ParseStream<'_>) -> syn::Result<ClientProbeSpec> {
 
         let option: Ident = input.parse()?;
         if option != "key" {
-            return Err(syn::Error::new(option.span(), "unsupported probe option"));
+            if option != "short_key" && option != "summary" && option != "scope" {
+                return Err(syn::Error::new(option.span(), "unsupported probe option"));
+            }
         }
 
         input.parse::<Token![=]>()?;
-        key = Some(input.parse::<LitStr>()?.value());
+        let value = input.parse::<LitStr>()?.value();
+        match option.to_string().as_str() {
+            "key" => spec.key = Some(value),
+            "short_key" => spec.short_key = Some(value),
+            "summary" => spec.summary = Some(value),
+            "scope" => spec.scope = Some(value),
+            _ => unreachable!("unsupported probe option should be rejected"),
+        }
     }
 
-    Ok(ClientProbeSpec {
-        method: method.to_string(),
-        key,
-    })
+    Ok(spec)
 }
 
 fn client_type_name(self_ty: &Type) -> syn::Result<String> {
@@ -154,16 +169,28 @@ fn client_probe_const(client_type: &str, args: &RuntimeClientArgs) -> ImplItem {
     let metas = args.probes.iter().map(|probe| {
         let meta = probe_meta_from_client_method(client_type, &probe.method, probe.key.as_deref());
         let key = LitStr::new(&meta.key, proc_macro2::Span::call_site());
-        let short_key = LitStr::new(&meta.short_key, proc_macro2::Span::call_site());
-        let summary = LitStr::new(&meta.summary, proc_macro2::Span::call_site());
-        let kind = Ident::new(meta.kind, proc_macro2::Span::call_site());
+        let short_key = LitStr::new(
+            probe.short_key.as_deref().unwrap_or(&meta.short_key),
+            proc_macro2::Span::call_site(),
+        );
+        let summary = LitStr::new(
+            probe.summary.as_deref().unwrap_or(&meta.summary),
+            proc_macro2::Span::call_site(),
+        );
+        let kind = probe
+            .scope
+            .as_deref()
+            .map(|scope| format!("Custom({scope:?})"))
+            .unwrap_or(meta.kind);
+        let scope: proc_macro2::TokenStream =
+            kind.parse().expect("valid ProbeErrorScope expression");
 
         quote! {
             nive_runtime::ProbeMeta::new(
                 #key,
                 #short_key,
                 #summary,
-                nive_runtime::ProbeErrorScope::#kind,
+                nive_runtime::ProbeErrorScope::#scope,
             )
         }
     });
@@ -207,8 +234,59 @@ mod tests {
         );
 
         assert_eq!(meta.key, "project_catalog.summary");
-        assert_eq!(meta.short_key, "project_summary");
-        assert_eq!(meta.summary, "Couldn't load project summary");
-        assert_eq!(meta.kind, "ProjectCatalog");
+        assert_eq!(meta.short_key, "summary");
+        assert_eq!(meta.summary, "Couldn't run project catalog summary");
+        assert_eq!(meta.kind, r#"Custom("project_catalog")"#);
+    }
+
+    #[test]
+    fn generated_client_probe_meta_qualifies_custom_scope() {
+        let args = RuntimeClientArgs {
+            probes: vec![ClientProbeSpec {
+                method: "list".to_string(),
+                key: None,
+                short_key: None,
+                summary: None,
+                scope: None,
+            }],
+        };
+        let item = client_probe_const("ProjectCatalogClient", &args);
+
+        let generated = quote::quote!(#item);
+
+        assert!(generated
+            .to_string()
+            .contains("nive_runtime :: ProbeErrorScope :: Custom"));
+    }
+
+    #[test]
+    fn client_probe_meta_uses_generic_defaults() {
+        let meta = probe_meta_from_client_method("ProjectCatalogClient", "get_summary", None);
+
+        assert_eq!(meta.key, "project_catalog.get_summary");
+        assert_eq!(meta.short_key, "summary");
+        assert_eq!(meta.summary, "Couldn't run project catalog summary");
+        assert_eq!(meta.kind, r#"Custom("project_catalog")"#);
+    }
+
+    #[test]
+    fn parses_explicit_probe_metadata() {
+        let args = syn::parse_str::<RuntimeClientArgs>(
+            r#"probe(
+                list,
+                key = "catalog.list",
+                short_key = "list_items",
+                summary = "Couldn't load items",
+                scope = "catalog"
+            )"#,
+        )
+        .expect("runtime client args should parse");
+        let probe = &args.probes[0];
+
+        assert_eq!(probe.method, "list");
+        assert_eq!(probe.key.as_deref(), Some("catalog.list"));
+        assert_eq!(probe.short_key.as_deref(), Some("list_items"));
+        assert_eq!(probe.summary.as_deref(), Some("Couldn't load items"));
+        assert_eq!(probe.scope.as_deref(), Some("catalog"));
     }
 }
