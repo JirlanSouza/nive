@@ -14,7 +14,7 @@
 - `client`: GUI-facing async clients that wrap `app-core` services in `iced::Task` and declare dev probe keys through `devtools_derive::runtime_client`.
 - `platform`: app icon bytes plus thin calls/re-exports over `nive-runtime::platform` for app icon installation and the currently used folder picker.
 - `focus_trap` compatibility facade re-exported from `nive-runtime`, backed by `nive-ui::focus_trap`.
-- `dev`: app-specific devtools host adapter for translating runtime window specs into app shell window policies, concrete state bridge/fixtures, and UI composition over runtime devtools host/panel state. Implements `DevtoolsApp` for `RagStudioApp` to provide snapshot and command application hooks through the runtime trait contract.
+- `dev`: app-specific devtools host adapter for translating runtime window specs into app shell window policies, app-domain fixture sources, and UI composition over runtime devtools host/panel state. Implements `DevtoolsApp` for `RagStudioApp` to provide snapshot and command application hooks through the runtime trait contract.
 - `theme`: compatibility re-export facade for `nive-ui::theme`.
 - `widgets`: product-aware composite widgets plus a thin compatibility surface over extracted `nive-ui` primitives. Private primitive facades have been collapsed into direct `nive_ui` re-exports; only product assets such as `brand_mark` remain under local primitives.
 - `ui_state`: compatibility facade for runtime-owned async state, operation state, request IDs, and user-facing errors.
@@ -71,7 +71,7 @@ Do:
 - preserve cached async content where existing `AsyncState` patterns do so
 - follow `docs/agents/architecture/app-gui-feedback.md` for new resource and operation feedback
 - map service errors into user-facing errors at client boundaries
-- keep devtools host state, panel reducers/effect handling, and generic window specs in `nive-runtime`; app-gui should only provide the transitional shell policy translation, view adapter, fixtures/state bridge traits, probe env ownership, Iced view composition, and the `DevtoolsApp` impl for snapshot/command routing until lifecycle extraction
+- keep devtools host state, panel reducers/effect handling, generic state-field mutation helpers, injected failure errors, and generic window specs in `nive-runtime`; app-gui should only provide the transitional shell policy translation, view adapter, app-domain fixture source adapter, probe env ownership, Iced view composition, and the `DevtoolsApp` impl for snapshot/command routing until lifecycle extraction
 - keep client probe declarations on client impls with `devtools_derive::runtime_client`; `UiErrorProbe` should preserve app-owned metadata such as bootstrap and wrap runtime `ComposedProbeId` values rather than manually modeling client probe variants
 
 Do not:
