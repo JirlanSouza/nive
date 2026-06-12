@@ -10,7 +10,7 @@ Current scope:
 - `DevtoolStateHost` — derive with optional `devtools_path` attribute
 - `DevtoolOperationContext` — derive with optional `devtools_path` attribute
 - `UiErrorProbeCatalog` — derive for error probe catalog generation (targets `nive_runtime::ProbeCatalogEntry`)
-- `runtime_client` — attribute macro for client impl probe-key declarations, generated client `DEV_PROBES` metadata, and probe key injection
+- `runtime_client` — attribute macro for client impl probe-key declarations, generated client `DEV_PROBES` metadata, explicit app-owned probe labels/scopes, and probe key injection
 
 ## Generated Paths
 
@@ -35,6 +35,7 @@ App code that uses an app-owned trait adapter (e.g. `app-gui`'s `AppDevtoolState
 ## Boundaries
 
 - Generate paths against `nive-runtime` APIs by default; keep app-domain overrides explicit via the `devtools_path` attribute.
+- Keep app-specific probe summaries, short keys, and custom error scopes explicit in `runtime_client` attributes; the framework macro may provide generic name-derived defaults, but must not hardcode product semantics such as project catalog or tag behavior.
 - Keep app-domain fixture/value trait adapters in `app-gui` to satisfy the orphan rule for domain types like `Vec<ProjectInfo>`.
 - Keep app-owned probe composition in `app-gui` until the runtime catalog boundary is extracted.
 - Prefer derive/attribute integration for app feature code; avoid hand-written devtools routing in screens and clients.
