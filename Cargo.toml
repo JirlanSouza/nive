@@ -9,7 +9,7 @@ members = [
   "crates/nive-runtime",
   "crates/nive-ui",
   "crates/app-gui",
-  "crates/app-gui-devtools-derive",
+  "crates/nive-runtime-derive",
   "crates/xtask",
 ]
 resolver = "2"
