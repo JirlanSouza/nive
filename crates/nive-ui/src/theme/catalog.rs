@@ -13,7 +13,9 @@ use super::{
     Theme, ToneRole,
 };
 
+#[derive(Default)]
 pub enum ButtonClass<'a> {
+    #[default]
     Primary,
     Secondary,
     Outline,
@@ -24,17 +26,23 @@ pub enum ButtonClass<'a> {
     Custom(button::StyleFn<'a, Theme>),
 }
 
+#[derive(Default)]
 pub enum CheckboxClass<'a> {
+    #[default]
     Standard,
     Custom(checkbox::StyleFn<'a, Theme>),
 }
 
+#[derive(Default)]
 pub enum ContainerClass<'a> {
+    #[default]
     Transparent,
     Custom(container::StyleFn<'a, Theme>),
 }
 
+#[derive(Default)]
 pub enum TextClass<'a> {
+    #[default]
     Default,
     Role(TextRole),
     Tone(ToneRole),
@@ -48,65 +56,46 @@ pub enum TextInputClass<'a> {
     Custom(text_input::StyleFn<'a, Theme>),
 }
 
+#[derive(Default)]
 pub enum TogglerClass<'a> {
+    #[default]
     Standard,
     Custom(toggler::StyleFn<'a, Theme>),
 }
 
+#[derive(Default)]
 pub enum RuleClass<'a> {
+    #[default]
     Default,
     Custom(rule::StyleFn<'a, Theme>),
 }
 
+#[derive(Default)]
 pub enum ProgressBarClass<'a> {
+    #[default]
     Default,
     Custom(progress_bar::StyleFn<'a, Theme>),
 }
 
+#[derive(Default)]
 pub enum ScrollableClass<'a> {
+    #[default]
     Default,
     Custom(scrollable::StyleFn<'a, Theme>),
 }
 
+#[derive(Default)]
 pub enum MenuClass<'a> {
+    #[default]
     Default,
     Custom(menu::StyleFn<'a, Theme>),
 }
 
+#[derive(Default)]
 pub enum PickListClass<'a> {
+    #[default]
     Default,
     Custom(pick_list::StyleFn<'a, Theme>),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum FieldValidation {
-    #[default]
-    Valid,
-    Invalid,
-}
-
-impl<'a> Default for ButtonClass<'a> {
-    fn default() -> Self {
-        Self::Primary
-    }
-}
-
-impl<'a> Default for CheckboxClass<'a> {
-    fn default() -> Self {
-        Self::Standard
-    }
-}
-
-impl<'a> Default for ContainerClass<'a> {
-    fn default() -> Self {
-        Self::Transparent
-    }
-}
-
-impl<'a> Default for TextClass<'a> {
-    fn default() -> Self {
-        Self::Default
-    }
 }
 
 impl<'a> Default for TextInputClass<'a> {
@@ -117,40 +106,11 @@ impl<'a> Default for TextInputClass<'a> {
     }
 }
 
-impl<'a> Default for TogglerClass<'a> {
-    fn default() -> Self {
-        Self::Standard
-    }
-}
-
-impl<'a> Default for RuleClass<'a> {
-    fn default() -> Self {
-        Self::Default
-    }
-}
-
-impl<'a> Default for ProgressBarClass<'a> {
-    fn default() -> Self {
-        Self::Default
-    }
-}
-
-impl<'a> Default for ScrollableClass<'a> {
-    fn default() -> Self {
-        Self::Default
-    }
-}
-
-impl<'a> Default for MenuClass<'a> {
-    fn default() -> Self {
-        Self::Default
-    }
-}
-
-impl<'a> Default for PickListClass<'a> {
-    fn default() -> Self {
-        Self::Default
-    }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FieldValidation {
+    #[default]
+    Valid,
+    Invalid,
 }
 
 impl<'a> From<button::StyleFn<'a, Theme>> for ButtonClass<'a> {

@@ -36,7 +36,6 @@ fn light_palette() -> Palette {
 
 #[cfg(test)]
 mod palette_tests {
-    use super::*;
     use crate::theme::Theme;
     use iced::theme::Base as _;
 
