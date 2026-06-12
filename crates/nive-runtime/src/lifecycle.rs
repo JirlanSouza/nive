@@ -1,5 +1,7 @@
 use std::time::{Duration, Instant};
 
+use iced::Task;
+
 use crate::UserFacingError;
 
 const DEFAULT_MIN_SPLASH_DURATION: Duration = Duration::from_millis(900);
@@ -8,6 +10,8 @@ const DEFAULT_MIN_SPLASH_DURATION: Duration = Duration::from_millis(900);
 pub struct SplashConfig {
     pub min_duration: Duration,
 }
+
+pub struct NiveApplication;
 
 impl SplashConfig {
     pub const DEFAULT: SplashConfig = SplashConfig {
@@ -18,6 +22,21 @@ impl SplashConfig {
 impl Default for SplashConfig {
     fn default() -> Self {
         Self::DEFAULT
+    }
+}
+
+impl NiveApplication {
+    pub fn daemon<State, Message, Theme>(
+        boot: impl iced::application::BootFn<State, Message>,
+        update: impl iced::application::UpdateFn<State, Message>,
+        view: impl for<'a> iced::daemon::ViewFn<'a, State, Message, Theme, iced::Renderer>,
+    ) -> iced::Daemon<impl iced::Program<State = State, Message = Message, Theme = Theme>>
+    where
+        State: 'static,
+        Message: Send + 'static,
+        Theme: iced::theme::Base,
+    {
+        iced::daemon(boot, update, view)
     }
 }
 
@@ -109,6 +128,36 @@ impl<E, P, R> AppPhase<E, P, R> {
     }
 }
 
+pub fn minimum_splash_duration_task<Message>(
+    started_at: Instant,
+    config: SplashConfig,
+    on_elapsed: impl Fn(Instant) -> Message + Send + 'static,
+) -> Task<Message>
+where
+    Message: Send + 'static,
+{
+    Task::perform(
+        async move {
+            if let Some(delay) = remaining_splash_delay(started_at, Instant::now(), &config) {
+                tokio::time::sleep(delay).await;
+            }
+
+            started_at
+        },
+        on_elapsed,
+    )
+}
+
+fn remaining_splash_delay(
+    started_at: Instant,
+    now: Instant,
+    config: &SplashConfig,
+) -> Option<Duration> {
+    let deadline = started_at + config.min_duration;
+
+    (deadline > now).then(|| deadline.duration_since(now))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -170,5 +219,30 @@ mod tests {
         let mut phase: AppPhase<(), (), String> = AppPhase::ready("done".to_string());
 
         assert_eq!(phase.take_pending_success(), None);
+    }
+
+    #[test]
+    fn remaining_splash_delay_returns_time_until_minimum_duration() {
+        let started_at = Instant::now();
+        let config = SplashConfig {
+            min_duration: Duration::from_millis(900),
+        };
+        let now = started_at + Duration::from_millis(250);
+
+        assert_eq!(
+            remaining_splash_delay(started_at, now, &config),
+            Some(Duration::from_millis(650))
+        );
+    }
+
+    #[test]
+    fn remaining_splash_delay_returns_none_after_minimum_duration() {
+        let started_at = Instant::now();
+        let config = SplashConfig {
+            min_duration: Duration::from_millis(900),
+        };
+        let now = started_at + Duration::from_millis(900);
+
+        assert_eq!(remaining_splash_delay(started_at, now, &config), None);
     }
 }
