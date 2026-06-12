@@ -11,6 +11,8 @@ mod probe;
 mod request;
 mod screen_update;
 mod screen_view;
+mod toast;
+mod window_shell;
 
 pub use async_state::AsyncState;
 pub use client_task::{client_task, injected_client_task, ClientTaskInjection, ProbeEffect};
@@ -22,7 +24,7 @@ pub use devtools::{
 pub use dialog_dismiss::{is_escape_key_press, DialogDismiss};
 pub use dialog_request::DialogRequest;
 pub use error::{UserFacingError, UserFacingErrorKind, UserFacingResult};
-pub use lifecycle::{AppPhase, SplashConfig};
+pub use lifecycle::{minimum_splash_duration_task, AppPhase, NiveApplication, SplashConfig};
 pub use nive_ui::focus_trap::{
     direction_from_event, direction_from_keyboard_event, FocusDirection,
 };
@@ -38,6 +40,12 @@ pub use probe::{
 pub use request::{RequestCounter, RequestId};
 pub use screen_update::ScreenUpdate;
 pub use screen_view::ScreenView;
+pub use toast::{
+    ToastDuration, ToastId, ToastItem, ToastMessage, ToastRequest, ToastState, ToastTone,
+};
+pub use window_shell::{
+    open_window, WindowChrome, WindowHandle, WindowMode, WindowRegistry, WindowRole, WindowSpec,
+};
 
 pub use platform::app_icon;
 #[cfg(feature = "file-picker")]
