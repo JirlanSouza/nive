@@ -10,7 +10,8 @@ pub use command_input::{DevtoolInputField, DevtoolInputValues, DevtoolOperationC
 pub use helpers::join_path;
 pub use host::{
     apply_async_state_field, apply_operation_state_field, collect_async_state_field,
-    collect_operation_state_field, DevtoolStateCatalog, DevtoolStateHost, DevtoolsApp,
+    collect_operation_state_field, DevtoolStateCatalog, DevtoolStateField, DevtoolStateHost,
+    DevtoolValue, DevtoolsApp,
 };
 pub use panel::{
     run_devtools_panel_effect, DevtoolsConfig, DevtoolsHostState, DevtoolsPanelEffect,
