@@ -55,7 +55,7 @@ app-dev package binary features_env:
         printf 'Dev probes enabled: %s\n' "$RAG_STUDIO_DEV_ERROR"
       fi
       if [ -n "${RAG_STUDIO_DEVTOOLS:-}" ]; then
-        printf 'Devtools overlay enabled: %s\n' "$RAG_STUDIO_DEVTOOLS"
+        printf 'Devtools window enabled: %s\n' "$RAG_STUDIO_DEVTOOLS"
       fi
       ./target/debug/{{ binary }} 2>&1 &
       app_pid=$!

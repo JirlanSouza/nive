@@ -27,7 +27,8 @@ Use existing modules before adding new ones:
 - `workspace_screen`: active workspace flow.
 - `client`: GUI-facing service clients that return `iced::Task`.
 - `platform`: platform-specific UI integrations such as file picking.
-- `theme`, `tokens`, `widgets`: visual system and reusable primitives.
+- `theme`, `tokens`, `widgets`: visual system and reusable primitives (compatibility facades re-exporting from `nive-ui`).
+- `dev/devtools`: devtools window integration, app-domain fixture source adapter, and `devtools_path` routing for derive macros.
 
 ## Boundaries
 

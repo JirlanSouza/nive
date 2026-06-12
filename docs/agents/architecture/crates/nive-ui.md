@@ -15,20 +15,33 @@ Current scope:
 - `Renderer` and `Element` aliases for the shared Iced renderer/theme pair
 - `widgets::text` — typography-aware text constructors and text color style helpers
 - `widgets::Badge` — tone-aware label badge primitive
+- `widgets::Button` and `ButtonVariant` — themed button with primary, secondary, outline, ghost, destructive, link, and embedded chrome
 - `widgets::Card` and `widgets::Panel` — generic themed surface containers
+- `widgets::Checkbox` — themed checkbox primitive
+- `widgets::Switch` — themed toggle switch primitive
+- `widgets::SegmentedControl` and `SegmentedItem` — segmented control primitive
 - `widgets::Field` — field grouping, label, hint, and error text primitives
 - `widgets::Separator` — reusable horizontal/vertical rule primitive
 - `widgets::ColorSwatch` — reusable themed color preview and selectable swatch primitive
 - `widgets::ColorPicker` and `widgets::ColorInput` — reusable RGB/alpha color picker controls, popover trigger, validation, and hex parsing helpers
 - `widgets::Autocomplete` — reusable input-anchored autocomplete overlay and keyboard navigation behavior
 - `widgets::Popover` — reusable anchored overlay placement, collision, and dismissal behavior
+- `widgets::DropdownMenu` — themed dropdown menu primitive
+- `widgets::Dialog` and `DialogHeader`/`DialogFooter`/`DialogActionFooter` — reusable dialog surface primitives
+- `widgets::ActionCard` — themed card with action area primitive
+- `widgets::Toolbar`, `ToolbarGroup`, and `ToolbarAction` — themed toolbar primitives
+- `widgets::Tabs`, `TabBar`, and `TabItem` — themed tab navigation primitives
+- `widgets::SectionHeader` — reusable section header with optional action and status
+- `widgets::EmptyState` — reusable empty state primitive
+- `widgets::Select` — themed select dropdown primitive
+- `widgets::SelectableCard` and `SelectableItem` — themed selectable card primitives
 - `widgets::skeleton` — loading placeholder block, rounded, text row, control, and card primitives
 - `widgets::tooltip` — themed tooltip placement/style helpers
+- `widgets::animation` — animation frame, timeline, stagger, and runner primitives
+- `widgets::metadata` — `DataRow`, `KeyValueList`, and `MetadataItem` for structured metadata display
 - `focus_trap` — reusable Tab/Shift+Tab focus cycling helpers for overlay and modal widgets
 
-Planned scope (not yet extracted):
-
-- Primitive widgets — remaining reusable visual primitives currently in `app-gui.widgets.primitives`
+Remaining widget primitives still in `app-gui.widgets.primitives` (product-aware or not yet generalized):
 
 ## Boundaries
 

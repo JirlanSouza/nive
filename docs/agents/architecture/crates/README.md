@@ -3,7 +3,7 @@
 Read only the crate docs relevant to the task:
 
 - `app-gui`: `docs/agents/architecture/crates/app-gui.md`
-- `app-gui-devtools-derive`: `docs/agents/architecture/crates/app-gui-devtools-derive.md`
+- `nive-runtime-derive`: `docs/agents/architecture/crates/nive-runtime-derive.md`
 - `app-core`: `docs/agents/architecture/crates/app-core.md`
 - `app-database`: `docs/agents/architecture/crates/app-database.md`
 - `app-models`: `docs/agents/architecture/crates/app-models.md`
