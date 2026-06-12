@@ -97,7 +97,8 @@ mod async_state_tests {
     #[test]
     fn set_loaded_updates_value_and_clears_error() {
         let mut state = AsyncState::new(1);
-        state.set_failed(UserFacingError::project_catalog(
+        state.set_failed(UserFacingError::custom(
+            "project_catalog",
             "Project not found (project_id: p1)",
         ));
 
@@ -132,7 +133,8 @@ mod async_state_tests {
     fn set_failed_preserves_cached_value_and_exposes_error() {
         let mut state = AsyncState::new("cached");
 
-        state.set_failed(UserFacingError::project_catalog(
+        state.set_failed(UserFacingError::custom(
+            "project_catalog",
             "Project not found (project_id: p1)",
         ));
 
@@ -147,7 +149,8 @@ mod async_state_tests {
     fn set_failed_empty_clears_cached_value_and_exposes_error() {
         let mut state = AsyncState::new("cached");
 
-        state.set_failed_empty(UserFacingError::project_catalog(
+        state.set_failed_empty(UserFacingError::custom(
+            "project_catalog",
             "Project not found (project_id: p1)",
         ));
 
@@ -161,7 +164,8 @@ mod async_state_tests {
     #[test]
     fn dismiss_error_preserves_cached_value() {
         let mut state = AsyncState::new("cached");
-        state.set_failed(UserFacingError::project_catalog(
+        state.set_failed(UserFacingError::custom(
+            "project_catalog",
             "Project not found (project_id: p1)",
         ));
 
@@ -174,7 +178,8 @@ mod async_state_tests {
     #[test]
     fn dismiss_error_without_cache_returns_to_idle() {
         let mut state = AsyncState::<&str>::Idle;
-        state.set_failed_empty(UserFacingError::project_catalog(
+        state.set_failed_empty(UserFacingError::custom(
+            "project_catalog",
             "Project not found (project_id: p1)",
         ));
 

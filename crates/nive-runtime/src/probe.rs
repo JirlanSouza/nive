@@ -5,8 +5,7 @@ use crate::{ProbeEffect, UserFacingError};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProbeErrorScope {
     Bootstrap,
-    ProjectCatalog,
-    Tag,
+    Custom(&'static str),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -171,8 +170,7 @@ impl ProbeMeta {
 
         match self.error_scope {
             ProbeErrorScope::Bootstrap => UserFacingError::bootstrap(message),
-            ProbeErrorScope::ProjectCatalog => UserFacingError::project_catalog(message),
-            ProbeErrorScope::Tag => UserFacingError::tag(message),
+            ProbeErrorScope::Custom(kind) => UserFacingError::custom(kind, message),
         }
     }
 }
@@ -883,13 +881,13 @@ mod probe_tests {
                     "project_catalog.create",
                     "create_project",
                     "Couldn't create project",
-                    ProbeErrorScope::ProjectCatalog,
+                    ProbeErrorScope::Custom("project_catalog"),
                 ),
                 Self::TagList => ProbeMeta::new(
                     "tag.list",
                     "list_tags",
                     "Couldn't load tags",
-                    ProbeErrorScope::Tag,
+                    ProbeErrorScope::Custom("tag"),
                 ),
             }
         }
@@ -901,7 +899,7 @@ mod probe_tests {
             "project_catalog.create",
             "create_project",
             "Couldn't create project",
-            ProbeErrorScope::ProjectCatalog,
+            ProbeErrorScope::Custom("project_catalog"),
         );
 
         assert!(meta.matches_name("project_catalog.create"));
@@ -916,7 +914,7 @@ mod probe_tests {
             "project_catalog.create",
             "create_project",
             "Couldn't create project",
-            ProbeErrorScope::ProjectCatalog,
+            ProbeErrorScope::Custom("project_catalog"),
         );
 
         let error = meta.error(None);
@@ -1038,13 +1036,13 @@ mod probe_tests {
             "project_catalog.create",
             "create_project",
             "Couldn't create project",
-            ProbeErrorScope::ProjectCatalog,
+            ProbeErrorScope::Custom("project_catalog"),
         )];
         const TAGS: &[ProbeMeta] = &[ProbeMeta::new(
             "tag.list",
             "list_tags",
             "Couldn't load tags",
-            ProbeErrorScope::Tag,
+            ProbeErrorScope::Custom("tag"),
         )];
         const CATALOG: ProbeMetaCatalog = ProbeMetaCatalog::new(&[PROJECT, TAGS]);
 
@@ -1071,7 +1069,7 @@ mod probe_tests {
             "tag.list",
             "list_tags",
             "Couldn't load tags",
-            ProbeErrorScope::Tag,
+            ProbeErrorScope::Custom("tag"),
         )];
         const CATALOG: ProbeMetaCatalog = ProbeMetaCatalog::new(&[CLIENTS]);
         const IDS: [ComposedProbeId; 2] = composed_probe_ids::<2>(APP.len(), CATALOG.len());

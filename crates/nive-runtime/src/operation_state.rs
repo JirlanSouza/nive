@@ -125,7 +125,7 @@ mod operation_state_tests {
 
         let failed = state.fail(
             RequestId::new(7),
-            UserFacingError::project_catalog("Project not found (project_id: p1)"),
+            UserFacingError::custom("project_catalog", "Project not found (project_id: p1)"),
         );
 
         assert!(failed);
@@ -146,7 +146,7 @@ mod operation_state_tests {
 
         let failed = state.fail(
             RequestId::new(6),
-            UserFacingError::project_catalog("Project not found (project_id: p1)"),
+            UserFacingError::custom("project_catalog", "Project not found (project_id: p1)"),
         );
 
         assert!(!failed);
