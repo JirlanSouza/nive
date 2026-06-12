@@ -8,7 +8,10 @@ pub mod types;
 pub use command::{DevtoolCommand, DevtoolCommandResult, DevtoolsRowId};
 pub use command_input::{DevtoolInputField, DevtoolInputValues, DevtoolOperationContext};
 pub use helpers::join_path;
-pub use host::{DevtoolStateCatalog, DevtoolStateHost, DevtoolsApp};
+pub use host::{
+    apply_async_state_field, apply_operation_state_field, collect_async_state_field,
+    collect_operation_state_field, DevtoolStateCatalog, DevtoolStateHost, DevtoolsApp,
+};
 pub use panel::{
     run_devtools_panel_effect, DevtoolsConfig, DevtoolsHostState, DevtoolsPanelEffect,
     DevtoolsPanelMessage, DevtoolsPanelState, DevtoolsPanelTab, DevtoolsWindowSpec,

@@ -55,23 +55,161 @@ pub trait DevtoolStateField {
         -> DevtoolCommandResult;
 }
 
+/// Collects an async resource entry for a devtools snapshot.
+pub fn collect_async_state_field<T>(
+    state: &AsyncState<T>,
+    path: &str,
+    label: &str,
+    snapshot: &mut DevtoolStateSnapshot,
+    fixtures: Vec<DevtoolFixture<T>>,
+) {
+    snapshot.resources.push(DevtoolResourceView {
+        path: path.to_string(),
+        label: label.to_string(),
+        status: async_status(state),
+        fixtures: fixtures
+            .into_iter()
+            .map(|fixture| DevtoolFixtureView {
+                id: fixture.id,
+                label: fixture.label,
+            })
+            .collect(),
+    });
+}
+
+/// Applies a devtools command to an async resource field.
+pub fn apply_async_state_field<T>(
+    state: &mut AsyncState<T>,
+    path: &str,
+    command: &DevtoolCommand,
+    fixtures: impl FnOnce() -> Vec<DevtoolFixture<T>>,
+) -> DevtoolCommandResult {
+    if command.path() != path {
+        return DevtoolCommandResult::not_handled();
+    }
+
+    match command {
+        DevtoolCommand::SetResourceIdle { .. } => {
+            state.set_idle();
+            DevtoolCommandResult::changed()
+        }
+        DevtoolCommand::SetResourceLoading { preserve_value, .. } => {
+            if *preserve_value {
+                state.set_refreshing();
+            } else {
+                state.set_loading();
+            }
+            DevtoolCommandResult::changed()
+        }
+        DevtoolCommand::SetResourceFailed {
+            message,
+            preserve_value,
+            ..
+        } => {
+            let error = devtool_error(message);
+            if *preserve_value {
+                state.set_failed(error);
+            } else {
+                state.set_failed_empty(error);
+            }
+            DevtoolCommandResult::changed()
+        }
+        DevtoolCommand::SetResourceLoadedFixture { fixture_id, .. } => {
+            let Some(fixture) = fixtures()
+                .into_iter()
+                .find(|fixture| fixture.id == *fixture_id)
+            else {
+                return DevtoolCommandResult::failed(format!(
+                    "Unknown fixture `{fixture_id}` for `{path}`"
+                ));
+            };
+
+            state.set_loaded(fixture.value);
+            DevtoolCommandResult::changed()
+        }
+        DevtoolCommand::DismissResourceError { .. } => {
+            state.dismiss_error();
+            DevtoolCommandResult::changed()
+        }
+        DevtoolCommand::SetOperationIdle { .. }
+        | DevtoolCommand::SetOperationRunning { .. }
+        | DevtoolCommand::SetOperationFailed { .. } => {
+            DevtoolCommandResult::failed(format!("`{path}` is a resource, not an operation"))
+        }
+    }
+}
+
+/// Collects an operation entry for a devtools snapshot.
+pub fn collect_operation_state_field<C>(
+    state: &OperationState<C>,
+    path: &str,
+    label: &str,
+    snapshot: &mut DevtoolStateSnapshot,
+) where
+    C: DevtoolOperationContext,
+{
+    snapshot.operations.push(DevtoolOperationView {
+        path: path.to_string(),
+        label: label.to_string(),
+        status: operation_status(state),
+        fields: C::devtool_fields(),
+    });
+}
+
+/// Applies a devtools command to an operation field.
+pub fn apply_operation_state_field<C>(
+    state: &mut OperationState<C>,
+    path: &str,
+    command: &DevtoolCommand,
+) -> DevtoolCommandResult
+where
+    C: DevtoolOperationContext,
+{
+    if command.path() != path {
+        return DevtoolCommandResult::not_handled();
+    }
+
+    match command {
+        DevtoolCommand::SetOperationIdle { .. } => {
+            state.clear();
+            DevtoolCommandResult::changed()
+        }
+        DevtoolCommand::SetOperationRunning { input, .. } => {
+            let inputs = DevtoolInputValues::new(input);
+            let Ok(context) = C::devtool_build(&inputs) else {
+                return DevtoolCommandResult::failed(format!("Invalid inputs for `{path}`"));
+            };
+
+            state.start(devtools_request_id(), context);
+            DevtoolCommandResult::changed()
+        }
+        DevtoolCommand::SetOperationFailed { input, message, .. } => {
+            let inputs = DevtoolInputValues::new(input);
+            let Ok(context) = C::devtool_build(&inputs) else {
+                return DevtoolCommandResult::failed(format!("Invalid inputs for `{path}`"));
+            };
+
+            let request_id = devtools_request_id();
+            state.start(request_id, context);
+            state.fail(request_id, devtool_error(message));
+            DevtoolCommandResult::changed()
+        }
+        DevtoolCommand::SetResourceIdle { .. }
+        | DevtoolCommand::SetResourceLoading { .. }
+        | DevtoolCommand::SetResourceFailed { .. }
+        | DevtoolCommand::SetResourceLoadedFixture { .. }
+        | DevtoolCommand::DismissResourceError { .. } => {
+            DevtoolCommandResult::failed(format!("`{path}` is an operation, not a resource"))
+        }
+    }
+}
+
 impl<T> DevtoolStateField for AsyncState<T>
 where
     T: DevtoolValue,
 {
     fn devtool_collect_field(&self, path: &str, label: &str, snapshot: &mut DevtoolStateSnapshot) {
-        snapshot.resources.push(DevtoolResourceView {
-            path: path.to_string(),
-            label: label.to_string(),
-            status: async_status(self),
-            fixtures: T::devtool_fixtures(path)
-                .into_iter()
-                .map(|fixture| DevtoolFixtureView {
-                    id: fixture.id,
-                    label: fixture.label,
-                })
-                .collect(),
-        });
+        collect_async_state_field(self, path, label, snapshot, T::devtool_fixtures(path));
     }
 
     fn devtool_apply_field(
@@ -79,59 +217,7 @@ where
         path: &str,
         command: &DevtoolCommand,
     ) -> DevtoolCommandResult {
-        if command.path() != path {
-            return DevtoolCommandResult::not_handled();
-        }
-
-        match command {
-            DevtoolCommand::SetResourceIdle { .. } => {
-                self.set_idle();
-                DevtoolCommandResult::changed()
-            }
-            DevtoolCommand::SetResourceLoading { preserve_value, .. } => {
-                if *preserve_value {
-                    self.set_refreshing();
-                } else {
-                    self.set_loading();
-                }
-                DevtoolCommandResult::changed()
-            }
-            DevtoolCommand::SetResourceFailed {
-                message,
-                preserve_value,
-                ..
-            } => {
-                let error = devtool_error(message);
-                if *preserve_value {
-                    self.set_failed(error);
-                } else {
-                    self.set_failed_empty(error);
-                }
-                DevtoolCommandResult::changed()
-            }
-            DevtoolCommand::SetResourceLoadedFixture { fixture_id, .. } => {
-                let Some(fixture) = T::devtool_fixtures(path)
-                    .into_iter()
-                    .find(|fixture| fixture.id == *fixture_id)
-                else {
-                    return DevtoolCommandResult::failed(format!(
-                        "Unknown fixture `{fixture_id}` for `{path}`"
-                    ));
-                };
-
-                self.set_loaded(fixture.value);
-                DevtoolCommandResult::changed()
-            }
-            DevtoolCommand::DismissResourceError { .. } => {
-                self.dismiss_error();
-                DevtoolCommandResult::changed()
-            }
-            DevtoolCommand::SetOperationIdle { .. }
-            | DevtoolCommand::SetOperationRunning { .. }
-            | DevtoolCommand::SetOperationFailed { .. } => {
-                DevtoolCommandResult::failed(format!("`{path}` is a resource, not an operation"))
-            }
-        }
+        apply_async_state_field(self, path, command, || T::devtool_fixtures(path))
     }
 }
 
@@ -140,12 +226,7 @@ where
     C: DevtoolOperationContext,
 {
     fn devtool_collect_field(&self, path: &str, label: &str, snapshot: &mut DevtoolStateSnapshot) {
-        snapshot.operations.push(DevtoolOperationView {
-            path: path.to_string(),
-            label: label.to_string(),
-            status: operation_status(self),
-            fields: C::devtool_fields(),
-        });
+        collect_operation_state_field(self, path, label, snapshot);
     }
 
     fn devtool_apply_field(
@@ -153,43 +234,7 @@ where
         path: &str,
         command: &DevtoolCommand,
     ) -> DevtoolCommandResult {
-        if command.path() != path {
-            return DevtoolCommandResult::not_handled();
-        }
-
-        match command {
-            DevtoolCommand::SetOperationIdle { .. } => {
-                self.clear();
-                DevtoolCommandResult::changed()
-            }
-            DevtoolCommand::SetOperationRunning { input, .. } => {
-                let inputs = DevtoolInputValues::new(input);
-                let Ok(context) = C::devtool_build(&inputs) else {
-                    return DevtoolCommandResult::failed(format!("Invalid inputs for `{path}`"));
-                };
-
-                self.start(devtools_request_id(), context);
-                DevtoolCommandResult::changed()
-            }
-            DevtoolCommand::SetOperationFailed { input, message, .. } => {
-                let inputs = DevtoolInputValues::new(input);
-                let Ok(context) = C::devtool_build(&inputs) else {
-                    return DevtoolCommandResult::failed(format!("Invalid inputs for `{path}`"));
-                };
-
-                let request_id = devtools_request_id();
-                self.start(request_id, context);
-                self.fail(request_id, devtool_error(message));
-                DevtoolCommandResult::changed()
-            }
-            DevtoolCommand::SetResourceIdle { .. }
-            | DevtoolCommand::SetResourceLoading { .. }
-            | DevtoolCommand::SetResourceFailed { .. }
-            | DevtoolCommand::SetResourceLoadedFixture { .. }
-            | DevtoolCommand::DismissResourceError { .. } => {
-                DevtoolCommandResult::failed(format!("`{path}` is an operation, not a resource"))
-            }
-        }
+        apply_operation_state_field(self, path, command)
     }
 }
 
