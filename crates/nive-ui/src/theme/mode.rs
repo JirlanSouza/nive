@@ -8,8 +8,8 @@ pub enum ThemeMode {
 impl ThemeMode {
     pub const fn name(self) -> &'static str {
         match self {
-            Self::Light => "RAG Studio Light",
-            Self::Dark => "RAG Studio Dark",
+            Self::Light => "Nive Light",
+            Self::Dark => "Nive Dark",
         }
     }
 
