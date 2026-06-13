@@ -172,6 +172,19 @@ impl ToastState {
         }
     }
 
+    pub fn should_subscribe(&self) -> bool {
+        self.has_visible()
+    }
+
+    pub fn handle_tick(&mut self, now: Instant, host_visible: bool) {
+        if host_visible {
+            self.resume_expiration(now);
+            self.update(ToastMessage::Tick(now));
+        } else {
+            self.pause_expiration(now);
+        }
+    }
+
     pub fn has_visible(&self) -> bool {
         !self.items.is_empty()
     }
@@ -238,6 +251,46 @@ mod toast_tests {
         assert_eq!(titles, vec!["Short"]);
 
         state.expire(now + Duration::from_secs(7));
+
+        assert!(state.visible().next().is_none());
+    }
+
+    #[test]
+    fn should_subscribe_when_any_toast_is_visible() {
+        let now = Instant::now();
+        let mut state = ToastState::default();
+
+        assert!(!state.should_subscribe());
+
+        state.push(ToastRequest::info("Toast"), now);
+
+        assert!(state.should_subscribe());
+    }
+
+    #[test]
+    fn handle_tick_expires_toasts_when_host_is_visible() {
+        let now = Instant::now();
+        let mut state = ToastState::default();
+        state.push(ToastRequest::info("Toast"), now);
+
+        state.handle_tick(now + Duration::from_secs(5), true);
+
+        assert!(state.visible().next().is_none());
+    }
+
+    #[test]
+    fn handle_tick_pauses_expiration_when_host_is_hidden() {
+        let now = Instant::now();
+        let mut state = ToastState::default();
+        state.push(ToastRequest::info("Toast"), now);
+
+        state.handle_tick(now + Duration::from_secs(2), false);
+        state.handle_tick(now + Duration::from_secs(6), true);
+
+        let titles: Vec<&str> = state.visible().map(|item| item.request().title()).collect();
+        assert_eq!(titles, vec!["Toast"]);
+
+        state.handle_tick(now + Duration::from_secs(9), true);
 
         assert!(state.visible().next().is_none());
     }

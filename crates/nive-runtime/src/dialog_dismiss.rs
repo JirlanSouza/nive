@@ -1,17 +1,12 @@
 use iced::{keyboard, Event};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum DialogDismiss<Message> {
+    #[default]
     Blocked,
     Backdrop(Message),
     Escape(Message),
     BackdropOrEscape(Message),
-}
-
-impl<Message> Default for DialogDismiss<Message> {
-    fn default() -> Self {
-        Self::Blocked
-    }
 }
 
 impl<Message: Clone> DialogDismiss<Message> {
