@@ -41,7 +41,7 @@ mod palette_tests {
 
     #[test]
     fn palette_supports_named_light_and_dark_themes() {
-        assert_eq!(Theme::Light.name(), "RAG Studio Light");
-        assert_eq!(Theme::Dark.name(), "RAG Studio Dark");
+        assert_eq!(Theme::Light.name(), "Nive Light");
+        assert_eq!(Theme::Dark.name(), "Nive Dark");
     }
 }
