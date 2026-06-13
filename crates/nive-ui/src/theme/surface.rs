@@ -54,7 +54,6 @@ mod surface_tests {
     #[test]
     fn sidebar_style_uses_app_semantic_sidebar_surface() {
         let theme = Theme::Dark;
-        let theme = theme;
         let style = style(SurfaceRole::Sidebar)(&theme);
 
         assert_eq!(
