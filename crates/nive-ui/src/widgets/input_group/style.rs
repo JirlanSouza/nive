@@ -170,6 +170,7 @@ mod input_group_tests {
         );
     }
 
+    #[test]
     fn disabled_default_uses_app_muted_chrome() {
         let theme = Theme::Dark;
         let control = theme.control(ControlRole::Standard, ControlState::DISABLED);
@@ -185,6 +186,7 @@ mod input_group_tests {
         assert_eq!(style.text_color, Some(control.foreground));
     }
 
+    #[test]
     fn focused_default_uses_app_focus_chrome() {
         let theme = Theme::Dark;
         let style = style(
@@ -197,6 +199,7 @@ mod input_group_tests {
         assert_eq!(style.border.color, theme.border(BorderRole::Focus).color);
     }
 
+    #[test]
     fn invalid_focus_keeps_app_danger_chrome() {
         let theme = Theme::Dark;
         let style = style(

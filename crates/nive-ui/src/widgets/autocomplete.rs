@@ -19,10 +19,12 @@ use super::{
 };
 use crate::Element;
 
+type ContentBuilder<'a, Message> = Box<dyn Fn(Option<usize>) -> Element<'a, Message> + 'a>;
+
 pub struct Autocomplete<'a, Message> {
     anchor: Element<'a, AutocompleteMessage<Message>>,
     content: Element<'a, AutocompleteMessage<Message>>,
-    content_builder: Option<Box<dyn Fn(Option<usize>) -> Element<'a, Message> + 'a>>,
+    content_builder: Option<ContentBuilder<'a, Message>>,
     item_count: usize,
     input_value: String,
     input_focused: Rc<Cell<bool>>,
@@ -600,11 +602,11 @@ mod autocomplete_tests {
 
     #[derive(Debug, Clone)]
     enum TestMessage {
-        Input(String),
+        Input,
     }
 
     fn autocomplete(value: &str) -> Autocomplete<'_, TestMessage> {
-        Autocomplete::new(input::default("Search", value).on_input(TestMessage::Input))
+        Autocomplete::new(input::default("Search", value).on_input(|_| TestMessage::Input))
             .open(true)
             .item_count(2)
     }

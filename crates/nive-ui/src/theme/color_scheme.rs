@@ -615,7 +615,6 @@ mod color_scheme_tests {
     fn text_roles_keep_readable_contrast_on_representative_surfaces() {
         for mode in [ThemeMode::Light, ThemeMode::Dark] {
             let theme = Theme::from_mode(mode);
-            let theme = theme;
 
             for surface_role in REPRESENTATIVE_SURFACES {
                 let surface = theme.surface(surface_role);
@@ -637,7 +636,6 @@ mod color_scheme_tests {
     fn tone_roles_keep_readable_foreground_background_contrast() {
         for mode in [ThemeMode::Light, ThemeMode::Dark] {
             let theme = Theme::from_mode(mode);
-            let theme = theme;
             let panel_background = theme.surface(SurfaceRole::Panel).background;
 
             for tone_role in TONE_ROLES {
@@ -658,7 +656,6 @@ mod color_scheme_tests {
     fn on_primary_text_reads_over_primary_in_light_and_dark_modes() {
         for mode in [ThemeMode::Light, ThemeMode::Dark] {
             let theme = Theme::from_mode(mode);
-            let theme = theme;
             let primary = theme.tone(ToneRole::Primary).color;
 
             assert_contrast_at_least(

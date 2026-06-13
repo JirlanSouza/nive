@@ -81,6 +81,7 @@ where
             .operate(tree, layout, renderer, operation);
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn update_anchor(
         &mut self,
         tree: &mut Tree,
@@ -110,6 +111,7 @@ where
             .mouse_interaction(tree, layout, cursor, viewport, renderer)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn draw(
         &self,
         tree: &Tree,

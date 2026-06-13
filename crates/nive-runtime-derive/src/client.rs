@@ -125,10 +125,8 @@ fn parse_probe_spec(input: ParseStream<'_>) -> syn::Result<ClientProbeSpec> {
         }
 
         let option: Ident = input.parse()?;
-        if option != "key" {
-            if option != "short_key" && option != "summary" && option != "scope" {
-                return Err(syn::Error::new(option.span(), "unsupported probe option"));
-            }
+        if option != "key" && option != "short_key" && option != "summary" && option != "scope" {
+            return Err(syn::Error::new(option.span(), "unsupported probe option"));
         }
 
         input.parse::<Token![=]>()?;

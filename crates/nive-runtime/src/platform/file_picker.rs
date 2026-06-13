@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
+#[cfg(feature = "file-picker")]
 use iced::Task;
-
 #[cfg(feature = "file-picker")]
 use rfd::FileDialog;
 

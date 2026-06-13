@@ -226,7 +226,7 @@ impl<'a, Message: Clone + 'a> TabItem<'a, Message> {
             .align_y(Alignment::Center)
             .into()
         } else {
-            main.into()
+            main
         };
 
         match self.tooltip {
