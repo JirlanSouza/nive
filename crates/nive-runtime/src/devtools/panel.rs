@@ -1,15 +1,18 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use iced::{window, Task};
+
 use crate::{
-    probe_drafts_from_snapshot, update_probe_drafts, ProbeCatalogEntry, ProbeDraft,
-    ProbeInjectionSnapshot, ProbePanelEffect, ProbePanelMessage,
+    open_window, probe_drafts_from_snapshot, update_probe_drafts, ProbeCatalogEntry, ProbeDraft,
+    ProbeInjectionSnapshot, ProbePanelEffect, ProbePanelMessage, WindowChrome, WindowHandle,
+    WindowMode, WindowSpec,
 };
 
 use super::{DevtoolCommand, DevtoolCommandResult, DevtoolsRowId};
 
 const DEFAULT_DEVTOOLS_ERROR: &str = "Devtools injected failure";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct DevtoolsConfig {
     enabled: bool,
 }
@@ -125,12 +128,6 @@ impl DevtoolsConfig {
     }
 }
 
-impl Default for DevtoolsConfig {
-    fn default() -> Self {
-        Self { enabled: false }
-    }
-}
-
 impl<P> DevtoolsHostState<P> {
     pub fn new(panel: Option<DevtoolsPanelState<P>>) -> Self {
         Self { panel }
@@ -154,6 +151,23 @@ impl<P: Copy + Eq> DevtoolsHostState<P> {
         self.panel.as_mut()?.update(message)
     }
 
+    pub fn apply_update(
+        &mut self,
+        message: DevtoolsPanelMessage<P>,
+        apply_command: impl FnOnce(&DevtoolCommand) -> DevtoolCommandResult,
+        apply_probe: impl FnOnce(ProbePanelEffect<P>),
+    ) {
+        let Some(effect) = self.update(message) else {
+            return;
+        };
+
+        if let Some((command, result)) =
+            run_devtools_panel_effect(effect, apply_command, apply_probe)
+        {
+            self.record_command_result(&command, result);
+        }
+    }
+
     pub fn record_command_result(
         &mut self,
         command: &DevtoolCommand,
@@ -163,6 +177,25 @@ impl<P: Copy + Eq> DevtoolsHostState<P> {
             panel.record_command_result(command, result);
         }
     }
+
+    pub fn open_sidecar_window<K, Message>(
+        &self,
+        kind: K,
+        icon: Option<window::Icon>,
+        on_open: impl Fn(window::Id) -> Message + Send + 'static,
+    ) -> Option<(WindowHandle<K>, Task<Message>)>
+    where
+        Message: Send + 'static,
+    {
+        if !self.is_enabled() {
+            return None;
+        }
+
+        let (window_id, open_task) =
+            open_window(DevtoolsWindowSpec::default().window_spec(), icon, on_open);
+
+        Some((WindowHandle::auxiliary(kind, window_id), open_task))
+    }
 }
 
 impl Default for DevtoolsWindowSpec {
@@ -171,6 +204,25 @@ impl Default for DevtoolsWindowSpec {
             size: iced::Size::new(940.0, 640.0),
             min_size: iced::Size::new(820.0, 520.0),
         }
+    }
+}
+
+impl DevtoolsWindowSpec {
+    pub fn window_spec(self) -> WindowSpec {
+        WindowSpec {
+            size: self.size,
+            position: window::Position::Centered,
+            min_size: Some(self.min_size),
+            max_size: None,
+            resizable: true,
+            mode: WindowMode::Windowed,
+            chrome: WindowChrome::UnifiedTitlebar,
+            level: window::Level::AlwaysOnTop,
+        }
+    }
+
+    pub fn title_for_app(app_name: &str) -> String {
+        format!("{app_name} · Devtools")
     }
 }
 
@@ -544,11 +596,91 @@ mod tests {
     }
 
     #[test]
+    fn devtools_host_state_applies_command_effect_and_records_result() {
+        let mut host = DevtoolsHostState::new(Some(panel()));
+        let row_id = DevtoolsRowId::Resource("welcome.tags".to_string());
+
+        host.apply_update(
+            DevtoolsPanelMessage::SetResourceIdle("welcome.tags".to_string()),
+            |command| {
+                assert_eq!(command.path(), "welcome.tags");
+                DevtoolCommandResult::failed("No match")
+            },
+            |_| panic!("probe effect should not run for commands"),
+        );
+
+        assert_eq!(
+            host.panel()
+                .and_then(|panel| panel.row_command_error(&row_id)),
+            Some("No match")
+        );
+    }
+
+    #[test]
+    fn devtools_host_state_applies_probe_effect_without_recording_command() {
+        let mut host = DevtoolsHostState::new(Some(panel()));
+        let mut applied = None;
+
+        host.apply_update(
+            DevtoolsPanelMessage::Probe(ProbePanelMessage::ClearAll),
+            |_| panic!("command effect should not run for probes"),
+            |effect| applied = Some(effect),
+        );
+
+        assert_eq!(applied, Some(ProbePanelEffect::<TestProbe>::ClearAll));
+        assert_eq!(
+            host.panel()
+                .and_then(DevtoolsPanelState::last_command_error),
+            None
+        );
+    }
+
+    #[test]
     fn devtools_window_spec_uses_runtime_defaults() {
         let spec = DevtoolsWindowSpec::default();
 
         assert_eq!(spec.size, iced::Size::new(940.0, 640.0));
         assert_eq!(spec.min_size, iced::Size::new(820.0, 520.0));
+    }
+
+    #[test]
+    fn devtools_window_spec_builds_auxiliary_window_spec() {
+        let spec = DevtoolsWindowSpec::default().window_spec();
+        let settings = spec.settings(None);
+
+        assert_eq!(settings.size, iced::Size::new(940.0, 640.0));
+        assert_eq!(settings.min_size, Some(iced::Size::new(820.0, 520.0)));
+        assert!(settings.resizable);
+        assert!(!settings.maximized);
+        assert!(!settings.fullscreen);
+        assert_eq!(settings.level, window::Level::AlwaysOnTop);
+        assert!(settings.decorations);
+    }
+
+    #[test]
+    fn devtools_window_title_uses_app_name() {
+        assert_eq!(
+            DevtoolsWindowSpec::title_for_app("RAG Studio"),
+            "RAG Studio · Devtools"
+        );
+    }
+
+    #[test]
+    fn disabled_devtools_host_does_not_open_sidecar_window() {
+        let host = DevtoolsHostState::<TestProbe>::disabled();
+
+        assert!(host.open_sidecar_window("devtools", None, |_| ()).is_none());
+    }
+
+    #[test]
+    fn enabled_devtools_host_opens_auxiliary_sidecar_window() {
+        let host = DevtoolsHostState::new(Some(panel()));
+        let (handle, _task) = host
+            .open_sidecar_window("devtools", None, |_| ())
+            .expect("enabled devtools should open a sidecar");
+
+        assert_eq!(handle.kind, "devtools");
+        assert_eq!(handle.role, crate::WindowRole::Auxiliary);
     }
 
     #[test]
