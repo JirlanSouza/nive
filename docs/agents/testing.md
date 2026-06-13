@@ -8,6 +8,8 @@
 - `just lint`: run clippy for active Rust crates.
 - `just rust-test`: run tests for active Rust crates.
 - `just test`: run active Rust tests plus parser tests.
+- `just app-gui-check-dev`: check `app-gui` with the `dev` feature enabled for Devtools/probe changes.
+- `just app-gui-test-dev`: test `app-gui` with the `dev` feature enabled for Devtools/probe changes.
 
 ## Rust Tests
 

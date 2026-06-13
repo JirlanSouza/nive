@@ -7,14 +7,14 @@
 ## Internal Modules
 
 - `app`: top-level Iced application, routing, shell integration, and screen updates. Uses `NiveApplication`, `AppPhase` (via local `AppReadiness` type alias), `SplashConfig`, and `minimum_splash_duration_task` from `nive-runtime` for the daemon facade and splash/boot lifecycle mechanics.
-- `app_shell`: app-specific logical window kinds, product window dimensions/icon adapters, concrete dialog/toast hosting, and keyboard navigation over runtime app-shell contracts.
+- `app_shell`: app-specific logical window kinds, product window dimensions/icon adapters, concrete dialog hosting, visual toast composition, and keyboard navigation over runtime app-shell contracts.
 - `bootstrap_screen`: startup splash and startup failure feedback before app services are available.
 - `welcome_screen`: welcome flow, project catalog UI, project creation, selection, reducers, actions, and view composition.
 - `workspace_screen`: active workspace screen boundary.
 - `client`: GUI-facing async clients that wrap `app-core` services in `iced::Task` and declare dev probe keys plus product-owned probe metadata through `devtools_derive::runtime_client`.
 - `platform`: app icon bytes plus thin calls/re-exports over `nive-runtime::platform` for app icon installation and the currently used folder picker.
 - `focus_trap` compatibility facade re-exported from `nive-runtime`, backed by `nive-ui::focus_trap`.
-- `dev`: app-specific devtools host adapter for translating runtime window specs into app shell window policies, app-domain fixture sources, and UI composition over runtime devtools host/panel state. Implements `DevtoolsApp` for `RagStudioApp` to provide snapshot and command application hooks through the runtime trait contract.
+- `dev`: app-specific devtools host adapter for app-domain fixture sources, probe env ownership, probe store application, and UI composition over runtime devtools host/panel state. Implements `DevtoolsApp` for `RagStudioApp` to provide snapshot and command application hooks through the runtime trait contract.
 - `theme`: compatibility re-export facade for `nive-ui::theme`.
 - `widgets`: product-aware composite widgets plus a thin compatibility surface over extracted `nive-ui` primitives. Private primitive facades have been collapsed into direct `nive_ui` re-exports; only product assets such as `brand_mark` remain under local primitives.
 - `ui_state`: compatibility facade for runtime-owned async state, operation state, request IDs, and user-facing errors.
@@ -72,7 +72,8 @@ Do:
 - follow `docs/agents/architecture/app-gui-feedback.md` for new resource and operation feedback
 - map service errors into user-facing errors at client boundaries
 - keep product window assets, logical window enum, window titles, and app-specific dimensions local while using runtime `WindowSpec`, `WindowRegistry`, `WindowHandle`, and `open_window` for generic mechanics
-- keep devtools host state, panel reducers/effect handling, generic state-field mutation helpers, injected failure errors, and generic window specs in `nive-runtime`; app-gui should only provide the transitional shell policy translation, view adapter, app-domain fixture source adapter, probe env ownership, Iced view composition, and the `DevtoolsApp` impl for snapshot/command routing until lifecycle extraction
+- keep visual toast composition local while using runtime `ToastState`, `ToastRequest`, `ToastMessage`, and toast expiration/tick behavior
+- keep devtools host state, panel reducers/effect handling, command result recording, probe-effect branching, sidecar window opening/title/spec policy, generic state-field mutation helpers, injected failure errors, and generic window specs in `nive-runtime`; app-gui should only provide app icon adaptation, view adapter, app-domain fixture source adapter, probe env ownership, Iced view composition, and the `DevtoolsApp` impl for snapshot/command routing until lifecycle extraction
 - keep client probe declarations on client impls with `devtools_derive::runtime_client`; `UiErrorProbe` should preserve app-owned metadata such as bootstrap and wrap runtime `ComposedProbeId` values rather than manually modeling client probe variants
 
 Do not:

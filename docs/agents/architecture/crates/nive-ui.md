@@ -11,7 +11,7 @@ Current scope:
 - `tokens::radius` — border-radius scale constants (`XS` through `XXXXL`)
 - `tokens::shadow` — shadow presets (`NONE`, `POPOVER`) using `iced::Shadow`
 - `tokens::typography` — font family helpers (`FontFamily`), font constants (`UI`, `MONO`), text size scale, and line-height constants
-- `theme` — semantic role enums, theme data, active theme accessors, helper style functions, and iced `Catalog` implementations for custom widget styling
+- `theme` — semantic role enums, framework-owned theme names (`Nive Light`/`Nive Dark`), theme data, active theme accessors, helper style functions, and iced `Catalog` implementations for custom widget styling
 - `Renderer` and `Element` aliases for the shared Iced renderer/theme pair
 - `widgets::text` — typography-aware text constructors and text color style helpers
 - `widgets::Badge` — tone-aware label badge primitive
@@ -46,7 +46,8 @@ Remaining widget primitives still in `app-gui.widgets.primitives` (product-aware
 ## Boundaries
 
 - Keep product-specific composite widgets (tag input, error feedback, project stat, etc.) in `app-gui.widgets.composite`; `nive-ui` owns only reusable primitives.
-- Keep concrete feedback types (toasts, dialog overlays) in `app-gui`; `ScreenUpdate` remains in `nive-runtime`.
+- Keep product branding and brand assets out of `nive-ui`; framework theme labels should stay app-agnostic unless app-configurable naming is introduced.
+- Keep visual feedback composition in `app-gui`; shared feedback state/contracts such as toasts and `ScreenUpdate` remain in `nive-runtime`.
 - Tokens must remain pure constants and pure functions with no side effects and no dependency on `app-core`, `app-models`, or any other domain crate.
 - Token modules may depend on `iced` for color, shadow, and font types only.
 - Theme modules may depend on `iced` for theme, widget catalog, and style types, but must stay domain-agnostic.

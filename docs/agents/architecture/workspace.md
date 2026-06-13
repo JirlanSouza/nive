@@ -32,12 +32,19 @@ Prefer these root commands for active work:
 
 Run package-specific `cargo` commands only for focused verification while iterating.
 
+For Devtools or probe changes in `app-gui`, also run:
+
+- `just app-gui-check-dev`
+- `just app-gui-test-dev`
+
+The root active-crate checks do not enable the optional `app-gui` `dev` feature.
+
 ## Package Roles
 
 - `app-gui`: desktop UI, user interaction, Iced tasks, screens, product-aware widgets, and app-specific client/probe wiring.
 - `nive-runtime-derive`: proc macros for devtools state, operation, probe catalog, runtime client probe declarations, and configurable devtools path generation for framework-owned and app-owned trait targets.
 - `nive-runtime`: shared app runtime foundation for UI state, operation state, request IDs, user-facing errors, devtools model contracts, and generic probe runtime behavior.
-- `nive-ui`: shared visual design system for tokens, semantic theme contracts, and reusable UI primitives as they are extracted.
+- `nive-ui`: shared visual design system for tokens, semantic theme contracts, and reusable UI primitives.
 - `app-core`: domain services, app context, event bus integration, file system behavior, and parser orchestration.
 - `app-models`: shared domain models passed between app layers.
 - `app-database`: SQLx repositories, database managers, migrations, and unit-of-work boundaries.
