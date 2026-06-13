@@ -59,13 +59,13 @@ Run the app with an injected UI error scenario:
 just dev-error create_project
 ```
 
-Run the app with the Devtools window:
+Run the app with the Devtools auxiliary window:
 
 ```sh
 just devtools
 ```
 
-The Devtools window is compiled by the `dev` feature and activated at runtime by `RAG_STUDIO_DEVTOOLS=1`. It stays disabled by default when the env var is absent. It shows searchable, expandable Devtools rows for failure/delay probes plus resources and operations inferred from devtool-derived screen state structs. Resource failures support both first-load and cached refresh failure modes. `just dev-error-panel` remains available as a deprecated compatibility alias for `just devtools`.
+The Devtools auxiliary window is compiled by the `dev` feature and activated at runtime by `RAG_STUDIO_DEVTOOLS=1`. It stays disabled by default when the env var is absent. It shows searchable, expandable Devtools rows for failure/delay probes plus resources and operations inferred from devtool-derived screen state structs. Resource failures support both first-load and cached refresh failure modes. `just dev-error-panel` remains available as a deprecated compatibility alias for `just devtools`.
 
 List UI error scenarios:
 
@@ -107,6 +107,13 @@ just test-db
 just test-parser-worker
 just test-payload-core
 just payload-py-test
+```
+
+For Devtools and UI error-probe changes, run the `app-gui` dev-feature gates:
+
+```sh
+just app-gui-check-dev
+just app-gui-test-dev
 ```
 
 ## Change Workflow
