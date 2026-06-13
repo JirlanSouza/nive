@@ -44,7 +44,6 @@ mod text_tests {
     #[test]
     fn muted_style_uses_app_semantic_text_role() {
         let theme = Theme::Dark;
-        let theme = theme;
 
         assert_eq!(
             style(TextRole::Muted)(&theme).color,
