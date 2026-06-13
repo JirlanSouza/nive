@@ -70,7 +70,7 @@ where
 
     fn children(&self) -> Vec<Tree> {
         let state = ColorPickerState::new(self.value);
-        vec![Tree::new(&self.content(&state))]
+        vec![Tree::new(self.content(&state))]
     }
 
     fn diff(&self, tree: &mut Tree) {

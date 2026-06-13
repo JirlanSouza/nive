@@ -751,11 +751,11 @@ fn parse_params(params: Option<&str>) -> ParsedParams {
                 }
             }
             "delay_only" | "delay-only" => {
-                parsed.effect = value
-                    .map(parse_bool)
-                    .unwrap_or(true)
-                    .then_some(ProbeEffect::DelayOnly)
-                    .unwrap_or(ProbeEffect::Fail);
+                parsed.effect = if value.map(parse_bool).unwrap_or(true) {
+                    ProbeEffect::DelayOnly
+                } else {
+                    ProbeEffect::Fail
+                };
             }
             "delay" => {
                 if let Some(value) = value {

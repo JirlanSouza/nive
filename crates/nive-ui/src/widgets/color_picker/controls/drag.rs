@@ -29,28 +29,26 @@ pub(super) fn handle_drag(
         Event::Mouse(mouse::Event::CursorMoved { position }) if state.is_dragging() => {
             publish_drag(bounds, *position, shell, message);
         }
-        Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => {
-            if state.is_dragging() {
-                state.set_dragging(false);
-                shell.capture_event();
-                shell.request_redraw();
-            }
+        Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) if state.is_dragging() => {
+            state.set_dragging(false);
+            shell.capture_event();
+            shell.request_redraw();
         }
-        Event::Touch(touch::Event::FingerPressed { position, .. }) => {
-            if bounds.contains(*position) {
-                state.set_dragging(true);
-                publish_drag(bounds, *position, shell, message);
-            }
+        Event::Touch(touch::Event::FingerPressed { position, .. })
+            if bounds.contains(*position) =>
+        {
+            state.set_dragging(true);
+            publish_drag(bounds, *position, shell, message);
         }
         Event::Touch(touch::Event::FingerMoved { position, .. }) if state.is_dragging() => {
             publish_drag(bounds, *position, shell, message);
         }
-        Event::Touch(touch::Event::FingerLifted { .. } | touch::Event::FingerLost { .. }) => {
-            if state.is_dragging() {
-                state.set_dragging(false);
-                shell.capture_event();
-                shell.request_redraw();
-            }
+        Event::Touch(touch::Event::FingerLifted { .. } | touch::Event::FingerLost { .. })
+            if state.is_dragging() =>
+        {
+            state.set_dragging(false);
+            shell.capture_event();
+            shell.request_redraw();
         }
         _ => {}
     }

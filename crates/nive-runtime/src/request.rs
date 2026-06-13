@@ -13,6 +13,7 @@ impl RequestId {
 }
 
 impl RequestCounter {
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> RequestId {
         let id = RequestId::new(self.next_id);
         self.next_id = self.next_id.saturating_add(1);

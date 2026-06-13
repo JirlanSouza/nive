@@ -169,7 +169,6 @@ where
 
         let inherited_style = renderer::Style {
             text_color: style.text_color.unwrap_or(inherited_style.text_color),
-            ..*inherited_style
         };
 
         self.content.as_widget().draw(

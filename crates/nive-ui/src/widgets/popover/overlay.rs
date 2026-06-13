@@ -36,6 +36,7 @@ pub struct PopoverOverlay<'a, 'b, LocalMessage, Message, OnMessage> {
 impl<'a, 'b, LocalMessage, Message, OnMessage>
     PopoverOverlay<'a, 'b, LocalMessage, Message, OnMessage>
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         anchor_bounds: Rectangle,
         content: &'b mut Element<'a, LocalMessage>,
