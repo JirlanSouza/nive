@@ -22,5 +22,22 @@ messages; the host publishes those messages without changing product state.
 Dialog content remains composed with `Dialog`, `DialogHeader`,
 `DialogFooter` and `DialogActionFooter`.
 
-Generic feedback and toast host extraction remains scheduled for later UI
-implementation slices.
+## Feedback And Status
+
+`nive-ui` owns the reusable feedback and status components:
+
+- `ErrorFeedback`, `ErrorEmptyState`, `ErrorStatusLine` and `ErrorDetailsDialog`
+- `ResourceStatusLine`, `OperationStatusLine` and `OperationActionGroup`
+- `InitialAvatar`, `MetricCard` and `VersionBadge`
+
+Presentation contracts keep runtime types out of the UI crate:
+
+- `ErrorPresentation`
+- `ResourceStatusPresentation`
+- `OperationStatusPresentation`
+
+`nive-runtime::UserFacingError`, `AsyncState<T>` and `OperationState<C>`
+implement these contracts. Applications supply product copy and messages while
+Nive owns the reusable visual composition.
+
+Toast host extraction remains scheduled for a later UI implementation slice.
