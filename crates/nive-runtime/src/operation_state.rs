@@ -1,4 +1,5 @@
 use crate::{RequestId, UserFacingError};
+use nive_ui::widgets::{ErrorPresentation, OperationStatusPresentation};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum OperationState<C> {
@@ -76,9 +77,20 @@ impl<C> OperationState<C> {
     }
 }
 
+impl<C> OperationStatusPresentation for OperationState<C> {
+    fn is_running(&self) -> bool {
+        self.is_running()
+    }
+
+    fn error(&self) -> Option<&dyn ErrorPresentation> {
+        self.error().map(|error| error as &dyn ErrorPresentation)
+    }
+}
+
 #[cfg(test)]
 mod operation_state_tests {
     use super::*;
+    use nive_ui::widgets::OperationStatusPresentation;
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     struct Context {
@@ -152,5 +164,25 @@ mod operation_state_tests {
         assert!(!failed);
         assert!(state.is_running());
         assert!(state.error().is_none());
+    }
+
+    #[test]
+    fn operation_presentation_exposes_running_and_failed_states() {
+        let mut state = OperationState::default();
+        state.start(RequestId::new(7), Context { id: "p1".into() });
+
+        assert!(OperationStatusPresentation::is_running(&state));
+        assert!(OperationStatusPresentation::error(&state).is_none());
+
+        state.fail(
+            RequestId::new(7),
+            UserFacingError::custom("project_catalog", "Open failed"),
+        );
+
+        assert!(!OperationStatusPresentation::is_running(&state));
+        assert_eq!(
+            OperationStatusPresentation::error(&state).map(ErrorPresentation::summary),
+            Some("Open failed")
+        );
     }
 }
