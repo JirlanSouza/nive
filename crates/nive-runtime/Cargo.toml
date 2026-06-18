@@ -4,10 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+default = []
 file-picker = ["dep:rfd"]
+devtools = ["dep:nive-runtime-derive"]
 
 [dependencies]
 iced = { workspace = true }
+nive-runtime-derive = { path = "../nive-runtime-derive", optional = true }
 nive-ui = { path = "../nive-ui" }
 rfd = { version = "0.16", optional = true }
 tokio = { workspace = true, features = ["time"] }
