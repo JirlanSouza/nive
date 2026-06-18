@@ -68,7 +68,7 @@ pub use window_shell::{
     WindowRole, WindowSpec,
 };
 
-pub use iced::{window, Size, Subscription, Task};
+pub use iced::{time, window, Size, Subscription, Task};
 pub use nive_ui::theme::ThemePreference;
 
 #[cfg(feature = "devtools")]
@@ -83,13 +83,13 @@ pub use platform::file_picker::{pick_file, pick_files, pick_folder};
 
 pub mod prelude {
     pub use crate::{
-        keyboard_navigation_subscription, run, window, AppUpdate, Application, ApplicationConfig,
-        BackgroundFit, BackgroundPosition, BootstrapSpec, BrandContent, CloseDecision,
-        CommandRejected, CommandRejectionReason, Context, CoreEvent, Error, ErrorCode,
-        ExitDecision, KeyboardNavigation, Never, PlatformError, RequestCounter, RequestId, Result,
-        RuntimeCommand, ScreenView, ShortcutMap, Size, SplashBackground, Subscription, Task,
-        ThemeController, ThemeEvent, ThemePreference, Toast, ToastPosition, Update,
-        UserFacingError, WindowCardinality, WindowCommand, WindowContext, WindowQuery, WindowRole,
-        WindowSpec,
+        keyboard_navigation_subscription, run, time, window, AppUpdate, Application,
+        ApplicationConfig, BackgroundFit, BackgroundPosition, BootstrapSpec, BrandContent,
+        CloseDecision, CommandRejected, CommandRejectionReason, Context, CoreEvent, Error,
+        ErrorCode, ExitDecision, KeyboardNavigation, Never, PlatformError, RequestCounter,
+        RequestId, Result, RuntimeCommand, ScreenView, ShortcutMap, Size, SplashBackground,
+        Subscription, Task, ThemeController, ThemeEvent, ThemePreference, Toast, ToastPosition,
+        Update, UserFacingError, WindowCardinality, WindowCommand, WindowContext, WindowQuery,
+        WindowRole, WindowSpec,
     };
 }

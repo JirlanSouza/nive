@@ -20,3 +20,8 @@ pub use widgets::Separator;
 
 pub type Renderer = iced::Renderer;
 pub type Element<'a, Message> = iced::Element<'a, Message, Theme, Renderer>;
+pub use iced::{advanced, border, widget};
+pub use iced::{
+    Alignment, Background, Border, Color, Length, Padding, Point, Radians, Rectangle, Shadow, Size,
+    Vector,
+};

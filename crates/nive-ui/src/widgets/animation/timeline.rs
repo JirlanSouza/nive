@@ -5,8 +5,8 @@ pub use iced::animation::Easing;
 /// The timing specification of an animation: how long it runs, how its progress
 /// is shaped ([`Easing`]), whether it repeats, and an optional start [`delay`].
 ///
-/// An [`Animation`] is pure data — it knows how to project a [`AnimationFrame`]
-/// for a given elapsed time via [`Animation::frame`]. The widgets
+/// An [`Animation`] is pure data — it knows how to project an [`AnimationFrame`]
+/// for a given elapsed time. The widgets
 /// (`AnimatedVisual`, `AnimatedLayout`) drive it against the window clock.
 ///
 /// [`delay`]: Animation::delay
