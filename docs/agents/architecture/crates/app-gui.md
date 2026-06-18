@@ -7,15 +7,14 @@
 ## Internal Modules
 
 - `app`: implements the Nive `Application` contract, configures product bootstrap assets/task, receives the successful bootstrap value in `init`, and owns product routing and screen updates.
-- `app_shell`: app-specific logical window kinds, product window dimensions/icon adapters, and screen update/view compatibility helpers.
+- `app_shell`: app-specific logical window kinds, product window dimensions, shell messages, and icon adapters.
 - `welcome_screen`: welcome flow, project catalog UI, project creation, selection, reducers, actions, and view composition.
 - `workspace_screen`: active workspace screen boundary.
-- `client`: GUI-facing async clients that wrap `app-core` services in `iced::Task` and declare dev probe keys plus product-owned probe metadata through `nive_runtime::runtime_client`.
-- `platform`: app icon bytes plus thin calls/re-exports over `nive-runtime::platform` for app icon installation and the currently used folder picker.
+- `client`: GUI-facing async clients that wrap `app-core` services in Nive runtime tasks and declare dev probe keys plus product-owned probe metadata through `nive_runtime::runtime_client`.
+- `platform`: product app-icon installation and bytes.
 - `dev`: app-domain fixture adapters, probe env/store ownership and the `DevtoolsApp` hooks that provide state snapshots plus command/probe application to the runtime.
-- `theme`: compatibility re-export facade for `nive-ui::theme`.
-- `widgets`: product-aware composite widgets plus a thin compatibility surface over extracted `nive-ui` primitives. Private primitive facades have been collapsed into direct `nive_ui` re-exports; only product assets such as `brand_mark` remain under local primitives.
-- `ui_state`: compatibility facade for runtime-owned async state, operation state, request IDs, and user-facing errors.
+- `widgets`: product-aware composite widgets and brand assets only; generic primitives are imported directly from `nive-ui`.
+- `clock`: product relative-time formatting and current Unix time.
 
 ## Architectural Dependencies
 
@@ -24,8 +23,7 @@ Depends on:
 - `app-core` for domain services.
 - `app-models` for shared UI/domain data.
 - `nive-runtime` for the application runner, runtime updates, theme and window lifecycle, shared UI state, dialog dismissal and keyboard routing, devtools model/panel contracts, and generic probe runtime behavior.
-- `nive-ui` for design tokens, theme contracts, dialog hosting, focus trapping, and reusable visual primitives.
-- `iced` for UI runtime and tasks.
+- `nive-ui` for design tokens, theme contracts, dialog hosting, focus trapping, reusable visual primitives, renderer types, and low-level widget APIs.
 
 Used by:
 
@@ -69,6 +67,7 @@ before success.
 Do:
 
 - use existing widgets and theme tokens
+- import generic runtime and visual contracts directly from `nive-runtime` and `nive-ui`
 - keep reducers deterministic when possible
 - preserve cached async content where existing `AsyncState` patterns do so
 - follow `docs/agents/architecture/app-gui-feedback.md` for new resource and operation feedback

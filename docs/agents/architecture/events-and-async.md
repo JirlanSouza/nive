@@ -6,7 +6,7 @@
 
 1. A user action emits a screen `Message`.
 2. The reducer updates state and returns an `Action`.
-3. `action_runner` converts the action into `ScreenUpdate` or `iced::Task`.
+3. `action_runner` converts the action into `ScreenUpdate` or `nive_runtime::Task`.
 4. `client/*` performs async service calls.
 5. Results return as messages with request IDs when stale responses are possible.
 
