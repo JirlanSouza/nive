@@ -1,4 +1,6 @@
+mod application;
 mod async_state;
+mod bootstrap;
 mod client_task;
 pub mod devtools;
 mod dialog_dismiss;
@@ -11,10 +13,20 @@ mod probe;
 mod request;
 mod screen_update;
 mod screen_view;
+mod theme_controller;
 mod toast;
+mod update;
 mod window_shell;
 
+pub use application::{
+    run, Application, ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason,
+    Context, CoreEvent, Error, ExitDecision, PlatformError, Result, ShortcutMap, WindowCommand,
+    WindowContext, WindowQuery, WindowRegistration,
+};
 pub use async_state::AsyncState;
+pub use bootstrap::{
+    BackgroundFit, BackgroundPosition, BootstrapSpec, BrandContent, SplashBackground,
+};
 pub use client_task::{client_task, injected_client_task, ClientTaskInjection, ProbeEffect};
 pub use devtools::{
     run_devtools_panel_effect, DevtoolStateCatalog, DevtoolStateHost, DevtoolsApp, DevtoolsConfig,
@@ -23,7 +35,9 @@ pub use devtools::{
 };
 pub use dialog_dismiss::{is_escape_key_press, DialogDismiss};
 pub use dialog_request::DialogRequest;
-pub use error::{UserFacingError, UserFacingErrorKind, UserFacingResult};
+pub use error::{
+    ErrorCode, InvalidErrorCode, UserFacingError, UserFacingErrorKind, UserFacingResult,
+};
 pub use lifecycle::{minimum_splash_duration_task, AppPhase, NiveApplication, SplashConfig};
 pub use nive_ui::focus_trap::{
     direction_from_event, direction_from_keyboard_event, FocusDirection,
@@ -40,13 +54,36 @@ pub use probe::{
 pub use request::{RequestCounter, RequestId};
 pub use screen_update::ScreenUpdate;
 pub use screen_view::ScreenView;
+pub use theme_controller::ThemeController;
+pub use toast::ToastRequest as Toast;
 pub use toast::{
-    ToastDuration, ToastId, ToastItem, ToastMessage, ToastRequest, ToastState, ToastTone,
+    ToastDuration, ToastId, ToastItem, ToastMessage, ToastPosition, ToastRequest, ToastState,
+    ToastTone,
 };
+pub use update::{AppUpdate, Never, RuntimeCommand, Update};
 pub use window_shell::{
-    open_window, WindowChrome, WindowHandle, WindowMode, WindowRegistry, WindowRole, WindowSpec,
+    open_window, WindowCardinality, WindowChrome, WindowHandle, WindowMode, WindowRegistry,
+    WindowRole, WindowSpec,
 };
+
+pub use iced::{window, Size, Subscription, Task};
+pub use nive_ui::theme::ThemePreference;
+
+#[cfg(feature = "devtools")]
+pub use nive_runtime_derive::Devtools;
 
 pub use platform::app_icon;
 #[cfg(feature = "file-picker")]
 pub use platform::file_picker::{pick_file, pick_files, pick_folder};
+
+pub mod prelude {
+    pub use crate::{
+        run, window, AppUpdate, Application, ApplicationConfig, BackgroundFit, BackgroundPosition,
+        BootstrapSpec, BrandContent, CloseDecision, CommandRejected, CommandRejectionReason,
+        Context, CoreEvent, Error, ErrorCode, ExitDecision, Never, PlatformError, RequestCounter,
+        RequestId, Result, RuntimeCommand, ScreenView, ShortcutMap, Size, SplashBackground,
+        Subscription, Task, ThemeController, ThemePreference, Toast, ToastPosition, Update,
+        UserFacingError, WindowCardinality, WindowCommand, WindowContext, WindowQuery, WindowRole,
+        WindowSpec,
+    };
+}
