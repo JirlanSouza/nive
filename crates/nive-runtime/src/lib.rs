@@ -7,7 +7,6 @@ mod dialog_dismiss;
 mod dialog_request;
 mod error;
 mod keyboard_navigation;
-mod lifecycle;
 mod operation_state;
 pub mod platform;
 mod probe;
@@ -40,7 +39,6 @@ pub use error::{
     ErrorCode, InvalidErrorCode, UserFacingError, UserFacingErrorKind, UserFacingResult,
 };
 pub use keyboard_navigation::{keyboard_navigation_subscription, KeyboardNavigation};
-pub use lifecycle::{minimum_splash_duration_task, AppPhase, SplashConfig};
 pub use nive_ui::focus_trap::{
     direction_from_event, direction_from_keyboard_event, FocusDirection,
 };
