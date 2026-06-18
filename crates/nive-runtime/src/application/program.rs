@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use iced::{window, ContentFit, Subscription, Task};
 
@@ -10,9 +10,11 @@ use super::{
 use crate::bootstrap::{minimum_duration_task, BootstrapController, BootstrapTransition};
 use crate::{
     AppUpdate, BootstrapSpec, DialogRequest, RuntimeCommand, ScreenView, ThemeController,
-    ThemeEvent, ToastPosition, ToastState, UserFacingResult, WindowCardinality, WindowChrome,
-    WindowHandle, WindowMode, WindowRegistry, WindowRole, WindowSpec,
+    ThemeEvent, ToastId, ToastPosition, ToastState, UserFacingResult, WindowCardinality,
+    WindowChrome, WindowHandle, WindowMode, WindowRegistry, WindowRole, WindowSpec,
 };
+
+const TOAST_TICK_INTERVAL: Duration = Duration::from_millis(500);
 
 pub(super) fn run<A: Application>() -> Result {
     let config = A::config();
@@ -75,6 +77,10 @@ enum CoreMessage<K> {
     ConfirmClose(window::Id),
     ConfirmExit,
     Rejected(CommandRejected<K>),
+    ToastDismiss(ToastId),
+    ToastHoverEntered,
+    ToastHoverLeft,
+    ToastTick(Instant),
 }
 
 enum BootstrapMessage<B> {
@@ -146,8 +152,9 @@ struct NiveCore<K> {
     theme: ThemeController,
     exiting: bool,
     window_icon: Option<window::Icon>,
-    _toast_position: ToastPosition,
+    toast_position: ToastPosition,
     toasts: ToastState,
+    toasts_hovered: bool,
 }
 
 impl<A> Program<A>
@@ -209,12 +216,28 @@ where
             return iced::widget::text("").into();
         };
 
-        app.view(self.core.context(), window)
+        let content = app
+            .view(self.core.context(), window)
             .map(move |message| NiveMessage::App {
                 window_id: Some(window_id),
                 message,
             })
-            .into_element()
+            .into_element();
+
+        if window.role != WindowRole::App || !self.core.toasts.has_visible() {
+            return content;
+        }
+
+        nive_ui::ToastHost::new(content)
+            .position(self.core.toast_position().into())
+            .on_hover(
+                NiveMessage::Core(CoreMessage::ToastHoverEntered),
+                NiveMessage::Core(CoreMessage::ToastHoverLeft),
+            )
+            .toasts(self.core.toasts.visible(), |id: ToastId| {
+                NiveMessage::Core(CoreMessage::ToastDismiss(id))
+            })
+            .into()
     }
 
     fn title(&self, window_id: window::Id) -> String {
@@ -267,8 +290,14 @@ where
                     })
             })
             .unwrap_or_else(Subscription::none);
+        let toasts = if self.core.toasts.should_subscribe() {
+            iced::time::every(TOAST_TICK_INTERVAL)
+                .map(|now| NiveMessage::Core(CoreMessage::ToastTick(now)))
+        } else {
+            Subscription::none()
+        };
 
-        Subscription::batch([window_events, theme, app])
+        Subscription::batch([window_events, theme, app, toasts])
     }
 
     fn start_bootstrap(&mut self, spec: BootstrapSpec<A::Bootstrap>) -> Task<RuntimeMessage<A>> {
@@ -531,6 +560,22 @@ where
             CoreMessage::ConfirmExit => self.accept_exit(),
             CoreMessage::Rejected(rejection) => {
                 self.emit_core_event(CoreEvent::CommandRejected(rejection))
+            }
+            CoreMessage::ToastDismiss(id) => {
+                self.core.toasts.dismiss(id);
+                Task::none()
+            }
+            CoreMessage::ToastHoverEntered => {
+                self.core.toasts_hovered = true;
+                Task::none()
+            }
+            CoreMessage::ToastHoverLeft => {
+                self.core.toasts_hovered = false;
+                Task::none()
+            }
+            CoreMessage::ToastTick(now) => {
+                self.core.toasts.handle_tick(now, !self.core.toasts_hovered);
+                Task::none()
             }
         }
     }
@@ -795,8 +840,9 @@ where
             theme: ThemeController::new(config.theme_preference),
             exiting: false,
             window_icon: config.window_icon.clone(),
-            _toast_position: config.toast_position,
+            toast_position: config.toast_position,
             toasts: ToastState::default(),
+            toasts_hovered: false,
         }
     }
 
@@ -823,6 +869,10 @@ where
             .find(|(registered_kind, _)| *registered_kind == kind)
             .map(|(_, spec)| *spec)
     }
+
+    fn toast_position(&self) -> ToastPosition {
+        self.toast_position
+    }
 }
 
 impl<K> From<WindowHandle<K>> for WindowContext<K> {
@@ -841,7 +891,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::ScreenView;
+    use crate::{DialogDismiss, ScreenView, ToastRequest};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum TestWindow {
@@ -856,6 +906,7 @@ mod tests {
         cancel_exit: bool,
         close_requests: usize,
         rejections: usize,
+        show_dialog: bool,
     }
 
     #[derive(Debug)]
@@ -885,6 +936,7 @@ mod tests {
                     cancel_exit: false,
                     close_requests: 0,
                     rejections: 0,
+                    show_dialog: false,
                 },
                 AppUpdate::none(),
             )
@@ -904,7 +956,15 @@ mod tests {
             _context: Context<'_, Self::Window>,
             _window: WindowContext<Self::Window>,
         ) -> ScreenView<'_, Self::Message> {
-            ScreenView::new(iced::widget::text(""))
+            let base = iced::widget::text("");
+            if self.show_dialog {
+                ScreenView::new(base).dialog(
+                    DialogRequest::new(iced::widget::text("dialog"))
+                        .dismiss(DialogDismiss::OnEscape(())),
+                )
+            } else {
+                ScreenView::new(base)
+            }
         }
 
         fn window_title<'a>(
@@ -1122,5 +1182,119 @@ mod tests {
 
         assert!(program.core.exiting);
         assert!(program.app.is_none());
+    }
+
+    fn main_window_id(program: &Program<TestApp>) -> window::Id {
+        program
+            .core
+            .registry
+            .first(TestWindow::Main)
+            .map(|handle| handle.id)
+            .unwrap_or_else(window::Id::unique)
+    }
+
+    #[test]
+    fn toast_runtime_command_enqueues_visible_toast() {
+        let mut program = program();
+
+        let _task =
+            program.handle_runtime_command(RuntimeCommand::Toast(ToastRequest::info("Saved")));
+
+        assert!(program.core.toasts.has_visible());
+        assert!(program.core.toasts.should_subscribe());
+    }
+
+    #[test]
+    fn toast_tick_expires_visible_toast() {
+        let now = Instant::now();
+        let mut program = program();
+        let _task =
+            program.handle_runtime_command(RuntimeCommand::Toast(ToastRequest::info("Saved")));
+
+        let _task = program.update_core(CoreMessage::ToastTick(now + Duration::from_secs(5)));
+
+        assert!(!program.core.toasts.has_visible());
+    }
+
+    #[test]
+    fn toast_dismiss_message_removes_toast() {
+        let now = Instant::now();
+        let mut program = program();
+        let id = program.core.toasts.push(ToastRequest::info("Saved"), now);
+
+        let _task = program.update_core(CoreMessage::ToastDismiss(id));
+
+        assert!(!program.core.toasts.has_visible());
+    }
+
+    #[test]
+    fn toast_hover_pauses_expiry_and_resume_lets_it_expire() {
+        let now = Instant::now();
+        let mut program = program();
+        let _id = program.core.toasts.push(ToastRequest::info("Saved"), now);
+
+        let _task = program.update_core(CoreMessage::ToastHoverEntered);
+        let _task = program.update_core(CoreMessage::ToastTick(now + Duration::from_secs(5)));
+
+        assert!(
+            program.core.toasts.has_visible(),
+            "toast stays visible while hovered"
+        );
+
+        let _task = program.update_core(CoreMessage::ToastHoverLeft);
+        let _task = program.update_core(CoreMessage::ToastTick(now + Duration::from_secs(9)));
+
+        assert!(
+            !program.core.toasts.has_visible(),
+            "toast expires after hover ends"
+        );
+    }
+
+    #[test]
+    fn toast_host_decorates_app_view_when_toast_visible() {
+        let now = Instant::now();
+        let mut program = program();
+        let _id = program.core.toasts.push(ToastRequest::info("Saved"), now);
+        let main_id = main_window_id(&program);
+
+        let _element: nive_ui::Element<'_, RuntimeMessage<TestApp>> = program.view(main_id);
+
+        assert!(program.core.toasts.has_visible());
+    }
+
+    #[test]
+    fn toast_and_dialog_coexist_in_app_view() {
+        let now = Instant::now();
+        let mut program = program();
+        if let Some(app) = program.app.as_mut() {
+            app.show_dialog = true;
+        }
+        let _id = program.core.toasts.push(ToastRequest::info("Saved"), now);
+        let main_id = main_window_id(&program);
+
+        let _element: nive_ui::Element<'_, RuntimeMessage<TestApp>> = program.view(main_id);
+
+        assert!(program.core.toasts.has_visible());
+    }
+
+    #[test]
+    fn auxiliary_window_view_skips_toast_decoration() {
+        let now = Instant::now();
+        let mut program = program();
+        program.core.registry.set_opened(WindowHandle::auxiliary(
+            TestWindow::Secondary,
+            window::Id::unique(),
+        ));
+        let _id = program.core.toasts.push(ToastRequest::info("Saved"), now);
+        let auxiliary_id = program
+            .core
+            .registry
+            .first(TestWindow::Secondary)
+            .map(|handle| handle.id)
+            .unwrap_or_else(window::Id::unique);
+
+        let _element: nive_ui::Element<'_, RuntimeMessage<TestApp>> = program.view(auxiliary_id);
+
+        assert!(program.core.toasts.has_visible());
     }
 }
