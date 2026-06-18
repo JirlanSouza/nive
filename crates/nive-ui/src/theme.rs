@@ -22,11 +22,11 @@ pub use catalog::{
 };
 pub use color_scheme::{BorderSpec, SurfaceSpec};
 pub use component::{ControlMetrics, ControlMetricsScale, ControlSize};
-pub use mode::ThemeMode;
+pub use mode::{ThemeMode, ThemePreference};
 pub use roles::{
     BorderRole, ControlRole, ControlState, InteractionState, SurfaceRole, TextRole, ToneRole,
 };
-pub use scheme::Theme;
+pub use scheme::{Theme, ThemeCatalog, ThemeData, ThemeId};
 pub use shape::{ShapeRole, ShapeScale, ShapeSpec};
 pub use spacing::{GapRole, PaddingRole, SpaceStep};
 pub use typography::{typography, TextStyle, TypographyRole, TypographyScale};

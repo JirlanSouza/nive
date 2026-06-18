@@ -16,6 +16,17 @@ pub enum Theme {
     Dark = 1,
 }
 
+pub type ThemeId = Theme;
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ThemeCatalog;
+
+impl ThemeCatalog {
+    pub fn get(self, id: ThemeId) -> &'static ThemeData {
+        id.data()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ThemeData {
     pub name: &'static str,
