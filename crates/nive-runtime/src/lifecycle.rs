@@ -11,8 +11,6 @@ pub struct SplashConfig {
     pub min_duration: Duration,
 }
 
-pub struct NiveApplication;
-
 impl SplashConfig {
     pub const DEFAULT: SplashConfig = SplashConfig {
         min_duration: DEFAULT_MIN_SPLASH_DURATION,
@@ -22,21 +20,6 @@ impl SplashConfig {
 impl Default for SplashConfig {
     fn default() -> Self {
         Self::DEFAULT
-    }
-}
-
-impl NiveApplication {
-    pub fn daemon<State, Message, Theme>(
-        boot: impl iced::application::BootFn<State, Message>,
-        update: impl iced::application::UpdateFn<State, Message>,
-        view: impl for<'a> iced::daemon::ViewFn<'a, State, Message, Theme, iced::Renderer>,
-    ) -> iced::Daemon<impl iced::Program<State = State, Message = Message, Theme = Theme>>
-    where
-        State: 'static,
-        Message: Send + 'static,
-        Theme: iced::theme::Base,
-    {
-        iced::daemon(boot, update, view)
     }
 }
 

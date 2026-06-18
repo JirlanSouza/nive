@@ -40,7 +40,7 @@ pub use error::{
     ErrorCode, InvalidErrorCode, UserFacingError, UserFacingErrorKind, UserFacingResult,
 };
 pub use keyboard_navigation::{keyboard_navigation_subscription, KeyboardNavigation};
-pub use lifecycle::{minimum_splash_duration_task, AppPhase, NiveApplication, SplashConfig};
+pub use lifecycle::{minimum_splash_duration_task, AppPhase, SplashConfig};
 pub use nive_ui::focus_trap::{
     direction_from_event, direction_from_keyboard_event, FocusDirection,
 };

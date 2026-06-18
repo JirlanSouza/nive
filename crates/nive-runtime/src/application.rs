@@ -1,37 +1,55 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::marker::PhantomData;
 
-use iced::{window, Subscription, Task};
+use iced::{window, Font, Subscription, Task};
 use nive_ui::theme::{Theme, ThemePreference};
 
 use crate::{
-    AppUpdate, BootstrapSpec, ScreenView, ToastPosition, UserFacingError, WindowHandle, WindowRole,
-    WindowSpec,
+    AppUpdate, BootstrapSpec, ScreenView, ToastPosition, UserFacingError, WindowRegistry,
+    WindowRole, WindowSpec,
 };
+
+mod program;
 
 pub type Result<T = ()> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
-    RunnerUnavailable,
+    BootstrapUnavailable,
+    Iced(iced::Error),
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::RunnerUnavailable => formatter.write_str("Nive runner is not implemented yet"),
+            Self::BootstrapUnavailable => {
+                formatter.write_str("bootstrap runtime is not implemented yet")
+            }
+            Self::Iced(error) => std::fmt::Display::fmt(error, formatter),
         }
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Iced(error) => Some(error),
+            Self::BootstrapUnavailable => None,
+        }
+    }
+}
+
+impl From<iced::Error> for Error {
+    fn from(error: iced::Error) -> Self {
+        Self::Iced(error)
+    }
+}
 
 pub trait Application: Sized + 'static {
-    type Message: Clone + Debug + 'static;
-    type Window: Copy + Eq + Hash + Debug + 'static;
+    type Message: Clone + Debug + Send + 'static;
+    type Window: Copy + Eq + Hash + Debug + Send + 'static;
     type Bootstrap: Send + 'static;
 
     fn config() -> ApplicationConfig<Self::Window, Self::Bootstrap>;
@@ -95,8 +113,7 @@ pub trait Application: Sized + 'static {
 }
 
 pub fn run<A: Application>() -> Result {
-    let _ = PhantomData::<A>;
-    Err(Error::RunnerUnavailable)
+    program::run::<A>()
 }
 
 pub struct ApplicationConfig<K, B> {
@@ -107,6 +124,10 @@ pub struct ApplicationConfig<K, B> {
     theme_preference: ThemePreference,
     toast_position: ToastPosition,
     bootstrap: Option<BootstrapSpec<B>>,
+    immediate_bootstrap: Option<B>,
+    fonts: Vec<Cow<'static, [u8]>>,
+    default_font: Font,
+    window_icon: Option<window::Icon>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -115,7 +136,7 @@ pub struct WindowRegistration<K> {
     pub spec: WindowSpec,
 }
 
-impl<K, B> ApplicationConfig<K, B> {
+impl<K> ApplicationConfig<K, ()> {
     pub fn new(app_id: impl Into<String>) -> Self {
         let app_id = app_id.into();
         Self {
@@ -126,9 +147,15 @@ impl<K, B> ApplicationConfig<K, B> {
             theme_preference: ThemePreference::System,
             toast_position: ToastPosition::BottomRight,
             bootstrap: None,
+            immediate_bootstrap: Some(()),
+            fonts: Vec::new(),
+            default_font: Font::DEFAULT,
+            window_icon: None,
         }
     }
+}
 
+impl<K, B> ApplicationConfig<K, B> {
     pub fn app_id(&self) -> &str {
         self.app_id.as_str()
     }
@@ -162,8 +189,34 @@ impl<K, B> ApplicationConfig<K, B> {
         self
     }
 
-    pub fn bootstrap(mut self, bootstrap: BootstrapSpec<B>) -> Self {
-        self.bootstrap = Some(bootstrap);
+    pub fn bootstrap<T>(self, bootstrap: BootstrapSpec<T>) -> ApplicationConfig<K, T> {
+        ApplicationConfig {
+            app_id: self.app_id,
+            app_name: self.app_name,
+            windows: self.windows,
+            initial_windows: self.initial_windows,
+            theme_preference: self.theme_preference,
+            toast_position: self.toast_position,
+            bootstrap: Some(bootstrap),
+            immediate_bootstrap: None,
+            fonts: self.fonts,
+            default_font: self.default_font,
+            window_icon: self.window_icon,
+        }
+    }
+
+    pub fn font(mut self, font: impl Into<Cow<'static, [u8]>>) -> Self {
+        self.fonts.push(font.into());
+        self
+    }
+
+    pub fn default_font(mut self, font: Font) -> Self {
+        self.default_font = font;
+        self
+    }
+
+    pub fn window_icon(mut self, icon: window::Icon) -> Self {
+        self.window_icon = Some(icon);
         self
     }
 
@@ -185,6 +238,18 @@ impl<K, B> ApplicationConfig<K, B> {
 
     pub fn bootstrap_spec(&self) -> Option<&BootstrapSpec<B>> {
         self.bootstrap.as_ref()
+    }
+
+    pub fn fonts(&self) -> &[Cow<'static, [u8]>] {
+        self.fonts.as_slice()
+    }
+
+    pub fn configured_default_font(&self) -> Font {
+        self.default_font
+    }
+
+    pub fn configured_window_icon(&self) -> Option<&window::Icon> {
+        self.window_icon.as_ref()
     }
 }
 
@@ -233,7 +298,7 @@ pub struct WindowContext<K> {
 
 #[derive(Clone, Copy)]
 pub struct WindowQuery<'a, K> {
-    handles: &'a [WindowHandle<K>],
+    registry: &'a WindowRegistry<K>,
 }
 
 impl<'a, K> WindowQuery<'a, K>
@@ -241,47 +306,35 @@ where
     K: Copy + Eq,
 {
     pub fn get(self, id: window::Id) -> Option<WindowContext<K>> {
-        self.handles
-            .iter()
-            .find(|handle| handle.id == id)
-            .map(|handle| WindowContext {
-                id: handle.id,
-                kind: handle.kind,
-                role: handle.role,
-            })
+        self.registry.get(id).map(|handle| WindowContext {
+            id: handle.id,
+            kind: handle.kind,
+            role: handle.role,
+        })
     }
 
     pub fn contains(self, kind: K) -> bool {
-        self.handles.iter().any(|handle| handle.kind == kind)
+        self.registry.contains(kind)
     }
 
     pub fn first(self, kind: K) -> Option<WindowContext<K>> {
-        self.handles
-            .iter()
-            .find(|handle| handle.kind == kind)
-            .map(|handle| WindowContext {
-                id: handle.id,
-                kind: handle.kind,
-                role: handle.role,
-            })
+        self.registry.first(kind).map(|handle| WindowContext {
+            id: handle.id,
+            kind: handle.kind,
+            role: handle.role,
+        })
     }
 
     pub fn all(self, kind: K) -> impl Iterator<Item = WindowContext<K>> + 'a {
-        self.handles
-            .iter()
-            .filter(move |handle| handle.kind == kind)
-            .map(|handle| WindowContext {
-                id: handle.id,
-                kind: handle.kind,
-                role: handle.role,
-            })
+        self.registry.all(kind).map(|handle| WindowContext {
+            id: handle.id,
+            kind: handle.kind,
+            role: handle.role,
+        })
     }
 
     pub fn app_window_count(self) -> usize {
-        self.handles
-            .iter()
-            .filter(|handle| handle.role == WindowRole::App)
-            .count()
+        self.registry.app_window_count()
     }
 }
 

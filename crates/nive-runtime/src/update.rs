@@ -95,6 +95,10 @@ impl<M, O, K> Update<M, O, K> {
         self.runtime.as_slice()
     }
 
+    pub(crate) fn into_parts(self) -> (Task<M>, Option<O>, Vec<RuntimeCommand<K>>) {
+        (self.task, self.outcome, self.runtime)
+    }
+
     pub fn map_message<N>(self, map: impl FnMut(M) -> N + Send + 'static) -> Update<N, O, K>
     where
         M: Send + 'static,
