@@ -6,12 +6,10 @@
 
 Current scope:
 
-- `AppPhase` — generic lifecycle phase enum (`Booting`, `BootFailed`, `Ready`) parameterized over error, pending-success, and ready-state types, with splash duration, pending-success, and phase query methods
 - `AsyncState`
-- `SplashConfig` — configurable minimum splash duration with a `DEFAULT` constant (900ms)
 - `Application`, `ApplicationConfig`, `Context`, `WindowContext`, `CoreEvent`, and `run` — stable product contract and private runtime-owned Iced program
 - `Update`, `AppUpdate`, and `RuntimeCommand` — ordered task and runtime-effect composition
-- `minimum_splash_duration_task` — runtime-owned splash gate task that emits the boot `started_at` after the configured minimum duration
+- `BootstrapSpec` and the private bootstrap controller — repeatable task attempts, stale-result rejection, minimum splash duration, pending success, retry, failure details, cancellation and transfer into `Application::init`
 - `client_task`, `injected_client_task`, `ClientTaskInjection`, and `ProbeEffect`
 - `devtools` command, input schema, state snapshot, host state, panel config/state/message/effect reducer and effect runner, sidecar window spec/title/opening helpers, resource/operation view models, state-field collection/application helpers, and `DevtoolStateCatalog`, `DevtoolStateHost`, and `DevtoolsApp` host trait contracts
 - `DialogDismiss` and `DialogRequest`
@@ -38,5 +36,7 @@ Current scope:
 - Keep app-specific logical window enums, titles, dimensions, fonts and icon construction in `app-gui`; runtime owns reusable window specs, settings conversion, registry mechanics, opening, focus and close/exit routing.
 - Keep widget-layer focus and overlay behavior in `nive-ui`; runtime may re-export stable helper APIs while lifecycle and shell code still consumes them.
 - Keep visual toast composition in `app-gui`; runtime owns generic toast state/types, expiration, pause/resume, and timer tick handling. `ScreenUpdate` remains generic over the feedback payload.
-- `AppPhase`, `SplashConfig`, and `minimum_splash_duration_task` remain transitional bootstrap lifecycle APIs; the concrete `AppReadiness` type alias, boot task, splash views, and ready-state construction stay in `app-gui` until the bootstrap slice.
+- Keep bootstrap lifecycle state private. Apps provide only the task factory,
+  result type, assets and copy; product clients and services transfer into
+  `Application::init` and are not retained by the runtime.
 - Prefer behavior-preserving moves from `app-gui` into this crate, with tests moved alongside the extracted types.

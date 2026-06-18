@@ -6,9 +6,8 @@
 
 ## Internal Modules
 
-- `app`: implements the Nive `Application` contract, owns product routing and screen updates, and temporarily uses `AppPhase` (via local `AppReadiness`), `SplashConfig`, and `minimum_splash_duration_task` for bootstrap lifecycle mechanics.
+- `app`: implements the Nive `Application` contract, configures product bootstrap assets/task, receives the successful bootstrap value in `init`, and owns product routing and screen updates.
 - `app_shell`: app-specific logical window kinds, product window dimensions/icon adapters, and transitional visual toast composition.
-- `bootstrap_screen`: startup splash and startup failure feedback before app services are available.
 - `welcome_screen`: welcome flow, project catalog UI, project creation, selection, reducers, actions, and view composition.
 - `workspace_screen`: active workspace screen boundary.
 - `client`: GUI-facing async clients that wrap `app-core` services in `iced::Task` and declare dev probe keys plus product-owned probe metadata through `devtools_derive::runtime_client`.
@@ -52,7 +51,11 @@ UI behavior should usually flow through:
 
 Keep view files focused on composition from state. Keep service calls out of views.
 
-Startup readiness is owned by `app` over runtime lifecycle primitives. The Welcome window may be opened as the initial host window, but its content must route through `AppPhase::Booting`, `AppPhase::BootFailed`, and `AppPhase::Ready`: render `bootstrap_screen` until bootstrap succeeds, create `Clients` only on success, and render/load `welcome_screen` only after `Ready`. The minimum splash duration is enforced through `SplashConfig`, `AppPhase`, and `minimum_splash_duration_task`, not through a local session struct. Fast successful bootstraps wait for the splash gate before transitioning; failures surface immediately.
+Startup readiness is owned by Nive. `app` supplies
+`BootstrapSpec<AppBootstrap>` with a repeatable task factory, brand assets and
+copy. `RagStudioApp::init` receives the successful bootstrap value, creates
+`Clients` and starts the Welcome load; no product state or product window exists
+before success.
 
 ## Testing
 

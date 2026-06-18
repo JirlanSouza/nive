@@ -29,4 +29,11 @@ deliver their task messages to the app and confirm automatically when the task
 finishes. Auxiliary windows do not keep the process alive and are closed before
 accepted exit.
 
-Bootstrap state transitions are implemented in the bootstrap slice.
+Bootstrap is an internal lifecycle rather than a product window. The runtime
+owns attempt correlation, stale-result rejection, minimum duration, pending
+success, retry, failure details and cancellation. Product code supplies a task
+factory, result type, brand assets and copy through `BootstrapSpec`.
+
+The app is created only after bootstrap succeeds. Closing the splash cancels
+the controller, ignores late results and exits without calling application
+hooks.

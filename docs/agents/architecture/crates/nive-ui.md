@@ -40,13 +40,16 @@ Current scope:
 - `widgets::animation` — animation frame, timeline, stagger, and runner primitives
 - `widgets::metadata` — `DataRow`, `KeyValueList`, and `MetadataItem` for structured metadata display
 - `focus_trap` — reusable Tab/Shift+Tab focus cycling helpers for overlay and modal widgets
+- `BootstrapView` — generic startup loading/failure template with brand assets, animated status, retry/details actions and error-details content
 
 Remaining widget primitives still in `app-gui.widgets.primitives` (product-aware or not yet generalized):
 
 ## Boundaries
 
 - Keep product-specific composite widgets (tag input, error feedback, project stat, etc.) in `app-gui.widgets.composite`; `nive-ui` owns only reusable primitives.
-- Keep product branding and brand assets out of `nive-ui`; framework theme labels should stay app-agnostic unless app-configurable naming is introduced.
+- Keep embedded product branding and brand assets out of `nive-ui`; bootstrap
+  templates accept app-provided assets and copy without depending on product
+  crates.
 - Keep visual feedback composition in `app-gui`; shared feedback state/contracts such as toasts and `ScreenUpdate` remain in `nive-runtime`.
 - Tokens must remain pure constants and pure functions with no side effects and no dependency on `app-core`, `app-models`, or any other domain crate.
 - Token modules may depend on `iced` for color, shadow, and font types only.
