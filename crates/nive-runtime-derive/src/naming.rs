@@ -12,16 +12,6 @@ pub(crate) fn label_from_snake(snake: &str) -> String {
     label
 }
 
-pub(crate) fn normalize_type(ty: &str) -> String {
-    ty.chars()
-        .filter(|ch| !ch.is_whitespace())
-        .collect::<String>()
-}
-
-pub(crate) fn is_nested_state_type(ty: &str) -> bool {
-    ty.ends_with("State") || ty.ends_with("Draft") || ty.ends_with("Selection")
-}
-
 pub(crate) fn split_words(name: &str) -> Vec<String> {
     let mut words = Vec::new();
     let mut current = String::new();
