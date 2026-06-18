@@ -4,6 +4,7 @@ mod helpers;
 pub mod host;
 pub mod panel;
 pub mod types;
+pub mod view;
 
 pub trait Devtools {}
 
@@ -24,3 +25,4 @@ pub use types::{
     DevtoolAsyncStatus, DevtoolFieldSchema, DevtoolFixture, DevtoolFixtureView,
     DevtoolOperationStatus, DevtoolOperationView, DevtoolResourceView, DevtoolStateSnapshot,
 };
+pub use view::devtools_window;
