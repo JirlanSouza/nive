@@ -1,11 +1,14 @@
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::{Mutex, MutexGuard};
 
 use iced::Padding;
 
 use super::component::{ControlMetrics, ControlMetricsScale, ControlSize};
-use super::scheme::{Theme, ACTIVE_THEME};
+use super::scheme::Theme;
 use super::spacing::{GapRole, PaddingRole, SpaceStep, SpacingScale};
-use super::ThemeMode;
+
+static ACTIVE_THEME: AtomicU8 = AtomicU8::new(Theme::Dark as u8);
+static TEST_THEME_LOCK: Mutex<()> = Mutex::new(());
 
 pub fn active() -> Theme {
     let value = ACTIVE_THEME.load(Ordering::Relaxed);
@@ -17,11 +20,7 @@ pub fn active() -> Theme {
     Theme::from_active_value(value)
 }
 
-pub fn active_mode() -> ThemeMode {
-    active().mode()
-}
-
-pub fn set_active(theme: Theme) {
+pub(super) fn set_active(theme: Theme) {
     ACTIVE_THEME.store(theme as u8, Ordering::Relaxed);
 }
 
@@ -47,4 +46,31 @@ pub fn gap(role: GapRole) -> f32 {
 
 pub fn padding(role: PaddingRole) -> Padding {
     active().padding(role)
+}
+
+#[doc(hidden)]
+pub struct ThemeTestGuard {
+    previous: Theme,
+    _lock: MutexGuard<'static, ()>,
+}
+
+impl ThemeTestGuard {
+    pub fn activate(theme: Theme) -> Self {
+        let lock = TEST_THEME_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let previous = active();
+        set_active(theme);
+
+        Self {
+            previous,
+            _lock: lock,
+        }
+    }
+}
+
+impl Drop for ThemeTestGuard {
+    fn drop(&mut self) {
+        set_active(self.previous);
+    }
 }
