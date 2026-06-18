@@ -15,9 +15,12 @@ pub mod empty_state;
 pub mod feedback;
 pub mod field;
 pub mod icon;
+pub mod initial_avatar;
 pub mod input;
 pub mod input_group;
 pub mod metadata;
+pub mod metric_card;
+pub mod operation_action_group;
 pub mod panel;
 pub mod path_input;
 pub mod popover;
@@ -37,6 +40,7 @@ pub mod text;
 pub mod toolbar;
 pub mod tooltip;
 pub mod tree_item;
+pub mod version_badge;
 
 pub use action_card::ActionCard;
 pub use animation::{
@@ -53,12 +57,20 @@ pub use color_swatch::ColorSwatch;
 pub use dialog::{Dialog, DialogActionFooter, DialogFooter, DialogHeader};
 pub use dropdown_menu::{DropdownMenu, DropdownMenuItem};
 pub use empty_state::EmptyState;
-pub use feedback::{Callout, InlineAlert, LoadingIndicator, ProgressBar, Spinner};
+pub use feedback::{
+    Callout, ErrorDetailsDialog, ErrorEmptyState, ErrorFeedback, ErrorFeedbackAction,
+    ErrorFeedbackActionRow, ErrorFeedbackCommandRole, ErrorPresentation, ErrorStatusLine,
+    InlineAlert, LoadingIndicator, OperationStatusLine, OperationStatusPresentation, ProgressBar,
+    ResourceStatusLine, ResourceStatusPresentation, Spinner,
+};
 pub use field::{Field, FieldError, FieldGroup, FieldHint, FieldLabel};
 pub use icon::{AppIcon, Icon};
+pub use initial_avatar::{AvatarClass, AvatarSize, InitialAvatar};
 pub use input::{FieldValidation, Input, TextInputAppearance};
 pub use input_group::{InputGroup, InputGroupVariant};
 pub use metadata::{DataRow, KeyValueList, MetadataItem};
+pub use metric_card::MetricCard;
+pub use operation_action_group::OperationActionGroup;
 pub use panel::Panel;
 pub use path_input::PathInput;
 pub use popover::{Popover, PopoverCollision, PopoverPlacement, PopoverWidth};
@@ -73,3 +85,4 @@ pub use switch::Switch;
 pub use tabs::{TabBar, TabItem};
 pub use toolbar::{Toolbar, ToolbarAction, ToolbarGroup};
 pub use tree_item::{OutlineTreeItem, TreeItem};
+pub use version_badge::VersionBadge;
