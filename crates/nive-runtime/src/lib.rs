@@ -54,7 +54,7 @@ pub use probe::{
 pub use request::{RequestCounter, RequestId};
 pub use screen_update::ScreenUpdate;
 pub use screen_view::ScreenView;
-pub use theme_controller::ThemeController;
+pub use theme_controller::{ThemeController, ThemeEvent};
 pub use toast::ToastRequest as Toast;
 pub use toast::{
     ToastDuration, ToastId, ToastItem, ToastMessage, ToastPosition, ToastRequest, ToastState,
@@ -82,8 +82,8 @@ pub mod prelude {
         BootstrapSpec, BrandContent, CloseDecision, CommandRejected, CommandRejectionReason,
         Context, CoreEvent, Error, ErrorCode, ExitDecision, Never, PlatformError, RequestCounter,
         RequestId, Result, RuntimeCommand, ScreenView, ShortcutMap, Size, SplashBackground,
-        Subscription, Task, ThemeController, ThemePreference, Toast, ToastPosition, Update,
-        UserFacingError, WindowCardinality, WindowCommand, WindowContext, WindowQuery, WindowRole,
-        WindowSpec,
+        Subscription, Task, ThemeController, ThemeEvent, ThemePreference, Toast, ToastPosition,
+        Update, UserFacingError, WindowCardinality, WindowCommand, WindowContext, WindowQuery,
+        WindowRole, WindowSpec,
     };
 }
