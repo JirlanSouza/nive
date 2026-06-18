@@ -44,6 +44,29 @@ where
     }
 }
 
+impl<'a, Message> ScreenView<'a, Message>
+where
+    Message: Clone + 'a,
+{
+    pub fn has_dialog(&self) -> bool {
+        self.dialog.is_some()
+    }
+
+    pub fn into_element(self) -> nive_ui::Element<'a, Message> {
+        match self.dialog {
+            Some(dialog) => {
+                let on_backdrop = dialog.dismiss.on_backdrop();
+                let on_escape = dialog.dismiss.on_escape();
+
+                nive_ui::DialogHost::new(self.content)
+                    .dialog(dialog.content, on_backdrop, on_escape)
+                    .into()
+            }
+            None => nive_ui::DialogHost::new(self.content).into(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod screen_view_tests {
     use super::*;
