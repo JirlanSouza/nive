@@ -1,9 +1,11 @@
+mod dialog_host;
 pub mod focus_trap;
 pub mod prelude;
 pub mod theme;
 pub mod tokens;
 pub mod widgets;
 
+pub use dialog_host::DialogHost;
 pub use theme::{Theme, ThemeCatalog, ThemeData, ThemeId};
 pub use tokens::color;
 pub use tokens::radius;
