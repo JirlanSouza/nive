@@ -65,7 +65,7 @@ Run the app with the Devtools auxiliary window:
 just devtools
 ```
 
-The Devtools auxiliary window is compiled by the `dev` feature and activated at runtime by `RAG_STUDIO_DEVTOOLS=1`. It stays disabled by default when the env var is absent. It shows searchable, expandable Devtools rows for failure/delay probes plus resources and operations inferred from devtool-derived screen state structs. Resource failures support both first-load and cached refresh failure modes. `just dev-error-panel` remains available as a deprecated compatibility alias for `just devtools`.
+The Devtools auxiliary window is compiled by the `dev` feature and activated at runtime by `NIVE_DEVTOOLS=1`. It stays disabled by default when the env var is absent. It shows searchable, expandable Devtools rows for failure/delay probes plus resources and operations inferred from devtool-derived screen state structs. Resource failures support both first-load and cached refresh failure modes. `just dev-error-panel` remains available as a deprecated compatibility alias for `just devtools`.
 
 List UI error scenarios:
 
