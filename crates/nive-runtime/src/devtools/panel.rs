@@ -210,11 +210,15 @@ impl Default for DevtoolsWindowSpec {
 impl DevtoolsWindowSpec {
     pub fn window_spec(self) -> WindowSpec {
         WindowSpec {
+            role: crate::WindowRole::Auxiliary,
+            cardinality: crate::WindowCardinality::Single,
             size: self.size,
             position: window::Position::Centered,
             min_size: Some(self.min_size),
             max_size: None,
             resizable: true,
+            decorations: true,
+            transparent: false,
             mode: WindowMode::Windowed,
             chrome: WindowChrome::UnifiedTitlebar,
             level: window::Level::AlwaysOnTop,
