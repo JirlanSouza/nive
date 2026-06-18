@@ -5,5 +5,5 @@ pub use crate::theme::{self, ThemePreference};
 pub use crate::widgets::*;
 pub use crate::{
     BootstrapError, BootstrapView, DialogHost, Element, Renderer, Theme, ThemeCatalog, ThemeData,
-    ThemeId,
+    ThemeId, ToastHost, ToastPosition, ToastPresentation, ToastTone,
 };
