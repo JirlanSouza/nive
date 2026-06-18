@@ -116,6 +116,14 @@ pub fn run<A: Application>() -> Result {
     program::run::<A>()
 }
 
+#[cfg(feature = "devtools")]
+pub fn run_with_devtools<A>() -> Result
+where
+    A: crate::devtools::DevtoolsApp,
+{
+    program::run_with_devtools::<A>()
+}
+
 pub struct ApplicationConfig<K, B> {
     app_id: String,
     app_name: String,

@@ -1,4 +1,7 @@
-use crate::{AsyncState, OperationState, RequestId, UserFacingError};
+use crate::{
+    Application, AsyncState, OperationState, ProbeCatalogEntry, ProbeInjectionSnapshot,
+    ProbePanelEffect, RequestId, UserFacingError,
+};
 
 use super::{
     command_input::DevtoolOperationContext, DevtoolAsyncStatus, DevtoolCommand,
@@ -38,10 +41,16 @@ pub trait DevtoolStateHost {
     }
 }
 
-pub trait DevtoolsApp {
+pub trait DevtoolsApp: Application + super::Devtools {
+    type Probe: ProbeCatalogEntry;
+
     fn devtools_snapshot(&self) -> DevtoolStateSnapshot;
 
     fn apply_devtools_command(&mut self, command: &DevtoolCommand) -> DevtoolCommandResult;
+
+    fn devtools_probe_snapshot(&self) -> ProbeInjectionSnapshot<Self::Probe>;
+
+    fn devtools_apply_probe_effect(&mut self, effect: ProbePanelEffect<Self::Probe>);
 }
 
 pub trait DevtoolValue: Clone {

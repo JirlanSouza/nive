@@ -11,10 +11,14 @@ use crate::{
 use super::{DevtoolCommand, DevtoolCommandResult, DevtoolsRowId};
 
 const DEFAULT_DEVTOOLS_ERROR: &str = "Devtools injected failure";
+const NIVE_DEVTOOLS_ENV_VAR: &str = "NIVE_DEVTOOLS";
+const NIVE_DEVTOOLS_TAB_ENV_VAR: &str = "NIVE_DEVTOOLS_TAB";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct DevtoolsConfig {
     enabled: bool,
+    initial_tab: Option<DevtoolsPanelTab>,
+    probe_env: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -113,6 +117,16 @@ pub struct DevtoolsWindowSpec {
 }
 
 impl DevtoolsConfig {
+    pub fn from_env() -> Self {
+        let mut config = Self::from_env_var(NIVE_DEVTOOLS_ENV_VAR);
+        if let Ok(tab_raw) = std::env::var(NIVE_DEVTOOLS_TAB_ENV_VAR) {
+            if let Some(tab) = parse_devtools_tab(&tab_raw) {
+                config.initial_tab = Some(tab);
+            }
+        }
+        config
+    }
+
     pub fn from_env_var(env_var: &str) -> Self {
         Self::from_env_value(std::env::var(env_var).ok().as_deref())
     }
@@ -121,9 +135,29 @@ impl DevtoolsConfig {
         self.enabled
     }
 
+    pub fn initial_tab(self) -> Option<DevtoolsPanelTab> {
+        self.initial_tab
+    }
+
+    pub fn with_initial_tab(mut self, tab: DevtoolsPanelTab) -> Self {
+        self.initial_tab = Some(tab);
+        self
+    }
+
+    pub fn probe_env(mut self, env_var: &'static str) -> Self {
+        self.probe_env = Some(env_var);
+        self
+    }
+
+    pub fn probe_env_var(self) -> Option<&'static str> {
+        self.probe_env
+    }
+
     pub fn from_env_value(value: Option<&str>) -> Self {
         Self {
             enabled: value.is_some_and(env_flag_enabled),
+            initial_tab: None,
+            probe_env: None,
         }
     }
 }
@@ -251,6 +285,17 @@ impl<P: Copy + Eq> ProbePanelState<P> {
 impl<P: ProbeCatalogEntry> DevtoolsPanelState<P> {
     pub fn from_probe_snapshot(snapshot: &ProbeInjectionSnapshot<P>) -> Self {
         Self::new(ProbePanelState::from_snapshot(snapshot))
+    }
+
+    pub fn from_probe_snapshot_with_config(
+        snapshot: &ProbeInjectionSnapshot<P>,
+        config: DevtoolsConfig,
+    ) -> Self {
+        let mut state = Self::from_probe_snapshot(snapshot);
+        if let Some(tab) = config.initial_tab() {
+            state.active_tab = tab;
+        }
+        state
     }
 }
 
@@ -462,8 +507,17 @@ impl<P: Copy + Eq> DevtoolsPanelState<P> {
 fn env_flag_enabled(value: &str) -> bool {
     matches!(
         value.trim().to_ascii_lowercase().as_str(),
-        "1" | "true" | "yes" | "y" | "on"
+        "1" | "true" | "yes" | "y" | "on" | "open"
     )
+}
+
+fn parse_devtools_tab(value: &str) -> Option<DevtoolsPanelTab> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "probes" => Some(DevtoolsPanelTab::Probes),
+        "resources" => Some(DevtoolsPanelTab::Resources),
+        "operations" => Some(DevtoolsPanelTab::Operations),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -508,13 +562,57 @@ mod tests {
 
     #[test]
     fn devtools_config_accepts_enabled_env_values() {
-        for value in ["1", "true", "yes", "y", "on", " TRUE "] {
+        for value in ["1", "true", "yes", "y", "on", "open", " TRUE "] {
             assert!(DevtoolsConfig::from_env_value(Some(value)).enabled());
         }
 
         for value in ["", "0", "false", "off", "no"] {
             assert!(!DevtoolsConfig::from_env_value(Some(value)).enabled());
         }
+    }
+
+    #[test]
+    fn devtools_config_probe_env_builder_sets_var_name() {
+        let config = DevtoolsConfig::default().probe_env("APP_DEV_ERROR");
+
+        assert_eq!(config.probe_env_var(), Some("APP_DEV_ERROR"));
+    }
+
+    #[test]
+    fn parse_devtools_tab_accepts_known_tabs_case_insensitively() {
+        assert_eq!(parse_devtools_tab("probes"), Some(DevtoolsPanelTab::Probes));
+        assert_eq!(
+            parse_devtools_tab("Resources"),
+            Some(DevtoolsPanelTab::Resources)
+        );
+        assert_eq!(
+            parse_devtools_tab(" OPERATIONS "),
+            Some(DevtoolsPanelTab::Operations)
+        );
+    }
+
+    #[test]
+    fn parse_devtools_tab_rejects_unknown_tabs() {
+        assert_eq!(parse_devtools_tab("debug"), None);
+        assert_eq!(parse_devtools_tab(""), None);
+    }
+
+    #[test]
+    fn from_probe_snapshot_with_config_applies_initial_tab() {
+        let snapshot = crate::ProbeInjectionStore::new(ProbeInjectionConfig::<TestProbe> {
+            scenarios: Vec::new(),
+            unknown: Vec::new(),
+        })
+        .snapshot();
+
+        let config = DevtoolsConfig::default()
+            .probe_env("APP_DEV_ERROR")
+            .with_initial_tab(DevtoolsPanelTab::Operations);
+        assert_eq!(config.probe_env_var(), Some("APP_DEV_ERROR"));
+
+        let state = DevtoolsPanelState::from_probe_snapshot_with_config(&snapshot, config);
+
+        assert_eq!(state.active_tab, DevtoolsPanelTab::Operations);
     }
 
     #[test]

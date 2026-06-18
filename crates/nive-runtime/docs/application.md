@@ -57,3 +57,14 @@ with visible toasts, using the configured `ToastPosition`. Auxiliary windows
 and the internal splash are not decorated. Toasts do not capture focus and may
 remain visible alongside a modal dialog. Applications emit toasts through
 `Update::toast` and never own toast state or the host widget.
+
+## Devtools Runtime
+
+With the `devtools` feature enabled, `run_with_devtools::<A>()` monomorphizes
+the runner with `A::Probe` and installs the internal Devtools host. The standard
+`run::<A>()` path uses `NoProbe` and has no Devtools runtime.
+
+The runner owns the auxiliary window, title, window policy, keyboard shortcut,
+panel message routing and command/probe effects. Devtools is closed by default;
+`Cmd+Option+I` on macOS or `Ctrl+Alt+I` on Windows/Linux opens it and focuses the
+existing window on later toggles.

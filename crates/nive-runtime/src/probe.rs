@@ -16,7 +16,7 @@ pub struct ProbeMeta {
     pub error_scope: ProbeErrorScope,
 }
 
-pub trait ProbeCatalogEntry: Copy + Eq + 'static {
+pub trait ProbeCatalogEntry: Copy + Eq + Send + 'static {
     const ALL: &'static [Self];
 
     fn meta(self) -> ProbeMeta;
@@ -31,6 +31,17 @@ pub trait ProbeCatalogEntry: Copy + Eq + 'static {
 
     fn error(self, message_override: Option<&str>) -> UserFacingError {
         self.meta().error(message_override)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NoProbe {}
+
+impl ProbeCatalogEntry for NoProbe {
+    const ALL: &'static [Self] = &[];
+
+    fn meta(self) -> ProbeMeta {
+        match self {}
     }
 }
 
