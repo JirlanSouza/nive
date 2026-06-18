@@ -2,6 +2,7 @@ mod application;
 mod async_state;
 mod bootstrap;
 mod client_task;
+mod clock;
 pub mod devtools;
 mod dialog_dismiss;
 mod dialog_request;
@@ -30,6 +31,7 @@ pub use bootstrap::{
     BackgroundFit, BackgroundPosition, BootstrapSpec, BrandContent, SplashBackground,
 };
 pub use client_task::{client_task, injected_client_task, ClientTaskInjection, ProbeEffect};
+pub use clock::{relative_time_label, unix_now};
 pub use devtools::{
     run_devtools_panel_effect, DevtoolStateCatalog, DevtoolStateHost, DevtoolsApp, DevtoolsConfig,
     DevtoolsHostState, DevtoolsPanelEffect, DevtoolsPanelMessage, DevtoolsPanelState,
@@ -83,13 +85,13 @@ pub use platform::file_picker::{pick_file, pick_files, pick_folder};
 
 pub mod prelude {
     pub use crate::{
-        keyboard_navigation_subscription, run, time, window, AppUpdate, Application,
-        ApplicationConfig, BackgroundFit, BackgroundPosition, BootstrapSpec, BrandContent,
-        CloseDecision, CommandRejected, CommandRejectionReason, Context, CoreEvent, Error,
-        ErrorCode, ExitDecision, KeyboardNavigation, Never, PlatformError, RequestCounter,
-        RequestId, Result, RuntimeCommand, ScreenView, ShortcutMap, Size, SplashBackground,
-        Subscription, Task, ThemeController, ThemeEvent, ThemePreference, Toast, ToastPosition,
-        Update, UserFacingError, WindowCardinality, WindowCommand, WindowContext, WindowQuery,
-        WindowRole, WindowSpec,
+        keyboard_navigation_subscription, relative_time_label, run, time, unix_now, window,
+        AppUpdate, Application, ApplicationConfig, BackgroundFit, BackgroundPosition,
+        BootstrapSpec, BrandContent, CloseDecision, CommandRejected, CommandRejectionReason,
+        Context, CoreEvent, Error, ErrorCode, ExitDecision, KeyboardNavigation, Never,
+        PlatformError, RequestCounter, RequestId, Result, RuntimeCommand, ScreenView, ShortcutMap,
+        Size, SplashBackground, Subscription, Task, ThemeController, ThemeEvent, ThemePreference,
+        Toast, ToastPosition, Update, UserFacingError, WindowCardinality, WindowCommand,
+        WindowContext, WindowQuery, WindowRole, WindowSpec,
     };
 }
