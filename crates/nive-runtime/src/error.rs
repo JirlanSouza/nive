@@ -1,5 +1,7 @@
 use std::fmt;
 
+use nive_ui::widgets::ErrorPresentation;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ErrorCode(String);
 
@@ -116,6 +118,20 @@ impl fmt::Display for UserFacingError {
 }
 
 impl std::error::Error for UserFacingError {}
+
+impl ErrorPresentation for UserFacingError {
+    fn summary(&self) -> &str {
+        self.summary()
+    }
+
+    fn detail(&self) -> &str {
+        self.detail()
+    }
+
+    fn has_diagnostic_detail(&self) -> bool {
+        self.has_diagnostic_detail()
+    }
+}
 
 fn error_summary(detail: &str) -> &str {
     detail

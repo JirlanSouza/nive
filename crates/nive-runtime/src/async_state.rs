@@ -1,4 +1,5 @@
 use crate::UserFacingError;
+use nive_ui::widgets::{ErrorPresentation, ResourceStatusPresentation};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum AsyncState<T> {
@@ -90,9 +91,24 @@ impl<T> AsyncState<T> {
     }
 }
 
+impl<T> ResourceStatusPresentation for AsyncState<T> {
+    fn is_refreshing(&self) -> bool {
+        matches!(self, Self::Loading { value: Some(_) })
+    }
+
+    fn has_value(&self) -> bool {
+        self.value().is_some()
+    }
+
+    fn error(&self) -> Option<&dyn ErrorPresentation> {
+        self.error().map(|error| error as &dyn ErrorPresentation)
+    }
+}
+
 #[cfg(test)]
 mod async_state_tests {
     use super::*;
+    use nive_ui::widgets::ResourceStatusPresentation;
 
     #[test]
     fn set_loaded_updates_value_and_clears_error() {
@@ -186,5 +202,31 @@ mod async_state_tests {
         state.dismiss_error();
 
         assert_eq!(state, AsyncState::Idle);
+    }
+
+    #[test]
+    fn resource_presentation_distinguishes_refresh_from_initial_load() {
+        let refreshing = AsyncState::Loading {
+            value: Some("cached"),
+        };
+        let loading = AsyncState::<&str>::Loading { value: None };
+
+        assert!(ResourceStatusPresentation::is_refreshing(&refreshing));
+        assert!(!ResourceStatusPresentation::is_refreshing(&loading));
+        assert!(ResourceStatusPresentation::has_value(&refreshing));
+        assert!(!ResourceStatusPresentation::has_value(&loading));
+    }
+
+    #[test]
+    fn resource_presentation_exposes_failed_error() {
+        let state = AsyncState::<&str>::Failed {
+            value: Some("cached"),
+            error: UserFacingError::custom("project_catalog", "Refresh failed"),
+        };
+
+        assert_eq!(
+            ResourceStatusPresentation::error(&state).map(ErrorPresentation::summary),
+            Some("Refresh failed")
+        );
     }
 }
