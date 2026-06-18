@@ -233,36 +233,31 @@ pub(super) fn async_status_view<'a, Message>(status: &DevtoolAsyncStatus) -> Ele
 where
     Message: Clone + 'a,
 {
-    let detail = match status {
-        DevtoolAsyncStatus::Idle => None,
-        DevtoolAsyncStatus::Loading { has_value } => has_value.then_some("preserving cached value"),
-        DevtoolAsyncStatus::Loaded => None,
-        DevtoolAsyncStatus::Failed { has_value, summary } => {
-            return column![
-                Badge::danger("Failed").xs(),
-                nive_ui::widgets::text::caption(if *has_value {
-                    format!("{summary} · cached")
-                } else {
-                    summary.clone()
-                }),
-            ]
-            .spacing(theme::gap(GapRole::Tight))
-            .into();
-        }
-    };
-
-    let badge: Element<'a, Message> = match status {
+    match status {
         DevtoolAsyncStatus::Idle => Badge::neutral("Idle").xs().into(),
-        DevtoolAsyncStatus::Loading { .. } => Badge::info("Loading").xs().into(),
+        DevtoolAsyncStatus::Loading { has_value } => {
+            let badge: Element<'a, Message> = Badge::info("Loading").xs().into();
+            match has_value {
+                true => column![
+                    badge,
+                    nive_ui::widgets::text::caption("preserving cached value")
+                ]
+                .spacing(theme::gap(GapRole::Tight))
+                .into(),
+                false => badge,
+            }
+        }
         DevtoolAsyncStatus::Loaded => Badge::success("Loaded").xs().into(),
-        DevtoolAsyncStatus::Failed { .. } => unreachable!(),
-    };
-
-    match detail {
-        Some(detail) => column![badge, nive_ui::widgets::text::caption(detail)]
-            .spacing(theme::gap(GapRole::Tight))
-            .into(),
-        None => badge,
+        DevtoolAsyncStatus::Failed { has_value, summary } => column![
+            Badge::danger("Failed").xs(),
+            nive_ui::widgets::text::caption(if *has_value {
+                format!("{summary} · cached")
+            } else {
+                summary.clone()
+            }),
+        ]
+        .spacing(theme::gap(GapRole::Tight))
+        .into(),
     }
 }
 
