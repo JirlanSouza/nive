@@ -1,0 +1,5 @@
+error: AsyncState fields require `#[devtool(fixtures = path::to::provider)]`
+  --> tests/ui/fail/state_missing_fixtures.rs:15:15
+   |
+15 |     resource: AsyncState<String>,
+   |               ^^^^^^^^^^^^^^^^^^

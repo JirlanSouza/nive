@@ -1,167 +1,173 @@
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::{LitStr, Path};
+
 use crate::{
-    naming::{is_nested_state_type, label_from_snake, normalize_type},
-    parse::{ParsedField, ParsedStruct, StructFields},
+    naming::label_from_snake,
+    parse::{FieldKind, ParsedField, ParsedStruct, StructFields},
 };
 
-pub(crate) fn expand_state_catalog(parsed: ParsedStruct, devtools_path: &str) -> String {
-    let StructFields::Named(fields) = &parsed.fields else {
-        return format!(
-            r#"
-impl {devtools_path}::DevtoolStateCatalog for {name} {{}}
-"#,
-            devtools_path = devtools_path,
-            name = parsed.name,
-        );
+pub(crate) fn expand_state_catalog(parsed: ParsedStruct, devtools_path: &Path) -> TokenStream {
+    let ParsedStruct {
+        ident,
+        generics,
+        fields,
+    } = parsed;
+    let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
+
+    let StructFields::Named(fields) = fields else {
+        return quote! {
+            impl #impl_generics #devtools_path::DevtoolStateCatalog
+                for #ident #type_generics #where_clause
+            {}
+        };
     };
 
     let collect_fields = fields
         .iter()
-        .filter_map(state_field_kind)
-        .map(|(field, kind)| state_collect_expr(field, kind, devtools_path))
-        .collect::<Vec<_>>()
-        .join("");
+        .filter(|field| !matches!(field.kind, FieldKind::Ignored))
+        .map(|field| state_collect_expr(field, devtools_path));
     let apply_fields = fields
         .iter()
-        .filter_map(state_field_kind)
-        .map(|(field, kind)| state_apply_expr(field, kind, devtools_path))
-        .collect::<Vec<_>>()
-        .join("");
+        .filter(|field| !matches!(field.kind, FieldKind::Ignored))
+        .map(|field| state_apply_expr(field, devtools_path));
 
-    format!(
-        r#"
-impl {devtools_path}::DevtoolStateCatalog for {name} {{
-    fn devtool_collect(&self, scope: &str, snapshot: &mut {devtools_path}::DevtoolStateSnapshot) {{
-        {collect_fields}
-    }}
+    quote! {
+        impl #impl_generics #devtools_path::DevtoolStateCatalog
+            for #ident #type_generics #where_clause
+        {
+            fn devtool_collect(
+                &self,
+                scope: &str,
+                snapshot: &mut #devtools_path::DevtoolStateSnapshot,
+            ) {
+                #(#collect_fields)*
+            }
 
-    fn devtool_apply(&mut self, scope: &str, command: &{devtools_path}::DevtoolCommand) -> {devtools_path}::DevtoolCommandResult {{
-        {apply_fields}
-        {devtools_path}::DevtoolCommandResult::not_handled()
-    }}
-}}
-"#,
-        devtools_path = devtools_path,
-        name = parsed.name,
-        collect_fields = collect_fields,
-        apply_fields = apply_fields,
-    )
+            fn devtool_apply(
+                &mut self,
+                scope: &str,
+                command: &#devtools_path::DevtoolCommand,
+            ) -> #devtools_path::DevtoolCommandResult {
+                #(#apply_fields)*
+                #devtools_path::DevtoolCommandResult::not_handled()
+            }
+        }
+    }
 }
 
 pub(crate) fn expand_state_host(
     parsed: ParsedStruct,
-    devtools_path: &str,
-) -> Result<String, String> {
-    let StructFields::Named(fields) = &parsed.fields else {
-        return Err("DevtoolStateHost requires a named-field struct".to_string());
+    devtools_path: &Path,
+) -> syn::Result<TokenStream> {
+    let ParsedStruct {
+        ident,
+        generics,
+        fields,
+    } = parsed;
+    let StructFields::Named(fields) = fields else {
+        return Err(syn::Error::new_spanned(
+            ident,
+            "DevtoolStateHost requires a named-field struct",
+        ));
     };
-
     let field = fields
         .iter()
-        .find(|field| field.name == "state")
-        .ok_or_else(|| "DevtoolStateHost expected a field named `state`".to_string())?;
+        .find(|field| field.ident == "state")
+        .ok_or_else(|| {
+            syn::Error::new_spanned(&ident, "DevtoolStateHost expected a field named `state`")
+        })?;
+    let state_ty = &field.ty;
+    let state_field = &field.ident;
+    let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
 
-    Ok(format!(
-        r#"
-impl {devtools_path}::DevtoolStateHost for {name} {{
-    type State = {state_ty};
+    Ok(quote! {
+        impl #impl_generics #devtools_path::DevtoolStateHost
+            for #ident #type_generics #where_clause
+        {
+            type State = #state_ty;
 
-    fn devtool_state(&self) -> &Self::State {{
-        &self.{state_field}
-    }}
+            fn devtool_state(&self) -> &Self::State {
+                &self.#state_field
+            }
 
-    fn devtool_state_mut(&mut self) -> &mut Self::State {{
-        &mut self.{state_field}
-    }}
-}}
-"#,
-        devtools_path = devtools_path,
-        name = parsed.name,
-        state_ty = field.ty,
-        state_field = field.name,
-    ))
+            fn devtool_state_mut(&mut self) -> &mut Self::State {
+                &mut self.#state_field
+            }
+        }
+    })
 }
 
-#[derive(Debug, Clone, Copy)]
-enum StateFieldKind {
-    Async,
-    Operation,
-    Nested,
-}
+fn state_collect_expr(field: &ParsedField, devtools_path: &Path) -> TokenStream {
+    let name = &field.ident;
+    let field_name = LitStr::new(&name.to_string(), name.span());
+    let label = LitStr::new(&label_from_snake(&name.to_string()), name.span());
+    let path = quote!(#devtools_path::join_path(scope, #field_name));
 
-fn state_field_kind(field: &ParsedField) -> Option<(&ParsedField, StateFieldKind)> {
-    let ty = normalize_type(&field.ty);
-
-    if ty.starts_with("AsyncState<") {
-        Some((field, StateFieldKind::Async))
-    } else if ty.starts_with("OperationState<") {
-        Some((field, StateFieldKind::Operation))
-    } else if is_nested_state_type(&ty) {
-        Some((field, StateFieldKind::Nested))
-    } else {
-        None
+    match &field.kind {
+        FieldKind::Async { fixtures } => quote! {
+            let path = #path;
+            #devtools_path::collect_async_state_field(
+                &self.#name,
+                &path,
+                #label,
+                snapshot,
+                #fixtures(&path),
+            );
+        },
+        FieldKind::Operation => quote! {
+            let path = #path;
+            #devtools_path::collect_operation_state_field(
+                &self.#name,
+                &path,
+                #label,
+                snapshot,
+            );
+        },
+        FieldKind::Nested => quote! {
+            let path = #path;
+            #devtools_path::DevtoolStateCatalog::devtool_collect(
+                &self.#name,
+                &path,
+                snapshot,
+            );
+        },
+        FieldKind::Ignored => TokenStream::new(),
     }
 }
 
-fn state_collect_expr(field: &ParsedField, kind: StateFieldKind, devtools_path: &str) -> String {
-    let path = field_path_expr(&field.name, devtools_path);
-    let label = label_from_snake(&field.name);
+fn state_apply_expr(field: &ParsedField, devtools_path: &Path) -> TokenStream {
+    let name = &field.ident;
+    let field_name = LitStr::new(&name.to_string(), name.span());
+    let path = quote!(#devtools_path::join_path(scope, #field_name));
 
-    match kind {
-        StateFieldKind::Async | StateFieldKind::Operation => format!(
-            r#"
-        let path = {path};
-        <{ty} as {devtools_path}::DevtoolStateField>::devtool_collect_field(&self.{name}, &path, "{label}", snapshot);
-"#,
-            path = path,
-            ty = field.ty,
-            devtools_path = devtools_path,
-            name = field.name,
-            label = label,
-        ),
-        StateFieldKind::Nested => format!(
-            r#"
-        let path = {path};
-        {devtools_path}::DevtoolStateCatalog::devtool_collect(&self.{name}, &path, snapshot);
-"#,
-            path = path,
-            devtools_path = devtools_path,
-            name = field.name,
-        ),
-    }
-}
+    let apply = match &field.kind {
+        FieldKind::Async { fixtures } => quote! {
+            #devtools_path::apply_async_state_field(
+                &mut self.#name,
+                &path,
+                command,
+                || #fixtures(&path),
+            )
+        },
+        FieldKind::Operation => quote! {
+            #devtools_path::apply_operation_state_field(&mut self.#name, &path, command)
+        },
+        FieldKind::Nested => quote! {
+            #devtools_path::DevtoolStateCatalog::devtool_apply(
+                &mut self.#name,
+                &path,
+                command,
+            )
+        },
+        FieldKind::Ignored => return TokenStream::new(),
+    };
 
-fn state_apply_expr(field: &ParsedField, kind: StateFieldKind, devtools_path: &str) -> String {
-    let path = field_path_expr(&field.name, devtools_path);
-
-    match kind {
-        StateFieldKind::Async | StateFieldKind::Operation => format!(
-            r#"
-        let path = {path};
-        let result = <{ty} as {devtools_path}::DevtoolStateField>::devtool_apply_field(&mut self.{name}, &path, command);
-        if result.handled() {{
+    quote! {
+        let path = #path;
+        let result = #apply;
+        if result.handled() {
             return result;
-        }}
-"#,
-            path = path,
-            ty = field.ty,
-            devtools_path = devtools_path,
-            name = field.name,
-        ),
-        StateFieldKind::Nested => format!(
-            r#"
-        let path = {path};
-        let result = {devtools_path}::DevtoolStateCatalog::devtool_apply(&mut self.{name}, &path, command);
-        if result.handled() {{
-            return result;
-        }}
-"#,
-            path = path,
-            devtools_path = devtools_path,
-            name = field.name,
-        ),
+        }
     }
-}
-
-fn field_path_expr(field_name: &str, devtools_path: &str) -> String {
-    format!(r#"{devtools_path}::join_path(scope, "{field_name}")"#)
 }

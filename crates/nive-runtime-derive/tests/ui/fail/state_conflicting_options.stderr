@@ -1,0 +1,5 @@
+error: `nested` and `fixtures` cannot be combined
+  --> tests/ui/fail/state_conflicting_options.rs:20:15
+   |
+20 |     resource: AsyncState<String>,
+   |               ^^^^^^^^^^^^^^^^^^
