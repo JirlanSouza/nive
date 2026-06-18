@@ -43,3 +43,17 @@ when the effective theme changes.
 Only `ThemeController` synchronizes the global `nive-ui` active-theme snapshot.
 Application code must not call Iced system-theme APIs or mutate the snapshot
 directly.
+
+## Toast Runtime
+
+The runner owns the toast queue, expiration timers, hover pause/resume and
+manual dismiss. `RuntimeCommand::Toast` (built via `Update::toast`) enqueues a
+`ToastRequest`; the runtime assigns identity and tracks expiry internally. A
+time subscription ticks only while toasts are visible, expiring due items and
+pausing expiration while the host is hovered.
+
+The runner applies `nive-ui`'s `ToastHost` automatically to app-role windows
+with visible toasts, using the configured `ToastPosition`. Auxiliary windows
+and the internal splash are not decorated. Toasts do not capture focus and may
+remain visible alongside a modal dialog. Applications emit toasts through
+`Update::toast` and never own toast state or the host widget.
