@@ -2,7 +2,7 @@
 # App-specific justfiles should set variables and call these recipes.
 
 # Build an app package, run the binary, and watch terminal keys for reload/quit.
-# Set RAG_STUDIO_APP_GUI_FEATURES, RAG_STUDIO_DEV_ERROR, or RAG_STUDIO_DEVTOOLS
+# Set RAG_STUDIO_APP_GUI_FEATURES, RAG_STUDIO_DEV_ERROR, or NIVE_DEVTOOLS
 # before calling this recipe to enable dev features.
 app-dev package binary features_env:
     #!/usr/bin/env bash
@@ -54,8 +54,8 @@ app-dev package binary features_env:
       if [ -n "${RAG_STUDIO_DEV_ERROR:-}" ]; then
         printf 'Dev probes enabled: %s\n' "$RAG_STUDIO_DEV_ERROR"
       fi
-      if [ -n "${RAG_STUDIO_DEVTOOLS:-}" ]; then
-        printf 'Devtools window enabled: %s\n' "$RAG_STUDIO_DEVTOOLS"
+      if [ -n "${NIVE_DEVTOOLS:-}" ]; then
+        printf 'Devtools window enabled: %s\n' "$NIVE_DEVTOOLS"
       fi
       ./target/debug/{{ binary }} 2>&1 &
       app_pid=$!
@@ -104,7 +104,7 @@ app-dev package binary features_env:
 
 # Run dev loop with dev feature and devtools env.
 app-devtools package binary:
-    RAG_STUDIO_APP_GUI_FEATURES="dev" RAG_STUDIO_DEVTOOLS=1 just app-dev {{ package }} {{ binary }} "dev"
+    RAG_STUDIO_APP_GUI_FEATURES="dev" NIVE_DEVTOOLS=1 just app-dev {{ package }} {{ binary }} "dev"
 
 # Run dev loop with dev feature and a UI error scenario.
 app-dev-error package binary scenario:
