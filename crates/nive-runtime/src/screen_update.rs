@@ -1,7 +1,7 @@
 use iced::Task;
 
 #[derive(Debug)]
-pub struct ScreenUpdate<Message, Outcome, Toast> {
+pub struct ScreenUpdate<Message, Outcome, Toast = crate::ToastRequest> {
     pub task: Task<Message>,
     pub outcome: Option<Outcome>,
     pub toasts: Vec<Toast>,
