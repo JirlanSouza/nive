@@ -10,9 +10,9 @@
 - `app_shell`: app-specific logical window kinds, product window dimensions/icon adapters, and screen update/view compatibility helpers.
 - `welcome_screen`: welcome flow, project catalog UI, project creation, selection, reducers, actions, and view composition.
 - `workspace_screen`: active workspace screen boundary.
-- `client`: GUI-facing async clients that wrap `app-core` services in `iced::Task` and declare dev probe keys plus product-owned probe metadata through `devtools_derive::runtime_client`.
+- `client`: GUI-facing async clients that wrap `app-core` services in `iced::Task` and declare dev probe keys plus product-owned probe metadata through `nive_runtime::runtime_client`.
 - `platform`: app icon bytes plus thin calls/re-exports over `nive-runtime::platform` for app icon installation and the currently used folder picker.
-- `dev`: app-specific devtools host adapter for app-domain fixture sources, probe env ownership, probe store application, and UI composition over runtime devtools host/panel state. Implements `DevtoolsApp` for `RagStudioApp` to provide snapshot and command application hooks through the runtime trait contract.
+- `dev`: app-domain fixture adapters, probe env/store ownership and the `DevtoolsApp` hooks that provide state snapshots plus command/probe application to the runtime.
 - `theme`: compatibility re-export facade for `nive-ui::theme`.
 - `widgets`: product-aware composite widgets plus a thin compatibility surface over extracted `nive-ui` primitives. Private primitive facades have been collapsed into direct `nive_ui` re-exports; only product assets such as `brand_mark` remain under local primitives.
 - `ui_state`: compatibility facade for runtime-owned async state, operation state, request IDs, and user-facing errors.
@@ -78,8 +78,8 @@ Do:
   dialog decoration and keyboard navigation instead of local modal or focus
   infrastructure
 - emit toasts through `AppUpdate::toast`; Nive owns toast state, expiration, hover pause, dismiss, and applies the `ToastHost` overlay automatically to app-role windows
-- keep devtools host state, panel reducers/effect handling, command result recording, probe-effect branching, sidecar window opening/title/spec policy, generic state-field mutation helpers, injected failure errors, and generic window specs in `nive-runtime`; app-gui should only provide app icon adaptation, view adapter, app-domain fixture source adapter, probe env ownership, Iced view composition, and the `DevtoolsApp` impl for snapshot/command routing until lifecycle extraction
-- keep client probe declarations on client impls with `devtools_derive::runtime_client`; `UiErrorProbe` should preserve app-owned metadata such as bootstrap and wrap runtime `ComposedProbeId` values rather than manually modeling client probe variants
+- keep devtools host state, generic view, panel reducers/effect handling, command result recording, auxiliary window lifecycle/title/spec/shortcut, generic state-field mutation helpers, injected failure errors, and generic window specs in `nive-runtime`; app-gui provides only app-domain fixture adapters, probe metadata/env/store ownership and the `DevtoolsApp` snapshot/command/probe hooks
+- keep client probe declarations on client impls with `nive_runtime::runtime_client`; `UiErrorProbe` should preserve app-owned metadata such as bootstrap and wrap runtime `ComposedProbeId` values rather than manually modeling client probe variants
 
 Do not:
 

@@ -11,7 +11,7 @@ Current scope:
 - `Update`, `AppUpdate`, and `RuntimeCommand` — ordered task and runtime-effect composition
 - `BootstrapSpec` and the private bootstrap controller — repeatable task attempts, stale-result rejection, minimum splash duration, pending success, retry, failure details, cancellation and transfer into `Application::init`
 - `client_task`, `injected_client_task`, `ClientTaskInjection`, and `ProbeEffect`
-- `devtools` command, input schema, state snapshot, host state, panel config/state/message/effect reducer and effect runner, sidecar window spec/title/opening helpers, resource/operation view models, state-field collection/application helpers, and `DevtoolStateCatalog`, `DevtoolStateHost`, and `DevtoolsApp` host trait contracts
+- `devtools` command, input schema, state snapshot, host state, generic view, panel config/state/message/effect reducer and effect runner, auxiliary window lifecycle/title/shortcut, resource/operation view models, state-field collection/application helpers, and `DevtoolStateCatalog`, `DevtoolStateHost`, and `DevtoolsApp` host trait contracts
 - `DialogDismiss` and `DialogRequest`
 - `focus_trap` compatibility exports from `nive-ui` — `FocusDirection`, `direction_from_event`, `direction_from_keyboard_event`
 - `OperationState`
@@ -27,7 +27,7 @@ Current scope:
 ## Boundaries
 
 - Keep concrete `app-core` and `app-models` clients out of this crate until a domain-specific extraction is intentionally planned.
-- Keep app-specific probe metadata, env var ownership, concrete probe store application, and the local `ProbeCatalogEntry` implementation in `app-gui`; composed app/generated probe IDs, generated metadata aggregation, generic devtools/probe panel state, reducer/effect handling, sidecar window spec/opening/title policy, injection store, and key/name lookup stay in this crate.
+- Keep app-specific probe metadata, env var ownership, concrete probe store application, and the local `ProbeCatalogEntry` implementation in `app-gui`; composed app/generated probe IDs, generated metadata aggregation, generic devtools/probe panel state and view, reducer/effect handling, auxiliary window lifecycle/spec/title/shortcut, injection store, and key/name lookup stay in this crate.
 - Keep proc-macro declarations in `nive-runtime-derive`; runtime owns the generated target contracts. The derive crate generates paths against `nive_runtime::devtools` by default; app code may use `#[devtools_path("crate::dev::devtools")]` to redirect to an app-owned trait adapter.
 - Keep app-domain fixture registration in `app-gui` through an app-owned fixture source trait (`DevtoolFixtureSource`); direct impls for `Vec<ProjectInfo>` and `Vec<Tag>` must stay with an app-owned trait because runtime-owned trait impls for those types violate the orphan rule. The derive attribute `devtools_path` allows app-gui to route generated code through its local adapter.
 - `DevtoolValue` — generic fixture source trait for async resource devtools values; app-domain types (like `Vec<ProjectInfo>`) cannot implement this directly due to the orphan rule and use an app-owned fixture source adapter instead
