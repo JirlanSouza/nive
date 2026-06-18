@@ -18,6 +18,8 @@ mod toast;
 mod update;
 mod window_shell;
 
+#[cfg(feature = "devtools")]
+pub use application::run_with_devtools;
 pub use application::{
     run, Application, ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason,
     Context, CoreEvent, Error, ExitDecision, PlatformError, Result, ShortcutMap, WindowCommand,
@@ -46,7 +48,7 @@ pub use operation_state::OperationState;
 pub use platform::file_picker::{FileFilter, PickFileParams};
 pub use probe::{
     composed_probe_ids, parse_probe_config, probe_catalog_items, probe_catalog_keys,
-    probe_drafts_from_snapshot, update_probe_drafts, ComposedProbeId, ProbeCatalogEntry,
+    probe_drafts_from_snapshot, update_probe_drafts, ComposedProbeId, NoProbe, ProbeCatalogEntry,
     ProbeCatalogItem, ProbeDraft, ProbeErrorScope, ProbeInjectionConfig, ProbeInjectionSnapshot,
     ProbeInjectionStore, ProbeMeta, ProbeMetaCatalog, ProbePanelEffect, ProbePanelMessage,
     ProbeRuntimeConfig, ProbeScenarioConfig, ProbeScenarioSnapshot,
@@ -70,7 +72,10 @@ pub use iced::{window, Size, Subscription, Task};
 pub use nive_ui::theme::ThemePreference;
 
 #[cfg(feature = "devtools")]
-pub use nive_runtime_derive::Devtools;
+pub use nive_runtime_derive::{
+    runtime_client, DevtoolOperationContext, DevtoolStateCatalog, DevtoolStateHost, Devtools,
+    UiErrorProbeCatalog,
+};
 
 pub use platform::app_icon;
 #[cfg(feature = "file-picker")]

@@ -1,6 +1,8 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+#[cfg(feature = "devtools")]
+use iced::keyboard;
 use iced::{window, ContentFit, Subscription, Task};
 
 use super::{
@@ -8,19 +10,40 @@ use super::{
     Context, CoreEvent, Error, ExitDecision, Result, WindowCommand, WindowContext, WindowQuery,
 };
 use crate::bootstrap::{minimum_duration_task, BootstrapController, BootstrapTransition};
+#[cfg(feature = "devtools")]
+use crate::devtools::DevtoolsPanelMessage;
+use crate::devtools::{DevtoolsConfig, DevtoolsHostState, DevtoolsWindowSpec};
 use crate::{
-    AppUpdate, BootstrapSpec, DialogRequest, RuntimeCommand, ScreenView, ThemeController,
-    ThemeEvent, ToastId, ToastPosition, ToastState, UserFacingResult, WindowCardinality,
-    WindowChrome, WindowHandle, WindowMode, WindowRegistry, WindowRole, WindowSpec,
+    AppUpdate, BootstrapSpec, DialogRequest, NoProbe, ProbeCatalogEntry, RuntimeCommand,
+    ScreenView, ThemeController, ThemeEvent, ToastId, ToastPosition, ToastState, UserFacingResult,
+    WindowCardinality, WindowChrome, WindowHandle, WindowMode, WindowRegistry, WindowRole,
+    WindowSpec,
 };
 
 const TOAST_TICK_INTERVAL: Duration = Duration::from_millis(500);
 
 pub(super) fn run<A: Application>() -> Result {
+    run_inner::<A, NoProbe>(None)
+}
+
+#[cfg(feature = "devtools")]
+pub(super) fn run_with_devtools<A>() -> Result
+where
+    A: crate::devtools::DevtoolsApp,
+{
+    let devtools = DevtoolsRuntime::<A, A::Probe>::new(DevtoolsConfig::from_env());
+    run_inner::<A, A::Probe>(Some(devtools))
+}
+
+fn run_inner<A, P>(devtools: Option<DevtoolsRuntime<A, P>>) -> Result
+where
+    A: Application,
+    P: ProbeCatalogEntry,
+{
     let config = A::config();
     let fonts = config.fonts.clone();
     let default_font = config.default_font;
-    let (program, initial_task) = Program::<A>::new(config)?;
+    let (program, initial_task) = Program::<A, P>::new(config, devtools)?;
     let boot = Mutex::new(Some((program, initial_task)));
 
     let mut daemon = iced::daemon(
@@ -30,12 +53,12 @@ pub(super) fn run<A: Application>() -> Result {
                 .take()
                 .unwrap_or_else(|| panic!("Nive program booted more than once"))
         },
-        Program::<A>::update,
-        Program::<A>::view,
+        Program::<A, P>::update,
+        Program::<A, P>::view,
     )
-    .title(Program::<A>::title)
-    .theme(Program::<A>::theme)
-    .subscription(Program::<A>::subscription)
+    .title(Program::<A, P>::title)
+    .theme(Program::<A, P>::theme)
+    .subscription(Program::<A, P>::subscription)
     .default_font(default_font);
 
     for font in fonts {
@@ -45,26 +68,69 @@ pub(super) fn run<A: Application>() -> Result {
     daemon.run().map_err(Error::from)
 }
 
-struct Program<A: Application> {
+struct Program<A: Application, P: ProbeCatalogEntry = NoProbe> {
     core: NiveCore<A::Window>,
     app: Option<A>,
     bootstrap: Option<BootstrapRuntime<A::Bootstrap>>,
+    devtools: Option<DevtoolsRuntime<A, P>>,
 }
 
-type RuntimeMessage<A> = NiveMessage<
+struct DevtoolsRuntime<A: Application, P: ProbeCatalogEntry> {
+    host: DevtoolsHostState<P>,
+    window_id: Option<window::Id>,
+    start_open: bool,
+    config: DevtoolsConfig,
+    #[cfg(feature = "devtools")]
+    snapshot: fn(&A) -> crate::devtools::DevtoolStateSnapshot,
+    #[cfg(feature = "devtools")]
+    apply_command:
+        fn(&mut A, &crate::devtools::DevtoolCommand) -> crate::devtools::DevtoolCommandResult,
+    probe_snapshot: fn(&A) -> crate::ProbeInjectionSnapshot<P>,
+    #[cfg(feature = "devtools")]
+    apply_probe_effect: fn(&mut A, crate::ProbePanelEffect<P>),
+}
+
+#[cfg(feature = "devtools")]
+impl<A> DevtoolsRuntime<A, A::Probe>
+where
+    A: crate::devtools::DevtoolsApp,
+{
+    fn new(config: DevtoolsConfig) -> Self {
+        Self {
+            host: DevtoolsHostState::disabled(),
+            window_id: None,
+            start_open: config.enabled(),
+            config,
+            #[cfg(feature = "devtools")]
+            snapshot: A::devtools_snapshot,
+            #[cfg(feature = "devtools")]
+            apply_command: A::apply_devtools_command,
+            probe_snapshot: A::devtools_probe_snapshot,
+            #[cfg(feature = "devtools")]
+            apply_probe_effect: A::devtools_apply_probe_effect,
+        }
+    }
+}
+
+type RuntimeMessage<A, P = NoProbe> = NiveMessage<
     <A as Application>::Window,
     <A as Application>::Message,
     <A as Application>::Bootstrap,
+    P,
 >;
-type ProgramBoot<A> = (Program<A>, Task<RuntimeMessage<A>>);
+type ProgramBoot<A, P> = (Program<A, P>, Task<RuntimeMessage<A, P>>);
 
-enum NiveMessage<K, M, B> {
+enum NiveMessage<K, M, B, P> {
     Core(CoreMessage<K>),
     Bootstrap(BootstrapMessage<B>),
     App {
         window_id: Option<window::Id>,
         message: M,
     },
+    #[cfg(feature = "devtools")]
+    Devtools(DevtoolsPanelMessage<P>),
+    #[cfg(not(feature = "devtools"))]
+    Probe(std::marker::PhantomData<P>),
 }
 
 #[derive(Debug, Clone)]
@@ -81,6 +147,8 @@ enum CoreMessage<K> {
     ToastHoverEntered,
     ToastHoverLeft,
     ToastTick(Instant),
+    #[cfg(feature = "devtools")]
+    ToggleDevtools,
 }
 
 enum BootstrapMessage<B> {
@@ -111,10 +179,11 @@ struct BootstrapRuntime<B> {
     window_id: window::Id,
 }
 
-impl<K, M, B> Clone for NiveMessage<K, M, B>
+impl<K, M, B, P> Clone for NiveMessage<K, M, B, P>
 where
     K: Clone,
     M: Clone,
+    P: Clone,
 {
     fn clone(&self) -> Self {
         match self {
@@ -124,6 +193,10 @@ where
                 window_id: *window_id,
                 message: message.clone(),
             },
+            #[cfg(feature = "devtools")]
+            Self::Devtools(message) => Self::Devtools(message.clone()),
+            #[cfg(not(feature = "devtools"))]
+            Self::Probe(marker) => Self::Probe(*marker),
         }
     }
 }
@@ -157,11 +230,15 @@ struct NiveCore<K> {
     toasts_hovered: bool,
 }
 
-impl<A> Program<A>
+impl<A, P> Program<A, P>
 where
     A: Application,
+    P: ProbeCatalogEntry,
 {
-    fn new(mut config: ApplicationConfig<A::Window, A::Bootstrap>) -> Result<ProgramBoot<A>> {
+    fn new(
+        mut config: ApplicationConfig<A::Window, A::Bootstrap>,
+        devtools: Option<DevtoolsRuntime<A, P>>,
+    ) -> Result<ProgramBoot<A, P>> {
         let core = NiveCore::new(&config);
         let theme_task = core
             .theme
@@ -171,6 +248,7 @@ where
             core,
             app: None,
             bootstrap: None,
+            devtools,
         };
 
         let startup_task = if let Some(bootstrap) = config.immediate_bootstrap.take() {
@@ -184,7 +262,7 @@ where
         Ok((program, Task::batch([startup_task, theme_task])))
     }
 
-    fn update(&mut self, message: RuntimeMessage<A>) -> Task<RuntimeMessage<A>> {
+    fn update(&mut self, message: RuntimeMessage<A, P>) -> Task<RuntimeMessage<A, P>> {
         match message {
             NiveMessage::Core(message) => self.update_core(message),
             NiveMessage::Bootstrap(message) => self.update_bootstrap(message),
@@ -197,16 +275,25 @@ where
                 let update = app.update(context, window, message);
                 self.apply_update(update)
             }
+            #[cfg(feature = "devtools")]
+            NiveMessage::Devtools(message) => self.update_devtools(message),
+            #[cfg(not(feature = "devtools"))]
+            NiveMessage::Probe(_) => Task::none(),
         }
     }
 
-    fn view(&self, window_id: window::Id) -> nive_ui::Element<'_, RuntimeMessage<A>> {
+    fn view(&self, window_id: window::Id) -> nive_ui::Element<'_, RuntimeMessage<A, P>> {
         if self
             .bootstrap
             .as_ref()
             .is_some_and(|bootstrap| bootstrap.window_id == window_id)
         {
             return self.bootstrap_view();
+        }
+
+        #[cfg(feature = "devtools")]
+        if self.is_devtools_window(window_id) {
+            return self.devtools_view();
         }
 
         let Some(window) = self.core.window_context(window_id) else {
@@ -249,6 +336,10 @@ where
             return self.core.app_name.clone();
         }
 
+        if self.is_devtools_window(window_id) {
+            return DevtoolsWindowSpec::title_for_app(&self.core.app_name);
+        }
+
         self.core
             .window_context(window_id)
             .and_then(|window| {
@@ -263,7 +354,7 @@ where
         self.core.theme.effective()
     }
 
-    fn subscription(&self) -> Subscription<RuntimeMessage<A>> {
+    fn subscription(&self) -> Subscription<RuntimeMessage<A, P>> {
         let window_events = window::events().filter_map(|(window_id, event)| match event {
             window::Event::Closed => Some(NiveMessage::Core(CoreMessage::WindowClosed(window_id))),
             window::Event::Focused => {
@@ -296,11 +387,20 @@ where
         } else {
             Subscription::none()
         };
+        let subscriptions = vec![window_events, theme, app, toasts];
+        #[cfg(feature = "devtools")]
+        let subscriptions = {
+            let mut subscriptions = subscriptions;
+            if self.devtools.is_some() {
+                subscriptions.push(keyboard::listen().filter_map(devtools_toggle_from_event));
+            }
+            subscriptions
+        };
 
-        Subscription::batch([window_events, theme, app, toasts])
+        Subscription::batch(subscriptions)
     }
 
-    fn start_bootstrap(&mut self, spec: BootstrapSpec<A::Bootstrap>) -> Task<RuntimeMessage<A>> {
+    fn start_bootstrap(&mut self, spec: BootstrapSpec<A::Bootstrap>) -> Task<RuntimeMessage<A, P>> {
         let started_at = Instant::now();
         let controller = BootstrapController::new(started_at, spec.configured_minimum_duration());
         let attempt = controller.attempt();
@@ -318,7 +418,11 @@ where
         ])
     }
 
-    fn bootstrap_attempt_task(&self, attempt: u64, started_at: Instant) -> Task<RuntimeMessage<A>> {
+    fn bootstrap_attempt_task(
+        &self,
+        attempt: u64,
+        started_at: Instant,
+    ) -> Task<RuntimeMessage<A, P>> {
         let Some(bootstrap) = self.bootstrap.as_ref() else {
             return Task::none();
         };
@@ -341,7 +445,7 @@ where
     fn update_bootstrap(
         &mut self,
         message: BootstrapMessage<A::Bootstrap>,
-    ) -> Task<RuntimeMessage<A>> {
+    ) -> Task<RuntimeMessage<A, P>> {
         match message {
             BootstrapMessage::Finished { attempt, result } => {
                 let result = result
@@ -399,7 +503,7 @@ where
     fn handle_bootstrap_transition(
         &mut self,
         transition: BootstrapTransition<A::Bootstrap>,
-    ) -> Task<RuntimeMessage<A>> {
+    ) -> Task<RuntimeMessage<A, P>> {
         match transition {
             BootstrapTransition::Ready(bootstrap) => self.complete_bootstrap(bootstrap),
             BootstrapTransition::Ignored
@@ -408,7 +512,7 @@ where
         }
     }
 
-    fn complete_bootstrap(&mut self, result: A::Bootstrap) -> Task<RuntimeMessage<A>> {
+    fn complete_bootstrap(&mut self, result: A::Bootstrap) -> Task<RuntimeMessage<A, P>> {
         let Some(bootstrap) = self.bootstrap.take() else {
             return Task::none();
         };
@@ -418,15 +522,107 @@ where
             .chain(window::close(splash_window))
     }
 
-    fn initialize_app(&mut self, bootstrap: A::Bootstrap) -> Task<RuntimeMessage<A>> {
+    fn initialize_app(&mut self, bootstrap: A::Bootstrap) -> Task<RuntimeMessage<A, P>> {
         let context = self.core.context();
         let (app, update) = A::init(context, bootstrap);
         self.app = Some(app);
 
-        self.apply_update(update).chain(self.open_initial_windows())
+        let init_task = self.apply_update(update).chain(self.open_initial_windows());
+        let devtools_task = self.initialize_devtools();
+        init_task.chain(devtools_task)
     }
 
-    fn open_initial_windows(&mut self) -> Task<RuntimeMessage<A>> {
+    fn initialize_devtools(&mut self) -> Task<RuntimeMessage<A, P>> {
+        let Some(devtools) = self.devtools.as_mut() else {
+            return Task::none();
+        };
+        let Some(app) = self.app.as_ref() else {
+            return Task::none();
+        };
+
+        let probe_snapshot = (devtools.probe_snapshot)(app);
+        let panel = crate::devtools::DevtoolsPanelState::from_probe_snapshot_with_config(
+            &probe_snapshot,
+            devtools.config,
+        );
+        devtools.host = DevtoolsHostState::new(Some(panel));
+
+        if devtools.start_open {
+            devtools.start_open = false;
+            self.open_devtools_window()
+        } else {
+            Task::none()
+        }
+    }
+
+    fn open_devtools_window(&mut self) -> Task<RuntimeMessage<A, P>> {
+        let Some(devtools) = self.devtools.as_mut() else {
+            return Task::none();
+        };
+        if let Some(window_id) = devtools.window_id {
+            return window::gain_focus(window_id);
+        }
+
+        let spec = DevtoolsWindowSpec::default().window_spec();
+        let (window_id, open_task) = window::open(spec.settings(self.core.window_icon.clone()));
+        devtools.window_id = Some(window_id);
+        open_task.map(|id| NiveMessage::Core(CoreMessage::WindowOpened(id)))
+    }
+
+    fn is_devtools_window(&self, window_id: window::Id) -> bool {
+        self.devtools
+            .as_ref()
+            .is_some_and(|devtools| devtools.window_id == Some(window_id))
+    }
+
+    #[cfg(feature = "devtools")]
+    fn devtools_view(&self) -> nive_ui::Element<'_, RuntimeMessage<A, P>> {
+        use crate::devtools::devtools_window;
+
+        let Some(devtools) = self.devtools.as_ref() else {
+            return iced::widget::text("").into();
+        };
+        let Some(panel) = devtools.host.panel() else {
+            return iced::widget::text("").into();
+        };
+        let Some(app) = self.app.as_ref() else {
+            return iced::widget::text("").into();
+        };
+        let snapshot = (devtools.snapshot)(app);
+
+        devtools_window(panel, snapshot, NiveMessage::Devtools)
+    }
+
+    #[cfg(feature = "devtools")]
+    fn update_devtools(&mut self, message: DevtoolsPanelMessage<P>) -> Task<RuntimeMessage<A, P>> {
+        let Some(devtools) = self.devtools.as_mut() else {
+            return Task::none();
+        };
+
+        let effect = devtools.host.update(message);
+        let Some(effect) = effect else {
+            return Task::none();
+        };
+
+        match effect {
+            crate::devtools::DevtoolsPanelEffect::Command(command) => {
+                let Some(app) = self.app.as_mut() else {
+                    return Task::none();
+                };
+                let result = (devtools.apply_command)(app, &command);
+                devtools.host.record_command_result(&command, result);
+            }
+            crate::devtools::DevtoolsPanelEffect::Probe(effect) => {
+                let Some(app) = self.app.as_mut() else {
+                    return Task::none();
+                };
+                (devtools.apply_probe_effect)(app, effect);
+            }
+        }
+        Task::none()
+    }
+
+    fn open_initial_windows(&mut self) -> Task<RuntimeMessage<A, P>> {
         self.core
             .initial_windows
             .clone()
@@ -436,7 +632,7 @@ where
             })
     }
 
-    fn bootstrap_view(&self) -> nive_ui::Element<'_, RuntimeMessage<A>> {
+    fn bootstrap_view(&self) -> nive_ui::Element<'_, RuntimeMessage<A, P>> {
         let Some(bootstrap) = self.bootstrap.as_ref() else {
             return iced::widget::text("").into();
         };
@@ -489,10 +685,13 @@ where
             .into_element()
     }
 
-    fn update_core(&mut self, message: CoreMessage<A::Window>) -> Task<RuntimeMessage<A>> {
+    fn update_core(&mut self, message: CoreMessage<A::Window>) -> Task<RuntimeMessage<A, P>> {
         match message {
             CoreMessage::WindowOpened(window_id) => {
                 if self.is_bootstrap_window(window_id) {
+                    return Task::none();
+                }
+                if self.is_devtools_window(window_id) {
                     return Task::none();
                 }
                 let Some(handle) = self.core.registry.mark_opened(window_id) else {
@@ -508,6 +707,12 @@ where
                     }
                     self.core.exiting = true;
                     return iced::exit();
+                }
+                if self.is_devtools_window(window_id) {
+                    if let Some(devtools) = self.devtools.as_mut() {
+                        devtools.window_id = None;
+                    }
+                    return Task::none();
                 }
                 let Some(handle) = self.core.registry.get(window_id) else {
                     return Task::none();
@@ -532,6 +737,9 @@ where
                 if self.is_bootstrap_window(window_id) {
                     return Task::none();
                 }
+                if self.is_devtools_window(window_id) {
+                    return Task::none();
+                }
                 let Some(handle) = self.core.registry.set_focused(window_id) else {
                     return Task::none();
                 };
@@ -545,6 +753,8 @@ where
                         bootstrap.controller.cancel();
                     }
                     iced::exit()
+                } else if self.is_devtools_window(window_id) {
+                    window::close(window_id)
                 } else {
                     self.request_close(window_id)
                 }
@@ -577,13 +787,24 @@ where
                 self.core.toasts.handle_tick(now, !self.core.toasts_hovered);
                 Task::none()
             }
+            #[cfg(feature = "devtools")]
+            CoreMessage::ToggleDevtools => {
+                let Some(devtools) = self.devtools.as_ref() else {
+                    return Task::none();
+                };
+                if let Some(window_id) = devtools.window_id {
+                    window::gain_focus(window_id)
+                } else {
+                    self.open_devtools_window()
+                }
+            }
         }
     }
 
     fn apply_update(
         &mut self,
         update: AppUpdate<A::Message, A::Window>,
-    ) -> Task<RuntimeMessage<A>> {
+    ) -> Task<RuntimeMessage<A, P>> {
         let (task, _, commands) = update.into_parts();
         let app_task = task.map(|message| NiveMessage::App {
             window_id: None,
@@ -599,7 +820,7 @@ where
     fn handle_runtime_command(
         &mut self,
         command: RuntimeCommand<A::Window>,
-    ) -> Task<RuntimeMessage<A>> {
+    ) -> Task<RuntimeMessage<A, P>> {
         match command {
             RuntimeCommand::Toast(toast) => {
                 self.core.toasts.push(toast, Instant::now());
@@ -620,7 +841,7 @@ where
     fn handle_window_command(
         &mut self,
         command: WindowCommand<A::Window>,
-    ) -> Task<RuntimeMessage<A>> {
+    ) -> Task<RuntimeMessage<A, P>> {
         match command {
             WindowCommand::Open(kind) => self.open_window(kind),
             WindowCommand::Close(window_id) => {
@@ -666,7 +887,7 @@ where
         }
     }
 
-    fn open_window(&mut self, kind: A::Window) -> Task<RuntimeMessage<A>> {
+    fn open_window(&mut self, kind: A::Window) -> Task<RuntimeMessage<A, P>> {
         let command = WindowCommand::Open(kind);
         if self.core.exiting {
             return self.reject(command, CommandRejectionReason::Exiting);
@@ -693,7 +914,7 @@ where
         task.map(|window_id| NiveMessage::Core(CoreMessage::WindowOpened(window_id)))
     }
 
-    fn request_close(&mut self, window_id: window::Id) -> Task<RuntimeMessage<A>> {
+    fn request_close(&mut self, window_id: window::Id) -> Task<RuntimeMessage<A, P>> {
         let Some(window) = self.core.window_context(window_id) else {
             return Task::none();
         };
@@ -724,7 +945,7 @@ where
         }
     }
 
-    fn request_exit(&mut self) -> Task<RuntimeMessage<A>> {
+    fn request_exit(&mut self) -> Task<RuntimeMessage<A, P>> {
         if self.core.exiting {
             return Task::none();
         }
@@ -751,7 +972,7 @@ where
         }
     }
 
-    fn accept_exit(&mut self) -> Task<RuntimeMessage<A>> {
+    fn accept_exit(&mut self) -> Task<RuntimeMessage<A, P>> {
         self.core.exiting = true;
         let close_auxiliary = self
             .core
@@ -761,22 +982,28 @@ where
             .fold(Task::none(), |task, handle| {
                 task.chain(window::close(handle.id))
             });
+        let close_devtools = self
+            .devtools
+            .as_ref()
+            .and_then(|devtools| devtools.window_id)
+            .map(window::close)
+            .unwrap_or(Task::none());
 
-        close_auxiliary.chain(iced::exit())
+        close_auxiliary.chain(close_devtools).chain(iced::exit())
     }
 
     fn reject(
         &self,
         command: WindowCommand<A::Window>,
         reason: CommandRejectionReason,
-    ) -> Task<RuntimeMessage<A>> {
+    ) -> Task<RuntimeMessage<A, P>> {
         Task::done(NiveMessage::Core(CoreMessage::Rejected(CommandRejected {
             command,
             reason,
         })))
     }
 
-    fn emit_core_event(&mut self, event: CoreEvent<A::Window>) -> Task<RuntimeMessage<A>> {
+    fn emit_core_event(&mut self, event: CoreEvent<A::Window>) -> Task<RuntimeMessage<A, P>> {
         let Some(app) = self.app.as_mut() else {
             return Task::none();
         };
@@ -792,7 +1019,7 @@ where
     }
 }
 
-fn map_bootstrap_ui_message<K, M, B>(message: BootstrapUiMessage) -> NiveMessage<K, M, B> {
+fn map_bootstrap_ui_message<K, M, B, P>(message: BootstrapUiMessage) -> NiveMessage<K, M, B, P> {
     let message = match message {
         BootstrapUiMessage::Retry => BootstrapMessage::Retry,
         BootstrapUiMessage::ShowDetails => BootstrapMessage::ShowDetails,
@@ -800,6 +1027,31 @@ fn map_bootstrap_ui_message<K, M, B>(message: BootstrapUiMessage) -> NiveMessage
     };
 
     NiveMessage::Bootstrap(message)
+}
+
+#[cfg(feature = "devtools")]
+fn devtools_toggle_from_event<K, M, B, P>(
+    event: keyboard::Event,
+) -> Option<NiveMessage<K, M, B, P>> {
+    match event {
+        keyboard::Event::KeyPressed { key, modifiers, .. } => {
+            let is_devtools_key = matches!(
+                key,
+                keyboard::Key::Character(c) if c.eq_ignore_ascii_case("i")
+            );
+            let is_devtools_modifier = if cfg!(target_os = "macos") {
+                modifiers.command() && modifiers.alt()
+            } else {
+                modifiers.control() && modifiers.alt()
+            };
+            if is_devtools_key && is_devtools_modifier {
+                Some(NiveMessage::Core(CoreMessage::ToggleDevtools))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
 }
 
 fn bootstrap_window_spec(icon: Option<window::Icon>) -> window::Settings {
@@ -912,6 +1164,26 @@ mod tests {
     #[derive(Debug)]
     struct BootstrapTestApp {
         bootstrap: String,
+    }
+
+    #[cfg(feature = "devtools")]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum TestProbe {
+        One,
+    }
+
+    #[cfg(feature = "devtools")]
+    impl ProbeCatalogEntry for TestProbe {
+        const ALL: &'static [Self] = &[Self::One];
+
+        fn meta(self) -> crate::ProbeMeta {
+            crate::ProbeMeta::new(
+                "test.one",
+                "one",
+                "Test probe",
+                crate::ProbeErrorScope::Custom("test"),
+            )
+        }
     }
 
     impl Application for TestApp {
@@ -1048,10 +1320,48 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "devtools")]
+    impl crate::devtools::Devtools for TestApp {}
+
+    #[cfg(feature = "devtools")]
+    impl crate::devtools::DevtoolsApp for TestApp {
+        type Probe = TestProbe;
+
+        fn devtools_snapshot(&self) -> crate::devtools::DevtoolStateSnapshot {
+            crate::devtools::DevtoolStateSnapshot::default()
+        }
+
+        fn apply_devtools_command(
+            &mut self,
+            _command: &crate::devtools::DevtoolCommand,
+        ) -> crate::devtools::DevtoolCommandResult {
+            crate::devtools::DevtoolCommandResult::not_handled()
+        }
+
+        fn devtools_probe_snapshot(&self) -> crate::ProbeInjectionSnapshot<Self::Probe> {
+            crate::ProbeInjectionSnapshot {
+                scenarios: Vec::new(),
+                unknown: Vec::new(),
+            }
+        }
+
+        fn devtools_apply_probe_effect(&mut self, _effect: crate::ProbePanelEffect<Self::Probe>) {}
+    }
+
     fn program() -> Program<TestApp> {
-        Program::new(TestApp::config())
+        Program::new(TestApp::config(), None)
             .map(|(program, _)| program)
             .unwrap_or_else(|error| panic!("test program failed: {error}"))
+    }
+
+    #[cfg(feature = "devtools")]
+    fn devtools_program(config: DevtoolsConfig) -> Program<TestApp, TestProbe> {
+        Program::new(
+            TestApp::config(),
+            Some(DevtoolsRuntime::<TestApp, TestProbe>::new(config)),
+        )
+        .map(|(program, _)| program)
+        .unwrap_or_else(|error| panic!("test program failed: {error}"))
     }
 
     #[test]
@@ -1060,6 +1370,96 @@ mod tests {
 
         assert!(program.core.registry.contains(TestWindow::Main));
         assert_eq!(program.core.registry.app_window_count(), 1);
+    }
+
+    #[cfg(feature = "devtools")]
+    #[test]
+    fn devtools_runtime_starts_closed_and_ready_for_shortcut() {
+        let program = devtools_program(DevtoolsConfig::default());
+        let devtools = program
+            .devtools
+            .as_ref()
+            .unwrap_or_else(|| panic!("devtools runtime should be installed"));
+
+        assert!(devtools.host.is_enabled());
+        assert_eq!(devtools.window_id, None);
+    }
+
+    #[cfg(feature = "devtools")]
+    #[test]
+    fn devtools_open_config_creates_initial_auxiliary_window() {
+        let program = devtools_program(DevtoolsConfig::from_env_value(Some("open")));
+
+        assert!(program
+            .devtools
+            .as_ref()
+            .is_some_and(|devtools| devtools.window_id.is_some()));
+    }
+
+    #[cfg(feature = "devtools")]
+    #[test]
+    fn devtools_config_applies_initial_panel_tab() {
+        let program = devtools_program(
+            DevtoolsConfig::default().with_initial_tab(crate::devtools::DevtoolsPanelTab::Probes),
+        );
+        let active_tab = program
+            .devtools
+            .as_ref()
+            .and_then(|devtools| devtools.host.panel())
+            .map(|panel| panel.active_tab);
+
+        assert_eq!(active_tab, Some(crate::devtools::DevtoolsPanelTab::Probes));
+    }
+
+    #[cfg(feature = "devtools")]
+    #[test]
+    fn closing_devtools_allows_shortcut_to_open_it_again() {
+        let mut program = devtools_program(DevtoolsConfig::from_env_value(Some("open")));
+        let first_window = program
+            .devtools
+            .as_ref()
+            .and_then(|devtools| devtools.window_id)
+            .unwrap_or_else(window::Id::unique);
+
+        let _task = program.update_core(CoreMessage::WindowClosed(first_window));
+        assert!(program
+            .devtools
+            .as_ref()
+            .is_some_and(|devtools| devtools.window_id.is_none()));
+
+        let _task = program.update_core(CoreMessage::ToggleDevtools);
+
+        assert!(program
+            .devtools
+            .as_ref()
+            .is_some_and(|devtools| devtools.window_id.is_some()));
+    }
+
+    #[cfg(feature = "devtools")]
+    #[test]
+    fn platform_shortcut_routes_to_devtools_toggle() {
+        use iced::keyboard::key::{Code, Physical};
+        use iced::keyboard::{Key, Location, Modifiers};
+
+        let modifiers = if cfg!(target_os = "macos") {
+            Modifiers::COMMAND | Modifiers::ALT
+        } else {
+            Modifiers::CTRL | Modifiers::ALT
+        };
+        let event = keyboard::Event::KeyPressed {
+            key: Key::Character("i".into()),
+            modified_key: Key::Character("i".into()),
+            physical_key: Physical::Code(Code::KeyI),
+            location: Location::Standard,
+            modifiers,
+            text: Some("i".into()),
+            repeat: false,
+        };
+
+        assert!(matches!(
+            devtools_toggle_from_event::<TestWindow, (), (), TestProbe>(event),
+            Some(NiveMessage::Core(CoreMessage::ToggleDevtools))
+        ));
     }
 
     #[test]
@@ -1144,7 +1544,7 @@ mod tests {
 
     #[test]
     fn configured_bootstrap_delays_app_init_and_initial_windows() {
-        let (program, _task) = Program::<BootstrapTestApp>::new(BootstrapTestApp::config())
+        let (program, _task) = Program::<BootstrapTestApp>::new(BootstrapTestApp::config(), None)
             .unwrap_or_else(|error| panic!("test program failed: {error}"));
 
         assert!(program.app.is_none());
@@ -1154,8 +1554,9 @@ mod tests {
 
     #[test]
     fn successful_bootstrap_transfers_result_into_app_init() {
-        let (mut program, _task) = Program::<BootstrapTestApp>::new(BootstrapTestApp::config())
-            .unwrap_or_else(|error| panic!("test program failed: {error}"));
+        let (mut program, _task) =
+            Program::<BootstrapTestApp>::new(BootstrapTestApp::config(), None)
+                .unwrap_or_else(|error| panic!("test program failed: {error}"));
         let result = Arc::new(Mutex::new(Some(Ok(String::from("services")))));
 
         let _task = program.update_bootstrap(BootstrapMessage::Finished { attempt: 1, result });
@@ -1170,8 +1571,9 @@ mod tests {
 
     #[test]
     fn closing_splash_cancels_bootstrap_without_creating_app() {
-        let (mut program, _task) = Program::<BootstrapTestApp>::new(BootstrapTestApp::config())
-            .unwrap_or_else(|error| panic!("test program failed: {error}"));
+        let (mut program, _task) =
+            Program::<BootstrapTestApp>::new(BootstrapTestApp::config(), None)
+                .unwrap_or_else(|error| panic!("test program failed: {error}"));
         let splash_window = program
             .bootstrap
             .as_ref()
