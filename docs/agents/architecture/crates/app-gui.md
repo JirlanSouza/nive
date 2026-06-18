@@ -14,7 +14,6 @@
 - `platform`: product app-icon installation and bytes.
 - `dev`: app-domain fixture adapters, probe env/store ownership and the `DevtoolsApp` hooks that provide state snapshots plus command/probe application to the runtime.
 - `widgets`: product-aware composite widgets and brand assets only; generic primitives are imported directly from `nive-ui`.
-- `clock`: product relative-time formatting and current Unix time.
 
 ## Architectural Dependencies
 
@@ -22,7 +21,7 @@ Depends on:
 
 - `app-core` for domain services.
 - `app-models` for shared UI/domain data.
-- `nive-runtime` for the application runner, runtime updates, theme and window lifecycle, shared UI state, dialog dismissal and keyboard routing, devtools model/panel contracts, and generic probe runtime behavior.
+- `nive-runtime` for the application runner, runtime updates, theme and window lifecycle, shared UI state, clock helpers, dialog dismissal and keyboard routing, devtools model/panel contracts, and generic probe runtime behavior.
 - `nive-ui` for design tokens, theme contracts, dialog hosting, focus trapping, reusable visual primitives, renderer types, and low-level widget APIs.
 
 Used by:
@@ -60,6 +59,8 @@ before success.
 - Use reducer tests for observable state transitions and request correlation.
 - Use widget/theme tests for deterministic style or layout policy behavior.
 - Focused command: `cargo test -p app-gui`.
+- Public Nive contract: `cargo test -p app-gui --test nive_contract`.
+- Devtools contract: `cargo test -p app-gui --features dev --test nive_contract`.
 - Active workspace command: `just rust-test`.
 
 ## Rules
