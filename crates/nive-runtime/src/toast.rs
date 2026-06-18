@@ -1,7 +1,18 @@
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
+use crate::UserFacingError;
+
 const MAX_VISIBLE_TOASTS: usize = 3;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ToastPosition {
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    #[default]
+    BottomRight,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ToastId(pub(crate) u64);
@@ -63,6 +74,14 @@ impl ToastRequest {
 
     pub fn info(title: impl Into<String>) -> Self {
         Self::new(title, ToastTone::Info)
+    }
+
+    pub fn error(error: UserFacingError) -> Self {
+        let mut toast = Self::danger(error.summary());
+        if error.has_diagnostic_detail() {
+            toast.body = Some(error.detail().to_owned());
+        }
+        toast.long()
     }
 
     pub fn with_body(mut self, body: impl Into<String>) -> Self {

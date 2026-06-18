@@ -1,5 +1,11 @@
 use std::fmt;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ErrorCode(String);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InvalidErrorCode;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UserFacingErrorKind {
     Bootstrap,
@@ -9,6 +15,7 @@ pub enum UserFacingErrorKind {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserFacingError {
+    code: ErrorCode,
     kind: UserFacingErrorKind,
     summary: String,
     detail: String,
@@ -20,8 +27,10 @@ impl UserFacingError {
     pub fn new(kind: UserFacingErrorKind, error: impl fmt::Display) -> Self {
         let detail = error.to_string();
         let summary = error_summary(detail.as_str()).to_string();
+        let code = ErrorCode::from_kind(&kind);
 
         Self {
+            code,
             kind,
             summary,
             detail,
@@ -44,6 +53,10 @@ impl UserFacingError {
         &self.kind
     }
 
+    pub fn code(&self) -> &ErrorCode {
+        &self.code
+    }
+
     pub fn summary(&self) -> &str {
         self.summary.as_str()
     }
@@ -56,6 +69,45 @@ impl UserFacingError {
         self.detail != self.summary
     }
 }
+
+impl ErrorCode {
+    pub fn new(value: impl Into<String>) -> Result<Self, InvalidErrorCode> {
+        let value = value.into();
+        if is_valid_error_code(value.as_str()) {
+            Ok(Self(value))
+        } else {
+            Err(InvalidErrorCode)
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    fn from_kind(kind: &UserFacingErrorKind) -> Self {
+        match kind {
+            UserFacingErrorKind::Bootstrap => Self(String::from("bootstrap")),
+            UserFacingErrorKind::Devtools => Self(String::from("devtools")),
+            UserFacingErrorKind::Custom(code) => {
+                Self::new(code.clone()).unwrap_or_else(|_| Self(String::from("application")))
+            }
+        }
+    }
+}
+
+impl fmt::Display for ErrorCode {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl fmt::Display for InvalidErrorCode {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("error code must use lowercase ASCII letters, digits, '-' or '_'")
+    }
+}
+
+impl std::error::Error for InvalidErrorCode {}
 
 impl fmt::Display for UserFacingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -70,6 +122,13 @@ fn error_summary(detail: &str) -> &str {
         .split_once(" (")
         .map(|(summary, _)| summary)
         .unwrap_or(detail)
+}
+
+fn is_valid_error_code(value: &str) -> bool {
+    !value.is_empty()
+        && value.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_')
+        })
 }
 
 #[cfg(test)]
@@ -116,6 +175,13 @@ mod user_facing_error_tests {
         let error = UserFacingError::custom("project_catalog", "Load failed");
 
         assert!(matches!(error.kind(), UserFacingErrorKind::Custom(_)));
+        assert_eq!(error.code().as_str(), "project_catalog");
         assert_eq!(error.summary(), "Load failed");
+    }
+
+    #[test]
+    fn rejects_invalid_error_codes() {
+        assert!(ErrorCode::new("Project Catalog").is_err());
+        assert!(ErrorCode::new("").is_err());
     }
 }
