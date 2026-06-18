@@ -24,6 +24,26 @@ open. Set `NIVE_DEVTOOLS=1` or `NIVE_DEVTOOLS=open` to open it during startup,
 and set `NIVE_DEVTOOLS_TAB=probes|resources|operations` to choose the initial
 tab.
 
-The existing state, operation, runtime-client and probe derives remain
-available through `nive-runtime` while their parsing is hardened separately.
-Apps do not depend directly on `nive-runtime-derive`.
+State, host, operation, runtime-client and probe derives are available through
+`nive-runtime`; apps do not depend directly on `nive-runtime-derive`. Derive
+inputs are parsed through `syn`, preserve generics and emit errors on the
+unsupported item or field span.
+
+`DevtoolStateCatalog` requires explicit field annotations for state that cannot
+be inferred safely:
+
+```rust
+#[derive(nive_runtime::DevtoolStateCatalog)]
+struct State {
+    #[devtool(fixtures = project_fixtures)]
+    projects: nive_runtime::AsyncState<Vec<Project>>,
+    #[devtool(nested)]
+    selection: SelectionState,
+    save: nive_runtime::OperationState<SaveContext>,
+}
+```
+
+Every `AsyncState<_>` field supplies a fixture-provider function with signature
+`fn(&str) -> Vec<DevtoolFixture<T>>`. Nested catalogs use `#[devtool(nested)]`.
+`OperationState<_>` fields are recognized structurally and their context must
+implement `DevtoolOperationContext`. Other fields are ignored.
