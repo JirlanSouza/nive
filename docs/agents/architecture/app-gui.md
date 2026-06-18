@@ -22,7 +22,7 @@ Prefer reducer coverage for observable state transitions and request correlation
 
 Use existing modules before adding new ones:
 
-- `app_shell`: shell state, window policy, dialogs, toasts, keyboard navigation, and screen update/view helpers.
+- `app_shell`: shell state, window policy, toasts, and screen update/view compatibility helpers.
 - `welcome_screen`: welcome flow, project catalog UI, new-project flow, selection, and resource loading states.
 - `workspace_screen`: active workspace flow.
 - `client`: GUI-facing service clients that return `iced::Task`.
@@ -38,3 +38,6 @@ Use existing modules before adding new ones:
 - Use `AsyncState`, `OperationState`, and request IDs for resource loading and stale-response handling.
 - Follow `docs/agents/architecture/app-gui-feedback.md` for loading, error, retry, and operation feedback.
 - Prefer existing widgets and theme tokens over ad hoc styling.
+- Use Nive's `ScreenView` decoration and keyboard navigation instead of
+  implementing modal hosts, overlays, focus traps, or framework shortcuts in
+  `app-gui`.

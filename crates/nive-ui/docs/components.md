@@ -13,5 +13,14 @@ Tests that change the global snapshot must hold
 `theme::testing::ThemeTestGuard`, which restores the previous theme when
 dropped.
 
-Generic feedback, dialog host and toast host extraction is scheduled for the
-later UI implementation slices.
+## Dialog Infrastructure
+
+`DialogHost` owns modal composition, backdrop rendering, pointer blocking and
+focus trapping. Runtime integrations provide optional backdrop and Escape
+messages; the host publishes those messages without changing product state.
+
+Dialog content remains composed with `Dialog`, `DialogHeader`,
+`DialogFooter` and `DialogActionFooter`.
+
+Generic feedback and toast host extraction remains scheduled for later UI
+implementation slices.
