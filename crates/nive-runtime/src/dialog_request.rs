@@ -1,6 +1,6 @@
 use crate::DialogDismiss;
 
-pub struct DialogRequest<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer> {
+pub struct DialogRequest<'a, Message, Theme = nive_ui::Theme, Renderer = nive_ui::Renderer> {
     pub content: iced::Element<'a, Message, Theme, Renderer>,
     pub dismiss: DialogDismiss<Message>,
 }
@@ -12,7 +12,7 @@ where
     pub fn new(content: impl Into<iced::Element<'a, Message, Theme, Renderer>>) -> Self {
         Self {
             content: content.into(),
-            dismiss: DialogDismiss::Blocked,
+            dismiss: DialogDismiss::None,
         }
     }
 
@@ -22,15 +22,15 @@ where
     }
 
     pub fn dismiss_on_backdrop(self, message: Message) -> Self {
-        self.dismiss(DialogDismiss::Backdrop(message))
+        self.dismiss(DialogDismiss::OnBackdrop(message))
     }
 
     pub fn dismiss_on_escape(self, message: Message) -> Self {
-        self.dismiss(DialogDismiss::Escape(message))
+        self.dismiss(DialogDismiss::OnEscape(message))
     }
 
     pub fn dismiss_on_backdrop_or_escape(self, message: Message) -> Self {
-        self.dismiss(DialogDismiss::BackdropOrEscape(message))
+        self.dismiss(DialogDismiss::OnBackdropOrEscape(message))
     }
 
     pub fn map<T: 'a>(

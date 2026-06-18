@@ -3,24 +3,24 @@ use iced::{keyboard, Event};
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum DialogDismiss<Message> {
     #[default]
-    Blocked,
-    Backdrop(Message),
-    Escape(Message),
-    BackdropOrEscape(Message),
+    None,
+    OnEscape(Message),
+    OnBackdrop(Message),
+    OnBackdropOrEscape(Message),
 }
 
 impl<Message: Clone> DialogDismiss<Message> {
     pub fn on_backdrop(&self) -> Option<Message> {
         match self {
-            Self::Backdrop(message) | Self::BackdropOrEscape(message) => Some(message.clone()),
-            Self::Blocked | Self::Escape(_) => None,
+            Self::OnBackdrop(message) | Self::OnBackdropOrEscape(message) => Some(message.clone()),
+            Self::None | Self::OnEscape(_) => None,
         }
     }
 
     pub fn on_escape(&self) -> Option<Message> {
         match self {
-            Self::Escape(message) | Self::BackdropOrEscape(message) => Some(message.clone()),
-            Self::Blocked | Self::Backdrop(_) => None,
+            Self::OnEscape(message) | Self::OnBackdropOrEscape(message) => Some(message.clone()),
+            Self::None | Self::OnBackdrop(_) => None,
         }
     }
 }
@@ -28,11 +28,11 @@ impl<Message: Clone> DialogDismiss<Message> {
 impl<Message> DialogDismiss<Message> {
     pub fn map<T>(self, map_message: impl Fn(Message) -> T + Copy) -> DialogDismiss<T> {
         match self {
-            Self::Blocked => DialogDismiss::Blocked,
-            Self::Backdrop(message) => DialogDismiss::Backdrop(map_message(message)),
-            Self::Escape(message) => DialogDismiss::Escape(map_message(message)),
-            Self::BackdropOrEscape(message) => {
-                DialogDismiss::BackdropOrEscape(map_message(message))
+            Self::None => DialogDismiss::None,
+            Self::OnBackdrop(message) => DialogDismiss::OnBackdrop(map_message(message)),
+            Self::OnEscape(message) => DialogDismiss::OnEscape(map_message(message)),
+            Self::OnBackdropOrEscape(message) => {
+                DialogDismiss::OnBackdropOrEscape(map_message(message))
             }
         }
     }
@@ -55,7 +55,7 @@ mod dialog_dismiss_tests {
 
     #[test]
     fn backdrop_or_escape_returns_message_for_both_paths() {
-        let dismiss = DialogDismiss::BackdropOrEscape(7_u8);
+        let dismiss = DialogDismiss::OnBackdropOrEscape(7_u8);
 
         assert_eq!(dismiss.on_backdrop(), Some(7));
         assert_eq!(dismiss.on_escape(), Some(7));

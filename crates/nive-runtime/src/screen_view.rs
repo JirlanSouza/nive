@@ -1,6 +1,6 @@
 use crate::DialogRequest;
 
-pub struct ScreenView<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer> {
+pub struct ScreenView<'a, Message, Theme = nive_ui::Theme, Renderer = nive_ui::Renderer> {
     pub content: iced::Element<'a, Message, Theme, Renderer>,
     pub dialog: Option<DialogRequest<'a, Message, Theme, Renderer>>,
 }
@@ -53,13 +53,13 @@ mod screen_view_tests {
     #[test]
     fn map_preserves_dialog_and_maps_dismiss_message() {
         let screen: ScreenView<'_, u8> = ScreenView::new(text("content")).dialog(
-            DialogRequest::new(text("dialog")).dismiss(DialogDismiss::BackdropOrEscape(3_u8)),
+            DialogRequest::new(text("dialog")).dismiss(DialogDismiss::OnBackdropOrEscape(3_u8)),
         );
 
         let mapped = screen.map(|message| message + 1);
 
         match mapped.dialog {
-            Some(dialog) => assert_eq!(dialog.dismiss, DialogDismiss::BackdropOrEscape(4)),
+            Some(dialog) => assert_eq!(dialog.dismiss, DialogDismiss::OnBackdropOrEscape(4)),
             None => panic!("dialog must exist"),
         }
     }
