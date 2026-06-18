@@ -7,7 +7,7 @@
 ## Internal Modules
 
 - `app`: implements the Nive `Application` contract, configures product bootstrap assets/task, receives the successful bootstrap value in `init`, and owns product routing and screen updates.
-- `app_shell`: app-specific logical window kinds, product window dimensions/icon adapters, and transitional visual toast composition.
+- `app_shell`: app-specific logical window kinds, product window dimensions/icon adapters, and screen update/view compatibility helpers.
 - `welcome_screen`: welcome flow, project catalog UI, project creation, selection, reducers, actions, and view composition.
 - `workspace_screen`: active workspace screen boundary.
 - `client`: GUI-facing async clients that wrap `app-core` services in `iced::Task` and declare dev probe keys plus product-owned probe metadata through `devtools_derive::runtime_client`.
@@ -77,7 +77,7 @@ Do:
 - provide dialog content and reducer messages through `ScreenView`; use Nive's
   dialog decoration and keyboard navigation instead of local modal or focus
   infrastructure
-- keep visual toast composition local while using runtime `ToastState`, `ToastRequest`, `ToastMessage`, and toast expiration/tick behavior
+- emit toasts through `AppUpdate::toast`; Nive owns toast state, expiration, hover pause, dismiss, and applies the `ToastHost` overlay automatically to app-role windows
 - keep devtools host state, panel reducers/effect handling, command result recording, probe-effect branching, sidecar window opening/title/spec policy, generic state-field mutation helpers, injected failure errors, and generic window specs in `nive-runtime`; app-gui should only provide app icon adaptation, view adapter, app-domain fixture source adapter, probe env ownership, Iced view composition, and the `DevtoolsApp` impl for snapshot/command routing until lifecycle extraction
 - keep client probe declarations on client impls with `devtools_derive::runtime_client`; `UiErrorProbe` should preserve app-owned metadata such as bootstrap and wrap runtime `ComposedProbeId` values rather than manually modeling client probe variants
 

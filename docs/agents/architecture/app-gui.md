@@ -22,7 +22,7 @@ Prefer reducer coverage for observable state transitions and request correlation
 
 Use existing modules before adding new ones:
 
-- `app_shell`: shell state, window policy, toasts, and screen update/view compatibility helpers.
+- `app_shell`: shell state, window policy, and screen update/view compatibility helpers.
 - `welcome_screen`: welcome flow, project catalog UI, new-project flow, selection, and resource loading states.
 - `workspace_screen`: active workspace flow.
 - `client`: GUI-facing service clients that return `iced::Task`.

@@ -50,7 +50,7 @@ Remaining widget primitives still in `app-gui.widgets.primitives` (product-aware
 - Keep embedded product branding and brand assets out of `nive-ui`; bootstrap
   templates accept app-provided assets and copy without depending on product
   crates.
-- Keep visual feedback composition in `app-gui`; shared feedback state/contracts such as toasts and `ScreenUpdate` remain in `nive-runtime`.
+- Keep visual toast composition in `nive-ui` (`ToastHost` and the `ToastPresentation` contract); shared toast state/identity, expiration, pause/resume and tick handling remain in `nive-runtime`, which implements `ToastPresentation` for `ToastItem` and applies the host automatically.
 - Tokens must remain pure constants and pure functions with no side effects and no dependency on `app-core`, `app-models`, or any other domain crate.
 - Token modules may depend on `iced` for color, shadow, and font types only.
 - Theme modules may depend on `iced` for theme, widget catalog, and style types, but must stay domain-agnostic.

@@ -47,4 +47,12 @@ including brand placement, animated status dots, retry/details actions and the
 error-details dialog content. Applications supply product assets and copy;
 `nive-runtime` supplies lifecycle state and internal messages.
 
-Toast host extraction remains scheduled for a later UI implementation slice.
+## Toast Host
+
+`ToastHost` owns the generic toast overlay: corner positioning, hover
+pause/resume wiring and dismissible toast rows built from the
+`ToastPresentation` contract. `nive-runtime::ToastItem` implements
+`ToastPresentation`, so the runtime owns toast identity, queue and timing while
+`nive-ui` owns only the visual composition. The runtime applies the host
+automatically to app-role windows; applications do not mount it themselves and
+toasts may remain visible alongside a modal dialog.

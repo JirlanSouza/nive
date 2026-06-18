@@ -35,7 +35,7 @@ Current scope:
 - Keep product brand assets (icon PNG bytes, brand theme tokens) in `app-gui`; the installer pattern in `nive-runtime::platform::app_icon` accepts generic icon bytes passed from the app.
 - Keep app-specific logical window enums, titles, dimensions, fonts and icon construction in `app-gui`; runtime owns reusable window specs, settings conversion, registry mechanics, opening, focus and close/exit routing.
 - Keep widget-layer focus and overlay behavior in `nive-ui`; runtime may re-export stable helper APIs while lifecycle and shell code still consumes them.
-- Keep visual toast composition in `app-gui`; runtime owns generic toast state/types, expiration, pause/resume, and timer tick handling. `ScreenUpdate` remains generic over the feedback payload.
+- Keep visual toast composition in `nive-ui` (`ToastHost`); runtime owns generic toast state/types, expiration, pause/resume, timer tick handling, and applies the host automatically to app-role windows. `ToastItem` implements `nive-ui`'s `ToastPresentation`. `ScreenUpdate` remains generic over the feedback payload.
 - Keep bootstrap lifecycle state private. Apps provide only the task factory,
   result type, assets and copy; product clients and services transfer into
   `Application::init` and are not retained by the runtime.
