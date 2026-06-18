@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
+use nive_ui::ToastPresentation;
+
 use crate::UserFacingError;
 
 const MAX_VISIBLE_TOASTS: usize = 3;
@@ -132,6 +134,48 @@ impl ToastItem {
 
     pub fn request(&self) -> &ToastRequest {
         &self.request
+    }
+}
+
+impl ToastPresentation for ToastItem {
+    type Id = ToastId;
+
+    fn id(&self) -> ToastId {
+        ToastItem::id(self)
+    }
+
+    fn title(&self) -> &str {
+        self.request().title()
+    }
+
+    fn body(&self) -> Option<&str> {
+        self.request().body()
+    }
+
+    fn tone(&self) -> nive_ui::ToastTone {
+        self.request().tone().into()
+    }
+}
+
+impl From<ToastTone> for nive_ui::ToastTone {
+    fn from(tone: ToastTone) -> Self {
+        match tone {
+            ToastTone::Info => Self::Info,
+            ToastTone::Success => Self::Success,
+            ToastTone::Warning => Self::Warning,
+            ToastTone::Danger => Self::Danger,
+        }
+    }
+}
+
+impl From<ToastPosition> for nive_ui::ToastPosition {
+    fn from(position: ToastPosition) -> Self {
+        match position {
+            ToastPosition::TopLeft => Self::TopLeft,
+            ToastPosition::TopRight => Self::TopRight,
+            ToastPosition::BottomLeft => Self::BottomLeft,
+            ToastPosition::BottomRight => Self::BottomRight,
+        }
     }
 }
 
@@ -312,5 +356,22 @@ mod toast_tests {
         state.handle_tick(now + Duration::from_secs(9), true);
 
         assert!(state.visible().next().is_none());
+    }
+
+    #[test]
+    fn toast_item_implements_presentation_contract() {
+        let now = Instant::now();
+        let mut state = ToastState::default();
+        let id = state.push(
+            ToastRequest::success("Project created").with_body("details"),
+            now,
+        );
+
+        let item = state.visible().next().expect("toast is visible");
+
+        assert_eq!(ToastPresentation::id(item), id);
+        assert_eq!(item.title(), "Project created");
+        assert_eq!(item.body(), Some("details"));
+        assert_eq!(item.tone(), nive_ui::ToastTone::Success);
     }
 }

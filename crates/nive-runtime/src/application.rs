@@ -25,7 +25,7 @@ impl std::fmt::Display for Error {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::BootstrapUnavailable => {
-                formatter.write_str("bootstrap runtime is not implemented yet")
+                formatter.write_str("application bootstrap configuration is unavailable")
             }
             Self::Iced(error) => std::fmt::Display::fmt(error, formatter),
         }
