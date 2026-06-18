@@ -5,6 +5,8 @@ pub mod host;
 pub mod panel;
 pub mod types;
 
+pub trait Devtools {}
+
 pub use command::{DevtoolCommand, DevtoolCommandResult, DevtoolsRowId};
 pub use command_input::{DevtoolInputField, DevtoolInputValues, DevtoolOperationContext};
 pub use helpers::join_path;

@@ -16,6 +16,24 @@ use state::{expand_state_catalog, expand_state_host};
 
 const DEFAULT_DEVTOOLS_PATH: &str = "nive_runtime::devtools";
 
+#[proc_macro_derive(Devtools)]
+pub fn derive_devtools(input: TokenStream) -> TokenStream {
+    let ast: DeriveInput = match syn::parse(input) {
+        Ok(ast) => ast,
+        Err(error) => return error.to_compile_error().into(),
+    };
+    let ident = ast.ident;
+    let (impl_generics, type_generics, where_clause) = ast.generics.split_for_impl();
+
+    quote::quote! {
+        impl #impl_generics nive_runtime::devtools::Devtools
+            for #ident #type_generics #where_clause
+        {
+        }
+    }
+    .into()
+}
+
 fn extract_devtools_path(input: TokenStream) -> Result<(TokenStream, String)> {
     let ast: DeriveInput = syn::parse(input)?;
     let mut path = DEFAULT_DEVTOOLS_PATH.to_string();
