@@ -43,7 +43,7 @@ The root active-crate checks do not enable the optional `app-gui` `dev` feature.
 
 - `app-gui`: desktop UI, user interaction, Iced tasks, screens, product-aware widgets, and app-specific client/probe wiring.
 - `nive-runtime-derive`: proc macros for devtools state, operation, probe catalog, runtime client probe declarations, and configurable devtools path generation for framework-owned and app-owned trait targets.
-- `nive-runtime`: shared app runtime foundation for UI state, operation state, request IDs, user-facing errors, devtools model contracts, and generic probe runtime behavior.
+- `nive-runtime`: shared app runtime foundation for application/update contracts, UI state, operation state, request IDs, user-facing errors, lifecycle contracts, and optional Devtools/probe behavior.
 - `nive-ui`: shared visual design system for tokens, semantic theme contracts, and reusable UI primitives.
 - `app-core`: domain services, app context, event bus integration, file system behavior, and parser orchestration.
 - `app-models`: shared domain models passed between app layers.
