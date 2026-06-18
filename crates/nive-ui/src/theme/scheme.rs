@@ -1,4 +1,4 @@
-use std::sync::{atomic::AtomicU8, LazyLock};
+use std::sync::LazyLock;
 
 use iced::Padding;
 
@@ -23,7 +23,10 @@ pub struct ThemeCatalog;
 
 impl ThemeCatalog {
     pub fn get(self, id: ThemeId) -> &'static ThemeData {
-        id.data()
+        match id {
+            Theme::Light => &LIGHT_THEME_DATA,
+            Theme::Dark => &DARK_THEME_DATA,
+        }
     }
 }
 
@@ -37,8 +40,6 @@ pub struct ThemeData {
     pub spacing: SpacingScale,
     pub controls: ControlMetricsScale,
 }
-
-pub(super) static ACTIVE_THEME: AtomicU8 = AtomicU8::new(Theme::Dark as u8);
 
 static LIGHT_THEME_DATA: LazyLock<ThemeData> = LazyLock::new(|| ThemeData::new(ThemeMode::Light));
 static DARK_THEME_DATA: LazyLock<ThemeData> = LazyLock::new(|| ThemeData::new(ThemeMode::Dark));
@@ -63,10 +64,7 @@ impl Theme {
     }
 
     pub fn data(self) -> &'static ThemeData {
-        match self {
-            Self::Light => &LIGHT_THEME_DATA,
-            Self::Dark => &DARK_THEME_DATA,
-        }
+        ThemeCatalog.get(self)
     }
 
     pub fn color_scheme(self) -> &'static ColorScheme {
@@ -205,21 +203,17 @@ mod theme_tests {
     use iced::theme::Base as _;
 
     #[test]
-    fn active_theme_updates_without_locking() {
-        use super::super::active::{active, active_mode, gap, padding, set_active};
+    fn active_theme_helpers_follow_guarded_theme() {
+        use super::super::active::{active, gap, padding, ThemeTestGuard};
 
-        set_active(Theme::Light);
+        let _guard = ThemeTestGuard::activate(Theme::Light);
         assert_eq!(active(), Theme::Light);
-        assert_eq!(active_mode(), ThemeMode::Light);
+        assert_eq!(active().mode(), ThemeMode::Light);
         assert_eq!(gap(GapRole::Related), Theme::Light.gap(GapRole::Related));
         assert_eq!(
             padding(PaddingRole::Panel),
             Theme::Light.padding(PaddingRole::Panel)
         );
-
-        set_active(Theme::Dark);
-        assert_eq!(active(), Theme::Dark);
-        assert_eq!(active_mode(), ThemeMode::Dark);
     }
 
     #[test]
