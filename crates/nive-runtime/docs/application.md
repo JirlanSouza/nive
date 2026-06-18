@@ -58,6 +58,13 @@ and the internal splash are not decorated. Toasts do not capture focus and may
 remain visible alongside a modal dialog. Applications emit toasts through
 `Update::toast` and never own toast state or the host widget.
 
+## Clock Helpers
+
+`unix_now()` provides the current Unix timestamp in seconds, and
+`relative_time_label(updated_at, now)` formats shared compact relative-time
+labels. Keeping the clock input explicit makes relative-time presentation
+deterministic in state and widget tests.
+
 ## Devtools Runtime
 
 With the `devtools` feature enabled, `run_with_devtools::<A>()` monomorphizes
