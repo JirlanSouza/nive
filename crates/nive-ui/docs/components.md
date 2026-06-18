@@ -40,4 +40,11 @@ Presentation contracts keep runtime types out of the UI crate:
 implement these contracts. Applications supply product copy and messages while
 Nive owns the reusable visual composition.
 
+## Bootstrap Template
+
+`BootstrapView` owns the generic loading and startup-failure composition,
+including brand placement, animated status dots, retry/details actions and the
+error-details dialog content. Applications supply product assets and copy;
+`nive-runtime` supplies lifecycle state and internal messages.
+
 Toast host extraction remains scheduled for a later UI implementation slice.

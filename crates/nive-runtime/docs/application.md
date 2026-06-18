@@ -22,10 +22,16 @@ correlated with their source window automatically, while task and subscription
 messages remain unscoped. The runner processes ordered runtime commands,
 configured initial windows, dynamic titles, app subscriptions and core events.
 
-Bootstrap specifications are accepted by the public config builder but runner
-execution for them starts in the bootstrap slice. Until then, configured
-bootstrap returns `Error::BootstrapUnavailable`; applications using the current
-runner use `Bootstrap = ()`.
+`BootstrapSpec` accepts a task factory so retries create independent attempts.
+When configured, the runner opens an internal splash, correlates results with
+their attempt, enforces the minimum splash duration and calls `Application::init`
+only after success. The bootstrap value is transferred into `init`; the runtime
+does not retain product clients or services afterward. The initial `AppUpdate`
+is processed before configured initial product windows open.
+
+Failure, retry, diagnostic details and close-during-bootstrap are runtime-owned.
+Closing the splash exits without constructing the application. Apps without
+bootstrap continue to use `Bootstrap = ()`.
 
 ## Theme Runtime
 
