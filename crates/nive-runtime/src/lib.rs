@@ -6,6 +6,7 @@ pub mod devtools;
 mod dialog_dismiss;
 mod dialog_request;
 mod error;
+mod keyboard_navigation;
 mod lifecycle;
 mod operation_state;
 pub mod platform;
@@ -38,6 +39,7 @@ pub use dialog_request::DialogRequest;
 pub use error::{
     ErrorCode, InvalidErrorCode, UserFacingError, UserFacingErrorKind, UserFacingResult,
 };
+pub use keyboard_navigation::{keyboard_navigation_subscription, KeyboardNavigation};
 pub use lifecycle::{minimum_splash_duration_task, AppPhase, NiveApplication, SplashConfig};
 pub use nive_ui::focus_trap::{
     direction_from_event, direction_from_keyboard_event, FocusDirection,
@@ -78,12 +80,13 @@ pub use platform::file_picker::{pick_file, pick_files, pick_folder};
 
 pub mod prelude {
     pub use crate::{
-        run, window, AppUpdate, Application, ApplicationConfig, BackgroundFit, BackgroundPosition,
-        BootstrapSpec, BrandContent, CloseDecision, CommandRejected, CommandRejectionReason,
-        Context, CoreEvent, Error, ErrorCode, ExitDecision, Never, PlatformError, RequestCounter,
-        RequestId, Result, RuntimeCommand, ScreenView, ShortcutMap, Size, SplashBackground,
-        Subscription, Task, ThemeController, ThemeEvent, ThemePreference, Toast, ToastPosition,
-        Update, UserFacingError, WindowCardinality, WindowCommand, WindowContext, WindowQuery,
-        WindowRole, WindowSpec,
+        keyboard_navigation_subscription, run, window, AppUpdate, Application, ApplicationConfig,
+        BackgroundFit, BackgroundPosition, BootstrapSpec, BrandContent, CloseDecision,
+        CommandRejected, CommandRejectionReason, Context, CoreEvent, Error, ErrorCode,
+        ExitDecision, KeyboardNavigation, Never, PlatformError, RequestCounter, RequestId, Result,
+        RuntimeCommand, ScreenView, ShortcutMap, Size, SplashBackground, Subscription, Task,
+        ThemeController, ThemeEvent, ThemePreference, Toast, ToastPosition, Update,
+        UserFacingError, WindowCardinality, WindowCommand, WindowContext, WindowQuery, WindowRole,
+        WindowSpec,
     };
 }
