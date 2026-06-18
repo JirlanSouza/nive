@@ -37,17 +37,74 @@ impl WindowChrome {
 
 #[derive(Debug, Clone, Copy)]
 pub struct WindowSpec {
+    pub role: WindowRole,
+    pub cardinality: WindowCardinality,
     pub size: Size,
     pub position: window::Position,
     pub min_size: Option<Size>,
     pub max_size: Option<Size>,
     pub resizable: bool,
+    pub decorations: bool,
+    pub transparent: bool,
     pub mode: WindowMode,
     pub chrome: WindowChrome,
     pub level: window::Level,
 }
 
 impl WindowSpec {
+    pub fn app() -> Self {
+        Self {
+            role: WindowRole::App,
+            cardinality: WindowCardinality::Single,
+            size: Size::new(1024.0, 720.0),
+            position: window::Position::Centered,
+            min_size: Some(Size::new(640.0, 480.0)),
+            max_size: None,
+            resizable: true,
+            decorations: true,
+            transparent: false,
+            mode: WindowMode::Windowed,
+            chrome: WindowChrome::Native,
+            level: window::Level::Normal,
+        }
+    }
+
+    pub fn auxiliary() -> Self {
+        Self {
+            role: WindowRole::Auxiliary,
+            size: Size::new(900.0, 640.0),
+            ..Self::app()
+        }
+    }
+
+    pub fn size(mut self, width: f32, height: f32) -> Self {
+        self.size = Size::new(width, height);
+        self
+    }
+
+    pub fn min_size(mut self, width: f32, height: f32) -> Self {
+        self.min_size = Some(Size::new(width, height));
+        self
+    }
+
+    pub fn max_size(mut self, width: f32, height: f32) -> Self {
+        self.max_size = Some(Size::new(width, height));
+        self
+    }
+
+    pub fn multiple(mut self) -> Self {
+        self.cardinality = WindowCardinality::Multiple;
+        self
+    }
+
+    pub fn role(self) -> WindowRole {
+        self.role
+    }
+
+    pub fn cardinality(self) -> WindowCardinality {
+        self.cardinality
+    }
+
     pub fn settings(self, icon: Option<window::Icon>) -> window::Settings {
         let chrome = self.chrome.effective();
         let mut settings = window::Settings {
@@ -56,7 +113,8 @@ impl WindowSpec {
             min_size: self.min_size,
             max_size: self.max_size,
             resizable: self.resizable,
-            decorations: !chrome.uses_app_owned_chrome(),
+            decorations: self.decorations && !chrome.uses_app_owned_chrome(),
+            transparent: self.transparent,
             maximized: matches!(self.mode, WindowMode::Maximized),
             fullscreen: matches!(self.mode, WindowMode::Fullscreen),
             level: self.level,
@@ -92,6 +150,13 @@ where
 pub enum WindowRole {
     App,
     Auxiliary,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum WindowCardinality {
+    #[default]
+    Single,
+    Multiple,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -227,11 +292,15 @@ mod tests {
 
     fn fixed_spec(size: Size) -> WindowSpec {
         WindowSpec {
+            role: WindowRole::App,
+            cardinality: WindowCardinality::Single,
             size,
             position: window::Position::Centered,
             min_size: Some(size),
             max_size: Some(size),
             resizable: false,
+            decorations: true,
+            transparent: false,
             mode: WindowMode::Windowed,
             chrome: WindowChrome::AppOwned,
             level: window::Level::Normal,
@@ -240,11 +309,15 @@ mod tests {
 
     fn workspace_spec() -> WindowSpec {
         WindowSpec {
+            role: WindowRole::App,
+            cardinality: WindowCardinality::Single,
             size: Size::new(1280.0, 800.0),
             position: window::Position::default(),
             min_size: Some(Size::new(960.0, 640.0)),
             max_size: None,
             resizable: true,
+            decorations: true,
+            transparent: false,
             mode: WindowMode::Maximized,
             chrome: WindowChrome::UnifiedTitlebar,
             level: window::Level::Normal,
