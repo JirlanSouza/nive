@@ -6,8 +6,8 @@
 
 ## Internal Modules
 
-- `app`: top-level Iced application, routing, shell integration, and screen updates. Uses `NiveApplication`, `AppPhase` (via local `AppReadiness` type alias), `SplashConfig`, and `minimum_splash_duration_task` from `nive-runtime` for the daemon facade and splash/boot lifecycle mechanics.
-- `app_shell`: app-specific logical window kinds, product window dimensions/icon adapters, visual toast composition, and compatibility aliases over runtime app-shell contracts.
+- `app`: implements the Nive `Application` contract, owns product routing and screen updates, and temporarily uses `AppPhase` (via local `AppReadiness`), `SplashConfig`, and `minimum_splash_duration_task` for bootstrap lifecycle mechanics.
+- `app_shell`: app-specific logical window kinds, product window dimensions/icon adapters, and transitional visual toast composition.
 - `bootstrap_screen`: startup splash and startup failure feedback before app services are available.
 - `welcome_screen`: welcome flow, project catalog UI, project creation, selection, reducers, actions, and view composition.
 - `workspace_screen`: active workspace screen boundary.
@@ -24,7 +24,7 @@ Depends on:
 
 - `app-core` for domain services.
 - `app-models` for shared UI/domain data.
-- `nive-runtime` for shared UI state, app-shell/window contracts, dialog dismissal and keyboard routing, devtools model/panel contracts, and generic probe runtime behavior.
+- `nive-runtime` for the application runner, runtime updates, theme and window lifecycle, shared UI state, dialog dismissal and keyboard routing, devtools model/panel contracts, and generic probe runtime behavior.
 - `nive-ui` for design tokens, theme contracts, dialog hosting, focus trapping, and reusable visual primitives.
 - `iced` for UI runtime and tasks.
 
@@ -70,7 +70,7 @@ Do:
 - preserve cached async content where existing `AsyncState` patterns do so
 - follow `docs/agents/architecture/app-gui-feedback.md` for new resource and operation feedback
 - map service errors into user-facing errors at client boundaries
-- keep product window assets, logical window enum, window titles, and app-specific dimensions local while using runtime `WindowSpec`, `WindowRegistry`, `WindowHandle`, and `open_window` for generic mechanics
+- keep product window assets, logical window enum, window titles, and app-specific dimensions local while declaring windows through `ApplicationConfig` and requesting transitions through `WindowCommand`
 - provide dialog content and reducer messages through `ScreenView`; use Nive's
   dialog decoration and keyboard navigation instead of local modal or focus
   infrastructure
