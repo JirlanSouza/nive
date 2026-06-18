@@ -12,38 +12,52 @@ pub enum ProbeEffect {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClientTaskInjection {
-    effect: ProbeEffect,
-    error: Option<UserFacingError>,
-    delay: Option<Duration>,
+    kind: ClientTaskInjectionKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ClientTaskInjectionKind {
+    Fail {
+        error: UserFacingError,
+        delay: Option<Duration>,
+    },
+    DelayOnly {
+        delay: Option<Duration>,
+    },
 }
 
 impl ClientTaskInjection {
     pub fn fail(error: UserFacingError, delay: Option<Duration>) -> Self {
         Self {
-            effect: ProbeEffect::Fail,
-            error: Some(error),
-            delay,
+            kind: ClientTaskInjectionKind::Fail { error, delay },
         }
     }
 
     pub fn delay_only(delay: Option<Duration>) -> Self {
         Self {
-            effect: ProbeEffect::DelayOnly,
-            error: None,
-            delay,
+            kind: ClientTaskInjectionKind::DelayOnly { delay },
         }
     }
 
     pub fn effect(&self) -> ProbeEffect {
-        self.effect
+        match self.kind {
+            ClientTaskInjectionKind::Fail { .. } => ProbeEffect::Fail,
+            ClientTaskInjectionKind::DelayOnly { .. } => ProbeEffect::DelayOnly,
+        }
     }
 
     pub fn delay(&self) -> Option<Duration> {
-        self.delay
+        match self.kind {
+            ClientTaskInjectionKind::Fail { delay, .. }
+            | ClientTaskInjectionKind::DelayOnly { delay } => delay,
+        }
     }
 
     pub fn error(&self) -> Option<&UserFacingError> {
-        self.error.as_ref()
+        match &self.kind {
+            ClientTaskInjectionKind::Fail { error, .. } => Some(error),
+            ClientTaskInjectionKind::DelayOnly { .. } => None,
+        }
     }
 }
 
@@ -69,21 +83,21 @@ where
     Message: Send + 'static,
     Fut: Future<Output = UserFacingResult<T>> + Send + 'static,
 {
-    let ClientTaskInjection {
-        effect,
-        error,
-        delay,
-    } = injection;
-
     client_task(
         async move {
-            if let Some(delay) = delay {
-                tokio::time::sleep(delay).await;
-            }
-
-            match effect {
-                ProbeEffect::Fail => Err(error.expect("fail probe injection should have an error")),
-                ProbeEffect::DelayOnly => future.await,
+            match injection.kind {
+                ClientTaskInjectionKind::Fail { error, delay } => {
+                    if let Some(delay) = delay {
+                        tokio::time::sleep(delay).await;
+                    }
+                    Err(error)
+                }
+                ClientTaskInjectionKind::DelayOnly { delay } => {
+                    if let Some(delay) = delay {
+                        tokio::time::sleep(delay).await;
+                    }
+                    future.await
+                }
             }
         },
         map,
