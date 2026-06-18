@@ -186,13 +186,28 @@ impl<K> WindowHandle<K> {
 
 #[derive(Debug, Clone)]
 pub struct WindowRegistry<K> {
-    windows: Vec<WindowHandle<K>>,
+    windows: Vec<WindowEntry<K>>,
+    activity_sequence: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WindowLifecycle {
+    Opening,
+    Open,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct WindowEntry<K> {
+    handle: WindowHandle<K>,
+    lifecycle: WindowLifecycle,
+    activity_sequence: u64,
 }
 
 impl<K> Default for WindowRegistry<K> {
     fn default() -> Self {
         Self {
             windows: Vec::new(),
+            activity_sequence: 0,
         }
     }
 }
@@ -205,32 +220,65 @@ where
         Self::default()
     }
 
+    pub fn set_opening(&mut self, handle: WindowHandle<K>) {
+        self.upsert(handle, WindowLifecycle::Opening);
+    }
+
     pub fn set_opened(&mut self, handle: WindowHandle<K>) {
-        if let Some(existing) = self
+        self.upsert(handle, WindowLifecycle::Open);
+    }
+
+    pub fn mark_opened(&mut self, window_id: window::Id) -> Option<WindowHandle<K>> {
+        let activity_sequence = self.next_activity_sequence();
+        let entry = self
             .windows
             .iter_mut()
-            .find(|existing| existing.kind == handle.kind)
-        {
-            *existing = handle;
-        } else {
-            self.windows.push(handle);
-        }
+            .find(|entry| entry.handle.id == window_id)?;
+
+        entry.lifecycle = WindowLifecycle::Open;
+        entry.activity_sequence = activity_sequence;
+
+        Some(entry.handle)
+    }
+
+    pub fn set_focused(&mut self, window_id: window::Id) -> Option<WindowHandle<K>> {
+        let activity_sequence = self.next_activity_sequence();
+        let entry = self
+            .windows
+            .iter_mut()
+            .find(|entry| entry.handle.id == window_id)?;
+
+        entry.activity_sequence = activity_sequence;
+
+        Some(entry.handle)
     }
 
     pub fn set_closed(&mut self, window_id: window::Id) -> Option<K> {
         let index = self
             .windows
             .iter()
-            .position(|handle| handle.id == window_id)?;
+            .position(|entry| entry.handle.id == window_id)?;
 
-        Some(self.windows.remove(index).kind)
+        Some(self.windows.remove(index).handle.kind)
+    }
+
+    #[cfg(test)]
+    fn lifecycle(&self, window_id: window::Id) -> Option<WindowLifecycle> {
+        self.windows
+            .iter()
+            .find(|entry| entry.handle.id == window_id)
+            .map(|entry| entry.lifecycle)
+    }
+
+    pub(crate) fn get(&self, window_id: window::Id) -> Option<WindowHandle<K>> {
+        self.windows
+            .iter()
+            .find(|entry| entry.handle.id == window_id)
+            .map(|entry| entry.handle)
     }
 
     pub fn kind(&self, window_id: window::Id) -> Option<K> {
-        self.windows
-            .iter()
-            .find(|handle| handle.id == window_id)
-            .map(|handle| handle.kind)
+        self.get(window_id).map(|handle| handle.kind)
     }
 
     pub fn kind_or(&self, window_id: window::Id, fallback: K) -> K {
@@ -240,25 +288,84 @@ where
     pub fn id(&self, kind: K) -> Option<window::Id> {
         self.windows
             .iter()
-            .find(|handle| handle.kind == kind)
-            .map(|handle| handle.id)
+            .filter(|entry| entry.handle.kind == kind)
+            .max_by_key(|entry| entry.activity_sequence)
+            .map(|entry| entry.handle.id)
     }
 
     pub fn take(&mut self, kind: K) -> Option<window::Id> {
-        let index = self.windows.iter().position(|handle| handle.kind == kind)?;
+        let index = self
+            .windows
+            .iter()
+            .enumerate()
+            .filter(|(_, entry)| entry.handle.kind == kind)
+            .max_by_key(|(_, entry)| entry.activity_sequence)
+            .map(|(index, _)| index)?;
 
-        Some(self.windows.remove(index).id)
+        Some(self.windows.remove(index).handle.id)
+    }
+
+    pub(crate) fn contains(&self, kind: K) -> bool {
+        self.windows.iter().any(|entry| entry.handle.kind == kind)
+    }
+
+    pub(crate) fn first(&self, kind: K) -> Option<WindowHandle<K>> {
+        self.windows
+            .iter()
+            .filter(|entry| entry.handle.kind == kind)
+            .max_by_key(|entry| entry.activity_sequence)
+            .map(|entry| entry.handle)
+    }
+
+    pub(crate) fn all(&self, kind: K) -> impl Iterator<Item = WindowHandle<K>> + '_ {
+        self.windows
+            .iter()
+            .filter(move |entry| entry.handle.kind == kind)
+            .map(|entry| entry.handle)
+    }
+
+    pub(crate) fn handles(&self) -> impl Iterator<Item = WindowHandle<K>> + '_ {
+        self.windows.iter().map(|entry| entry.handle)
+    }
+
+    pub(crate) fn app_window_count(&self) -> usize {
+        self.windows
+            .iter()
+            .filter(|entry| entry.handle.role == WindowRole::App)
+            .count()
     }
 
     pub fn is_empty(&self) -> bool {
-        !self
-            .windows
-            .iter()
-            .any(|handle| handle.role == WindowRole::App)
+        self.app_window_count() == 0
     }
 
     pub fn has_app_windows(&self) -> bool {
         !self.is_empty()
+    }
+
+    fn upsert(&mut self, handle: WindowHandle<K>, lifecycle: WindowLifecycle) {
+        let activity_sequence = self.next_activity_sequence();
+
+        if let Some(entry) = self
+            .windows
+            .iter_mut()
+            .find(|entry| entry.handle.id == handle.id)
+        {
+            entry.handle = handle;
+            entry.lifecycle = lifecycle;
+            entry.activity_sequence = activity_sequence;
+        } else {
+            self.windows.push(WindowEntry {
+                handle,
+                lifecycle,
+                activity_sequence,
+            });
+        }
+    }
+
+    fn next_activity_sequence(&mut self) -> u64 {
+        self.activity_sequence = self.activity_sequence.wrapping_add(1);
+        self.activity_sequence
     }
 }
 
@@ -459,5 +566,70 @@ mod tests {
 
         assert_eq!(registry.set_closed(window::Id::unique()), None);
         assert!(registry.is_empty());
+    }
+
+    #[test]
+    fn registry_keeps_multiple_instances_of_the_same_kind() {
+        let first_id = window::Id::unique();
+        let second_id = window::Id::unique();
+        let mut registry = WindowRegistry::new();
+
+        registry.set_opened(WindowHandle::new(TestWindow::Workspace, first_id));
+        registry.set_opened(WindowHandle::new(TestWindow::Workspace, second_id));
+
+        assert_eq!(
+            registry
+                .all(TestWindow::Workspace)
+                .map(|handle| handle.id)
+                .collect::<Vec<_>>(),
+            vec![first_id, second_id]
+        );
+        assert_eq!(registry.id(TestWindow::Workspace), Some(second_id));
+        assert_eq!(registry.app_window_count(), 2);
+    }
+
+    #[test]
+    fn registry_tracks_opening_until_the_window_opens() {
+        let window_id = window::Id::unique();
+        let handle = WindowHandle::new(TestWindow::Welcome, window_id);
+        let mut registry = WindowRegistry::new();
+
+        registry.set_opening(handle);
+
+        assert_eq!(
+            registry.lifecycle(window_id),
+            Some(WindowLifecycle::Opening)
+        );
+        assert_eq!(registry.mark_opened(window_id), Some(handle));
+        assert_eq!(registry.lifecycle(window_id), Some(WindowLifecycle::Open));
+    }
+
+    #[test]
+    fn registry_removes_interrupted_opening_without_a_ghost_handle() {
+        let window_id = window::Id::unique();
+        let mut registry = WindowRegistry::new();
+
+        registry.set_opening(WindowHandle::new(TestWindow::Welcome, window_id));
+
+        assert_eq!(registry.set_closed(window_id), Some(TestWindow::Welcome));
+        assert_eq!(registry.get(window_id), None);
+        assert!(!registry.contains(TestWindow::Welcome));
+    }
+
+    #[test]
+    fn registry_uses_the_most_recent_instance_as_kind_representative() {
+        let first_id = window::Id::unique();
+        let second_id = window::Id::unique();
+        let mut registry = WindowRegistry::new();
+
+        registry.set_opened(WindowHandle::new(TestWindow::Workspace, first_id));
+        registry.set_opened(WindowHandle::new(TestWindow::Workspace, second_id));
+        registry.set_focused(first_id);
+
+        assert_eq!(
+            registry.first(TestWindow::Workspace),
+            Some(WindowHandle::new(TestWindow::Workspace, first_id))
+        );
+        assert_eq!(registry.id(TestWindow::Workspace), Some(first_id));
     }
 }
