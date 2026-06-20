@@ -3,6 +3,10 @@ use nive_ui::theme::{Theme, ThemePreference};
 
 use crate::{WindowRegistry, WindowRole};
 
+/// Read-only runtime context handed to [`Application`](super::Application) hooks.
+///
+/// Exposes the application identity, active theme, window registry query, and
+/// whether the runtime is shutting down. Cheap to copy and pass around.
 #[derive(Clone, Copy)]
 pub struct Context<'a, K> {
     pub(super) app_id: &'a str,
@@ -14,38 +18,49 @@ pub struct Context<'a, K> {
 }
 
 impl<'a, K> Context<'a, K> {
+    /// The stable application identifier (used for settings paths, etc.).
     pub fn app_id(self) -> &'a str {
         self.app_id
     }
 
+    /// The human-facing application name.
     pub fn app_name(self) -> &'a str {
         self.app_name
     }
 
+    /// The currently active [`Theme`].
     pub fn theme(self) -> Theme {
         self.theme
     }
 
+    /// The user's theme preference (light/dark/system).
     pub fn theme_preference(self) -> ThemePreference {
         self.theme_preference
     }
 
+    /// A query over the open window registry.
     pub fn windows(self) -> WindowQuery<'a, K> {
         self.windows
     }
 
+    /// Whether the runtime is currently shutting down.
     pub fn is_exiting(self) -> bool {
         self.exiting
     }
 }
 
+/// Identifies a single open window within an [`Application`](super::Application).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WindowContext<K> {
+    /// The Iced window id.
     pub id: window::Id,
+    /// The application's logical window kind.
     pub kind: K,
+    /// The window's role (app, auxiliary, etc.).
     pub role: WindowRole,
 }
 
+/// A read-only query over the runtime's open-window registry.
 #[derive(Clone, Copy)]
 pub struct WindowQuery<'a, K> {
     pub(super) registry: &'a WindowRegistry<K>,

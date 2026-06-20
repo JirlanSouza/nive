@@ -1,14 +1,22 @@
 use crate::UserFacingError;
 use nive_ui::widgets::{ErrorPresentation, ResourceStatusPresentation};
 
+/// Reusable state machine for an async-loaded resource.
+///
+/// Tracks idle, loading (optionally retaining a stale value for refreshing),
+/// loaded, and failed states. Implements the UI presentation contracts
+/// ([`ErrorPresentation`], [`ResourceStatusPresentation`]) so `nive-ui`
+/// feedback widgets can render it without depending on app-domain types.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum AsyncState<T> {
+    /// No value has been requested yet.
     #[default]
     Idle,
-    Loading {
-        value: Option<T>,
-    },
+    /// A load is in progress, optionally retaining a stale value while refreshing.
+    Loading { value: Option<T> },
+    /// A value was loaded successfully.
     Loaded(T),
+    /// The last load failed, optionally retaining a stale value.
     Failed {
         value: Option<T>,
         error: UserFacingError,
@@ -114,8 +122,8 @@ mod async_state_tests {
     fn set_loaded_updates_value_and_clears_error() {
         let mut state = AsyncState::new(1);
         state.set_failed(UserFacingError::custom(
-            "project_catalog",
-            "Project not found (project_id: p1)",
+            "record_catalog",
+            "Record not found (record_id: r1)",
         ));
 
         state.set_loaded(2);
@@ -150,14 +158,14 @@ mod async_state_tests {
         let mut state = AsyncState::new("cached");
 
         state.set_failed(UserFacingError::custom(
-            "project_catalog",
-            "Project not found (project_id: p1)",
+            "record_catalog",
+            "Record not found (record_id: r1)",
         ));
 
         assert_eq!(state.value(), Some(&"cached"));
         assert_eq!(
             state.error().map(UserFacingError::summary),
-            Some("Project not found")
+            Some("Record not found")
         );
     }
 
@@ -166,14 +174,14 @@ mod async_state_tests {
         let mut state = AsyncState::new("cached");
 
         state.set_failed_empty(UserFacingError::custom(
-            "project_catalog",
-            "Project not found (project_id: p1)",
+            "record_catalog",
+            "Record not found (record_id: r1)",
         ));
 
         assert!(state.value().is_none());
         assert_eq!(
             state.error().map(UserFacingError::summary),
-            Some("Project not found")
+            Some("Record not found")
         );
     }
 
@@ -181,8 +189,8 @@ mod async_state_tests {
     fn dismiss_error_preserves_cached_value() {
         let mut state = AsyncState::new("cached");
         state.set_failed(UserFacingError::custom(
-            "project_catalog",
-            "Project not found (project_id: p1)",
+            "record_catalog",
+            "Record not found (record_id: r1)",
         ));
 
         state.dismiss_error();
@@ -195,8 +203,8 @@ mod async_state_tests {
     fn dismiss_error_without_cache_returns_to_idle() {
         let mut state = AsyncState::<&str>::Idle;
         state.set_failed_empty(UserFacingError::custom(
-            "project_catalog",
-            "Project not found (project_id: p1)",
+            "record_catalog",
+            "Record not found (record_id: r1)",
         ));
 
         state.dismiss_error();
@@ -221,7 +229,7 @@ mod async_state_tests {
     fn resource_presentation_exposes_failed_error() {
         let state = AsyncState::<&str>::Failed {
             value: Some("cached"),
-            error: UserFacingError::custom("project_catalog", "Refresh failed"),
+            error: UserFacingError::custom("record_catalog", "Refresh failed"),
         };
 
         assert_eq!(

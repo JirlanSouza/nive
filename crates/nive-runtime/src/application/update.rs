@@ -5,9 +5,18 @@ use nive_ui::theme::ThemePreference;
 
 use crate::{Toast, WindowCommand};
 
+/// Alias for an outcome type that can never occur.
 pub type Never = Infallible;
+/// The [`Update`] returned by [`Application`](super::Application) hooks, which
+/// never produces a non-runtime outcome.
 pub type AppUpdate<M, K> = Update<M, Never, K>;
 
+/// Composes an Iced [`Task`], an optional operation outcome, and ordered
+/// runtime commands (toasts, window commands, theme changes, exit).
+///
+/// Built fluently by application hooks via [`Update::task`], [`Update::toast`],
+/// [`Update::window`], [`Update::theme`], and [`Update::exit`]. The runtime
+/// drains the commands after each update.
 #[derive(Debug)]
 pub struct Update<M, O = Never, K = Never> {
     task: Task<M>,
@@ -15,11 +24,16 @@ pub struct Update<M, O = Never, K = Never> {
     runtime: Vec<RuntimeCommand<K>>,
 }
 
+/// A runtime-level command emitted by an [`Update`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RuntimeCommand<K> {
+    /// Show a toast.
     Toast(Toast),
+    /// Apply a window command (open, focus, close, etc.).
     Window(WindowCommand<K>),
+    /// Change the active theme preference.
     Theme(ThemePreference),
+    /// Exit the application.
     Exit,
 }
 

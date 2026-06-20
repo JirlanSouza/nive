@@ -1,3 +1,42 @@
+//! Reusable runtime foundation for Rust/Iced desktop applications.
+//!
+//! `nive-runtime` owns the application/update contracts, window lifecycle,
+//! reusable state machines, user-facing feedback, and an optional devtools
+//! layer that are reused by Rust/Iced apps without depending on app-domain
+//! services. It sits above `nive-ui` and re-exports stable helper APIs from it.
+//!
+//! # Scope
+//!
+//! - `Application`, `ApplicationConfig`, `Context`, and `run` — the stable
+//!   product contract and the private Iced program runner.
+//! - `Update`, `AppUpdate`, and `RuntimeCommand` — ordered task and
+//!   runtime-effect composition.
+//! - `BootstrapSpec` — repeatable startup task attempts, stale-result
+//!   rejection, minimum splash duration, retry, and cancellation.
+//! - `WindowSpec`, `WindowCommand`, `WindowRegistry` — generic window
+//!   contracts, cardinality, and open/close/exit handshakes.
+//! - `AsyncState` and `OperationState` — reusable resource and operation
+//!   state machines.
+//! - `UserFacingError` and toast state (`ToastState`, `ToastItem`) —
+//!   user-facing feedback.
+//! - `ScreenView` and `ScreenUpdate` — screen composition contracts.
+//! - `platform` — cross-platform app icon installer and optional file picker.
+//! - `keyboard_navigation_subscription` and `ShortcutMap` — input helpers.
+//!
+//! # Feature flags
+//!
+//! - `devtools` (off by default) — enables the optional devtools layer
+//!   (`devtools`), the `run_with_devtools` entry point, and the derive macros
+//!   from `nive-runtime-derive`. This is the most experimental part of Nive.
+//! - `file-picker` (off by default) — enables `pick_file`, `pick_files`, and
+//!   `pick_folder` backed by `rfd`.
+//!
+//! # Status
+//!
+//! Part of Nive **v0.1.0**, a beta release. Public APIs may change before 1.0.
+//! See `docs/` for contract details on the application, lifecycle, and
+//! devtools layers.
+
 mod application;
 #[cfg(feature = "devtools")]
 pub mod devtools;
@@ -44,7 +83,7 @@ pub use state::{
 };
 
 pub use iced::{time, window, Size, Subscription, Task};
-pub use nive_ui::theme::ThemePreference;
+pub use nive_ui::theme::{Theme, ThemeBuilder, ThemeCatalog, ThemeMode, ThemePreference};
 
 #[cfg(feature = "devtools")]
 pub use nive_runtime_derive::{
@@ -63,8 +102,9 @@ pub mod prelude {
         CloseDecision, CommandRejected, CommandRejectionReason, Context, CoreEvent, Error,
         ErrorCode, ExitDecision, KeyboardNavigation, Never, PlatformError, RequestCounter,
         RequestId, Result, RuntimeCommand, ScreenView, ShortcutBinding, ShortcutKey, ShortcutMap,
-        Size, SplashBackground, Subscription, Task, ThemeController, ThemeEvent, ThemePreference,
-        Toast, ToastPosition, Update, UserFacingError, WindowCardinality, WindowCommand,
-        WindowContext, WindowQuery, WindowRole, WindowSpec,
+        Size, SplashBackground, Subscription, Task, Theme, ThemeBuilder, ThemeCatalog,
+        ThemeController, ThemeEvent, ThemeMode, ThemePreference, Toast, ToastPosition, Update,
+        UserFacingError, WindowCardinality, WindowCommand, WindowContext, WindowQuery, WindowRole,
+        WindowSpec,
     };
 }
