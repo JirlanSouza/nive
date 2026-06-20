@@ -210,32 +210,32 @@ mod tests {
     #[test]
     fn client_scope_strips_suffix_and_snake_cases_type() {
         assert_eq!(
-            crate::probe::client_scope("ProjectCatalogClient"),
-            "project_catalog"
+            crate::probe::client_scope("RecordCatalogClient"),
+            "record_catalog"
         );
-        assert_eq!(crate::probe::client_scope("TagClient"), "tag");
+        assert_eq!(crate::probe::client_scope("LabelClient"), "label");
     }
 
     #[test]
     fn default_probe_key_combines_client_scope_and_method() {
         assert_eq!(
-            default_probe_key("ProjectCatalogClient", "get_summary"),
-            "project_catalog.get_summary"
+            default_probe_key("RecordCatalogClient", "get_summary"),
+            "record_catalog.get_summary"
         );
     }
 
     #[test]
     fn client_probe_meta_preserves_key_override() {
         let meta = probe_meta_from_client_method(
-            "ProjectCatalogClient",
+            "RecordCatalogClient",
             "get_summary",
-            Some("project_catalog.summary"),
+            Some("record_catalog.summary"),
         );
 
-        assert_eq!(meta.key, "project_catalog.summary");
+        assert_eq!(meta.key, "record_catalog.summary");
         assert_eq!(meta.short_key, "summary");
-        assert_eq!(meta.summary, "Couldn't run project catalog summary");
-        assert_eq!(meta.kind, r#"Custom("project_catalog")"#);
+        assert_eq!(meta.summary, "Couldn't run record catalog summary");
+        assert_eq!(meta.kind, r#"Custom("record_catalog")"#);
     }
 
     #[test]
@@ -249,7 +249,7 @@ mod tests {
                 scope: None,
             }],
         };
-        let item = client_probe_const("ProjectCatalogClient", &args);
+        let item = client_probe_const("RecordCatalogClient", &args);
 
         let generated = quote::quote!(#item);
 
@@ -260,12 +260,12 @@ mod tests {
 
     #[test]
     fn client_probe_meta_uses_generic_defaults() {
-        let meta = probe_meta_from_client_method("ProjectCatalogClient", "get_summary", None);
+        let meta = probe_meta_from_client_method("RecordCatalogClient", "get_summary", None);
 
-        assert_eq!(meta.key, "project_catalog.get_summary");
+        assert_eq!(meta.key, "record_catalog.get_summary");
         assert_eq!(meta.short_key, "summary");
-        assert_eq!(meta.summary, "Couldn't run project catalog summary");
-        assert_eq!(meta.kind, r#"Custom("project_catalog")"#);
+        assert_eq!(meta.summary, "Couldn't run record catalog summary");
+        assert_eq!(meta.kind, r#"Custom("record_catalog")"#);
     }
 
     #[test]

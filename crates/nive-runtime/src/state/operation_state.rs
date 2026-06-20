@@ -137,13 +137,13 @@ mod operation_state_tests {
 
         let failed = state.fail(
             RequestId::new(7),
-            UserFacingError::custom("project_catalog", "Project not found (project_id: p1)"),
+            UserFacingError::custom("record_catalog", "Record not found (record_id: r1)"),
         );
 
         assert!(failed);
         assert_eq!(
             state.error().map(UserFacingError::summary),
-            Some("Project not found")
+            Some("Record not found")
         );
         assert_eq!(
             state.failed_context().map(|context| context.id.as_str()),
@@ -158,7 +158,7 @@ mod operation_state_tests {
 
         let failed = state.fail(
             RequestId::new(6),
-            UserFacingError::custom("project_catalog", "Project not found (project_id: p1)"),
+            UserFacingError::custom("record_catalog", "Record not found (record_id: r1)"),
         );
 
         assert!(!failed);
@@ -176,7 +176,7 @@ mod operation_state_tests {
 
         state.fail(
             RequestId::new(7),
-            UserFacingError::custom("project_catalog", "Open failed"),
+            UserFacingError::custom("record_catalog", "Open failed"),
         );
 
         assert!(!OperationStatusPresentation::is_running(&state));
