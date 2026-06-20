@@ -1,18 +1,22 @@
+use std::collections::HashSet;
+use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-#[cfg(feature = "devtools")]
 use iced::keyboard;
 use iced::{window, ContentFit, Subscription, Task};
 
 use super::{
     Application, ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason,
-    Context, CoreEvent, Error, ExitDecision, Result, WindowCommand, WindowContext, WindowQuery,
+    Context, CoreEvent, Error, ExitDecision, Result, ShortcutMap, WindowCommand, WindowContext,
+    WindowQuery,
 };
 use crate::bootstrap::{minimum_duration_task, BootstrapController, BootstrapTransition};
 #[cfg(feature = "devtools")]
 use crate::devtools::DevtoolsPanelMessage;
+#[cfg(feature = "devtools")]
 use crate::devtools::{DevtoolsConfig, DevtoolsHostState, DevtoolsWindowSpec};
+use crate::keyboard_navigation::KeyboardNavigation;
 use crate::{
     AppUpdate, BootstrapSpec, DialogRequest, NoProbe, ProbeCatalogEntry, RuntimeCommand,
     ScreenView, ThemeController, ThemeEvent, ToastId, ToastPosition, ToastState, UserFacingResult,
@@ -23,7 +27,15 @@ use crate::{
 const TOAST_TICK_INTERVAL: Duration = Duration::from_millis(500);
 
 pub(super) fn run<A: Application>() -> Result {
-    run_inner::<A, NoProbe>(None)
+    #[cfg(feature = "devtools")]
+    {
+        run_inner::<A, NoProbe>(None)
+    }
+
+    #[cfg(not(feature = "devtools"))]
+    {
+        run_inner::<A, NoProbe>()
+    }
 }
 
 #[cfg(feature = "devtools")]
@@ -35,6 +47,7 @@ where
     run_inner::<A, A::Probe>(Some(devtools))
 }
 
+#[cfg(feature = "devtools")]
 fn run_inner<A, P>(devtools: Option<DevtoolsRuntime<A, P>>) -> Result
 where
     A: Application,
@@ -44,6 +57,32 @@ where
     let fonts = config.fonts.clone();
     let default_font = config.default_font;
     let (program, initial_task) = Program::<A, P>::new(config, devtools)?;
+    run_program::<A, P>(program, initial_task, fonts, default_font)
+}
+
+#[cfg(not(feature = "devtools"))]
+fn run_inner<A, P>() -> Result
+where
+    A: Application,
+    P: ProbeCatalogEntry,
+{
+    let config = A::config();
+    let fonts = config.fonts.clone();
+    let default_font = config.default_font;
+    let (program, initial_task) = Program::<A, P>::new(config)?;
+    run_program::<A, P>(program, initial_task, fonts, default_font)
+}
+
+fn run_program<A, P>(
+    program: Program<A, P>,
+    initial_task: RuntimeTask<A, P>,
+    fonts: Vec<std::borrow::Cow<'static, [u8]>>,
+    default_font: iced::Font,
+) -> Result
+where
+    A: Application,
+    P: ProbeCatalogEntry,
+{
     let boot = Mutex::new(Some((program, initial_task)));
 
     let mut daemon = iced::daemon(
@@ -72,9 +111,12 @@ struct Program<A: Application, P: ProbeCatalogEntry = NoProbe> {
     core: NiveCore<A::Window>,
     app: Option<A>,
     bootstrap: Option<BootstrapRuntime<A::Bootstrap>>,
+    #[cfg(feature = "devtools")]
     devtools: Option<DevtoolsRuntime<A, P>>,
+    _probe: PhantomData<P>,
 }
 
+#[cfg(feature = "devtools")]
 struct DevtoolsRuntime<A: Application, P: ProbeCatalogEntry> {
     host: DevtoolsHostState<P>,
     window_id: Option<window::Id>,
@@ -118,7 +160,8 @@ type RuntimeMessage<A, P = NoProbe> = NiveMessage<
     <A as Application>::Bootstrap,
     P,
 >;
-type ProgramBoot<A, P> = (Program<A, P>, Task<RuntimeMessage<A, P>>);
+type RuntimeTask<A, P = NoProbe> = Task<RuntimeMessage<A, P>>;
+type ProgramBoot<A, P> = (Program<A, P>, RuntimeTask<A, P>);
 
 enum NiveMessage<K, M, B, P> {
     Core(CoreMessage<K>),
@@ -147,6 +190,8 @@ enum CoreMessage<K> {
     ToastHoverEntered,
     ToastHoverLeft,
     ToastTick(Instant),
+    KeyboardNavigation(KeyboardNavigation),
+    KeyboardEvent(keyboard::Event),
     #[cfg(feature = "devtools")]
     ToggleDevtools,
 }
@@ -228,6 +273,7 @@ struct NiveCore<K> {
     toast_position: ToastPosition,
     toasts: ToastState,
     toasts_hovered: bool,
+    pending_app_closes: HashSet<window::Id>,
 }
 
 impl<A, P> Program<A, P>
@@ -237,7 +283,7 @@ where
 {
     fn new(
         mut config: ApplicationConfig<A::Window, A::Bootstrap>,
-        devtools: Option<DevtoolsRuntime<A, P>>,
+        #[cfg(feature = "devtools")] devtools: Option<DevtoolsRuntime<A, P>>,
     ) -> Result<ProgramBoot<A, P>> {
         let core = NiveCore::new(&config);
         let theme_task = core
@@ -248,7 +294,9 @@ where
             core,
             app: None,
             bootstrap: None,
+            #[cfg(feature = "devtools")]
             devtools,
+            _probe: PhantomData,
         };
 
         let startup_task = if let Some(bootstrap) = config.immediate_bootstrap.take() {
@@ -336,6 +384,7 @@ where
             return self.core.app_name.clone();
         }
 
+        #[cfg(feature = "devtools")]
         if self.is_devtools_window(window_id) {
             return DevtoolsWindowSpec::title_for_app(&self.core.app_name);
         }
@@ -387,15 +436,8 @@ where
         } else {
             Subscription::none()
         };
-        let subscriptions = vec![window_events, theme, app, toasts];
-        #[cfg(feature = "devtools")]
-        let subscriptions = {
-            let mut subscriptions = subscriptions;
-            if self.devtools.is_some() {
-                subscriptions.push(keyboard::listen().filter_map(devtools_toggle_from_event));
-            }
-            subscriptions
-        };
+        let shortcuts = self.shortcut_subscription();
+        let subscriptions = vec![window_events, theme, app, toasts, shortcuts];
 
         Subscription::batch(subscriptions)
     }
@@ -527,11 +569,13 @@ where
         let (app, update) = A::init(context, bootstrap);
         self.app = Some(app);
 
-        let init_task = self.apply_update(update).chain(self.open_initial_windows());
+        let (app_task, runtime_task) = self.apply_initial_update(update);
+        let init_task = Task::batch([app_task, runtime_task.chain(self.open_initial_windows())]);
         let devtools_task = self.initialize_devtools();
-        init_task.chain(devtools_task)
+        Task::batch([init_task, devtools_task])
     }
 
+    #[cfg(feature = "devtools")]
     fn initialize_devtools(&mut self) -> Task<RuntimeMessage<A, P>> {
         let Some(devtools) = self.devtools.as_mut() else {
             return Task::none();
@@ -555,6 +599,12 @@ where
         }
     }
 
+    #[cfg(not(feature = "devtools"))]
+    fn initialize_devtools(&mut self) -> Task<RuntimeMessage<A, P>> {
+        Task::none()
+    }
+
+    #[cfg(feature = "devtools")]
     fn open_devtools_window(&mut self) -> Task<RuntimeMessage<A, P>> {
         let Some(devtools) = self.devtools.as_mut() else {
             return Task::none();
@@ -569,10 +619,16 @@ where
         open_task.map(|id| NiveMessage::Core(CoreMessage::WindowOpened(id)))
     }
 
+    #[cfg(feature = "devtools")]
     fn is_devtools_window(&self, window_id: window::Id) -> bool {
         self.devtools
             .as_ref()
             .is_some_and(|devtools| devtools.window_id == Some(window_id))
+    }
+
+    #[cfg(not(feature = "devtools"))]
+    fn is_devtools_window(&self, _window_id: window::Id) -> bool {
+        false
     }
 
     #[cfg(feature = "devtools")]
@@ -701,6 +757,7 @@ where
                 self.emit_core_event(CoreEvent::WindowOpened(handle.into()))
             }
             CoreMessage::WindowClosed(window_id) => {
+                self.core.pending_app_closes.remove(&window_id);
                 if self.is_bootstrap_window(window_id) {
                     if let Some(mut bootstrap) = self.bootstrap.take() {
                         bootstrap.controller.cancel();
@@ -708,11 +765,14 @@ where
                     self.core.exiting = true;
                     return iced::exit();
                 }
-                if self.is_devtools_window(window_id) {
-                    if let Some(devtools) = self.devtools.as_mut() {
-                        devtools.window_id = None;
+                #[cfg(feature = "devtools")]
+                {
+                    if self.is_devtools_window(window_id) {
+                        if let Some(devtools) = self.devtools.as_mut() {
+                            devtools.window_id = None;
+                        }
+                        return Task::none();
                     }
-                    return Task::none();
                 }
                 let Some(handle) = self.core.registry.get(window_id) else {
                     return Task::none();
@@ -753,9 +813,11 @@ where
                         bootstrap.controller.cancel();
                     }
                     iced::exit()
-                } else if self.is_devtools_window(window_id) {
-                    window::close(window_id)
                 } else {
+                    #[cfg(feature = "devtools")]
+                    if self.is_devtools_window(window_id) {
+                        return window::close(window_id);
+                    }
                     self.request_close(window_id)
                 }
             }
@@ -772,7 +834,7 @@ where
                 self.emit_core_event(CoreEvent::CommandRejected(rejection))
             }
             CoreMessage::ToastDismiss(id) => {
-                self.core.toasts.dismiss(id);
+                self.core.toasts.dismiss(id, Instant::now());
                 Task::none()
             }
             CoreMessage::ToastHoverEntered => {
@@ -787,6 +849,8 @@ where
                 self.core.toasts.handle_tick(now, !self.core.toasts_hovered);
                 Task::none()
             }
+            CoreMessage::KeyboardNavigation(navigation) => navigation.task(),
+            CoreMessage::KeyboardEvent(event) => self.handle_keyboard_event(event),
             #[cfg(feature = "devtools")]
             CoreMessage::ToggleDevtools => {
                 let Some(devtools) = self.devtools.as_ref() else {
@@ -799,6 +863,22 @@ where
                 }
             }
         }
+    }
+
+    fn apply_initial_update(
+        &mut self,
+        update: AppUpdate<A::Message, A::Window>,
+    ) -> (RuntimeTask<A, P>, RuntimeTask<A, P>) {
+        let (task, _, commands) = update.into_parts();
+        let app_task = task.map(|message| NiveMessage::App {
+            window_id: None,
+            message,
+        });
+        let runtime_task = commands.into_iter().fold(Task::none(), |task, command| {
+            task.chain(self.handle_runtime_command(command))
+        });
+
+        (app_task, runtime_task)
     }
 
     fn apply_update(
@@ -923,7 +1003,11 @@ where
             return window::close(window_id);
         }
 
-        if self.core.registry.app_window_count() <= 1 {
+        if self.core.pending_app_closes.contains(&window_id) {
+            return Task::none();
+        }
+
+        if self.core.effective_app_window_count() <= 1 {
             return self.request_exit();
         }
 
@@ -932,16 +1016,21 @@ where
             return Task::none();
         };
         match app.on_window_close_requested(context, window) {
-            CloseDecision::Close => window::close(window_id),
+            CloseDecision::Close => {
+                self.core.pending_app_closes.insert(window_id);
+                window::close(window_id)
+            }
             CloseDecision::Cancel => Task::none(),
-            CloseDecision::Defer(task) => task
-                .map(|message| NiveMessage::App {
+            CloseDecision::Defer(task) => {
+                self.core.pending_app_closes.insert(window_id);
+                task.map(|message| NiveMessage::App {
                     window_id: None,
                     message,
                 })
                 .chain(Task::done(NiveMessage::Core(CoreMessage::ConfirmClose(
                     window_id,
-                )))),
+                ))))
+            }
         }
     }
 
@@ -982,12 +1071,15 @@ where
             .fold(Task::none(), |task, handle| {
                 task.chain(window::close(handle.id))
             });
+        #[cfg(feature = "devtools")]
         let close_devtools = self
             .devtools
             .as_ref()
             .and_then(|devtools| devtools.window_id)
             .map(window::close)
             .unwrap_or(Task::none());
+        #[cfg(not(feature = "devtools"))]
+        let close_devtools = Task::none();
 
         close_auxiliary.chain(close_devtools).chain(iced::exit())
     }
@@ -1017,6 +1109,26 @@ where
             .as_ref()
             .is_some_and(|bootstrap| bootstrap.window_id == window_id)
     }
+
+    fn shortcut_subscription(&self) -> Subscription<RuntimeMessage<A, P>> {
+        if self.app.is_none() {
+            return Subscription::none();
+        }
+
+        keyboard::listen().map(|event| NiveMessage::Core(CoreMessage::KeyboardEvent(event)))
+    }
+
+    fn handle_keyboard_event(&mut self, event: keyboard::Event) -> Task<RuntimeMessage<A, P>> {
+        let shortcuts = self
+            .app
+            .as_ref()
+            .map(|app| app.shortcuts(self.core.context()))
+            .unwrap_or_default();
+
+        shortcut_message_from_event::<A, P>(&shortcuts, event)
+            .map(Task::done)
+            .unwrap_or_else(Task::none)
+    }
 }
 
 fn map_bootstrap_ui_message<K, M, B, P>(message: BootstrapUiMessage) -> NiveMessage<K, M, B, P> {
@@ -1027,6 +1139,52 @@ fn map_bootstrap_ui_message<K, M, B, P>(message: BootstrapUiMessage) -> NiveMess
     };
 
     NiveMessage::Bootstrap(message)
+}
+
+fn shortcut_message_from_event<A, P>(
+    shortcuts: &ShortcutMap<A::Message>,
+    event: keyboard::Event,
+) -> Option<RuntimeMessage<A, P>>
+where
+    A: Application,
+    P: ProbeCatalogEntry,
+{
+    if let Some(navigation) = keyboard_navigation_from_event(&event) {
+        return Some(NiveMessage::Core(CoreMessage::KeyboardNavigation(
+            navigation,
+        )));
+    }
+    if is_escape_key_event(&event) {
+        return None;
+    }
+
+    #[cfg(feature = "devtools")]
+    if let Some(message) = devtools_toggle_from_event(event.clone()) {
+        return Some(message);
+    }
+
+    shortcuts
+        .message_for_event(&event)
+        .map(|message| NiveMessage::App {
+            window_id: None,
+            message,
+        })
+}
+
+fn keyboard_navigation_from_event(event: &keyboard::Event) -> Option<KeyboardNavigation> {
+    crate::direction_from_keyboard_event(event).map(KeyboardNavigation::from)
+}
+
+fn is_escape_key_event(event: &keyboard::Event) -> bool {
+    matches!(
+        event,
+        keyboard::Event::KeyPressed {
+            key: keyboard::Key::Named(keyboard::key::Named::Escape),
+            modifiers,
+            repeat: false,
+            ..
+        } if modifiers.is_empty()
+    )
 }
 
 #[cfg(feature = "devtools")]
@@ -1095,6 +1253,7 @@ where
             toast_position: config.toast_position,
             toasts: ToastState::default(),
             toasts_hovered: false,
+            pending_app_closes: HashSet::new(),
         }
     }
 
@@ -1125,6 +1284,15 @@ where
     fn toast_position(&self) -> ToastPosition {
         self.toast_position
     }
+
+    fn effective_app_window_count(&self) -> usize {
+        self.registry
+            .handles()
+            .filter(|handle| {
+                handle.role == WindowRole::App && !self.pending_app_closes.contains(&handle.id)
+            })
+            .count()
+    }
 }
 
 impl<K> From<WindowHandle<K>> for WindowContext<K> {
@@ -1143,7 +1311,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::{DialogDismiss, ScreenView, ToastRequest};
+    use crate::{DialogDismiss, ScreenView, ShortcutBinding, ToastRequest};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum TestWindow {
@@ -1151,6 +1319,11 @@ mod tests {
         Secondary,
         Multiple,
         Missing,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    enum TestMessage {
+        Shortcut,
     }
 
     #[derive(Debug, Clone)]
@@ -1165,6 +1338,9 @@ mod tests {
     struct BootstrapTestApp {
         bootstrap: String,
     }
+
+    #[derive(Debug)]
+    struct PendingInitTaskApp;
 
     #[cfg(feature = "devtools")]
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1187,7 +1363,7 @@ mod tests {
     }
 
     impl Application for TestApp {
-        type Message = ();
+        type Message = TestMessage;
         type Window = TestWindow;
         type Bootstrap = ();
 
@@ -1232,7 +1408,7 @@ mod tests {
             if self.show_dialog {
                 ScreenView::new(base).dialog(
                     DialogRequest::new(iced::widget::text("dialog"))
-                        .dismiss(DialogDismiss::OnEscape(())),
+                        .dismiss(DialogDismiss::OnEscape(TestMessage::Shortcut)),
                 )
             } else {
                 ScreenView::new(base)
@@ -1245,6 +1421,18 @@ mod tests {
             _window: WindowContext<Self::Window>,
         ) -> Cow<'a, str> {
             Cow::Borrowed("Test")
+        }
+
+        fn shortcuts(&self, _context: Context<'_, Self::Window>) -> ShortcutMap<Self::Message> {
+            ShortcutMap::new()
+                .bind(
+                    ShortcutBinding::character('k', keyboard::Modifiers::CTRL),
+                    TestMessage::Shortcut,
+                )
+                .bind(
+                    ShortcutBinding::named(keyboard::key::Named::Tab, keyboard::Modifiers::NONE),
+                    TestMessage::Shortcut,
+                )
         }
 
         fn on_core_event(
@@ -1281,7 +1469,7 @@ mod tests {
     }
 
     impl Application for BootstrapTestApp {
-        type Message = ();
+        type Message = TestMessage;
         type Window = TestWindow;
         type Bootstrap = String;
 
@@ -1300,6 +1488,47 @@ mod tests {
             bootstrap: Self::Bootstrap,
         ) -> (Self, AppUpdate<Self::Message, Self::Window>) {
             (Self { bootstrap }, AppUpdate::none())
+        }
+
+        fn update(
+            &mut self,
+            _context: Context<'_, Self::Window>,
+            _window: Option<WindowContext<Self::Window>>,
+            _message: Self::Message,
+        ) -> AppUpdate<Self::Message, Self::Window> {
+            AppUpdate::none()
+        }
+
+        fn view(
+            &self,
+            _context: Context<'_, Self::Window>,
+            _window: WindowContext<Self::Window>,
+        ) -> ScreenView<'_, Self::Message> {
+            ScreenView::new(iced::widget::text(""))
+        }
+    }
+
+    impl Application for PendingInitTaskApp {
+        type Message = TestMessage;
+        type Window = TestWindow;
+        type Bootstrap = ();
+
+        fn config() -> ApplicationConfig<Self::Window, Self::Bootstrap> {
+            ApplicationConfig::new("pending-init-test")
+                .window(TestWindow::Main, WindowSpec::app())
+                .initial_window(TestWindow::Main)
+        }
+
+        fn init(
+            _context: Context<'_, Self::Window>,
+            _bootstrap: Self::Bootstrap,
+        ) -> (Self, AppUpdate<Self::Message, Self::Window>) {
+            (
+                Self,
+                AppUpdate::from_task(Task::perform(std::future::pending::<()>(), |_| {
+                    TestMessage::Shortcut
+                })),
+            )
         }
 
         fn update(
@@ -1349,9 +1578,25 @@ mod tests {
     }
 
     fn program() -> Program<TestApp> {
-        Program::new(TestApp::config(), None)
+        plain_program::<TestApp>()
             .map(|(program, _)| program)
             .unwrap_or_else(|error| panic!("test program failed: {error}"))
+    }
+
+    #[cfg(feature = "devtools")]
+    fn plain_program<A>() -> Result<ProgramBoot<A, NoProbe>>
+    where
+        A: Application,
+    {
+        Program::<A>::new(A::config(), None)
+    }
+
+    #[cfg(not(feature = "devtools"))]
+    fn plain_program<A>() -> Result<ProgramBoot<A, NoProbe>>
+    where
+        A: Application,
+    {
+        Program::<A>::new(A::config())
     }
 
     #[cfg(feature = "devtools")]
@@ -1367,6 +1612,15 @@ mod tests {
     #[test]
     fn configured_initial_window_is_registered_as_opening() {
         let program = program();
+
+        assert!(program.core.registry.contains(TestWindow::Main));
+        assert_eq!(program.core.registry.app_window_count(), 1);
+    }
+
+    #[test]
+    fn initial_windows_open_without_waiting_for_init_task() {
+        let (program, _task) = plain_program::<PendingInitTaskApp>()
+            .unwrap_or_else(|error| panic!("test program failed: {error}"));
 
         assert!(program.core.registry.contains(TestWindow::Main));
         assert_eq!(program.core.registry.app_window_count(), 1);
@@ -1462,6 +1716,81 @@ mod tests {
         ));
     }
 
+    fn key_pressed(
+        key: keyboard::Key,
+        modifiers: keyboard::Modifiers,
+        repeat: bool,
+    ) -> keyboard::Event {
+        use iced::keyboard::key::{Code, Physical};
+        use iced::keyboard::Location;
+
+        keyboard::Event::KeyPressed {
+            key: key.clone(),
+            modified_key: key,
+            physical_key: Physical::Code(Code::KeyK),
+            location: Location::Standard,
+            modifiers,
+            text: None,
+            repeat,
+        }
+    }
+
+    #[test]
+    fn product_shortcut_routes_to_unscoped_app_message() {
+        let shortcuts = ShortcutMap::new().bind(
+            ShortcutBinding::character('K', keyboard::Modifiers::CTRL),
+            TestMessage::Shortcut,
+        );
+        let event = key_pressed(
+            keyboard::Key::Character("k".into()),
+            keyboard::Modifiers::CTRL,
+            false,
+        );
+
+        assert!(matches!(
+            shortcut_message_from_event::<TestApp, NoProbe>(&shortcuts, event),
+            Some(NiveMessage::App {
+                window_id: None,
+                message: TestMessage::Shortcut
+            })
+        ));
+    }
+
+    #[test]
+    fn repeated_product_shortcut_keypress_is_ignored() {
+        let shortcuts = ShortcutMap::new().bind(
+            ShortcutBinding::character('k', keyboard::Modifiers::CTRL),
+            TestMessage::Shortcut,
+        );
+        let event = key_pressed(
+            keyboard::Key::Character("k".into()),
+            keyboard::Modifiers::CTRL,
+            true,
+        );
+
+        assert!(shortcut_message_from_event::<TestApp, NoProbe>(&shortcuts, event).is_none());
+    }
+
+    #[test]
+    fn framework_shortcut_wins_product_conflict() {
+        let shortcuts = ShortcutMap::new().bind(
+            ShortcutBinding::named(keyboard::key::Named::Tab, keyboard::Modifiers::NONE),
+            TestMessage::Shortcut,
+        );
+        let event = key_pressed(
+            keyboard::Key::Named(keyboard::key::Named::Tab),
+            keyboard::Modifiers::NONE,
+            false,
+        );
+
+        assert!(matches!(
+            shortcut_message_from_event::<TestApp, NoProbe>(&shortcuts, event),
+            Some(NiveMessage::Core(CoreMessage::KeyboardNavigation(
+                KeyboardNavigation::FocusNext
+            )))
+        ));
+    }
+
     #[test]
     fn single_window_open_focuses_existing_instance() {
         let mut program = program();
@@ -1518,6 +1847,51 @@ mod tests {
     }
 
     #[test]
+    fn simultaneous_closes_treat_second_app_window_as_exit_request() {
+        let mut program = program();
+        program.core.registry.set_opened(WindowHandle::new(
+            TestWindow::Secondary,
+            window::Id::unique(),
+        ));
+        if let Some(app) = program.app.as_mut() {
+            app.cancel_exit = true;
+        }
+        let main_id = main_window_id(&program);
+        let secondary_id = program
+            .core
+            .registry
+            .first(TestWindow::Secondary)
+            .map(|handle| handle.id)
+            .unwrap_or_else(window::Id::unique);
+
+        let _task = program.request_close(main_id);
+        let _task = program.request_close(secondary_id);
+
+        assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(1));
+        assert!(program.core.pending_app_closes.contains(&main_id));
+        assert!(!program.core.pending_app_closes.contains(&secondary_id));
+        assert!(!program.core.exiting);
+    }
+
+    #[test]
+    fn close_kind_all_windows_respects_cancelled_final_exit() {
+        let mut program = program();
+        program
+            .core
+            .registry
+            .set_opened(WindowHandle::new(TestWindow::Main, window::Id::unique()));
+        if let Some(app) = program.app.as_mut() {
+            app.cancel_exit = true;
+        }
+
+        let _task = program.handle_window_command(WindowCommand::CloseKind(TestWindow::Main));
+
+        assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(1));
+        assert_eq!(program.core.effective_app_window_count(), 1);
+        assert!(!program.core.exiting);
+    }
+
+    #[test]
     fn cancelled_exit_keeps_runtime_active() {
         let mut program = program();
         if let Some(app) = program.app.as_mut() {
@@ -1544,7 +1918,7 @@ mod tests {
 
     #[test]
     fn configured_bootstrap_delays_app_init_and_initial_windows() {
-        let (program, _task) = Program::<BootstrapTestApp>::new(BootstrapTestApp::config(), None)
+        let (program, _task) = plain_program::<BootstrapTestApp>()
             .unwrap_or_else(|error| panic!("test program failed: {error}"));
 
         assert!(program.app.is_none());
@@ -1554,9 +1928,8 @@ mod tests {
 
     #[test]
     fn successful_bootstrap_transfers_result_into_app_init() {
-        let (mut program, _task) =
-            Program::<BootstrapTestApp>::new(BootstrapTestApp::config(), None)
-                .unwrap_or_else(|error| panic!("test program failed: {error}"));
+        let (mut program, _task) = plain_program::<BootstrapTestApp>()
+            .unwrap_or_else(|error| panic!("test program failed: {error}"));
         let result = Arc::new(Mutex::new(Some(Ok(String::from("services")))));
 
         let _task = program.update_bootstrap(BootstrapMessage::Finished { attempt: 1, result });
@@ -1571,9 +1944,8 @@ mod tests {
 
     #[test]
     fn closing_splash_cancels_bootstrap_without_creating_app() {
-        let (mut program, _task) =
-            Program::<BootstrapTestApp>::new(BootstrapTestApp::config(), None)
-                .unwrap_or_else(|error| panic!("test program failed: {error}"));
+        let (mut program, _task) = plain_program::<BootstrapTestApp>()
+            .unwrap_or_else(|error| panic!("test program failed: {error}"));
         let splash_window = program
             .bootstrap
             .as_ref()
