@@ -2,6 +2,10 @@
 name = "nive-runtime-derive"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.92"
+license = "Apache-2.0"
+description = "Proc-macro support for the Nive runtime devtools layer."
+categories = ["development-tools::procedural-macro-helpers"]
 
 [lib]
 proc-macro = true
