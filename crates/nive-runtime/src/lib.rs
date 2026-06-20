@@ -3,6 +3,7 @@ mod async_state;
 mod bootstrap;
 mod client_task;
 mod clock;
+#[cfg(feature = "devtools")]
 pub mod devtools;
 mod dialog_dismiss;
 mod dialog_request;
@@ -23,15 +24,14 @@ mod window_shell;
 pub use application::run_with_devtools;
 pub use application::{
     run, Application, ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason,
-    Context, CoreEvent, Error, ExitDecision, PlatformError, Result, ShortcutMap, WindowCommand,
-    WindowContext, WindowQuery, WindowRegistration,
+    Context, CoreEvent, Error, ExitDecision, PlatformError, Result, ShortcutBinding, ShortcutKey,
+    ShortcutMap, WindowCommand, WindowContext, WindowQuery, WindowRegistration,
 };
 pub use async_state::AsyncState;
-pub use bootstrap::{
-    BackgroundFit, BackgroundPosition, BootstrapSpec, BrandContent, SplashBackground,
-};
+pub use bootstrap::{BackgroundFit, BootstrapSpec, BrandContent, SplashBackground};
 pub use client_task::{client_task, injected_client_task, ClientTaskInjection, ProbeEffect};
 pub use clock::{relative_time_label, unix_now};
+#[cfg(feature = "devtools")]
 pub use devtools::{
     run_devtools_panel_effect, DevtoolStateCatalog, DevtoolStateHost, DevtoolsApp, DevtoolsConfig,
     DevtoolsHostState, DevtoolsPanelEffect, DevtoolsPanelMessage, DevtoolsPanelState,
@@ -86,10 +86,10 @@ pub use platform::file_picker::{pick_file, pick_files, pick_folder};
 pub mod prelude {
     pub use crate::{
         keyboard_navigation_subscription, relative_time_label, run, time, unix_now, window,
-        AppUpdate, Application, ApplicationConfig, BackgroundFit, BackgroundPosition,
-        BootstrapSpec, BrandContent, CloseDecision, CommandRejected, CommandRejectionReason,
-        Context, CoreEvent, Error, ErrorCode, ExitDecision, KeyboardNavigation, Never,
-        PlatformError, RequestCounter, RequestId, Result, RuntimeCommand, ScreenView, ShortcutMap,
+        AppUpdate, Application, ApplicationConfig, BackgroundFit, BootstrapSpec, BrandContent,
+        CloseDecision, CommandRejected, CommandRejectionReason, Context, CoreEvent, Error,
+        ErrorCode, ExitDecision, KeyboardNavigation, Never, PlatformError, RequestCounter,
+        RequestId, Result, RuntimeCommand, ScreenView, ShortcutBinding, ShortcutKey, ShortcutMap,
         Size, SplashBackground, Subscription, Task, ThemeController, ThemeEvent, ThemePreference,
         Toast, ToastPosition, Update, UserFacingError, WindowCardinality, WindowCommand,
         WindowContext, WindowQuery, WindowRole, WindowSpec,
