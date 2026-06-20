@@ -1,73 +1,46 @@
 mod application;
-mod async_state;
-mod bootstrap;
-mod client_task;
-mod clock;
 #[cfg(feature = "devtools")]
 pub mod devtools;
-mod dialog_dismiss;
-mod dialog_request;
-mod error;
-mod keyboard_navigation;
-mod operation_state;
+mod feedback;
+mod input;
+mod lifecycle;
 pub mod platform;
-mod probe;
-mod request;
-mod screen_update;
-mod screen_view;
-mod theme_controller;
-mod toast;
-mod update;
-mod window_shell;
+mod screen;
+mod state;
 
 #[cfg(feature = "devtools")]
 pub use application::run_with_devtools;
 pub use application::{
-    run, Application, ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason,
-    Context, CoreEvent, Error, ExitDecision, PlatformError, Result, ShortcutBinding, ShortcutKey,
-    ShortcutMap, WindowCommand, WindowContext, WindowQuery, WindowRegistration,
+    client_task, run, AppUpdate, Application, ApplicationConfig, Context, CoreEvent, Error, Never,
+    Result, RuntimeCommand, ThemeController, ThemeEvent, Update, WindowContext, WindowQuery,
+    WindowRegistration,
 };
-pub use async_state::AsyncState;
-pub use bootstrap::{BackgroundFit, BootstrapSpec, BrandContent, SplashBackground};
-pub use client_task::{client_task, injected_client_task, ClientTaskInjection, ProbeEffect};
-pub use clock::{relative_time_label, unix_now};
 #[cfg(feature = "devtools")]
 pub use devtools::{
     run_devtools_panel_effect, DevtoolStateCatalog, DevtoolStateHost, DevtoolsApp, DevtoolsConfig,
     DevtoolsHostState, DevtoolsPanelEffect, DevtoolsPanelMessage, DevtoolsPanelState,
     DevtoolsPanelTab, DevtoolsWindowSpec, ProbePanelState,
 };
-pub use dialog_dismiss::{is_escape_key_press, DialogDismiss};
-pub use dialog_request::DialogRequest;
-pub use error::{
-    ErrorCode, InvalidErrorCode, UserFacingError, UserFacingErrorKind, UserFacingResult,
+pub use feedback::{
+    ErrorCode, InvalidErrorCode, Toast, ToastDuration, ToastId, ToastItem, ToastMessage,
+    ToastPosition, ToastRequest, ToastState, ToastTone, UserFacingError, UserFacingErrorKind,
+    UserFacingResult,
 };
-pub use keyboard_navigation::{keyboard_navigation_subscription, KeyboardNavigation};
+pub use input::{
+    keyboard_navigation_subscription, KeyboardNavigation, ShortcutBinding, ShortcutKey, ShortcutMap,
+};
+pub use lifecycle::{
+    open_window, BackgroundFit, BootstrapSpec, BrandContent, CloseDecision, CommandRejected,
+    CommandRejectionReason, ExitDecision, PlatformError, SplashBackground, WindowCardinality,
+    WindowChrome, WindowCommand, WindowHandle, WindowMode, WindowRegistry, WindowRole, WindowSpec,
+};
 pub use nive_ui::focus_trap::{
     direction_from_event, direction_from_keyboard_event, FocusDirection,
 };
-pub use operation_state::OperationState;
 pub use platform::file_picker::{FileFilter, PickFileParams};
-pub use probe::{
-    composed_probe_ids, parse_probe_config, probe_catalog_items, probe_catalog_keys,
-    probe_drafts_from_snapshot, update_probe_drafts, ComposedProbeId, NoProbe, ProbeCatalogEntry,
-    ProbeCatalogItem, ProbeDraft, ProbeErrorScope, ProbeInjectionConfig, ProbeInjectionSnapshot,
-    ProbeInjectionStore, ProbeMeta, ProbeMetaCatalog, ProbePanelEffect, ProbePanelMessage,
-    ProbeRuntimeConfig, ProbeScenarioConfig, ProbeScenarioSnapshot,
-};
-pub use request::{RequestCounter, RequestId};
-pub use screen_update::ScreenUpdate;
-pub use screen_view::ScreenView;
-pub use theme_controller::{ThemeController, ThemeEvent};
-pub use toast::ToastRequest as Toast;
-pub use toast::{
-    ToastDuration, ToastId, ToastItem, ToastMessage, ToastPosition, ToastRequest, ToastState,
-    ToastTone,
-};
-pub use update::{AppUpdate, Never, RuntimeCommand, Update};
-pub use window_shell::{
-    open_window, WindowCardinality, WindowChrome, WindowHandle, WindowMode, WindowRegistry,
-    WindowRole, WindowSpec,
+pub use screen::{is_escape_key_press, DialogDismiss, DialogRequest, ScreenUpdate, ScreenView};
+pub use state::{
+    relative_time_label, unix_now, AsyncState, OperationState, RequestCounter, RequestId,
 };
 
 pub use iced::{time, window, Size, Subscription, Task};
