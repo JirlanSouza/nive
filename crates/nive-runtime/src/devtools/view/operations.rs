@@ -8,10 +8,10 @@ use nive_ui::theme::{self, GapRole};
 use nive_ui::widgets::{button, Separator};
 use nive_ui::Element;
 
+use crate::devtools::probe::ProbeCatalogEntry;
 use crate::devtools::{
     DevtoolOperationView, DevtoolsPanelMessage, DevtoolsPanelState, DevtoolsRowId,
 };
-use crate::probe::ProbeCatalogEntry;
 
 use super::shared::{
     command_button, command_error_field, command_field, empty_message, normalized_query,

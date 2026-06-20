@@ -2,12 +2,12 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use iced::{window, Task};
 
-use crate::{
-    open_window, probe_drafts_from_snapshot, update_probe_drafts, ProbeCatalogEntry, ProbeDraft,
-    ProbeInjectionSnapshot, ProbePanelEffect, ProbePanelMessage, WindowChrome, WindowHandle,
-    WindowMode, WindowSpec,
-};
+use crate::{open_window, WindowChrome, WindowHandle, WindowMode, WindowSpec};
 
+use super::probe::{
+    probe_drafts_from_snapshot, update_probe_drafts, ProbeCatalogEntry, ProbeDraft,
+    ProbeInjectionSnapshot, ProbePanelEffect, ProbePanelMessage,
+};
 use super::{DevtoolCommand, DevtoolCommandResult, DevtoolsRowId};
 
 const DEFAULT_DEVTOOLS_ERROR: &str = "Devtools injected failure";
@@ -522,7 +522,9 @@ fn parse_devtools_tab(value: &str) -> Option<DevtoolsPanelTab> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ProbeEffect, ProbeErrorScope, ProbeInjectionConfig, ProbeMeta};
+    use crate::devtools::probe::{
+        ProbeEffect, ProbeErrorScope, ProbeInjectionConfig, ProbeInjectionStore, ProbeMeta,
+    };
 
     use super::*;
 
@@ -545,7 +547,7 @@ mod tests {
     }
 
     fn panel() -> DevtoolsPanelState<TestProbe> {
-        let snapshot = crate::ProbeInjectionStore::new(ProbeInjectionConfig::<TestProbe> {
+        let snapshot = ProbeInjectionStore::new(ProbeInjectionConfig::<TestProbe> {
             scenarios: Vec::new(),
             unknown: Vec::new(),
         })
@@ -599,7 +601,7 @@ mod tests {
 
     #[test]
     fn from_probe_snapshot_with_config_applies_initial_tab() {
-        let snapshot = crate::ProbeInjectionStore::new(ProbeInjectionConfig::<TestProbe> {
+        let snapshot = ProbeInjectionStore::new(ProbeInjectionConfig::<TestProbe> {
             scenarios: Vec::new(),
             unknown: Vec::new(),
         })

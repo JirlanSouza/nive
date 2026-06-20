@@ -10,9 +10,8 @@ use nive_ui::widgets::{
 };
 use nive_ui::Element;
 
+use crate::devtools::probe::{ProbeCatalogEntry, ProbeDraft, ProbeEffect, ProbePanelMessage};
 use crate::devtools::{DevtoolsPanelMessage, DevtoolsPanelState, DevtoolsRowId};
-use crate::probe::{ProbeCatalogEntry, ProbeDraft, ProbePanelMessage};
-use crate::ProbeEffect;
 
 use super::super::shared::{
     clamped_caption, clamped_label_strong, empty_message, normalized_query, scroll_footer,
