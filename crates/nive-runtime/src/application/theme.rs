@@ -1,5 +1,5 @@
 use iced::{system, Subscription, Task};
-use nive_ui::theme::{self, Theme, ThemePreference};
+use nive_ui::theme::{self, Theme, ThemeCatalog, ThemePreference};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ThemeEvent(iced::theme::Mode);
@@ -7,19 +7,34 @@ pub struct ThemeEvent(iced::theme::Mode);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ThemeController {
     preference: ThemePreference,
+    catalog: ThemeCatalog,
     system_mode: iced::theme::Mode,
     effective: Theme,
 }
 
 impl ThemeController {
     pub fn new(preference: ThemePreference) -> Self {
-        Self::with_system_mode(preference, iced::theme::Mode::None)
+        Self::with_catalog(preference, ThemeCatalog::default())
     }
 
+    pub fn with_catalog(preference: ThemePreference, catalog: ThemeCatalog) -> Self {
+        Self::with_catalog_and_system_mode(preference, catalog, iced::theme::Mode::None)
+    }
+
+    #[cfg(test)]
     fn with_system_mode(preference: ThemePreference, system_mode: iced::theme::Mode) -> Self {
-        let effective = Theme::from_mode(preference.resolve(system_mode));
+        Self::with_catalog_and_system_mode(preference, ThemeCatalog::default(), system_mode)
+    }
+
+    fn with_catalog_and_system_mode(
+        preference: ThemePreference,
+        catalog: ThemeCatalog,
+        system_mode: iced::theme::Mode,
+    ) -> Self {
+        let effective = catalog.resolve(preference.resolve(system_mode));
         let controller = Self {
             preference,
+            catalog,
             system_mode,
             effective,
         };
@@ -29,6 +44,10 @@ impl ThemeController {
 
     pub fn preference(self) -> ThemePreference {
         self.preference
+    }
+
+    pub fn catalog(self) -> ThemeCatalog {
+        self.catalog
     }
 
     pub fn effective(self) -> Theme {
@@ -62,7 +81,9 @@ impl ThemeController {
     }
 
     fn synchronize(&mut self) -> bool {
-        let effective = Theme::from_mode(self.preference.resolve(self.system_mode));
+        let effective = self
+            .catalog
+            .resolve(self.preference.resolve(self.system_mode));
         let changed = effective != self.effective;
         self.effective = effective;
         self.activate();
@@ -73,7 +94,7 @@ impl ThemeController {
 #[cfg(test)]
 mod theme_controller_tests {
     use super::*;
-    use nive_ui::theme::testing::ThemeTestGuard;
+    use nive_ui::theme::{testing::ThemeTestGuard, ThemeMode};
 
     #[test]
     fn system_preference_tracks_system_mode() {
@@ -116,5 +137,26 @@ mod theme_controller_tests {
 
         let _: Task<ThemeEvent> = controller.initial_task();
         let _: Subscription<ThemeEvent> = controller.subscription();
+    }
+
+    #[test]
+    fn custom_catalog_resolves_effective_theme() {
+        let _guard = ThemeTestGuard::activate(Theme::Dark);
+        let light = Theme::builder("Acme Light", ThemeMode::Light).build();
+        let dark = Theme::builder("Acme Dark", ThemeMode::Dark).build();
+        let catalog = ThemeCatalog::new(light, dark);
+        let mut controller = ThemeController::with_catalog_and_system_mode(
+            ThemePreference::System,
+            catalog,
+            iced::theme::Mode::Light,
+        );
+
+        assert_eq!(controller.catalog(), catalog);
+        assert_eq!(controller.effective().name(), "Acme Light");
+        assert_eq!(theme::active().name(), "Acme Light");
+
+        assert!(controller.handle(ThemeEvent(iced::theme::Mode::Dark)));
+        assert_eq!(controller.effective().name(), "Acme Dark");
+        assert_eq!(theme::active().name(), "Acme Dark");
     }
 }

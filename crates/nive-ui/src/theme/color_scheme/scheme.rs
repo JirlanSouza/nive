@@ -118,18 +118,14 @@ impl ColorScheme {
         )
     }
 
-    fn from_palette(palette: iced::theme::Palette, is_dark: bool) -> Self {
+    pub(crate) fn from_palette(palette: iced::theme::Palette, is_dark: bool) -> Self {
         let app = palette.background;
         let foreground = palette.text;
         let primary = palette.primary;
         let success = palette.success;
         let danger = palette.danger;
 
-        let warning = if is_dark {
-            rgb(0xFBBF24)
-        } else {
-            rgb(0xB45309)
-        };
+        let warning = palette.warning;
 
         let info = if is_dark {
             rgb(0x60A5FA)

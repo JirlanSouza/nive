@@ -1,4 +1,5 @@
 mod active;
+mod builder;
 pub mod color;
 pub mod color_scheme;
 pub mod component;
@@ -16,6 +17,7 @@ mod catalog;
 
 pub use crate::tokens::color::{format_hex_color, format_rgb_hex_color, hex, parse_hex_color};
 pub use active::{active, control_metrics, controls, gap, padding, space, spacing};
+pub use builder::ThemeBuilder;
 pub use catalog::{
     ButtonClass, CheckboxClass, ContainerClass, FieldValidation, MenuClass, PickListClass,
     ProgressBarClass, RuleClass, ScrollableClass, TextClass, TextInputClass, TogglerClass,

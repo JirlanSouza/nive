@@ -9,24 +9,66 @@ use super::spacing::{self, GapRole, PaddingRole, SpaceStep, SpacingScale};
 use super::typography::{self, TextStyle, TypographyRole, TypographyScale};
 use super::{BorderRole, ControlRole, ControlState, SurfaceRole, TextRole, ThemeMode, ToneRole};
 
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 pub enum Theme {
-    Light = 0,
-    Dark = 1,
+    Light,
+    Dark,
+    Custom(&'static ThemeData),
 }
 
-pub type ThemeId = Theme;
+impl PartialEq for Theme {
+    fn eq(&self, other: &Self) -> bool {
+        match (*self, *other) {
+            (Self::Light, Self::Light) | (Self::Dark, Self::Dark) => true,
+            (Self::Custom(left), Self::Custom(right)) => std::ptr::eq(left, right),
+            _ => false,
+        }
+    }
+}
 
-#[derive(Debug, Clone, Copy, Default)]
-pub struct ThemeCatalog;
+impl Eq for Theme {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThemeId {
+    Light,
+    Dark,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ThemeCatalog {
+    light: Theme,
+    dark: Theme,
+}
 
 impl ThemeCatalog {
-    pub fn get(self, id: ThemeId) -> &'static ThemeData {
+    pub const NIVE: Self = Self::new(Theme::Light, Theme::Dark);
+
+    pub const fn new(light: Theme, dark: Theme) -> Self {
+        Self { light, dark }
+    }
+
+    pub fn theme(self, id: ThemeId) -> Theme {
         match id {
-            Theme::Light => &LIGHT_THEME_DATA,
-            Theme::Dark => &DARK_THEME_DATA,
+            ThemeId::Light => self.light,
+            ThemeId::Dark => self.dark,
         }
+    }
+
+    pub fn get(self, id: ThemeId) -> &'static ThemeData {
+        self.theme(id).data()
+    }
+
+    pub fn resolve(self, mode: ThemeMode) -> Theme {
+        match mode {
+            ThemeMode::Light => self.light,
+            ThemeMode::Dark => self.dark,
+        }
+    }
+}
+
+impl Default for ThemeCatalog {
+    fn default() -> Self {
+        Self::NIVE
     }
 }
 
@@ -45,6 +87,14 @@ static LIGHT_THEME_DATA: LazyLock<ThemeData> = LazyLock::new(|| ThemeData::new(T
 static DARK_THEME_DATA: LazyLock<ThemeData> = LazyLock::new(|| ThemeData::new(ThemeMode::Dark));
 
 impl Theme {
+    pub fn builder(name: &'static str, mode: ThemeMode) -> super::ThemeBuilder {
+        super::ThemeBuilder::new(name, mode)
+    }
+
+    pub fn custom(data: ThemeData) -> Self {
+        Self::Custom(Box::leak(Box::new(data)))
+    }
+
     pub const fn from_mode(mode: ThemeMode) -> Self {
         match mode {
             ThemeMode::Light => Self::Light,
@@ -60,11 +110,20 @@ impl Theme {
         match self {
             Self::Light => ThemeMode::Light,
             Self::Dark => ThemeMode::Dark,
+            Self::Custom(data) => data.mode,
         }
     }
 
     pub fn data(self) -> &'static ThemeData {
-        ThemeCatalog.get(self)
+        match self {
+            Self::Light => &LIGHT_THEME_DATA,
+            Self::Dark => &DARK_THEME_DATA,
+            Self::Custom(data) => data,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        self.data().name
     }
 
     pub fn color_scheme(self) -> &'static ColorScheme {
@@ -134,14 +193,6 @@ impl Theme {
     pub fn padding(self, role: PaddingRole) -> Padding {
         self.spacing().padding(role)
     }
-
-    pub(super) const fn from_active_value(value: u8) -> Self {
-        match value {
-            0 => Self::Light,
-            1 => Self::Dark,
-            _ => Self::Dark,
-        }
-    }
 }
 
 impl ThemeData {
@@ -183,7 +234,14 @@ impl iced::theme::Base for Theme {
     }
 
     fn palette(&self) -> Option<iced::theme::Palette> {
-        Some(super::palette::palette(Theme::mode(*self)))
+        Some(iced::theme::Palette {
+            background: self.surface(SurfaceRole::App).background,
+            text: self.text(TextRole::Primary).color,
+            primary: self.tone(ToneRole::Primary).color,
+            success: self.tone(ToneRole::Success).color,
+            warning: self.tone(ToneRole::Warning).color,
+            danger: self.tone(ToneRole::Danger).color,
+        })
     }
 
     fn name(&self) -> &str {
@@ -284,11 +342,30 @@ mod theme_tests {
         assert_eq!(Theme::Dark.name(), ThemeMode::Dark.name());
         assert_eq!(
             Theme::Light.palette(),
-            Some(super::super::palette::palette(ThemeMode::Light))
+            Some(palette_from_theme(Theme::Light))
         );
-        assert_eq!(
-            Theme::Dark.palette(),
-            Some(super::super::palette::palette(ThemeMode::Dark))
-        );
+        assert_eq!(Theme::Dark.palette(), Some(palette_from_theme(Theme::Dark)));
+    }
+
+    #[test]
+    fn catalog_resolves_custom_themes_by_mode() {
+        let light = Theme::builder("Acme Light", ThemeMode::Light).build();
+        let dark = Theme::builder("Acme Dark", ThemeMode::Dark).build();
+        let catalog = ThemeCatalog::new(light, dark);
+
+        assert_eq!(catalog.resolve(ThemeMode::Light).name(), "Acme Light");
+        assert_eq!(catalog.resolve(ThemeMode::Dark).name(), "Acme Dark");
+        assert_eq!(catalog.get(ThemeId::Light).name, "Acme Light");
+    }
+
+    fn palette_from_theme(theme: Theme) -> iced::theme::Palette {
+        iced::theme::Palette {
+            background: theme.surface(SurfaceRole::App).background,
+            text: theme.text(TextRole::Primary).color,
+            primary: theme.tone(ToneRole::Primary).color,
+            success: theme.tone(ToneRole::Success).color,
+            warning: theme.tone(ToneRole::Warning).color,
+            danger: theme.tone(ToneRole::Danger).color,
+        }
     }
 }

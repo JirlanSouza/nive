@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use iced::{window, Font};
-use nive_ui::theme::ThemePreference;
+use nive_ui::theme::{ThemeCatalog, ThemePreference};
 
 use crate::{BootstrapSpec, ToastPosition, WindowSpec};
 
@@ -11,6 +11,7 @@ pub struct ApplicationConfig<K, B> {
     pub(super) windows: Vec<WindowRegistration<K>>,
     pub(super) initial_windows: Vec<K>,
     pub(super) theme_preference: ThemePreference,
+    pub(super) theme_catalog: ThemeCatalog,
     pub(super) toast_position: ToastPosition,
     pub(super) bootstrap: Option<BootstrapSpec<B>>,
     pub(super) immediate_bootstrap: Option<B>,
@@ -34,6 +35,7 @@ impl<K> ApplicationConfig<K, ()> {
             windows: Vec::new(),
             initial_windows: Vec::new(),
             theme_preference: ThemePreference::System,
+            theme_catalog: ThemeCatalog::default(),
             toast_position: ToastPosition::BottomRight,
             bootstrap: None,
             immediate_bootstrap: Some(()),
@@ -73,6 +75,11 @@ impl<K, B> ApplicationConfig<K, B> {
         self
     }
 
+    pub fn theme_catalog(mut self, catalog: ThemeCatalog) -> Self {
+        self.theme_catalog = catalog;
+        self
+    }
+
     pub fn toast_position(mut self, position: ToastPosition) -> Self {
         self.toast_position = position;
         self
@@ -85,6 +92,7 @@ impl<K, B> ApplicationConfig<K, B> {
             windows: self.windows,
             initial_windows: self.initial_windows,
             theme_preference: self.theme_preference,
+            theme_catalog: self.theme_catalog,
             toast_position: self.toast_position,
             bootstrap: Some(bootstrap),
             immediate_bootstrap: None,
@@ -119,6 +127,10 @@ impl<K, B> ApplicationConfig<K, B> {
 
     pub fn initial_theme_preference(&self) -> ThemePreference {
         self.theme_preference
+    }
+
+    pub fn configured_theme_catalog(&self) -> ThemeCatalog {
+        self.theme_catalog
     }
 
     pub fn initial_toast_position(&self) -> ToastPosition {

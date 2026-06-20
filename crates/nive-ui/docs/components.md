@@ -3,11 +3,35 @@
 `nive_ui::prelude` exposes the Nive `Element`, renderer, theme types, common
 layout primitives and reusable widgets.
 
-Theme definitions remain in `nive-ui`. `ThemeId` identifies a theme,
-`ThemeCatalog` is the single resolver for static `ThemeData`, and
+Theme definitions remain in `nive-ui`. `Theme::Light` and `Theme::Dark` are the
+framework defaults. `ThemeBuilder` creates product-specific themes from a
+semantic palette plus optional typography, shape, spacing and control metric
+overrides. `ThemeCatalog` stores the light/dark pair the runtime should resolve
+from `ThemePreference`.
+
 `theme::active()` provides the current snapshot used by view helpers. The
-active-theme atomic is private to `nive-ui`; runtime synchronization is exposed
+active-theme storage is private to `nive-ui`; runtime synchronization is exposed
 only through the framework integration module.
+
+```rust
+use nive_ui::prelude::*;
+
+let light = Theme::builder("Acme Light", theme::ThemeMode::Light)
+    .primary(color::hex(0x0EA5E9))
+    .build();
+let dark = Theme::builder("Acme Dark", theme::ThemeMode::Dark)
+    .primary(color::hex(0x38BDF8))
+    .build();
+let catalog = ThemeCatalog::new(light, dark);
+```
+
+Build product theme catalogs once during application configuration; they are
+intended to live for the process lifetime.
+
+Public app-facing UI APIs are exposed from the crate root, `nive_ui::prelude`,
+`nive_ui::theme`, and `nive_ui::widgets`. Lower-level submodules remain public
+for advanced composition and tests, but generic app code should prefer the
+facades and reexports.
 
 Tests that change the global snapshot must hold
 `theme::testing::ThemeTestGuard`, which restores the previous theme when

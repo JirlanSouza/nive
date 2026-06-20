@@ -9,9 +9,9 @@ does not support the approved associated-type default syntax, so the explicit
 associated type is required.
 
 `ApplicationConfig` declares product windows, initial windows, theme preference,
-toast position, fonts, a shared window icon and optional bootstrap
-configuration. `Context` and `WindowContext` are read-only views; runtime-owned
-mutable state is not exposed.
+optional custom `ThemeCatalog`, toast position, fonts, a shared window icon and
+optional bootstrap configuration. `Context` and `WindowContext` are read-only
+views; runtime-owned mutable state is not exposed.
 
 `Update` combines Iced tasks, one optional screen outcome and ordered
 `RuntimeCommand` values. Application hooks use `AppUpdate`, which cannot carry a
@@ -38,14 +38,18 @@ bootstrap continue to use `Bootstrap = ()`.
 
 ## Theme Runtime
 
-`ThemeController` owns the configured `ThemePreference`, current system mode,
-effective Nive theme, initial system-theme detection task and system-change
-subscription. The runner applies it internally and emits `CoreEvent::ThemeChanged`
-when the effective theme changes.
+`ThemeController` owns the configured `ThemePreference`, optional custom
+`ThemeCatalog`, current system mode, effective Nive theme, initial system-theme
+detection task and system-change subscription. The runner applies it internally
+and emits `CoreEvent::ThemeChanged` when the effective theme changes.
 
 Only `ThemeController` synchronizes the global `nive-ui` active-theme snapshot.
 Application code must not call Iced system-theme APIs or mutate the snapshot
 directly.
+
+Apps that need product-specific branding build light/dark themes with
+`ThemeBuilder`, pass them as `ThemeCatalog::new(light, dark)`, and attach the
+catalog through `ApplicationConfig::theme_catalog`.
 
 ## Toast Runtime
 
