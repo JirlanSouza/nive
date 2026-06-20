@@ -20,7 +20,7 @@ use support::{AsyncState, DevtoolFixture, OperationState};
 
 #[derive(DevtoolOperationContext)]
 struct OperationContext {
-    project_id: String,
+    record_id: String,
 }
 
 #[derive(DevtoolStateCatalog)]
@@ -55,7 +55,7 @@ where
 #[derive(Clone, Copy, UiErrorProbeCatalog)]
 enum Probe {
     Bootstrap,
-    LoadProjects,
+    LoadRecords,
 }
 
 fn main() {}

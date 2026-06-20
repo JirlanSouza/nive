@@ -23,11 +23,7 @@ pub(super) fn label_from_field_name(name: &str) -> String {
 
 pub(super) fn placeholder_for_field_name(name: &str) -> String {
     match name {
-        "project_id" => "Project id".to_string(),
-        "tag_id" => "Tag id".to_string(),
         "color" => "#2563eb".to_string(),
-        "path" => "Path".to_string(),
-        "value" => "Value".to_string(),
         _ => label_from_field_name(name),
     }
 }

@@ -764,8 +764,8 @@ mod tests {
     #[test]
     fn devtools_window_title_uses_app_name() {
         assert_eq!(
-            DevtoolsWindowSpec::title_for_app("RAG Studio"),
-            "RAG Studio · Devtools"
+            DevtoolsWindowSpec::title_for_app("Test App"),
+            "Test App · Devtools"
         );
     }
 
