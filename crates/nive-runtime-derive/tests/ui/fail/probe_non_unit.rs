@@ -3,7 +3,11 @@ extern crate self as nive_runtime;
 #[path = "../support.rs"]
 mod support;
 
-pub use support::{ProbeCatalogEntry, ProbeErrorScope, ProbeMeta};
+pub mod devtools {
+    pub mod probe {
+        pub use crate::support::{ProbeCatalogEntry, ProbeErrorScope, ProbeMeta};
+    }
+}
 
 use nive_runtime_derive::UiErrorProbeCatalog;
 

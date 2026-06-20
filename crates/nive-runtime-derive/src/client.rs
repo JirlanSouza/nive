@@ -184,17 +184,18 @@ fn client_probe_const(client_type: &str, args: &RuntimeClientArgs) -> ImplItem {
             kind.parse().expect("valid ProbeErrorScope expression");
 
         quote! {
-            nive_runtime::ProbeMeta::new(
+            nive_runtime::devtools::probe::ProbeMeta::new(
                 #key,
                 #short_key,
                 #summary,
-                nive_runtime::ProbeErrorScope::#scope,
+                nive_runtime::devtools::probe::ProbeErrorScope::#scope,
             )
         }
     });
 
     ImplItem::Const(parse_quote! {
-        pub(crate) const DEV_PROBES: &'static [nive_runtime::ProbeMeta] = &[#(#metas),*];
+        pub(crate) const DEV_PROBES: &'static [nive_runtime::devtools::probe::ProbeMeta] =
+            &[#(#metas),*];
     })
 }
 
@@ -254,7 +255,7 @@ mod tests {
 
         assert!(generated
             .to_string()
-            .contains("nive_runtime :: ProbeErrorScope :: Custom"));
+            .contains("nive_runtime :: devtools :: probe :: ProbeErrorScope :: Custom"));
     }
 
     #[test]
