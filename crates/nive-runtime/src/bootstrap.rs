@@ -24,22 +24,11 @@ pub enum BackgroundFit {
     Fill,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum BackgroundPosition {
-    #[default]
-    Center,
-    Top,
-    Bottom,
-    Left,
-    Right,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct SplashBackground {
     svg: &'static [u8],
     opacity: f32,
     fit: BackgroundFit,
-    position: BackgroundPosition,
 }
 
 pub struct BootstrapSpec<B> {
@@ -138,7 +127,6 @@ impl SplashBackground {
             svg,
             opacity: 1.0,
             fit: BackgroundFit::Cover,
-            position: BackgroundPosition::Center,
         }
     }
 
@@ -152,11 +140,6 @@ impl SplashBackground {
         self
     }
 
-    pub fn position(mut self, position: BackgroundPosition) -> Self {
-        self.position = position;
-        self
-    }
-
     pub fn svg_bytes(&self) -> &'static [u8] {
         self.svg
     }
@@ -167,10 +150,6 @@ impl SplashBackground {
 
     pub fn fit_mode(&self) -> BackgroundFit {
         self.fit
-    }
-
-    pub fn alignment(&self) -> BackgroundPosition {
-        self.position
     }
 }
 
