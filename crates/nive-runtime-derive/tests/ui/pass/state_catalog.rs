@@ -5,6 +5,10 @@ mod support;
 
 pub mod devtools {
     pub use crate::support::*;
+
+    pub mod probe {
+        pub use crate::support::{ProbeCatalogEntry, ProbeErrorScope, ProbeMeta};
+    }
 }
 
 use std::marker::PhantomData;
@@ -12,7 +16,6 @@ use std::marker::PhantomData;
 use nive_runtime_derive::{
     DevtoolOperationContext, DevtoolStateCatalog, DevtoolStateHost, UiErrorProbeCatalog,
 };
-pub use support::{ProbeCatalogEntry, ProbeErrorScope, ProbeMeta};
 use support::{AsyncState, DevtoolFixture, OperationState};
 
 #[derive(DevtoolOperationContext)]
