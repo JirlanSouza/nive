@@ -1265,7 +1265,7 @@ where
                 .collect(),
             initial_windows: config.initial_windows.clone(),
             registry: WindowRegistry::new(),
-            theme: ThemeController::new(config.theme_preference),
+            theme: ThemeController::with_catalog(config.theme_preference, config.theme_catalog),
             exiting: false,
             window_icon: config.window_icon.clone(),
             toast_position: config.toast_position,

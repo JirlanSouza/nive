@@ -1,3 +1,5 @@
+// Bundled icons are sourced from Lucide (https://lucide.dev) and distributed
+// under the ISC License. See `THIRD_PARTY_LICENSES.md` for the full notice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppIcon {
     Add,

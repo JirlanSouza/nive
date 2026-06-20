@@ -1,4 +1,3 @@
-use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Mutex, MutexGuard};
 
 use iced::Padding;
@@ -7,21 +6,19 @@ use super::component::{ControlMetrics, ControlMetricsScale, ControlSize};
 use super::scheme::Theme;
 use super::spacing::{GapRole, PaddingRole, SpaceStep, SpacingScale};
 
-static ACTIVE_THEME: AtomicU8 = AtomicU8::new(Theme::Dark as u8);
+static ACTIVE_THEME: Mutex<Theme> = Mutex::new(Theme::Dark);
 static TEST_THEME_LOCK: Mutex<()> = Mutex::new(());
 
 pub fn active() -> Theme {
-    let value = ACTIVE_THEME.load(Ordering::Relaxed);
-    debug_assert!(
-        value <= Theme::Dark as u8,
-        "Invalid active theme value: {value}"
-    );
-
-    Theme::from_active_value(value)
+    *ACTIVE_THEME
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 pub(super) fn set_active(theme: Theme) {
-    ACTIVE_THEME.store(theme as u8, Ordering::Relaxed);
+    *ACTIVE_THEME
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = theme;
 }
 
 pub fn spacing() -> SpacingScale {

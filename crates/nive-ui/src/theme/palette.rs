@@ -37,7 +37,6 @@ fn light_palette() -> Palette {
 #[cfg(test)]
 mod palette_tests {
     use crate::theme::Theme;
-    use iced::theme::Base as _;
 
     #[test]
     fn palette_supports_named_light_and_dark_themes() {
