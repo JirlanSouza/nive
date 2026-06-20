@@ -9,6 +9,7 @@ const DEFAULT_MINIMUM_DURATION: Duration = Duration::from_millis(900);
 
 type BootstrapTaskFactory<B> = Arc<dyn Fn() -> Task<UserFacingResult<B>> + Send + Sync + 'static>;
 
+/// Brand content shown on the bootstrap splash screen.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BrandContent {
     title: String,
@@ -16,14 +17,19 @@ pub struct BrandContent {
     logo: Option<&'static [u8]>,
 }
 
+/// How a splash background image is fitted to the screen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BackgroundFit {
+    /// Scale the image to fit within the screen, preserving aspect ratio.
     Contain,
+    /// Scale the image to cover the screen, preserving aspect ratio (default).
     #[default]
     Cover,
+    /// Stretch the image to fill the screen, ignoring aspect ratio.
     Fill,
 }
 
+/// An SVG splash background with opacity and fit.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SplashBackground {
     svg: &'static [u8],
@@ -31,6 +37,13 @@ pub struct SplashBackground {
     fit: BackgroundFit,
 }
 
+/// Declarative specification of the application bootstrap sequence.
+///
+/// Carries the task factory that produces the bootstrap result, brand and
+/// background assets, loading/failure copy, and a minimum splash duration. The
+/// runtime owns the controller that runs repeatable attempts, rejects stale
+/// results, enforces the minimum duration, supports retry and cancellation, and
+/// transfers the result into [`Application::init`](crate::Application::init).
 pub struct BootstrapSpec<B> {
     task: BootstrapTaskFactory<B>,
     brand: Option<BrandContent>,

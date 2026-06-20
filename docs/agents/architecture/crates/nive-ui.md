@@ -11,7 +11,7 @@ Current scope:
 - `tokens::radius` — border-radius scale constants (`XS` through `XXXXL`)
 - `tokens::shadow` — shadow presets (`NONE`, `POPOVER`) using `iced::Shadow`
 - `tokens::typography` — font family helpers (`FontFamily`), font constants (`UI`, `MONO`), text size scale, and line-height constants
-- `theme` — semantic role enums, framework-owned theme names (`Nive Light`/`Nive Dark`), theme data, active theme accessors, helper style functions, and iced `Catalog` implementations for custom widget styling
+- `theme` — semantic role enums, framework-owned theme names (`Nive Light`/`Nive Dark`), `ThemeBuilder`, `ThemeCatalog`, theme data, active theme accessors, helper style functions, and iced `Catalog` implementations for custom widget styling
 - `Renderer` and `Element` aliases for the shared Iced renderer/theme pair
 - `widgets::text` — typography-aware text constructors and text color style helpers
 - `widgets::Badge` — tone-aware label badge primitive
@@ -62,6 +62,9 @@ Internal layout:
 - Tokens must remain pure constants and pure functions with no side effects and no dependency on `app-core`, `app-models`, or any other domain crate.
 - Token modules may depend on `iced` for color, shadow, and font types only.
 - Theme modules may depend on `iced` for theme, widget catalog, and style types, but must stay domain-agnostic.
+- Custom themes should be built through `ThemeBuilder` and passed to runtime as
+  a `ThemeCatalog`; do not hardcode product brand colors or product theme names
+  in `nive-ui`.
 - Widget modules may depend on `nive-ui` theme/tokens and `iced`, but not on app screens, app shell, app-core, or app-models.
 - `nive-ui` should not depend on `nive-runtime` or `app-gui`; it is a lower layer.
 

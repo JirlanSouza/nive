@@ -15,6 +15,8 @@ Current scope:
 - `DialogDismiss` and `DialogRequest`
 - `focus_trap` compatibility exports from `nive-ui` — `FocusDirection`, `direction_from_event`, `direction_from_keyboard_event`
 - `OperationState`
+- `ThemeController` plus `Theme`, `ThemeBuilder`, `ThemeCatalog`, `ThemeMode`,
+  and `ThemePreference` reexports for application theme configuration
 - `platform::app_icon` — cross-platform app icon installer, accepting icon PNG bytes from the app layer
 - `platform::file_picker` — `FileFilter`, `PickFileParams`, `pick_file`, `pick_files`, `pick_folder` (feature-gated behind `file-picker`, requires `rfd`)
 - `RequestId` and `RequestCounter`
@@ -51,6 +53,9 @@ runtime context instead of adding standalone modules at `src/` root:
 - `DevtoolValue` — generic fixture source trait for async resource devtools values; app-domain values use explicit fixture-provider functions instead of direct runtime-owned trait impls when orphan rules would apply
 - `DevtoolStateField` — generic state field collection/application trait for `AsyncState<T>` and `OperationState<C>`, used by `DevtoolStateCatalog` derive expansions
 - Keep product brand assets (icon PNG bytes, brand theme tokens) in `app-gui`; the installer pattern in `nive-runtime::platform::app_icon` accepts generic icon bytes passed from the app.
+- Keep product theme construction in app crates via `ThemeBuilder` and
+  `ApplicationConfig::theme_catalog`; runtime owns only preference/system
+  resolution and active-theme synchronization.
 - Keep app-specific logical window enums, titles, dimensions, fonts and icon construction in `app-gui`; runtime owns reusable window specs, settings conversion, registry mechanics, opening, focus and close/exit routing.
 - Keep widget-layer focus and overlay behavior in `nive-ui`; runtime may re-export stable helper APIs while lifecycle and shell code still consumes them.
 - Keep visual toast composition in `nive-ui` (`ToastHost`); runtime owns generic toast state/types, visible/queued overflow, promotion, expiration, pause/resume, timer tick handling, and applies the host automatically to app-role windows. `ToastItem` implements `nive-ui`'s `ToastPresentation`. `ScreenUpdate` remains generic over the feedback payload.

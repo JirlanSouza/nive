@@ -1,7 +1,15 @@
 use crate::DialogRequest;
 
+/// The render output of an [`Application`](crate::Application) window: its
+/// content element plus an optional modal dialog.
+///
+/// Returned by [`Application::view`](crate::Application::view). The runtime
+/// wraps the content in a `DialogHost` so a dialog, when present, is composed
+/// automatically.
 pub struct ScreenView<'a, Message, Theme = nive_ui::Theme, Renderer = nive_ui::Renderer> {
+    /// The window's main content.
     pub content: iced::Element<'a, Message, Theme, Renderer>,
+    /// An optional modal dialog to compose over the content.
     pub dialog: Option<DialogRequest<'a, Message, Theme, Renderer>>,
 }
 

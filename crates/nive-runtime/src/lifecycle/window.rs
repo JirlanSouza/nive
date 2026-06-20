@@ -1,18 +1,29 @@
 use iced::{window, Size, Task};
 
+/// The display mode of a window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum WindowMode {
+    /// A normal windowed window (default).
     #[default]
     Windowed,
+    /// A maximized window.
     Maximized,
+    /// A fullscreen window.
     Fullscreen,
 }
 
+/// The window chrome (titlebar/decoration) style.
+///
+/// `UnifiedTitlebar` is only effective on macOS; it falls back to `Native`
+/// elsewhere.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum WindowChrome {
+    /// The platform's native decorations.
     Native,
+    /// A macOS unified titlebar (default; falls back to `Native` off-macOS).
     #[default]
     UnifiedTitlebar,
+    /// App-owned chrome (no native decorations).
     AppOwned,
 }
 
@@ -35,19 +46,36 @@ impl WindowChrome {
     }
 }
 
+/// Declarative specification of a window's appearance and behavior.
+///
+/// Built via [`WindowSpec::app`] or [`WindowSpec::auxiliary`] defaults and
+/// refined with builder methods. The runtime converts a `WindowSpec` into the
+/// Iced window settings when opening a window.
 #[derive(Debug, Clone, Copy)]
 pub struct WindowSpec {
+    /// The window's role (app, auxiliary, etc.).
     pub role: WindowRole,
+    /// How many instances of this window kind may be open at once.
     pub cardinality: WindowCardinality,
+    /// The initial window size.
     pub size: Size,
+    /// The initial window position.
     pub position: window::Position,
+    /// The optional minimum window size.
     pub min_size: Option<Size>,
+    /// The optional maximum window size.
     pub max_size: Option<Size>,
+    /// Whether the window is user-resizable.
     pub resizable: bool,
+    /// Whether native window decorations are shown.
     pub decorations: bool,
+    /// Whether the window background is transparent.
     pub transparent: bool,
+    /// The display mode.
     pub mode: WindowMode,
+    /// The chrome style.
     pub chrome: WindowChrome,
+    /// The window z-order level.
     pub level: window::Level,
 }
 

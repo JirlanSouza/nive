@@ -2,19 +2,31 @@ use std::fmt;
 
 use nive_ui::widgets::ErrorPresentation;
 
+/// A stable, human-facing error code derived from an error kind.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ErrorCode(String);
 
+/// Error returned when an error code string is not a valid code.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InvalidErrorCode;
 
+/// The category of a [`UserFacingError`], used to derive its [`ErrorCode`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UserFacingErrorKind {
+    /// An error that occurred during application bootstrap.
     Bootstrap,
+    /// An error injected by the devtools layer.
     Devtools,
+    /// An application-defined error category.
     Custom(String),
 }
 
+/// A user-facing error carrying a stable code, kind, summary, and detail.
+///
+/// Implements [`ErrorPresentation`] so `nive-ui` feedback widgets can render it
+/// without depending on app-domain types. The `summary` is a short headline;
+/// the `detail` is the full diagnostic text (which may equal the summary when
+/// no extra detail is available).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserFacingError {
     code: ErrorCode,
@@ -23,6 +35,7 @@ pub struct UserFacingError {
     detail: String,
 }
 
+/// Convenience [`Result`] for operations that produce a [`UserFacingError`].
 pub type UserFacingResult<T> = Result<T, UserFacingError>;
 
 impl UserFacingError {
@@ -153,17 +166,16 @@ mod user_facing_error_tests {
 
     #[test]
     fn summary_strips_context_suffix() {
-        let error =
-            UserFacingError::custom("project_catalog", "Project not found (project_id: p1)");
+        let error = UserFacingError::custom("record_catalog", "Record not found (record_id: r1)");
 
-        assert_eq!(error.summary(), "Project not found");
-        assert_eq!(error.detail(), "Project not found (project_id: p1)");
+        assert_eq!(error.summary(), "Record not found");
+        assert_eq!(error.detail(), "Record not found (record_id: r1)");
         assert!(error.has_diagnostic_detail());
     }
 
     #[test]
     fn diagnostic_detail_is_absent_when_summary_matches_detail() {
-        let error = UserFacingError::custom("project_catalog", "Catalog unavailable");
+        let error = UserFacingError::custom("record_catalog", "Catalog unavailable");
 
         assert_eq!(error.summary(), "Catalog unavailable");
         assert_eq!(error.detail(), "Catalog unavailable");
@@ -188,10 +200,10 @@ mod user_facing_error_tests {
 
     #[test]
     fn custom_kind_error() {
-        let error = UserFacingError::custom("project_catalog", "Load failed");
+        let error = UserFacingError::custom("record_catalog", "Load failed");
 
         assert!(matches!(error.kind(), UserFacingErrorKind::Custom(_)));
-        assert_eq!(error.code().as_str(), "project_catalog");
+        assert_eq!(error.code().as_str(), "record_catalog");
         assert_eq!(error.summary(), "Load failed");
     }
 
