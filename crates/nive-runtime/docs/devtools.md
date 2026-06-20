@@ -1,6 +1,8 @@
 # Devtools Contract
 
-Devtools is an optional `nive-runtime` capability.
+Devtools is an optional `nive-runtime` capability. Default builds do not expose
+or compile the `nive_runtime::devtools` module, Devtools window, panel state,
+messages or generic UI.
 
 ```toml
 [features]
@@ -8,10 +10,10 @@ default = []
 devtools = ["dep:nive-runtime-derive"]
 ```
 
-With the feature enabled, `nive-runtime` reexports the root `Devtools` derive.
-Applications derive that marker and implement `DevtoolsApp`, including the
-associated `Probe` catalog and state snapshot, command, probe snapshot and
-probe-effect hooks.
+With the feature enabled, `nive-runtime` exposes the `devtools` module and
+reexports the root `Devtools` derive. Applications derive that marker and
+implement `DevtoolsApp`, including the associated `Probe` catalog and state
+snapshot, command, probe snapshot and probe-effect hooks.
 
 Use `run_with_devtools::<A>()` to install the capability. The runtime owns the
 host, generic view, panel state, auxiliary window, title, lifecycle, keyboard

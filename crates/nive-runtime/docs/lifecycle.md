@@ -23,11 +23,12 @@ typed `CommandRejected` events for missing specs, missing windows and opens
 requested during exit. Single-cardinality opens focus the current
 representative; multiple-cardinality specs create distinct instances.
 
-Close requests for non-final app windows use `CloseDecision`. Closing the last
-app window and explicit exit requests use `ExitDecision`. Deferred decisions
-deliver their task messages to the app and confirm automatically when the task
-finishes. Auxiliary windows do not keep the process alive and are closed before
-accepted exit.
+Close requests for non-final app windows use `CloseDecision`. The runtime tracks
+pending app-window closes so batched close requests cannot bypass the
+final-window `ExitDecision`. Closing the last effective app window and explicit
+exit requests use `ExitDecision`. Deferred decisions deliver their task messages
+to the app and confirm automatically when the task finishes. Auxiliary windows
+do not keep the process alive and are closed before accepted exit.
 
 Bootstrap is an internal lifecycle rather than a product window. The runtime
 owns attempt correlation, stale-result rejection, minimum duration, pending
