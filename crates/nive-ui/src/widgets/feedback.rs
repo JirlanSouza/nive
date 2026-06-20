@@ -5,6 +5,7 @@ mod error_status_line;
 mod indicator;
 mod inline_alert;
 mod loading_indicator;
+mod operation_action_group;
 mod operation_status_line;
 mod presentation;
 mod progress_bar;
@@ -19,6 +20,7 @@ pub use error_feedback::{
 pub use error_status_line::ErrorStatusLine;
 pub use inline_alert::InlineAlert;
 pub use loading_indicator::LoadingIndicator;
+pub use operation_action_group::OperationActionGroup;
 pub use operation_status_line::OperationStatusLine;
 pub use presentation::{
     ErrorPresentation, OperationStatusPresentation, ResourceStatusPresentation,
