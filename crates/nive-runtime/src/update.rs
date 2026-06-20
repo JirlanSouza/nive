@@ -59,6 +59,8 @@ impl<M, O, K> Update<M, O, K> {
     pub fn outcome(mut self, outcome: O) -> Self {
         if self.outcome.is_none() {
             self.outcome = Some(outcome);
+        } else {
+            duplicate_outcome("Update::outcome");
         }
         self
     }
@@ -126,12 +128,24 @@ impl<M, O, K> Update<M, O, K> {
         let mut runtime = self.runtime;
         runtime.extend(other.runtime);
 
+        if self.outcome.is_some() && other.outcome.is_some() {
+            duplicate_outcome("Update::merge");
+        }
+
         Self {
             task: Task::batch([self.task, other.task]),
             outcome: self.outcome.or(other.outcome),
             runtime,
         }
     }
+}
+
+fn duplicate_outcome(operation: &'static str) {
+    #[cfg(debug_assertions)]
+    log::warn!(
+        target: "nive_runtime::update",
+        "duplicate update outcome ignored: operation={operation}"
+    );
 }
 
 impl<M, O, K> Default for Update<M, O, K> {
