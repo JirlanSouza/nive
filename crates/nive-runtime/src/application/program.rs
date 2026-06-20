@@ -11,18 +11,36 @@ use super::{
     Context, CoreEvent, Error, ExitDecision, Result, ShortcutMap, WindowCommand, WindowContext,
     WindowQuery,
 };
-use crate::bootstrap::{minimum_duration_task, BootstrapController, BootstrapTransition};
+#[cfg(feature = "devtools")]
+use crate::devtools::probe::{
+    NoProbe, ProbeCatalogEntry, ProbeInjectionSnapshot, ProbePanelEffect,
+};
 #[cfg(feature = "devtools")]
 use crate::devtools::DevtoolsPanelMessage;
 #[cfg(feature = "devtools")]
 use crate::devtools::{DevtoolsConfig, DevtoolsHostState, DevtoolsWindowSpec};
-use crate::keyboard_navigation::KeyboardNavigation;
+use crate::lifecycle::bootstrap::{
+    minimum_duration_task, BootstrapController, BootstrapTransition,
+};
 use crate::{
-    AppUpdate, BootstrapSpec, DialogRequest, NoProbe, ProbeCatalogEntry, RuntimeCommand,
-    ScreenView, ThemeController, ThemeEvent, ToastId, ToastPosition, ToastState, UserFacingResult,
+    AppUpdate, BootstrapSpec, DialogRequest, KeyboardNavigation, RuntimeCommand, ScreenView,
+    ThemeController, ThemeEvent, ToastId, ToastPosition, ToastState, UserFacingResult,
     WindowCardinality, WindowChrome, WindowHandle, WindowMode, WindowRegistry, WindowRole,
     WindowSpec,
 };
+
+#[cfg(not(feature = "devtools"))]
+mod no_devtools_probe {
+    pub trait ProbeCatalogEntry: Clone + Send + 'static {}
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum NoProbe {}
+
+    impl ProbeCatalogEntry for NoProbe {}
+}
+
+#[cfg(not(feature = "devtools"))]
+use no_devtools_probe::{NoProbe, ProbeCatalogEntry};
 
 const TOAST_TICK_INTERVAL: Duration = Duration::from_millis(500);
 
@@ -127,9 +145,9 @@ struct DevtoolsRuntime<A: Application, P: ProbeCatalogEntry> {
     #[cfg(feature = "devtools")]
     apply_command:
         fn(&mut A, &crate::devtools::DevtoolCommand) -> crate::devtools::DevtoolCommandResult,
-    probe_snapshot: fn(&A) -> crate::ProbeInjectionSnapshot<P>,
+    probe_snapshot: fn(&A) -> ProbeInjectionSnapshot<P>,
     #[cfg(feature = "devtools")]
-    apply_probe_effect: fn(&mut A, crate::ProbePanelEffect<P>),
+    apply_probe_effect: fn(&mut A, ProbePanelEffect<P>),
 }
 
 #[cfg(feature = "devtools")]
@@ -1352,12 +1370,12 @@ mod tests {
     impl ProbeCatalogEntry for TestProbe {
         const ALL: &'static [Self] = &[Self::One];
 
-        fn meta(self) -> crate::ProbeMeta {
-            crate::ProbeMeta::new(
+        fn meta(self) -> crate::devtools::probe::ProbeMeta {
+            crate::devtools::probe::ProbeMeta::new(
                 "test.one",
                 "one",
                 "Test probe",
-                crate::ProbeErrorScope::Custom("test"),
+                crate::devtools::probe::ProbeErrorScope::Custom("test"),
             )
         }
     }
@@ -1567,14 +1585,20 @@ mod tests {
             crate::devtools::DevtoolCommandResult::not_handled()
         }
 
-        fn devtools_probe_snapshot(&self) -> crate::ProbeInjectionSnapshot<Self::Probe> {
-            crate::ProbeInjectionSnapshot {
+        fn devtools_probe_snapshot(
+            &self,
+        ) -> crate::devtools::probe::ProbeInjectionSnapshot<Self::Probe> {
+            crate::devtools::probe::ProbeInjectionSnapshot {
                 scenarios: Vec::new(),
                 unknown: Vec::new(),
             }
         }
 
-        fn devtools_apply_probe_effect(&mut self, _effect: crate::ProbePanelEffect<Self::Probe>) {}
+        fn devtools_apply_probe_effect(
+            &mut self,
+            _effect: crate::devtools::probe::ProbePanelEffect<Self::Probe>,
+        ) {
+        }
     }
 
     fn program() -> Program<TestApp> {
