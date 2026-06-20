@@ -74,8 +74,8 @@ deterministic in state and widget tests.
 
 With the `devtools` feature enabled, `run_with_devtools::<A>()` monomorphizes
 the runner with `A::Probe` and installs the internal Devtools host. The standard
-`run::<A>()` path uses `NoProbe` and has no Devtools runtime. Default builds do
-not expose or compile the `nive_runtime::devtools` module.
+`run::<A>()` path has no Devtools runtime. Default builds do not expose or
+compile the `nive_runtime::devtools` module or Devtools probe APIs.
 
 The runner owns the auxiliary window, title, window policy, keyboard shortcut,
 panel message routing and command/probe effects. Devtools is closed by default;

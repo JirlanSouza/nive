@@ -44,6 +44,14 @@ Current scope:
 
 Remaining widget primitives still in `app-gui.widgets.primitives` (product-aware or not yet generalized):
 
+Internal layout:
+
+- `theme::catalog` keeps public style class types separate from Iced catalog integration modules.
+- `theme::color_scheme` keeps the public module path stable while hiding scheme construction details in submodules.
+- `dialog_host` keeps host composition separate from overlay event, layout, and backdrop handling.
+- `widgets::autocomplete` keeps keyboard navigation and state helpers separate from widget composition.
+- `widgets::feedback` owns reusable feedback/status components, including `OperationActionGroup`.
+
 ## Boundaries
 
 - Keep product-specific composite widgets (tag input, error feedback, project stat, etc.) in `app-gui.widgets.composite`; `nive-ui` owns only reusable primitives.

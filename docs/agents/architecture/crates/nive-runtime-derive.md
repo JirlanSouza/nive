@@ -16,7 +16,7 @@ Current scope:
   optional `devtools_path` override for non-standard targets
 - `DevtoolOperationContext` — derive for operation input schemas/builders, with
   optional `devtools_path` override for non-standard targets
-- `UiErrorProbeCatalog` — derive for error probe catalog generation (targets `nive_runtime::ProbeCatalogEntry`)
+- `UiErrorProbeCatalog` — derive for error probe catalog generation (targets `nive_runtime::devtools::probe::ProbeCatalogEntry`)
 - `runtime_client` — attribute macro for client impl probe-key declarations, generated client `DEV_PROBES` metadata, explicit app-owned probe labels/scopes, and probe key injection
 
 ## Generated Paths
@@ -33,9 +33,9 @@ Default generated paths target `nive_runtime::devtools::*`:
 - `nive_runtime::devtools::DevtoolInputField`
 - `nive_runtime::devtools::DevtoolInputValues`
 - `nive_runtime::devtools::join_path`
-- `nive_runtime::ProbeCatalogEntry`
-- `nive_runtime::ProbeMeta`
-- `nive_runtime::ProbeErrorScope`
+- `nive_runtime::devtools::probe::ProbeCatalogEntry`
+- `nive_runtime::devtools::probe::ProbeMeta`
+- `nive_runtime::devtools::probe::ProbeErrorScope`
 
 ## Boundaries
 

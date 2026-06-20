@@ -15,6 +15,13 @@ reexports the root `Devtools` derive. Applications derive that marker and
 implement `DevtoolsApp`, including the associated `Probe` catalog and state
 snapshot, command, probe snapshot and probe-effect hooks.
 
+Generic probe contracts live under `nive_runtime::devtools::probe`, including
+`ProbeCatalogEntry`, `ProbeMeta`, `ProbeMetaCatalog`, `ComposedProbeId`,
+`ProbeInjectionStore`, `ProbePanelEffect` and `ProbeRuntimeConfig`. Probe
+injection helpers such as `ClientTaskInjection`, `ProbeEffect` and
+`injected_client_task` are Devtools-only APIs; the root `client_task` helper
+remains available for normal runtime tasks.
+
 Use `run_with_devtools::<A>()` to install the capability. The runtime owns the
 host, generic view, panel state, auxiliary window, title, lifecycle, keyboard
 shortcut and message routing. Product window kinds and application messages do

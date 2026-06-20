@@ -21,7 +21,7 @@ Depends on:
 
 - `app-core` for domain services.
 - `app-models` for shared UI/domain data.
-- `nive-runtime` for the application runner, runtime updates, theme and window lifecycle, shared UI state, clock helpers, dialog dismissal and keyboard routing, devtools model/panel contracts, and generic probe runtime behavior.
+- `nive-runtime` for the application runner, runtime updates, theme and window lifecycle, shared UI state, clock helpers, dialog dismissal and keyboard routing, devtools model/panel contracts, and `devtools::probe` generic probe runtime behavior.
 - `nive-ui` for design tokens, theme contracts, dialog hosting, focus trapping, reusable visual primitives, renderer types, and low-level widget APIs.
 
 Used by:
@@ -78,8 +78,8 @@ Do:
   dialog decoration and keyboard navigation instead of local modal or focus
   infrastructure
 - emit toasts through `AppUpdate::toast`; Nive owns toast visible/queued state, expiration, hover pause, promotion, dismiss, and applies the `ToastHost` overlay automatically to app-role windows
-- keep devtools host state, generic view, panel reducers/effect handling, command result recording, auxiliary window lifecycle/title/spec/shortcut, generic state-field mutation helpers, injected failure errors, and generic window specs in `nive-runtime`; app-gui provides only app-domain fixture-provider functions, probe metadata/env/store ownership and the `DevtoolsApp` snapshot/command/probe hooks
-- keep client probe declarations on client impls with `nive_runtime::runtime_client`; `UiErrorProbe` should preserve app-owned metadata such as bootstrap and wrap runtime `ComposedProbeId` values rather than manually modeling client probe variants
+- keep devtools host state, generic view, panel reducers/effect handling, command result recording, auxiliary window lifecycle/title/spec/shortcut, generic state-field mutation helpers, injected failure errors, generic window specs, and generic probe behavior in `nive-runtime`; app-gui provides only app-domain fixture-provider functions, probe metadata/env/store ownership and the `DevtoolsApp` snapshot/command/probe hooks
+- keep client probe declarations on client impls with `nive_runtime::runtime_client`; `UiErrorProbe` should preserve app-owned metadata such as bootstrap and wrap `nive_runtime::devtools::probe::ComposedProbeId` values rather than manually modeling client probe variants
 
 Do not:
 

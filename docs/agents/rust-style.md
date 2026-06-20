@@ -5,6 +5,7 @@
 - Run `just fmt` before opening a PR or finishing broad Rust edits.
 - Follow default Rust formatting.
 - Keep imports grouped as `std`, external crates, `super::`/`self::`/`crate::`.
+- Within each import group, merge imports from the same crate path when practical, for example `use std::{borrow::Cow, time::Duration};`.
 
 ## Naming And Modules
 
