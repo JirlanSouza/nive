@@ -7,10 +7,10 @@ use nive_ui::theme::{self, GapRole, PaddingRole, SurfaceRole};
 use nive_ui::widgets::{button, input, Checkbox, Panel, SegmentedControl, SegmentedItem};
 use nive_ui::Element;
 
+use crate::devtools::probe::{ProbeCatalogEntry, ProbePanelMessage};
 use crate::devtools::{
     DevtoolStateSnapshot, DevtoolsPanelMessage, DevtoolsPanelState, DevtoolsPanelTab,
 };
-use crate::probe::ProbeCatalogEntry;
 
 use super::{
     operations::operations_body, probes::probes_body, resources::resources_body,
@@ -158,7 +158,7 @@ where
                     .xs()
                     .width(Length::Fixed(128.0))
                     .on_press(map(DevtoolsPanelMessage::Probe(
-                        crate::probe::ProbePanelMessage::ClearAll,
+                        ProbePanelMessage::ClearAll,
                     ))),
             );
     }

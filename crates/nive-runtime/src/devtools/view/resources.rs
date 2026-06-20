@@ -8,10 +8,10 @@ use nive_ui::theme::{self, GapRole};
 use nive_ui::widgets::{button, Separator};
 use nive_ui::Element;
 
+use crate::devtools::probe::ProbeCatalogEntry;
 use crate::devtools::{
     DevtoolResourceView, DevtoolsPanelMessage, DevtoolsPanelState, DevtoolsRowId,
 };
-use crate::probe::ProbeCatalogEntry;
 
 use super::shared::{
     async_status_has_value, async_status_view, command_button, command_error_field, empty_message,

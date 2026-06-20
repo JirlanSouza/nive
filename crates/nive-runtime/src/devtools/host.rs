@@ -1,8 +1,6 @@
-use crate::{
-    Application, AsyncState, OperationState, ProbeCatalogEntry, ProbeInjectionSnapshot,
-    ProbePanelEffect, RequestId, UserFacingError,
-};
+use crate::{Application, AsyncState, OperationState, RequestId, UserFacingError};
 
+use super::probe::{ProbeCatalogEntry, ProbeInjectionSnapshot, ProbePanelEffect};
 use super::{
     command_input::DevtoolOperationContext, DevtoolAsyncStatus, DevtoolCommand,
     DevtoolCommandResult, DevtoolFixture, DevtoolFixtureView, DevtoolInputValues,

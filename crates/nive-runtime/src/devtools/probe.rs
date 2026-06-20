@@ -1,6 +1,97 @@
+use std::future::Future;
 use std::time::Duration;
 
-use crate::{ProbeEffect, UserFacingError};
+use iced::Task;
+
+use crate::{UserFacingError, UserFacingResult};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProbeEffect {
+    Fail,
+    DelayOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClientTaskInjection {
+    kind: ClientTaskInjectionKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ClientTaskInjectionKind {
+    Fail {
+        error: UserFacingError,
+        delay: Option<Duration>,
+    },
+    DelayOnly {
+        delay: Option<Duration>,
+    },
+}
+
+impl ClientTaskInjection {
+    pub fn fail(error: UserFacingError, delay: Option<Duration>) -> Self {
+        Self {
+            kind: ClientTaskInjectionKind::Fail { error, delay },
+        }
+    }
+
+    pub fn delay_only(delay: Option<Duration>) -> Self {
+        Self {
+            kind: ClientTaskInjectionKind::DelayOnly { delay },
+        }
+    }
+
+    pub fn effect(&self) -> ProbeEffect {
+        match self.kind {
+            ClientTaskInjectionKind::Fail { .. } => ProbeEffect::Fail,
+            ClientTaskInjectionKind::DelayOnly { .. } => ProbeEffect::DelayOnly,
+        }
+    }
+
+    pub fn delay(&self) -> Option<Duration> {
+        match self.kind {
+            ClientTaskInjectionKind::Fail { delay, .. }
+            | ClientTaskInjectionKind::DelayOnly { delay } => delay,
+        }
+    }
+
+    pub fn error(&self) -> Option<&UserFacingError> {
+        match &self.kind {
+            ClientTaskInjectionKind::Fail { error, .. } => Some(error),
+            ClientTaskInjectionKind::DelayOnly { .. } => None,
+        }
+    }
+}
+
+pub fn injected_client_task<T, Message, Fut>(
+    injection: ClientTaskInjection,
+    future: Fut,
+    map: impl Fn(UserFacingResult<T>) -> Message + Send + 'static,
+) -> Task<Message>
+where
+    T: Send + 'static,
+    Message: Send + 'static,
+    Fut: Future<Output = UserFacingResult<T>> + Send + 'static,
+{
+    crate::client_task(
+        async move {
+            match injection.kind {
+                ClientTaskInjectionKind::Fail { error, delay } => {
+                    if let Some(delay) = delay {
+                        tokio::time::sleep(delay).await;
+                    }
+                    Err(error)
+                }
+                ClientTaskInjectionKind::DelayOnly { delay } => {
+                    if let Some(delay) = delay {
+                        tokio::time::sleep(delay).await;
+                    }
+                    future.await
+                }
+            }
+        },
+        map,
+    )
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProbeErrorScope {
@@ -504,7 +595,7 @@ impl<P: ProbeCatalogEntry> ProbeInjectionStore<P> {
         Self::new(parse_probe_config(raw))
     }
 
-    pub fn inject(&mut self, probe: P) -> Option<crate::ClientTaskInjection> {
+    pub fn inject(&mut self, probe: P) -> Option<ClientTaskInjection> {
         let scenario = self
             .config
             .scenarios
@@ -520,15 +611,15 @@ impl<P: ProbeCatalogEntry> ProbeInjectionStore<P> {
         eprintln!("[dev] firing probe: {:?}", &scenario.probe.key());
 
         match scenario.effect {
-            ProbeEffect::Fail => Some(crate::ClientTaskInjection::fail(
+            ProbeEffect::Fail => Some(ClientTaskInjection::fail(
                 probe.error(scenario.message.as_deref()),
                 scenario.delay,
             )),
-            ProbeEffect::DelayOnly => Some(crate::ClientTaskInjection::delay_only(scenario.delay)),
+            ProbeEffect::DelayOnly => Some(ClientTaskInjection::delay_only(scenario.delay)),
         }
     }
 
-    pub fn inject_by_name(&mut self, name: &str) -> Option<crate::ClientTaskInjection> {
+    pub fn inject_by_name(&mut self, name: &str) -> Option<ClientTaskInjection> {
         let normalized_name = normalize_probe_name(name);
         let probe = P::ALL
             .iter()

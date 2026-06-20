@@ -3,6 +3,7 @@ pub mod command_input;
 mod helpers;
 pub mod host;
 pub mod panel;
+pub mod probe;
 pub mod types;
 pub mod view;
 
