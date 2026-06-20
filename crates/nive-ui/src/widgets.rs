@@ -20,7 +20,6 @@ pub mod input;
 pub mod input_group;
 pub mod metadata;
 pub mod metric_card;
-pub mod operation_action_group;
 pub mod panel;
 pub mod path_input;
 pub mod popover;
@@ -60,8 +59,9 @@ pub use empty_state::EmptyState;
 pub use feedback::{
     Callout, ErrorDetailsDialog, ErrorEmptyState, ErrorFeedback, ErrorFeedbackAction,
     ErrorFeedbackActionRow, ErrorFeedbackCommandRole, ErrorPresentation, ErrorStatusLine,
-    InlineAlert, LoadingIndicator, OperationStatusLine, OperationStatusPresentation, ProgressBar,
-    ResourceStatusLine, ResourceStatusPresentation, Spinner,
+    InlineAlert, LoadingIndicator, OperationActionGroup, OperationStatusLine,
+    OperationStatusPresentation, ProgressBar, ResourceStatusLine, ResourceStatusPresentation,
+    Spinner,
 };
 pub use field::{Field, FieldError, FieldGroup, FieldHint, FieldLabel};
 pub use icon::{AppIcon, Icon};
@@ -70,7 +70,6 @@ pub use input::{FieldValidation, Input, TextInputAppearance};
 pub use input_group::{InputGroup, InputGroupVariant};
 pub use metadata::{DataRow, KeyValueList, MetadataItem};
 pub use metric_card::MetricCard;
-pub use operation_action_group::OperationActionGroup;
 pub use panel::Panel;
 pub use path_input::PathInput;
 pub use popover::{Popover, PopoverCollision, PopoverPlacement, PopoverWidth};
