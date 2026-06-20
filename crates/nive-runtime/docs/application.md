@@ -18,16 +18,19 @@ mutable state is not exposed.
 screen outcome.
 
 `run::<A>()` owns the private Iced daemon state. Product view messages are
-correlated with their source window automatically, while task and subscription
-messages remain unscoped. The runner processes ordered runtime commands,
-configured initial windows, dynamic titles, app subscriptions and core events.
+correlated with their source window automatically, while task, subscription and
+shortcut messages remain unscoped. The runner processes ordered runtime
+commands, configured initial windows, dynamic titles, app subscriptions,
+declared product shortcuts and core events.
 
 `BootstrapSpec` accepts a task factory so retries create independent attempts.
 When configured, the runner opens an internal splash, correlates results with
 their attempt, enforces the minimum splash duration and calls `Application::init`
 only after success. The bootstrap value is transferred into `init`; the runtime
 does not retain product clients or services afterward. The initial `AppUpdate`
-is processed before configured initial product windows open.
+runtime commands are processed before configured initial product windows open,
+while the app task from `init` runs concurrently and cannot block initial window
+opening.
 
 Failure, retry, diagnostic details and close-during-bootstrap are runtime-owned.
 Closing the splash exits without constructing the application. Apps without
@@ -48,9 +51,11 @@ directly.
 
 The runner owns the toast queue, expiration timers, hover pause/resume and
 manual dismiss. `RuntimeCommand::Toast` (built via `Update::toast`) enqueues a
-`ToastRequest`; the runtime assigns identity and tracks expiry internally. A
-time subscription ticks only while toasts are visible, expiring due items and
-pausing expiration while the host is hovered.
+`ToastRequest`; the runtime assigns identity, shows up to three visible toasts,
+keeps overflow queued and starts queued toast expiry only when promoted. A time
+subscription ticks only while toasts are visible, expiring due items and
+pausing expiration while the host is hovered. Default durations are
+info/success 4s, warning 6s and danger/error 8s.
 
 The runner applies `nive-ui`'s `ToastHost` automatically to app-role windows
 with visible toasts, using the configured `ToastPosition`. Auxiliary windows
@@ -69,7 +74,8 @@ deterministic in state and widget tests.
 
 With the `devtools` feature enabled, `run_with_devtools::<A>()` monomorphizes
 the runner with `A::Probe` and installs the internal Devtools host. The standard
-`run::<A>()` path uses `NoProbe` and has no Devtools runtime.
+`run::<A>()` path uses `NoProbe` and has no Devtools runtime. Default builds do
+not expose or compile the `nive_runtime::devtools` module.
 
 The runner owns the auxiliary window, title, window policy, keyboard shortcut,
 panel message routing and command/probe effects. Devtools is closed by default;

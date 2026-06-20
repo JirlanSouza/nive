@@ -52,7 +52,7 @@ error-details dialog content. Applications supply product assets and copy;
 `ToastHost` owns the generic toast overlay: corner positioning, hover
 pause/resume wiring and dismissible toast rows built from the
 `ToastPresentation` contract. `nive-runtime::ToastItem` implements
-`ToastPresentation`, so the runtime owns toast identity, queue and timing while
-`nive-ui` owns only the visual composition. The runtime applies the host
-automatically to app-role windows; applications do not mount it themselves and
-toasts may remain visible alongside a modal dialog.
+`ToastPresentation`, so the runtime owns toast identity, visible/queued state,
+promotion and timing while `nive-ui` owns only the visual composition. The
+runtime applies the host automatically to app-role windows; applications do not
+mount it themselves and toasts may remain visible alongside a modal dialog.
