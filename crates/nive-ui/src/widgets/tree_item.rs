@@ -13,7 +13,7 @@ use self::style::{self as theme_tree_item, TreeItemVariant};
 use super::button::ButtonFocusRing;
 
 mod style;
-use super::{icon as icon_widget, pressable::Pressable, AppIcon};
+use super::{icon as icon_widget, pressable::Pressable, IconName};
 use tone_dot::tone_dot;
 
 pub use outline_tree_item::OutlineTreeItem;
@@ -24,7 +24,7 @@ pub struct TreeItem<'a, Message> {
     expanded: Option<bool>,
     selected: bool,
     disabled: bool,
-    leading_icon: Option<AppIcon>,
+    leading_icon: Option<IconName>,
     tone: Option<ToneRole>,
     trailing_text: Option<&'a str>,
     trailing: Option<Element<'a, Message>>,
@@ -79,7 +79,7 @@ where
         self
     }
 
-    pub fn leading_icon(mut self, icon: AppIcon) -> Self {
+    pub fn leading_icon(mut self, icon: IconName) -> Self {
         self.leading_icon = Some(icon);
         self
     }

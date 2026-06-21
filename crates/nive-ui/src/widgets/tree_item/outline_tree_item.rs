@@ -1,7 +1,7 @@
 use crate::theme::{ControlSize, ToneRole};
 use crate::Element;
 
-use super::super::AppIcon;
+use super::super::IconName;
 use super::TreeItem;
 
 pub struct OutlineTreeItem<'a, Message> {
@@ -43,7 +43,7 @@ where
         self
     }
 
-    pub fn leading_icon(mut self, icon: AppIcon) -> Self {
+    pub fn leading_icon(mut self, icon: IconName) -> Self {
         self.item = self.item.leading_icon(icon);
         self
     }

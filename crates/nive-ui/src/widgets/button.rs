@@ -11,15 +11,15 @@ use self::{
     chrome::ButtonChrome,
     content::{Content, TextAlign},
 };
-use super::{pressable::Pressable, tooltip as tooltip_widget, AppIcon};
+use super::{pressable::Pressable, tooltip as tooltip_widget, IconName};
 
 pub use style::ButtonVariant;
 pub use style::{button_control_state, focus_ring, ButtonFocusRing};
 
 pub struct Button<'a, Message> {
     content: Content<'a>,
-    leading_icon: Option<AppIcon>,
-    trailing_icon: Option<AppIcon>,
+    leading_icon: Option<IconName>,
+    trailing_icon: Option<IconName>,
     variant: ButtonVariant,
     size: ControlSize,
     text_align: TextAlign,
@@ -77,7 +77,7 @@ where
     Button::new(Content::Label(label), ButtonVariant::Link)
 }
 
-pub fn icon<'a, Message>(app_icon: AppIcon) -> Button<'a, Message>
+pub fn icon<'a, Message>(app_icon: IconName) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
@@ -193,12 +193,12 @@ where
         self
     }
 
-    pub fn leading_icon(mut self, icon: AppIcon) -> Self {
+    pub fn leading_icon(mut self, icon: IconName) -> Self {
         self.leading_icon = Some(icon);
         self
     }
 
-    pub fn trailing_icon(mut self, icon: AppIcon) -> Self {
+    pub fn trailing_icon(mut self, icon: IconName) -> Self {
         self.trailing_icon = Some(icon);
         self
     }

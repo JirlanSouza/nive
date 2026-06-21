@@ -5,7 +5,7 @@ use iced::{
 };
 
 use crate::theme::{self, GapRole, ToneRole};
-use crate::widgets::{button, AppIcon, InlineAlert};
+use crate::widgets::{button, IconName, InlineAlert};
 use crate::Element;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -129,7 +129,7 @@ where
     Message: Clone + 'a,
     T: ToastPresentation + 'a,
 {
-    let dismiss = button::icon(AppIcon::X)
+    let dismiss = button::icon(IconName::Close)
         .xs()
         .tooltip("Dismiss")
         .on_press(on_dismiss(toast.id()));

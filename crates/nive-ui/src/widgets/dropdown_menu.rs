@@ -10,7 +10,7 @@ use self::style as theme_menu;
 use super::button::ButtonFocusRing;
 
 mod style;
-use super::{icon as icon_widget, pressable::Pressable, tooltip as tooltip_widget, AppIcon};
+use super::{icon as icon_widget, pressable::Pressable, tooltip as tooltip_widget, IconName};
 
 pub struct DropdownMenu<'a, Message> {
     items: Vec<MenuEntry<'a, Message>>,
@@ -20,7 +20,7 @@ pub struct DropdownMenu<'a, Message> {
 
 pub struct DropdownMenuItem<'a, Message> {
     label: &'a str,
-    icon: Option<AppIcon>,
+    icon: Option<IconName>,
     trailing: Option<&'a str>,
     selected: bool,
     destructive: bool,
@@ -146,7 +146,7 @@ impl<'a, Message: Clone + 'a> DropdownMenuItem<'a, Message> {
         }
     }
 
-    pub fn icon(mut self, icon: AppIcon) -> Self {
+    pub fn icon(mut self, icon: IconName) -> Self {
         self.icon = Some(icon);
         self
     }

@@ -10,7 +10,7 @@ use self::style::{self as theme_segmented_control, SegmentPosition};
 use super::button::ButtonFocusRing;
 
 mod style;
-use super::{icon as icon_widget, pressable::Pressable, AppIcon};
+use super::{icon as icon_widget, pressable::Pressable, IconName};
 
 pub struct SegmentedControl<'a, Message> {
     items: Vec<SegmentedItem<'a, Message>>,
@@ -20,7 +20,7 @@ pub struct SegmentedControl<'a, Message> {
 
 pub struct SegmentedItem<'a, Message> {
     label: &'a str,
-    icon: Option<AppIcon>,
+    icon: Option<IconName>,
     selected: bool,
     disabled: bool,
     on_press: Option<Message>,
@@ -133,7 +133,7 @@ impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
         }
     }
 
-    pub fn icon(mut self, icon: AppIcon) -> Self {
+    pub fn icon(mut self, icon: IconName) -> Self {
         self.icon = Some(icon);
         self
     }

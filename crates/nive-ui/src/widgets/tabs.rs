@@ -10,7 +10,7 @@ use self::style::{self as theme_tabs, TabPart};
 use super::button::ButtonFocusRing;
 
 mod style;
-use super::{icon as icon_widget, pressable::Pressable, tooltip as tooltip_widget, AppIcon};
+use super::{icon as icon_widget, pressable::Pressable, tooltip as tooltip_widget, IconName};
 
 pub struct TabBar<'a, Message> {
     tabs: Vec<TabItem<'a, Message>>,
@@ -21,7 +21,7 @@ pub struct TabBar<'a, Message> {
 
 pub struct TabItem<'a, Message> {
     label: &'a str,
-    icon: Option<AppIcon>,
+    icon: Option<IconName>,
     selected: bool,
     dirty: bool,
     disabled: bool,
@@ -147,7 +147,7 @@ impl<'a, Message: Clone + 'a> TabItem<'a, Message> {
         }
     }
 
-    pub fn icon(mut self, icon: AppIcon) -> Self {
+    pub fn icon(mut self, icon: IconName) -> Self {
         self.icon = Some(icon);
         self
     }
@@ -203,7 +203,7 @@ impl<'a, Message: Clone + 'a> TabItem<'a, Message> {
         let content: Element<'a, Message> = if let Some(close_message) = self.on_close {
             let close_activation = (!self.disabled).then_some(close_message.clone());
             let close =
-                button::Button::new(icon_widget::new(AppIcon::X).size(metrics.close_icon_size))
+                button::Button::new(icon_widget::new(IconName::Close).size(metrics.close_icon_size))
                     .style(theme_tabs::tab_style(
                         self.selected,
                         TabPart::Trailing,

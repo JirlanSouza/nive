@@ -13,16 +13,16 @@ use crate::Element;
 
 include!("icon.generated.rs");
 
-pub fn new(icon: AppIcon) -> Icon {
+pub fn new(icon: IconName) -> Icon {
     Icon::new(icon)
 }
 
-pub(crate) fn handle(icon: AppIcon) -> Handle {
+pub(crate) fn handle(icon: IconName) -> Handle {
     Handle::from_memory(icon.svg_bytes())
 }
 
 pub struct Icon {
-    icon: AppIcon,
+    icon: IconName,
     size: f32,
     color: Option<Color>,
     rotation: Radians,
@@ -31,7 +31,7 @@ pub struct Icon {
 impl Icon {
     const DEFAULT_SIZE: f32 = 16.0;
 
-    pub fn new(icon: AppIcon) -> Self {
+    pub fn new(icon: IconName) -> Self {
         Self {
             icon,
             size: Self::DEFAULT_SIZE,

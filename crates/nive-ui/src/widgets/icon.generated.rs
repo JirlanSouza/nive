@@ -1,5 +1,6 @@
+// Bundled icons are sourced from Lucide (https://lucide.dev) and distributed under the ISC License.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Icon {
+pub enum IconName {
     AlertCircle,
     AlertTriangle,
     ArrowLeft,
@@ -15,17 +16,20 @@ pub enum Icon {
     Edit,
     Eye,
     EyeOff,
+    Folder,
+    Inbox,
     Info,
     Menu,
     Minus,
     MoreHorizontal,
     Plus,
+    RefreshCw,
     Search,
     Settings,
     Trash,
 }
 
-impl Icon {
+impl IconName {
     fn svg_bytes(&self) -> &'static [u8] {
         match self {
             Self::AlertCircle => include_bytes!("../../assets/icons/lucide/circle-alert.svg"),
@@ -43,11 +47,14 @@ impl Icon {
             Self::Edit => include_bytes!("../../assets/icons/lucide/pencil.svg"),
             Self::Eye => include_bytes!("../../assets/icons/lucide/eye.svg"),
             Self::EyeOff => include_bytes!("../../assets/icons/lucide/eye-off.svg"),
+            Self::Folder => include_bytes!("../../assets/icons/lucide/folder.svg"),
+            Self::Inbox => include_bytes!("../../assets/icons/lucide/inbox.svg"),
             Self::Info => include_bytes!("../../assets/icons/lucide/info.svg"),
             Self::Menu => include_bytes!("../../assets/icons/lucide/menu.svg"),
             Self::Minus => include_bytes!("../../assets/icons/lucide/minus.svg"),
             Self::MoreHorizontal => include_bytes!("../../assets/icons/lucide/ellipsis.svg"),
             Self::Plus => include_bytes!("../../assets/icons/lucide/plus.svg"),
+            Self::RefreshCw => include_bytes!("../../assets/icons/lucide/refresh-cw.svg"),
             Self::Search => include_bytes!("../../assets/icons/lucide/search.svg"),
             Self::Settings => include_bytes!("../../assets/icons/lucide/settings.svg"),
             Self::Trash => include_bytes!("../../assets/icons/lucide/trash.svg"),
@@ -72,11 +79,14 @@ impl Icon {
             Self::Edit => "pencil",
             Self::Eye => "eye",
             Self::EyeOff => "eye-off",
+            Self::Folder => "folder",
+            Self::Inbox => "inbox",
             Self::Info => "info",
             Self::Menu => "menu",
             Self::Minus => "minus",
             Self::MoreHorizontal => "ellipsis",
             Self::Plus => "plus",
+            Self::RefreshCw => "refresh-cw",
             Self::Search => "search",
             Self::Settings => "settings",
             Self::Trash => "trash",
