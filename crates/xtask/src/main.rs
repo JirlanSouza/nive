@@ -191,8 +191,8 @@ fn icons_add(variant: &str, lucide_name: &str) -> Result<()> {
 fn icons_init(app_path: &str) -> Result<()> {
     let app_root = PathBuf::from(app_path);
 
-    if !app_root.exists() {
-        return Err(format!("App path does not exist: {}", app_path).into());
+    if !app_root.is_dir() {
+        return Err(format!("App path is not a directory: {}", app_path).into());
     }
 
     let manifest_path = app_root.join("icons/lucide.toml");
@@ -334,7 +334,7 @@ fn generate_icon_source(manifest: &IconsManifest) -> String {
         source.push_str("            Self::");
         source.push_str(variant);
         source.push_str(" => include_bytes!(\"");
-        source.push_str("../../../assets/icons/lucide/");
+        source.push_str("../../assets/icons/lucide/");
         source.push_str(slug);
         source.push_str(".svg\"),\n");
     }
