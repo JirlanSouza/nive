@@ -2,15 +2,14 @@
 
 ## Active Stack
 
-`rag-studio` is centered on the Rust/Iced application stack:
+Nive is centered on the Rust/Iced framework stack:
 
-- `crates/app-gui`
-- `crates/app-core`
-- `crates/app-models`
-- `crates/app-database`
-- parser and payload crates when a task touches document parsing
-
-Deprecated UI shell areas are out of scope unless the user explicitly asks for migration, compatibility, or historical comparison.
+- `crates/nive-ui`: visual design system
+- `crates/nive-runtime`: application lifecycle
+- `crates/nive-runtime-derive`: proc macros
+- `crates/nive`: umbrella crate
+- `crates/xtask`: icon management and automation
+- `crates/create-nive-app`: scaffolding CLI
 
 ## Context Docs
 
@@ -18,8 +17,6 @@ Read only the context needed for the task:
 
 - Architecture and module boundaries: `docs/agents/architecture.md`
 - Rust style and naming conventions: `docs/agents/rust-style.md`
-- Database isolation and migrations: `docs/agents/database.md`
-- Errors and logging: `docs/agents/errors-and-logging.md`
 - Testing rules and commands: `docs/agents/testing.md`
 - Commits and PRs: `docs/agents/commits-and-prs.md`
 
