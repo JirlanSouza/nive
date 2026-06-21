@@ -202,17 +202,18 @@ impl<'a, Message: Clone + 'a> TabItem<'a, Message> {
         let main = self.main_button(metrics, main_part);
         let content: Element<'a, Message> = if let Some(close_message) = self.on_close {
             let close_activation = (!self.disabled).then_some(close_message.clone());
-            let close =
-                button::Button::new(icon_widget::new(IconName::Close).size(metrics.close_icon_size))
-                    .style(theme_tabs::tab_style(
-                        self.selected,
-                        TabPart::Trailing,
-                        metrics.radius,
-                    ))
-                    .padding(Padding::ZERO)
-                    .width(Length::Fixed(metrics.close_side))
-                    .height(Length::Fixed(metrics.tab_height))
-                    .on_press_maybe(close_activation.clone());
+            let close = button::Button::new(
+                icon_widget::new(IconName::Close).size(metrics.close_icon_size),
+            )
+            .style(theme_tabs::tab_style(
+                self.selected,
+                TabPart::Trailing,
+                metrics.radius,
+            ))
+            .padding(Padding::ZERO)
+            .width(Length::Fixed(metrics.close_side))
+            .height(Length::Fixed(metrics.tab_height))
+            .on_press_maybe(close_activation.clone());
             row![
                 main,
                 Pressable::maybe(

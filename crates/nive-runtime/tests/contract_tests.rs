@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::path::PathBuf;
 
 use nive_runtime::prelude::*;
 #[cfg(feature = "file-picker")]
