@@ -2,21 +2,16 @@
 
 ## Active Workspace
 
-`rag-studio` is centered on the Rust/Iced application stack. Active Cargo workspace members are:
+Nive is a Rust/Iced desktop application framework. Active Cargo workspace members are:
 
-- `crates/app-gui`
-- `crates/app-core`
-- `crates/app-models`
-- `crates/app-database`
-- `crates/document-parser-worker`
-- `crates/docling-payload-core`
-- `crates/docling-payload-py`
-- `crates/nive-runtime`
-- `crates/nive-ui`
-- `crates/nive-runtime-derive`
-- `crates/xtask`
+- `crates/nive-ui`: visual design system (tokens, theme, widgets, icons)
+- `crates/nive-runtime`: application lifecycle, window management, feedback, devtools
+- `crates/nive-runtime-derive`: proc macros for devtools
+- `crates/nive`: umbrella crate that re-exports nive-ui and nive-runtime
+- `crates/xtask`: icon management and project automation
+- `crates/create-nive-app`: scaffolding CLI for new apps
 
-Use the root `justfile` as the source of truth for active development commands. Its `rust-packages` list defines the Rust crates used by active checks, tests, builds, and formatting.
+Use the root `justfile` as the source of truth for active development commands.
 
 ## Command Boundary
 
@@ -26,29 +21,29 @@ Prefer these root commands for active work:
 - `just fmt-check`
 - `just check`
 - `just lint`
-- `just rust-test`
 - `just test`
-- `just dev`
+- `just doc`
+- `just build`
+- `just release`
+
+Icon management commands:
+
+- `just icons-list`
+- `just icons-sync`
+- `just icons-check`
+- `just icons-add <variant> <lucide-name>`
+
+App scaffolding:
+
+- `just create-app <name>`
 
 Run package-specific `cargo` commands only for focused verification while iterating.
 
-For Devtools or probe changes in `app-gui`, also run:
-
-- `just app-gui-check-dev`
-- `just app-gui-test-dev`
-
-The root active-crate checks do not enable the optional `app-gui` `dev` feature.
-
 ## Package Roles
 
-- `app-gui`: desktop UI, user interaction, Iced tasks, screens, product-aware widgets, and app-specific client/probe wiring.
-- `nive-runtime-derive`: proc macros for devtools state, operation, probe catalog, runtime client probe declarations, and configurable devtools path generation for framework-owned and app-owned trait targets.
-- `nive-runtime`: shared app runtime foundation for application/update contracts, UI state, operation state, request IDs, user-facing errors, lifecycle contracts, and optional Devtools/probe behavior.
-- `nive-ui`: shared visual design system for tokens, semantic theme contracts, and reusable UI primitives.
-- `app-core`: domain services, app context, event bus integration, file system behavior, and parser orchestration.
-- `app-models`: shared domain models passed between app layers.
-- `app-database`: SQLx repositories, database managers, migrations, and unit-of-work boundaries.
-- `document-parser-worker`: Rust manager for the Python parser child process.
-- `docling-payload-core`: Rkyv payload construction, validation, read/write, and Docling document views.
-- `docling-payload-py`: Python binding for `docling-payload-core`.
-- `xtask`: project automation.
+- `nive-ui`: shared visual design system for tokens, semantic theme contracts, reusable UI primitives, and icon management.
+- `nive-runtime`: shared app runtime foundation for application/update contracts, UI state, operation state, request IDs, user-facing errors, lifecycle contracts, and optional devtools/probe behavior.
+- `nive-runtime-derive`: proc macros for devtools state, operation, probe catalog, runtime client probe declarations, and configurable devtools path generation.
+- `nive`: umbrella crate that re-exports `nive-ui` and `nive-runtime` for convenient app development.
+- `xtask`: icon management (Lucide SVG sync) and project automation.
+- `create-nive-app`: scaffolding CLI that creates new apps using the Nive framework.
