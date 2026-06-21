@@ -12,6 +12,11 @@ The contract checkpoint defines:
 `WindowSpec::app()` and `WindowSpec::auxiliary()` provide the approved default
 sizes and single-window cardinality.
 
+Runtime session persistence is opt-in and uses stable window session keys on
+`WindowSpec`. Keyed windows restore persisted size/position before opening and
+write move/resize events back to the runtime session; see `settings.md` for the
+settings/session contract.
+
 `WindowRegistry` is keyed by `window::Id`, keeps multiple instances of the same
 product window kind, and tracks the internal `Opening -> Open -> removed`
 lifecycle. Kind-based lookup selects the most recently opened or focused

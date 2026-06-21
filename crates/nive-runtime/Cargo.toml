@@ -18,7 +18,12 @@ log = { workspace = true }
 nive-runtime-derive = { path = "../nive-runtime-derive", optional = true }
 nive-ui = { path = "../nive-ui" }
 rfd = { version = "0.16", optional = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

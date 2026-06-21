@@ -256,6 +256,7 @@ impl DevtoolsWindowSpec {
             mode: WindowMode::Windowed,
             chrome: WindowChrome::UnifiedTitlebar,
             level: window::Level::AlwaysOnTop,
+            session_key: None,
         }
     }
 

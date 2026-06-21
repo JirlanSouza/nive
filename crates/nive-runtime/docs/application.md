@@ -3,15 +3,163 @@
 `nive-runtime` exposes the stable-Rust application contract through
 `nive_runtime::prelude`.
 
+The app-facing public API is the crate root plus `nive_runtime::prelude`.
+Applications should import runtime contracts from those facades instead of
+depending on runner module paths. The public contract includes:
+
+- `Application`, `ApplicationConfig`, `Context`, `WindowContext` and `run`
+- `Action`, `ActionId`, `ActionMap` and `DuplicateActionId`
+- `Update`, `AppUpdate`, `RuntimeCommand` and `client_task`
+- lifecycle/window contracts such as `WindowSpec`, `WindowCommand`,
+  `CloseDecision`, `ExitDecision`, `BootstrapSpec` and `CoreEvent`
+- reusable feedback/state helpers such as `Toast`, `UserFacingError`,
+  `AsyncState`, `OperationState`, `RequestId` and clock helpers
+- `Task`, `Subscription`, `time`, `window`, `Point` and `Size`
+  aliases/reexports used by app hooks
+- settings/session contracts such as `SettingsConfig`, `RuntimeSession`,
+  `WindowSession`, `WindowSessionSize` and `WindowSessionPosition`
+- `Theme`, `ThemeBuilder`, `ThemeCatalog`, `ThemeMode` and `ThemePreference`
+- feature-gated platform/devtools APIs
+
+Implementation modules are intentionally not exposed as stable integration
+points. Public platform and devtools modules are extension surfaces; private
+application/lifecycle/feedback/state/screen modules remain runner internals.
+
 Applications implement `Application` with product-owned message, window and
 bootstrap types. Apps without bootstrap use `type Bootstrap = ();`. Rust stable
 does not support the approved associated-type default syntax, so the explicit
 associated type is required.
 
+## Actions And Shortcuts
+
+Applications can expose product commands through `Application::actions`. An
+`ActionMap` contains ordered `Action` values with stable `ActionId`s,
+user-facing labels, optional descriptions, optional shortcut bindings, enabled
+state and the product message to emit when activated.
+
+The runtime uses action shortcuts before legacy shortcuts, after framework
+reserved shortcuts:
+
+1. Framework-reserved shortcuts: Escape, Tab/Shift+Tab focus traversal and
+   feature-gated Devtools toggle.
+2. Enabled `Application::actions()` shortcuts.
+3. `Application::shortcuts()` fallback bindings.
+
+Disabled actions remain visible to future command surfaces but do not dispatch
+from shortcut routing. `ActionMap::validate()` reports duplicate IDs through
+`DuplicateActionId`; apps and tests can call it at catalog construction
+boundaries without making keyboard routing panic in release builds.
+
+Use `ShortcutBinding::primary_character` for app commands that should follow
+the platform primary modifier (`Cmd` on macOS, `Ctrl` elsewhere) without
+depending on Iced keyboard modifier constants in app code.
+
+`Application::shortcuts` remains supported as a low-level compatibility hook
+for apps that have not migrated a binding into actions yet. New app-facing
+commands should prefer actions so the same command can later power toolbar,
+menu and command-palette surfaces.
+
+Apps that surface a `nive-ui` command palette can adapt their `ActionMap`
+through `nive_runtime::command_palette_rows(&ActionMap<M>)`, which returns
+a `Vec<CommandPaletteRow<'_, M>>` with label, description and shortcut
+display pre-filled. The palette view itself is in `nive-ui`; apps wrap it
+in a `DialogRequest` and own open/closed, query, highlighted row, and
+keyboard navigation.
+
+## Native Menus, Tray, And Global Shortcuts
+
+Iced 0.14 does not expose a native menu bar, system tray, or global
+shortcut API. The only `window` Task is `show_system_menu`, which
+surfaces the OS-provided window context menu (maximize / minimize /
+close on right-click of the title bar) on Windows and Linux. Nive
+therefore defers native menu integration until Iced adds upstream
+support.
+
+For now, app navigation uses `nive-ui::widgets::DropdownMenu` (and
+other in-app menus). When Nive adds a `DropdownMenuItem` adapter for
+`ActionMap<M>`, menus will share the same action catalog as shortcuts,
+toolbars, and the command palette, so the same product command
+powers every surface.
+
+## Accessibility And Keyboard
+
+The framework's accessibility contract is documented in
+`crates/nive-ui/docs/components.md`. The runtime contributes the
+keyboard helpers:
+
+- `is_escape_key_press(&Event)` detects the Escape key for overlay
+  dismissal.
+- `DialogDismiss` carries the dismiss message for Escape, backdrop, or
+  both; `DialogRequest` wires it into the modal overlay.
+- `keyboard_navigation_subscription` and the focus trap helpers cycle
+  focus on Tab and Shift+Tab. Modifier-only Tab is left to the
+  application.
+
+Application code that introduces new keyboard affordances (custom
+shortcuts, in-app menus) should reuse these helpers instead of
+parsing Iced events directly so the framework's escape/focus
+behavior remains consistent.
+
+## Operation Registry
+
+`OperationRegistry` is the app-wide store of long-running operations.
+It complements the per-operation `OperationState<C>` state machine and
+is the surface app-wide progress, cancellation, and retry UI can read
+from.
+
+Core types:
+
+- `OperationId(&'static str)` — stable, product-owned identifier. The
+  registry keys entries by this id; products that need multiple
+  concurrent instances of the same logical operation should give each
+  instance a unique id.
+- `OperationDescriptor` — registered metadata: title, progress and
+  `cancellable` flag.
+- `OperationProgress` — `Indeterminate`, `Fraction { completed, total }`
+  with a `ratio()` helper, or `Message(Cow<'static, str>)` for textual
+  status. `ratio()` returns `None` for indeterminate and message-only
+  progress so UI can fall back to spinners.
+- `OperationStatus` — `Running`, `Completed`, `Failed(UserFacingError)`,
+  `Cancelled`. `is_running()` and `is_terminal()` are explicit.
+- `OperationEntry` — `descriptor` plus `status` for the live entry.
+- `OperationRegistry` — `BTreeMap`-backed store with `register`,
+  `update_progress`, `complete`, `fail`, `cancel`, `remove`, `iter`,
+  `running`, `cancellable`, `running_count`, `clear_terminal`.
+
+Invariants:
+
+- `register` overwrites an existing entry's descriptor and resets the
+  status to `Running`. The previous descriptor is returned so apps can
+  surface "the same operation restarted" UI if they need it.
+- `update_progress` is a no-op when the entry is missing or already
+  terminal. Apps that want a progress notification after completion
+  should restart the operation.
+- `cancel` only succeeds on running, cancellable entries. The runtime
+  surfaces cancel via `ActionMap` so the same product action can be
+  bound to a button, a menu item, and a command palette entry.
+- `clear_terminal` removes only completed/failed/cancelled entries
+  and returns the count. Apps can use it to bound the visible history.
+
+Cancellation remains app-owned: `OperationRegistry::cancel` only
+flips the status. The app's reducer receives a `Cancel` action,
+breaks the underlying Iced task through its own request id
+(`RequestId`/`RequestCounter`), and then calls `registry.cancel(id)`
+so the UI reflects the user intent immediately. The runtime does not
+spawn or cancel Iced tasks on the app's behalf.
+
+Slice 10 does not introduce UI components. The registry is the
+runtime model only; presentation can be added in a later slice that
+consumes `iter()` / `running()` / `cancellable()` without coupling
+the registry to a specific widget.
+
 `ApplicationConfig` declares product windows, initial windows, theme preference,
 optional custom `ThemeCatalog`, toast position, fonts, a shared window icon and
 optional bootstrap configuration. `Context` and `WindowContext` are read-only
 views; runtime-owned mutable state is not exposed.
+
+Runtime settings/session persistence is opt-in and documented in `settings.md`.
+Apps supply the settings file path; runtime-owned persistence must not absorb
+product/domain settings.
 
 `Update` combines Iced tasks, one optional screen outcome and ordered
 `RuntimeCommand` values. Application hooks use `AppUpdate`, which cannot carry a
@@ -73,6 +221,25 @@ remain visible alongside a modal dialog. Applications emit toasts through
 `relative_time_label(updated_at, now)` formats shared compact relative-time
 labels. Keeping the clock input explicit makes relative-time presentation
 deterministic in state and widget tests.
+
+## File Picker
+
+The optional `file-picker` feature exposes cross-platform file dialog
+primitives backed by `rfd`:
+
+- `FileFilter` and `PickFileParams` for opening a single file.
+- `PickFileParams` and `pick_files` for opening one or more files.
+- `pick_folder` for opening a directory.
+- `SaveFileParams` and `save_file` for picking a save destination, with
+  optional default name pre-fill.
+
+All dialog calls return `Task<Option<PathBuf>>` (or
+`Task<Option<Vec<PathBuf>>>` for `pick_files`) so apps compose them with the
+runtime `Task`/`Message` flow. The `PickFileParams` and `SaveFileParams` types
+are part of the public contract and are always available; only the dialog
+task constructors are gated behind the feature. Apps that opt in to the
+`file-picker` feature get the full open/folder/save set as reusable platform
+primitives.
 
 ## Devtools Runtime
 

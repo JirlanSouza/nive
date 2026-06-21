@@ -19,6 +19,17 @@
 //! a lower layer. Presentation contracts such as `ToastPresentation` keep
 //! runtime types out of the UI crate.
 //!
+//! # Public API
+//!
+//! Application and screen code should prefer `nive_ui::prelude`, the crate
+//! root, `nive_ui::theme`, and `nive_ui::widgets`. These facades expose the
+//! shared `Element`/`Renderer` aliases, theme builders/catalogs, common Iced
+//! layout primitives, and reusable widget contracts.
+//!
+//! Lower-level widget and theme submodules remain public for advanced
+//! composition, styling, and focused tests. Generic app code should avoid
+//! depending on private host internals or product-specific assumptions.
+//!
 //! # Status
 //!
 //! Part of Nive **v0.1.0**, a beta release. Public APIs may change before 1.0.

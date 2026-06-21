@@ -15,6 +15,12 @@ pub struct PickFileParams {
     pub start_dir: Option<PathBuf>,
 }
 
+pub struct SaveFileParams {
+    pub filters: Vec<FileFilter>,
+    pub start_dir: Option<PathBuf>,
+    pub default_name: Option<String>,
+}
+
 #[cfg(feature = "file-picker")]
 pub fn pick_file(params: PickFileParams) -> Task<Option<PathBuf>> {
     Task::perform(
@@ -66,6 +72,30 @@ pub fn pick_folder(start_dir: Option<PathBuf>) -> Task<Option<PathBuf>> {
             }
 
             dialog.pick_folder()
+        },
+        |result| result,
+    )
+}
+
+#[cfg(feature = "file-picker")]
+pub fn save_file(params: SaveFileParams) -> Task<Option<PathBuf>> {
+    Task::perform(
+        async move {
+            let mut dialog = FileDialog::new();
+
+            for filter in &params.filters {
+                dialog = dialog.add_filter(filter.name, filter.extensions);
+            }
+
+            if let Some(start_dir) = &params.start_dir {
+                dialog = dialog.set_directory(start_dir);
+            }
+
+            if let Some(default_name) = &params.default_name {
+                dialog = dialog.set_file_name(default_name);
+            }
+
+            dialog.save_file()
         },
         |result| result,
     )

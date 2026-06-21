@@ -4,12 +4,11 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use iced::keyboard;
-use iced::{window, ContentFit, Subscription, Task};
+use iced::{window, ContentFit, Point, Size, Subscription, Task};
 
 use super::{
     Application, ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason,
-    Context, CoreEvent, Error, ExitDecision, Result, ShortcutMap, WindowCommand, WindowContext,
-    WindowQuery,
+    Context, CoreEvent, Error, ExitDecision, Result, WindowCommand, WindowContext, WindowQuery,
 };
 #[cfg(feature = "devtools")]
 use crate::devtools::probe::{
@@ -23,7 +22,8 @@ use crate::lifecycle::bootstrap::{
     minimum_duration_task, BootstrapController, BootstrapTransition,
 };
 use crate::{
-    AppUpdate, BootstrapSpec, DialogRequest, KeyboardNavigation, RuntimeCommand, ScreenView,
+    ActionMap, AppUpdate, BootstrapSpec, DialogRequest, KeyboardNavigation, RuntimeCommand,
+    RuntimeSession, ScreenView, SettingsConfig, SettingsError, SettingsErrorKind, ShortcutMap,
     ThemeController, ThemeEvent, ToastId, ToastPosition, ToastState, UserFacingResult,
     WindowCardinality, WindowChrome, WindowHandle, WindowMode, WindowRegistry, WindowRole,
     WindowSpec,
@@ -199,6 +199,8 @@ enum CoreMessage<K> {
     WindowOpened(window::Id),
     WindowClosed(window::Id),
     WindowFocused(window::Id),
+    WindowMoved(window::Id, Point),
+    WindowResized(window::Id, Size),
     WindowCloseRequested(window::Id),
     Theme(ThemeEvent),
     ConfirmClose(window::Id),
@@ -210,6 +212,7 @@ enum CoreMessage<K> {
     ToastTick(Instant),
     KeyboardNavigation(KeyboardNavigation),
     KeyboardEvent(keyboard::Event),
+    SettingsSaved(std::result::Result<(), SettingsError>),
     #[cfg(feature = "devtools")]
     ToggleDevtools,
 }
@@ -292,6 +295,13 @@ struct NiveCore<K> {
     toasts: ToastState,
     toasts_hovered: bool,
     pending_app_closes: HashSet<window::Id>,
+    settings: Option<SettingsRuntime>,
+}
+
+#[derive(Debug, Clone)]
+struct SettingsRuntime {
+    config: SettingsConfig,
+    session: RuntimeSession,
 }
 
 impl<A, P> Program<A, P>
@@ -303,7 +313,14 @@ where
         mut config: ApplicationConfig<A::Window, A::Bootstrap>,
         #[cfg(feature = "devtools")] devtools: Option<DevtoolsRuntime<A, P>>,
     ) -> Result<ProgramBoot<A, P>> {
-        let core = NiveCore::new(&config);
+        let settings = SettingsRuntime::load(config.settings.as_ref());
+        if let Some(preference) = settings
+            .as_ref()
+            .and_then(|settings| settings.session.theme_preference())
+        {
+            config.theme_preference = preference;
+        }
+        let core = NiveCore::new(&config, settings);
         let theme_task = core
             .theme
             .initial_task()
@@ -427,6 +444,12 @@ where
             window::Event::Focused => {
                 Some(NiveMessage::Core(CoreMessage::WindowFocused(window_id)))
             }
+            window::Event::Moved(position) => Some(NiveMessage::Core(CoreMessage::WindowMoved(
+                window_id, position,
+            ))),
+            window::Event::Resized(size) => Some(NiveMessage::Core(CoreMessage::WindowResized(
+                window_id, size,
+            ))),
             window::Event::CloseRequested => Some(NiveMessage::Core(
                 CoreMessage::WindowCloseRequested(window_id),
             )),
@@ -824,6 +847,10 @@ where
 
                 self.emit_core_event(CoreEvent::WindowFocused(handle.into()))
             }
+            CoreMessage::WindowMoved(window_id, position) => {
+                self.save_window_position(window_id, position)
+            }
+            CoreMessage::WindowResized(window_id, size) => self.save_window_size(window_id, size),
             CoreMessage::WindowCloseRequested(window_id) => {
                 if self.is_bootstrap_window(window_id) {
                     self.core.exiting = true;
@@ -869,6 +896,17 @@ where
             }
             CoreMessage::KeyboardNavigation(navigation) => navigation.task(),
             CoreMessage::KeyboardEvent(event) => self.handle_keyboard_event(event),
+            CoreMessage::SettingsSaved(result) => {
+                if let Err(error) = result {
+                    log::warn!(
+                        target: "nive_runtime::settings",
+                        "settings.save_failed path={} error={}",
+                        error.path().display(),
+                        error.detail()
+                    );
+                }
+                Task::none()
+            }
             #[cfg(feature = "devtools")]
             CoreMessage::ToggleDevtools => {
                 let Some(devtools) = self.devtools.as_ref() else {
@@ -926,14 +964,87 @@ where
             }
             RuntimeCommand::Window(command) => self.handle_window_command(command),
             RuntimeCommand::Theme(preference) => {
-                if self.core.theme.set_preference(preference) {
+                let preference_changed = self.core.theme.preference() != preference;
+                let effective_changed = self.core.theme.set_preference(preference);
+                let save_task = if preference_changed {
+                    self.save_theme_preference(preference)
+                } else {
+                    Task::none()
+                };
+                let event_task = if effective_changed {
                     self.emit_core_event(CoreEvent::ThemeChanged(self.core.theme.effective()))
                 } else {
                     Task::none()
-                }
+                };
+
+                Task::batch([event_task, save_task])
             }
             RuntimeCommand::Exit => self.request_exit(),
         }
+    }
+
+    fn save_theme_preference(
+        &mut self,
+        preference: crate::ThemePreference,
+    ) -> Task<RuntimeMessage<A, P>> {
+        let Some(settings) = self.core.settings.as_mut() else {
+            return Task::none();
+        };
+
+        settings.session.set_theme_preference(Some(preference));
+        self.save_runtime_session()
+    }
+
+    fn save_window_size(
+        &mut self,
+        window_id: window::Id,
+        size: Size,
+    ) -> Task<RuntimeMessage<A, P>> {
+        let Some(key) = self.core.window_session_key(window_id) else {
+            return Task::none();
+        };
+        let Some(settings) = self.core.settings.as_mut() else {
+            return Task::none();
+        };
+
+        if settings.session.set_window_size(key, size) {
+            self.save_runtime_session()
+        } else {
+            Task::none()
+        }
+    }
+
+    fn save_window_position(
+        &mut self,
+        window_id: window::Id,
+        position: Point,
+    ) -> Task<RuntimeMessage<A, P>> {
+        let Some(key) = self.core.window_session_key(window_id) else {
+            return Task::none();
+        };
+        let Some(settings) = self.core.settings.as_mut() else {
+            return Task::none();
+        };
+
+        if settings.session.set_window_position(key, position) {
+            self.save_runtime_session()
+        } else {
+            Task::none()
+        }
+    }
+
+    fn save_runtime_session(&self) -> Task<RuntimeMessage<A, P>> {
+        let Some(settings) = self.core.settings.as_ref() else {
+            return Task::none();
+        };
+
+        let config = settings.config.clone();
+        let session = settings.session.clone();
+
+        Task::perform(
+            async move { crate::settings::save_session(&config, &session) },
+            |result| NiveMessage::Core(CoreMessage::SettingsSaved(result)),
+        )
     }
 
     fn handle_window_command(
@@ -1137,13 +1248,14 @@ where
     }
 
     fn handle_keyboard_event(&mut self, event: keyboard::Event) -> Task<RuntimeMessage<A, P>> {
-        let shortcuts = self
-            .app
-            .as_ref()
-            .map(|app| app.shortcuts(self.core.context()))
-            .unwrap_or_default();
+        let Some(app) = self.app.as_ref() else {
+            return Task::none();
+        };
+        let context = self.core.context();
+        let actions = app.actions(context);
+        let shortcuts = app.shortcuts(context);
 
-        shortcut_message_from_event::<A, P>(&shortcuts, event)
+        shortcut_message_from_event::<A, P>(&actions, &shortcuts, event)
             .map(Task::done)
             .unwrap_or_else(Task::none)
     }
@@ -1160,6 +1272,7 @@ fn map_bootstrap_ui_message<K, M, B, P>(message: BootstrapUiMessage) -> NiveMess
 }
 
 fn shortcut_message_from_event<A, P>(
+    actions: &ActionMap<A::Message>,
     shortcuts: &ShortcutMap<A::Message>,
     event: keyboard::Event,
 ) -> Option<RuntimeMessage<A, P>>
@@ -1181,8 +1294,9 @@ where
         return Some(message);
     }
 
-    shortcuts
+    actions
         .message_for_event(&event)
+        .or_else(|| shortcuts.message_for_event(&event))
         .map(|message| NiveMessage::App {
             window_id: None,
             message,
@@ -1202,6 +1316,24 @@ fn is_escape_key_event(event: &keyboard::Event) -> bool {
             repeat: false,
             ..
         } if modifiers.is_empty()
+    )
+}
+
+fn clamp_window_size(size: Size, min_size: Option<Size>, max_size: Option<Size>) -> Size {
+    let min_width = min_size.map(|size| size.width).unwrap_or(1.0);
+    let min_height = min_size.map(|size| size.height).unwrap_or(1.0);
+    let max_width = max_size
+        .map(|size| size.width)
+        .unwrap_or(f32::MAX)
+        .max(min_width);
+    let max_height = max_size
+        .map(|size| size.height)
+        .unwrap_or(f32::MAX)
+        .max(min_height);
+
+    Size::new(
+        size.width.clamp(min_width, max_width),
+        size.height.clamp(min_height, max_height),
     )
 }
 
@@ -1246,6 +1378,7 @@ fn bootstrap_window_spec(icon: Option<window::Icon>) -> window::Settings {
         mode: WindowMode::Windowed,
         chrome: WindowChrome::AppOwned,
         level: window::Level::Normal,
+        session_key: None,
     }
     .settings(icon)
 }
@@ -1254,8 +1387,8 @@ impl<K> NiveCore<K>
 where
     K: Copy + Eq,
 {
-    fn new<B>(config: &ApplicationConfig<K, B>) -> Self {
-        Self {
+    fn new<B>(config: &ApplicationConfig<K, B>, settings: Option<SettingsRuntime>) -> Self {
+        let core = Self {
             app_id: config.app_id.clone(),
             app_name: config.app_name.clone(),
             windows: config
@@ -1272,7 +1405,10 @@ where
             toasts: ToastState::default(),
             toasts_hovered: false,
             pending_app_closes: HashSet::new(),
-        }
+            settings,
+        };
+        core.report_duplicate_window_session_keys();
+        core
     }
 
     fn context(&self) -> Context<'_, K> {
@@ -1296,7 +1432,37 @@ where
         self.windows
             .iter()
             .find(|(registered_kind, _)| *registered_kind == kind)
-            .map(|(_, spec)| *spec)
+            .map(|(_, spec)| self.apply_window_session(*spec))
+    }
+
+    fn apply_window_session(&self, mut spec: WindowSpec) -> WindowSpec {
+        let Some(key) = spec.configured_session_key() else {
+            return spec;
+        };
+        let Some(session) = self
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.session.window(key))
+        else {
+            return spec;
+        };
+
+        if let Some(size) = session.size() {
+            spec.size = clamp_window_size(size, spec.min_size, spec.max_size);
+        }
+        if let Some(position) = session.position() {
+            spec.position = window::Position::Specific(position);
+        }
+
+        spec
+    }
+
+    fn window_session_key(&self, window_id: window::Id) -> Option<&'static str> {
+        let kind = self.registry.kind(window_id)?;
+        self.windows
+            .iter()
+            .find(|(registered_kind, _)| *registered_kind == kind)
+            .and_then(|(_, spec)| spec.configured_session_key())
     }
 
     fn toast_position(&self) -> ToastPosition {
@@ -1310,6 +1476,60 @@ where
                 handle.role == WindowRole::App && !self.pending_app_closes.contains(&handle.id)
             })
             .count()
+    }
+
+    fn report_duplicate_window_session_keys(&self) {
+        let mut seen = Vec::new();
+        for (_, spec) in &self.windows {
+            let Some(key) = spec.configured_session_key() else {
+                continue;
+            };
+            if seen.contains(&key) {
+                log::warn!(
+                    target: "nive_runtime::settings",
+                    "settings.duplicate_window_key key={key}"
+                );
+            } else {
+                seen.push(key);
+            }
+        }
+    }
+}
+
+impl SettingsRuntime {
+    fn load(config: Option<&SettingsConfig>) -> Option<Self> {
+        let config = config?.clone();
+        let session = match crate::settings::load_session(&config) {
+            Ok(Some(session)) => session,
+            Ok(None) => {
+                log::debug!(
+                    target: "nive_runtime::settings",
+                    "settings.load_missing path={}",
+                    config.path().display()
+                );
+                RuntimeSession::default()
+            }
+            Err(error) if error.kind() == SettingsErrorKind::UnsupportedVersion => {
+                log::warn!(
+                    target: "nive_runtime::settings",
+                    "settings.unsupported_version path={} version={}",
+                    error.path().display(),
+                    error.detail()
+                );
+                RuntimeSession::default()
+            }
+            Err(error) => {
+                log::warn!(
+                    target: "nive_runtime::settings",
+                    "settings.load_failed path={} error={}",
+                    error.path().display(),
+                    error.detail()
+                );
+                RuntimeSession::default()
+            }
+        };
+
+        Some(Self { config, session })
     }
 }
 
@@ -1329,7 +1549,11 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::{DialogDismiss, ScreenView, ShortcutBinding, ToastRequest};
+    use crate::{
+        Action, DialogDismiss, ScreenView, ShortcutBinding, ThemePreference, ToastRequest,
+        WindowSession,
+    };
+    use nive_ui::theme::{testing::ThemeTestGuard, Theme};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum TestWindow {
@@ -1342,6 +1566,8 @@ mod tests {
     #[derive(Debug, Clone, PartialEq, Eq)]
     enum TestMessage {
         Shortcut,
+        Action,
+        LegacyShortcut,
     }
 
     #[derive(Debug, Clone)]
@@ -1624,6 +1850,26 @@ mod tests {
     }
 
     #[cfg(feature = "devtools")]
+    fn plain_program_with_config<A>(
+        config: ApplicationConfig<A::Window, A::Bootstrap>,
+    ) -> Result<ProgramBoot<A, NoProbe>>
+    where
+        A: Application,
+    {
+        Program::<A>::new(config, None)
+    }
+
+    #[cfg(not(feature = "devtools"))]
+    fn plain_program_with_config<A>(
+        config: ApplicationConfig<A::Window, A::Bootstrap>,
+    ) -> Result<ProgramBoot<A, NoProbe>>
+    where
+        A: Application,
+    {
+        Program::<A>::new(config)
+    }
+
+    #[cfg(feature = "devtools")]
     fn devtools_program(config: DevtoolsConfig) -> Program<TestApp, TestProbe> {
         Program::new(
             TestApp::config(),
@@ -1639,6 +1885,257 @@ mod tests {
 
         assert!(program.core.registry.contains(TestWindow::Main));
         assert_eq!(program.core.registry.app_window_count(), 1);
+    }
+
+    #[test]
+    fn runtime_settings_disabled_by_default() {
+        let config = TestApp::config();
+
+        assert!(config.configured_settings().is_none());
+    }
+
+    #[test]
+    fn runtime_session_loads_theme_preference_before_theme_controller() {
+        let _guard = ThemeTestGuard::activate(Theme::Dark);
+        let directory = tempfile::tempdir().expect("tempdir");
+        let settings = SettingsConfig::file(directory.path().join("settings.json"));
+        crate::settings::save_session(
+            &settings,
+            &RuntimeSession::new().with_theme_preference(ThemePreference::Dark),
+        )
+        .expect("settings should save");
+        let config = TestApp::config()
+            .theme_preference(ThemePreference::Light)
+            .settings(settings);
+
+        let (program, _task) = plain_program_with_config::<TestApp>(config)
+            .unwrap_or_else(|error| panic!("test program failed: {error}"));
+
+        assert_eq!(program.core.theme.preference(), ThemePreference::Dark);
+    }
+
+    #[test]
+    fn missing_session_file_falls_back_to_config_defaults() {
+        let _guard = ThemeTestGuard::activate(Theme::Dark);
+        let directory = tempfile::tempdir().expect("tempdir");
+        let config = TestApp::config()
+            .theme_preference(ThemePreference::Light)
+            .settings(SettingsConfig::file(directory.path().join("missing.json")));
+
+        let (program, _task) = plain_program_with_config::<TestApp>(config)
+            .unwrap_or_else(|error| panic!("test program failed: {error}"));
+
+        assert_eq!(program.core.theme.preference(), ThemePreference::Light);
+    }
+
+    #[test]
+    fn corrupt_session_file_falls_back_to_config_defaults() {
+        let _guard = ThemeTestGuard::activate(Theme::Dark);
+        let directory = tempfile::tempdir().expect("tempdir");
+        let path = directory.path().join("settings.json");
+        std::fs::write(&path, "not-json").expect("write corrupt settings");
+        let config = TestApp::config()
+            .theme_preference(ThemePreference::Light)
+            .settings(SettingsConfig::file(path));
+
+        let (program, _task) = plain_program_with_config::<TestApp>(config)
+            .unwrap_or_else(|error| panic!("test program failed: {error}"));
+
+        assert_eq!(program.core.theme.preference(), ThemePreference::Light);
+    }
+
+    #[test]
+    fn unknown_session_version_falls_back_to_config_defaults() {
+        let _guard = ThemeTestGuard::activate(Theme::Dark);
+        let directory = tempfile::tempdir().expect("tempdir");
+        let path = directory.path().join("settings.json");
+        std::fs::write(
+            &path,
+            r#"{"version":999,"session":{"theme_preference":"dark"}}"#,
+        )
+        .expect("write unsupported settings");
+        let config = TestApp::config()
+            .theme_preference(ThemePreference::Light)
+            .settings(SettingsConfig::file(path));
+
+        let (program, _task) = plain_program_with_config::<TestApp>(config)
+            .unwrap_or_else(|error| panic!("test program failed: {error}"));
+
+        assert_eq!(program.core.theme.preference(), ThemePreference::Light);
+    }
+
+    #[test]
+    fn theme_preference_change_schedules_session_save() {
+        let _guard = ThemeTestGuard::activate(Theme::Dark);
+        let directory = tempfile::tempdir().expect("tempdir");
+        let config = TestApp::config()
+            .settings(SettingsConfig::file(directory.path().join("settings.json")));
+        let (mut program, _task) = plain_program_with_config::<TestApp>(config)
+            .unwrap_or_else(|error| panic!("test program failed: {error}"));
+
+        let _task = program.handle_runtime_command(RuntimeCommand::Theme(ThemePreference::Light));
+
+        let preference = program
+            .core
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.session.theme_preference());
+        assert_eq!(preference, Some(ThemePreference::Light));
+    }
+
+    #[test]
+    fn window_spec_exposes_session_key() {
+        let spec = WindowSpec::app().session_key("workspace");
+
+        assert_eq!(spec.configured_session_key(), Some("workspace"));
+    }
+
+    #[test]
+    fn windows_without_session_key_do_not_restore_session_state() {
+        assert_eq!(WindowSpec::app().configured_session_key(), None);
+    }
+
+    #[test]
+    fn runtime_session_restores_window_size_and_position() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let settings = SettingsConfig::file(directory.path().join("settings.json"));
+        crate::settings::save_session(
+            &settings,
+            &RuntimeSession::new().with_window(
+                WindowSession::new("main")
+                    .with_size(1280.0, 820.0)
+                    .with_position(120.0, 80.0),
+            ),
+        )
+        .expect("settings should save");
+        let config = ApplicationConfig::new("restore-window")
+            .window(TestWindow::Main, WindowSpec::app().session_key("main"))
+            .initial_window(TestWindow::Main)
+            .settings(settings);
+
+        let (program, _task) = plain_program_with_config::<TestApp>(config)
+            .unwrap_or_else(|error| panic!("test program failed: {error}"));
+        let spec = program
+            .core
+            .window_spec(TestWindow::Main)
+            .expect("window spec should exist");
+
+        assert_eq!(spec.size, Size::new(1280.0, 820.0));
+        assert!(matches!(
+            spec.position,
+            window::Position::Specific(position) if position == Point::new(120.0, 80.0)
+        ));
+    }
+
+    #[test]
+    fn runtime_session_clamps_restored_window_size_to_spec_bounds() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let settings = SettingsConfig::file(directory.path().join("settings.json"));
+        crate::settings::save_session(
+            &settings,
+            &RuntimeSession::new().with_window(WindowSession::new("main").with_size(320.0, 240.0)),
+        )
+        .expect("settings should save");
+        let config = ApplicationConfig::new("restore-window")
+            .window(
+                TestWindow::Main,
+                WindowSpec::app().min_size(640.0, 480.0).session_key("main"),
+            )
+            .initial_window(TestWindow::Main)
+            .settings(settings);
+
+        let (program, _task) = plain_program_with_config::<TestApp>(config)
+            .unwrap_or_else(|error| panic!("test program failed: {error}"));
+        let spec = program
+            .core
+            .window_spec(TestWindow::Main)
+            .expect("window spec should exist");
+
+        assert_eq!(spec.size, Size::new(640.0, 480.0));
+    }
+
+    #[test]
+    fn runtime_session_ignores_window_state_without_session_key() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let settings = SettingsConfig::file(directory.path().join("settings.json"));
+        crate::settings::save_session(
+            &settings,
+            &RuntimeSession::new().with_window(WindowSession::new("main").with_size(1280.0, 820.0)),
+        )
+        .expect("settings should save");
+        let config = ApplicationConfig::new("restore-window")
+            .window(TestWindow::Main, WindowSpec::app())
+            .initial_window(TestWindow::Main)
+            .settings(settings);
+
+        let (program, _task) = plain_program_with_config::<TestApp>(config)
+            .unwrap_or_else(|error| panic!("test program failed: {error}"));
+        let spec = program
+            .core
+            .window_spec(TestWindow::Main)
+            .expect("window spec should exist");
+
+        assert_eq!(spec.size, Size::new(1024.0, 720.0));
+        assert!(matches!(spec.position, window::Position::Centered));
+    }
+
+    #[test]
+    fn window_resize_updates_runtime_session() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let config = ApplicationConfig::new("resize-window")
+            .window(TestWindow::Main, WindowSpec::app().session_key("main"))
+            .initial_window(TestWindow::Main)
+            .settings(SettingsConfig::file(directory.path().join("settings.json")));
+        let (mut program, _task) = plain_program_with_config::<TestApp>(config)
+            .unwrap_or_else(|error| panic!("test program failed: {error}"));
+        let window_id = main_window_id(&program);
+
+        let _task = program.update_core(CoreMessage::WindowResized(
+            window_id,
+            Size::new(1360.0, 860.0),
+        ));
+
+        let size = program
+            .core
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.session.window("main"))
+            .and_then(WindowSession::size);
+        assert_eq!(size, Some(Size::new(1360.0, 860.0)));
+    }
+
+    #[test]
+    fn window_move_updates_runtime_session() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let config = ApplicationConfig::new("move-window")
+            .window(TestWindow::Main, WindowSpec::app().session_key("main"))
+            .initial_window(TestWindow::Main)
+            .settings(SettingsConfig::file(directory.path().join("settings.json")));
+        let (mut program, _task) = plain_program_with_config::<TestApp>(config)
+            .unwrap_or_else(|error| panic!("test program failed: {error}"));
+        let window_id = main_window_id(&program);
+
+        let _task =
+            program.update_core(CoreMessage::WindowMoved(window_id, Point::new(140.0, 96.0)));
+
+        let position = program
+            .core
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.session.window("main"))
+            .and_then(WindowSession::position);
+        assert_eq!(position, Some(Point::new(140.0, 96.0)));
+    }
+
+    #[test]
+    fn duplicate_window_session_keys_are_reported_without_panicking() {
+        let _guard = ThemeTestGuard::activate(Theme::Dark);
+        let config = ApplicationConfig::new("duplicate-keys")
+            .window(TestWindow::Main, WindowSpec::app().session_key("main"))
+            .window(TestWindow::Secondary, WindowSpec::app().session_key("main"))
+            .initial_window(TestWindow::Main);
+
+        assert!(plain_program_with_config::<TestApp>(config).is_ok());
     }
 
     #[test]
@@ -1761,6 +2258,7 @@ mod tests {
 
     #[test]
     fn product_shortcut_routes_to_unscoped_app_message() {
+        let actions = ActionMap::new();
         let shortcuts = ShortcutMap::new().bind(
             ShortcutBinding::character('K', keyboard::Modifiers::CTRL),
             TestMessage::Shortcut,
@@ -1772,7 +2270,7 @@ mod tests {
         );
 
         assert!(matches!(
-            shortcut_message_from_event::<TestApp, NoProbe>(&shortcuts, event),
+            shortcut_message_from_event::<TestApp, NoProbe>(&actions, &shortcuts, event),
             Some(NiveMessage::App {
                 window_id: None,
                 message: TestMessage::Shortcut
@@ -1782,6 +2280,7 @@ mod tests {
 
     #[test]
     fn repeated_product_shortcut_keypress_is_ignored() {
+        let actions = ActionMap::new();
         let shortcuts = ShortcutMap::new().bind(
             ShortcutBinding::character('k', keyboard::Modifiers::CTRL),
             TestMessage::Shortcut,
@@ -1792,11 +2291,58 @@ mod tests {
             true,
         );
 
-        assert!(shortcut_message_from_event::<TestApp, NoProbe>(&shortcuts, event).is_none());
+        assert!(
+            shortcut_message_from_event::<TestApp, NoProbe>(&actions, &shortcuts, event).is_none()
+        );
+    }
+
+    #[test]
+    fn action_shortcut_routes_before_legacy_shortcut() {
+        let actions = ActionMap::new().action(
+            Action::new("test.action", "Test action", TestMessage::Action)
+                .shortcut(ShortcutBinding::character('k', keyboard::Modifiers::CTRL)),
+        );
+        let shortcuts = ShortcutMap::new().bind(
+            ShortcutBinding::character('k', keyboard::Modifiers::CTRL),
+            TestMessage::LegacyShortcut,
+        );
+        let event = key_pressed(
+            keyboard::Key::Character("k".into()),
+            keyboard::Modifiers::CTRL,
+            false,
+        );
+
+        assert!(matches!(
+            shortcut_message_from_event::<TestApp, NoProbe>(&actions, &shortcuts, event),
+            Some(NiveMessage::App {
+                window_id: None,
+                message: TestMessage::Action
+            })
+        ));
+    }
+
+    #[test]
+    fn disabled_action_shortcut_does_not_dispatch() {
+        let actions = ActionMap::new().action(
+            Action::new("test.action", "Test action", TestMessage::Action)
+                .shortcut(ShortcutBinding::character('k', keyboard::Modifiers::CTRL))
+                .disabled(),
+        );
+        let shortcuts = ShortcutMap::new();
+        let event = key_pressed(
+            keyboard::Key::Character("k".into()),
+            keyboard::Modifiers::CTRL,
+            false,
+        );
+
+        assert!(
+            shortcut_message_from_event::<TestApp, NoProbe>(&actions, &shortcuts, event).is_none()
+        );
     }
 
     #[test]
     fn framework_shortcut_wins_product_conflict() {
+        let actions = ActionMap::new();
         let shortcuts = ShortcutMap::new().bind(
             ShortcutBinding::named(keyboard::key::Named::Tab, keyboard::Modifiers::NONE),
             TestMessage::Shortcut,
@@ -1808,7 +2354,29 @@ mod tests {
         );
 
         assert!(matches!(
-            shortcut_message_from_event::<TestApp, NoProbe>(&shortcuts, event),
+            shortcut_message_from_event::<TestApp, NoProbe>(&actions, &shortcuts, event),
+            Some(NiveMessage::Core(CoreMessage::KeyboardNavigation(
+                KeyboardNavigation::FocusNext
+            )))
+        ));
+    }
+
+    #[test]
+    fn framework_shortcut_wins_action_conflict() {
+        let actions = ActionMap::new().action(
+            Action::new("test.action", "Test action", TestMessage::Shortcut).shortcut(
+                ShortcutBinding::named(keyboard::key::Named::Tab, keyboard::Modifiers::NONE),
+            ),
+        );
+        let shortcuts = ShortcutMap::new();
+        let event = key_pressed(
+            keyboard::Key::Named(keyboard::key::Named::Tab),
+            keyboard::Modifiers::NONE,
+            false,
+        );
+
+        assert!(matches!(
+            shortcut_message_from_event::<TestApp, NoProbe>(&actions, &shortcuts, event),
             Some(NiveMessage::Core(CoreMessage::KeyboardNavigation(
                 KeyboardNavigation::FocusNext
             )))
