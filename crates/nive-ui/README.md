@@ -14,7 +14,7 @@ independent of product-specific domain logic. It depends only on `iced` and does
   custom theme builders/catalogs, active-theme accessors, and iced `Catalog`
   implementations.
 - `widgets` — reusable primitive widgets (buttons, cards, fields, dialogs,
-  toasts, feedback, metadata, animation, and more).
+  toasts, feedback, metadata, animation, command palette, and more).
 - `focus_trap` — Tab/Shift+Tab focus cycling helpers for overlays.
 - `BootstrapView` — generic startup loading/failure template.
 - `DialogHost` / `ToastHost` — modal and toast overlay composition.
@@ -25,8 +25,10 @@ UI crate. See `docs/components.md` for contract details.
 ## Public API
 
 Use `nive_ui::prelude::*` for app and screen code. The stable public surface is
-the crate root, `theme` role/builder/catalog types, `widgets` reexports,
-`Element`, `Renderer`, `BootstrapView`, `DialogHost`, and `ToastHost`.
+the crate root, `nive_ui::prelude`, `nive_ui::theme`, and `nive_ui::widgets`.
+These facades expose `Element`, `Renderer`, common Iced layout primitives,
+theme role/builder/catalog types, reusable widget contracts, `BootstrapView`,
+`DialogHost`, and `ToastHost`.
 
 The individual `theme::*` and `widgets::*` submodules remain public for advanced
 composition and tests, but apps should prefer the root/prelude/widget reexports

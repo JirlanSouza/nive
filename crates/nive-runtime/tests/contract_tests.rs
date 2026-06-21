@@ -1,6 +1,10 @@
 use std::borrow::Cow;
+use std::path::PathBuf;
 
 use nive_runtime::prelude::*;
+#[cfg(feature = "file-picker")]
+use nive_runtime::{pick_file, pick_files, pick_folder, save_file};
+use nive_runtime::{FileFilter, PickFileParams, SaveFileParams};
 use nive_ui::prelude::text;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -73,6 +77,42 @@ fn application_contract_is_implementable_on_stable_rust() {
 }
 
 #[test]
+fn prelude_exposes_app_facing_runtime_contracts() {
+    let _: ActionId = ActionId::new("test.action");
+    let _: ActionMap<TestMessage> =
+        ActionMap::new().action(Action::new("test.action", "Test action", TestMessage));
+    let _: SettingsConfig = SettingsConfig::file("settings.json");
+    let _: RuntimeSession = RuntimeSession::new().with_theme_preference(ThemePreference::Dark);
+    let _: WindowSession = WindowSession::new("workspace")
+        .with_size(1280.0, 820.0)
+        .with_position(120.0, 80.0);
+    let _: WindowSessionSize = WindowSessionSize::new(1280.0, 820.0);
+    let _: WindowSessionPosition = WindowSessionPosition::new(120.0, 80.0);
+    let _: Point = Point::new(120.0, 80.0);
+    let _: AppUpdate<TestMessage, TestWindow> = AppUpdate::none();
+    let _: Update<TestMessage, &'static str, TestWindow> = Update::none();
+    let _: RuntimeCommand<TestWindow> = RuntimeCommand::Exit;
+    let _: WindowCommand<TestWindow> = WindowCommand::Open(TestWindow::Workspace);
+    let _: CloseDecision<TestMessage> = CloseDecision::Cancel;
+    let _: ExitDecision<TestMessage> = ExitDecision::Accept;
+    let _: ThemePreference = ThemePreference::System;
+    let _: Toast = Toast::info("Ready");
+    let _: WindowSpec = WindowSpec::app().session_key("welcome");
+    let _: Size = Size::new(320.0, 240.0);
+    let _: RequestCounter = RequestCounter::default();
+    let _: OperationId = OperationId::new("test.op");
+    let _: OperationDescriptor = OperationDescriptor::new("test.op", "Test")
+        .progress(OperationProgress::fraction(1, 4))
+        .cancellable(true);
+    let _: OperationRegistry = OperationRegistry::new();
+    let _: RuntimeEventLog = RuntimeEventLog::new();
+    let _: RuntimeEvent = RuntimeEvent::info("test", "ok");
+    let _: RuntimeEventKind = RuntimeEventKind::Info;
+    let snapshot: DiagnosticSnapshot = DiagnosticSnapshot::default();
+    let _: std::result::Result<String, serde_json::Error> = snapshot.to_json();
+}
+
+#[test]
 fn update_composes_outcome_and_runtime_commands_in_order() {
     let update = Update::<TestMessage, &'static str, TestWindow>::none()
         .toast(Toast::success("Saved"))
@@ -125,4 +165,59 @@ fn runtime_reexports_root_devtools_derive() {
     fn assert_devtools<T: nive_runtime::devtools::Devtools>() {}
 
     assert_devtools::<DerivedApp>();
+}
+
+#[test]
+fn file_picker_params_constructible_without_feature() {
+    let pick: PickFileParams = PickFileParams {
+        filters: Vec::new(),
+        start_dir: None,
+    };
+    let save: SaveFileParams = SaveFileParams {
+        filters: Vec::new(),
+        start_dir: None,
+        default_name: None,
+    };
+    let _: FileFilter = FileFilter {
+        name: "Markdown",
+        extensions: &["md"],
+    };
+
+    assert!(pick.filters.is_empty());
+    assert!(pick.start_dir.is_none());
+    assert!(save.filters.is_empty());
+    assert!(save.start_dir.is_none());
+    assert!(save.default_name.is_none());
+}
+
+#[cfg(feature = "file-picker")]
+#[test]
+fn file_picker_task_signatures_compile_with_feature() {
+    fn assert_task_type() -> Task<Option<PathBuf>> {
+        pick_file(PickFileParams {
+            filters: Vec::new(),
+            start_dir: None,
+        })
+    }
+    fn assert_files_task_type() -> Task<Option<Vec<PathBuf>>> {
+        pick_files(PickFileParams {
+            filters: Vec::new(),
+            start_dir: None,
+        })
+    }
+    fn assert_folder_task_type() -> Task<Option<PathBuf>> {
+        pick_folder(None)
+    }
+    fn assert_save_task_type() -> Task<Option<PathBuf>> {
+        save_file(SaveFileParams {
+            filters: Vec::new(),
+            start_dir: None,
+            default_name: Some("untitled.md".to_string()),
+        })
+    }
+
+    let _ = assert_task_type();
+    let _ = assert_files_task_type();
+    let _ = assert_folder_task_type();
+    let _ = assert_save_task_type();
 }

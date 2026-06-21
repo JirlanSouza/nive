@@ -39,6 +39,7 @@ pub struct SelectableItem<'a, Message> {
     fill: bool,
     on_press: Option<Message>,
     disabled: bool,
+    tooltip_label: Option<&'a str>,
 }
 
 impl<'a, Message> SelectableItem<'a, Message>
@@ -57,6 +58,7 @@ where
             fill: true,
             on_press: None,
             disabled: false,
+            tooltip_label: None,
         }
     }
 
@@ -130,6 +132,11 @@ where
         self
     }
 
+    pub fn tooltip(mut self, tooltip: &'a str) -> Self {
+        self.tooltip_label = Some(tooltip);
+        self
+    }
+
     fn into_element(self) -> Element<'a, Message> {
         let metrics = metrics(self.size);
         let variant = if self.selected {
@@ -183,12 +190,18 @@ where
         };
         let item = item.on_press_maybe(activation.clone());
 
-        Pressable::maybe(
+        let item = Pressable::maybe(
             item,
             activation,
             metrics.radius.into(),
             ButtonFocusRing::Default,
-        )
+        );
+
+        if let Some(label) = self.tooltip_label {
+            super::tooltip::bottom(item, label)
+        } else {
+            item
+        }
     }
 }
 

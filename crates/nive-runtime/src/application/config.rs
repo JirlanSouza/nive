@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use iced::{window, Font};
 use nive_ui::theme::{ThemeCatalog, ThemePreference};
 
-use crate::{BootstrapSpec, ToastPosition, WindowSpec};
+use crate::{BootstrapSpec, SettingsConfig, ToastPosition, WindowSpec};
 
 pub struct ApplicationConfig<K, B> {
     pub(super) app_id: String,
@@ -18,6 +18,7 @@ pub struct ApplicationConfig<K, B> {
     pub(super) fonts: Vec<Cow<'static, [u8]>>,
     pub(super) default_font: Font,
     pub(super) window_icon: Option<window::Icon>,
+    pub(super) settings: Option<SettingsConfig>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -42,6 +43,7 @@ impl<K> ApplicationConfig<K, ()> {
             fonts: Vec::new(),
             default_font: Font::DEFAULT,
             window_icon: None,
+            settings: None,
         }
     }
 }
@@ -85,6 +87,11 @@ impl<K, B> ApplicationConfig<K, B> {
         self
     }
 
+    pub fn settings(mut self, settings: SettingsConfig) -> Self {
+        self.settings = Some(settings);
+        self
+    }
+
     pub fn bootstrap<T>(self, bootstrap: BootstrapSpec<T>) -> ApplicationConfig<K, T> {
         ApplicationConfig {
             app_id: self.app_id,
@@ -99,6 +106,7 @@ impl<K, B> ApplicationConfig<K, B> {
             fonts: self.fonts,
             default_font: self.default_font,
             window_icon: self.window_icon,
+            settings: self.settings,
         }
     }
 
@@ -151,5 +159,9 @@ impl<K, B> ApplicationConfig<K, B> {
 
     pub fn configured_window_icon(&self) -> Option<&window::Icon> {
         self.window_icon.as_ref()
+    }
+
+    pub fn configured_settings(&self) -> Option<&SettingsConfig> {
+        self.settings.as_ref()
     }
 }

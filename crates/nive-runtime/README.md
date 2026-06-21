@@ -11,6 +11,8 @@ reused by Rust/Iced apps without depending on app-domain services. It sits above
 
 - `Application`, `ApplicationConfig`, `Context`, and `run` — the stable product
   contract and the private Iced program runner.
+- `Action`, `ActionId`, `ActionMap` — product action catalogs for shortcuts and
+  future command surfaces.
 - `Update`, `AppUpdate`, `RuntimeCommand` — ordered task and runtime-effect
   composition.
 - `BootstrapSpec` — repeatable startup task attempts, stale-result rejection,
@@ -23,7 +25,11 @@ reused by Rust/Iced apps without depending on app-domain services. It sits above
   feedback.
 - `ScreenView` and `ScreenUpdate` — screen composition contracts.
 - `platform` — cross-platform app icon installer and optional file picker.
-- `keyboard_navigation_subscription` and `ShortcutMap` — input helpers.
+- `SettingsConfig`, `RuntimeSession`, `WindowSession` — opt-in runtime
+  settings/session persistence for framework-owned preferences and keyed window
+  geometry.
+- `keyboard_navigation_subscription` and `ShortcutMap` — lower-level input
+  helpers.
 - `Theme`, `ThemeBuilder`, `ThemeCatalog`, and `ThemeMode` reexports — runtime theme
   configuration for apps that need product-specific light/dark themes.
 
@@ -32,7 +38,7 @@ reused by Rust/Iced apps without depending on app-domain services. It sits above
 | Feature      | Default | Description                                                              |
 | ------------ | ------- | ------------------------------------------------------------------------ |
 | `devtools`   | off     | Enables the optional devtools layer, `run_with_devtools`, and the derive macros from `nive-runtime-derive`. The most experimental part of Nive. |
-| `file-picker`| off     | Enables `pick_file`, `pick_files`, and `pick_folder` backed by `rfd`.    |
+| `file-picker`| off     | Enables `pick_file`, `pick_files`, `pick_folder`, and `save_file` backed by `rfd`. |
 
 ## Usage (monorepo path dependency)
 
@@ -47,19 +53,30 @@ nive-runtime = { path = "../nive-runtime" }
 use nive_runtime::prelude::*;
 ```
 
-See `docs/` for contract details on the application, lifecycle, and devtools
-layers.
+See `docs/` for contract details on the application, lifecycle, settings and
+devtools layers.
 
 ## Public API
 
-Use `nive_runtime::prelude::*` for application integration. The stable public
-surface is the crate root/prelude, `Application` and `ApplicationConfig`,
-`Update`/`AppUpdate`, lifecycle/window contracts, reusable state and feedback
-types, runtime task/subscription aliases, theme configuration reexports, and
-feature-gated platform/devtools APIs.
+Use `nive_runtime::prelude::*` for application integration. The app-facing
+surface is the crate root/prelude and includes:
 
-Implementation modules under `application`, `lifecycle`, `feedback`, `screen`
-and `state` are private; app code should not depend on runner internals.
+- `Application`, `ApplicationConfig`, `Context`, `WindowContext`, and `run`.
+- `Action`, `ActionId`, `ActionMap`, and duplicate-ID validation.
+- `Update`, `AppUpdate`, `RuntimeCommand`, and `client_task`.
+- Lifecycle/window contracts such as `WindowSpec`, `WindowCommand`,
+  `CloseDecision`, `ExitDecision`, `BootstrapSpec`, and `CoreEvent`.
+- Opt-in settings/session contracts such as `SettingsConfig`,
+  `RuntimeSession`, `WindowSession`, `WindowSessionSize`, and
+  `WindowSessionPosition`.
+- Reusable state and feedback types such as `AsyncState`, `OperationState`,
+  `Toast`, `UserFacingError`, `RequestId`, and clock helpers.
+- Runtime task/subscription aliases and theme configuration reexports.
+- Feature-gated platform/devtools APIs.
+
+Implementation modules under `application`, `lifecycle`, `feedback`, `screen`,
+`input`, and `state` are private runner boundaries. App code should not depend
+on runner internals.
 
 ## Status
 

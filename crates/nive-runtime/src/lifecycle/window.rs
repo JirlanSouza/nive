@@ -77,6 +77,8 @@ pub struct WindowSpec {
     pub chrome: WindowChrome,
     /// The window z-order level.
     pub level: window::Level,
+    /// Stable key used for opt-in runtime session persistence.
+    pub session_key: Option<&'static str>,
 }
 
 impl WindowSpec {
@@ -94,6 +96,7 @@ impl WindowSpec {
             mode: WindowMode::Windowed,
             chrome: WindowChrome::Native,
             level: window::Level::Normal,
+            session_key: None,
         }
     }
 
@@ -125,12 +128,21 @@ impl WindowSpec {
         self
     }
 
+    pub fn session_key(mut self, key: &'static str) -> Self {
+        self.session_key = Some(key);
+        self
+    }
+
     pub fn role(self) -> WindowRole {
         self.role
     }
 
     pub fn cardinality(self) -> WindowCardinality {
         self.cardinality
+    }
+
+    pub fn configured_session_key(self) -> Option<&'static str> {
+        self.session_key
     }
 
     pub fn settings(self, icon: Option<window::Icon>) -> window::Settings {
@@ -439,6 +451,7 @@ mod tests {
             mode: WindowMode::Windowed,
             chrome: WindowChrome::AppOwned,
             level: window::Level::Normal,
+            session_key: None,
         }
     }
 
@@ -456,6 +469,7 @@ mod tests {
             mode: WindowMode::Maximized,
             chrome: WindowChrome::UnifiedTitlebar,
             level: window::Level::Normal,
+            session_key: None,
         }
     }
 

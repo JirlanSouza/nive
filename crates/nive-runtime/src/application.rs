@@ -2,6 +2,7 @@ use std::{borrow::Cow, fmt::Debug, hash::Hash};
 
 use iced::Subscription;
 
+use crate::actions::ActionMap;
 use crate::input::ShortcutMap;
 use crate::ScreenView;
 
@@ -116,6 +117,11 @@ pub trait Application: Sized + 'static {
     /// Returns the event subscription for the application. Defaults to none.
     fn subscription(&self, _context: Context<'_, Self::Window>) -> Subscription<Self::Message> {
         Subscription::none()
+    }
+
+    /// Returns the app's command/action catalog. Defaults to none.
+    fn actions(&self, _context: Context<'_, Self::Window>) -> ActionMap<Self::Message> {
+        ActionMap::new()
     }
 
     /// Returns the keyboard shortcut map for the application. Defaults to none.
