@@ -6,7 +6,7 @@ use iced::{
     Alignment, Length, Padding, Radians,
 };
 
-use super::{button, icon, AnimatedVisual, Animation, AppIcon};
+use super::{button, icon, AnimatedVisual, Animation, IconName};
 use crate::theme::{self, ControlSize, TextRole, ToneRole};
 use crate::Element;
 
@@ -20,7 +20,7 @@ pub struct SectionHeader<'a, Message> {
 }
 
 pub struct SectionHeaderAction<'a, Message> {
-    icon: AppIcon,
+    icon: IconName,
     tooltip: Option<&'a str>,
     disabled: bool,
     on_press: Option<Message>,
@@ -36,7 +36,7 @@ enum SectionHeaderStatusKind<'a> {
         tone: ToneRole,
     },
     IconLabel {
-        icon: AppIcon,
+        icon: IconName,
         label: &'a str,
         tone: ToneRole,
     },
@@ -138,7 +138,7 @@ impl<'a, Message> SectionHeaderAction<'a, Message>
 where
     Message: Clone + 'a,
 {
-    pub fn icon(icon: AppIcon) -> Self {
+    pub fn icon(icon: IconName) -> Self {
         Self {
             icon,
             tooltip: None,
@@ -189,7 +189,7 @@ impl<'a> SectionHeaderStatus<'a> {
         }
     }
 
-    pub fn icon_label(icon: AppIcon, label: &'a str, tone: ToneRole) -> Self {
+    pub fn icon_label(icon: IconName, label: &'a str, tone: ToneRole) -> Self {
         Self {
             kind: SectionHeaderStatusKind::IconLabel { icon, label, tone },
         }
@@ -224,7 +224,7 @@ impl<'a> SectionHeaderStatus<'a> {
 
                 row![
                     AnimatedVisual::new(move |frame| -> Element<'a, Message> {
-                        icon::new(AppIcon::RefreshCw)
+                        icon::new(IconName::RefreshCw)
                             .size(icon_size)
                             .color(color)
                             .rotation(Radians(frame.turns() * std::f32::consts::TAU))

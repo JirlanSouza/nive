@@ -5,7 +5,7 @@ use iced::{
 
 use crate::{
     theme::{self, ControlSize, GapRole},
-    widgets::{button, text, AppIcon},
+    widgets::{button, text, IconName},
     Element,
 };
 
@@ -114,7 +114,7 @@ impl<'a, Message> ErrorFeedbackAction<'a, Message> {
                 .shrink()
                 .on_press(on_press)
                 .into(),
-            Self::Dismiss { on_press } => button::icon(AppIcon::X)
+            Self::Dismiss { on_press } => button::icon(IconName::Close)
                 .xs()
                 .tooltip("Dismiss")
                 .on_press(on_press)

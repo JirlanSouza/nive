@@ -8,7 +8,7 @@ use iced::{
 use crate::theme::{self, control_metrics, ControlRole, ControlSize, ControlState, TextRole};
 use crate::Element;
 
-use super::{button::ButtonFocusRing, icon, pressable::Pressable, AppIcon};
+use super::{button::ButtonFocusRing, icon, pressable::Pressable, IconName};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SelectableItemVariant {
@@ -31,7 +31,7 @@ struct SelectableItemMetrics {
 pub struct SelectableItem<'a, Message> {
     label: &'a str,
     selected: bool,
-    leading_icon: Option<AppIcon>,
+    leading_icon: Option<IconName>,
     leading_color: Option<Color>,
     trailing_text: Option<&'a str>,
     trailing: Option<Element<'a, Message>>,
@@ -67,7 +67,7 @@ where
         self
     }
 
-    pub fn leading_icon(mut self, icon: AppIcon) -> Self {
+    pub fn leading_icon(mut self, icon: IconName) -> Self {
         self.leading_icon = Some(icon);
         self
     }

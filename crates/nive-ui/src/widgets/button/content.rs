@@ -6,7 +6,7 @@ use iced::{
 use crate::theme::ControlSize;
 use crate::Element;
 
-use super::super::{feedback::LoadingIndicator, icon as icon_widget, AppIcon};
+use super::super::{feedback::LoadingIndicator, icon as icon_widget, IconName};
 use super::style as theme_button;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,14 +18,14 @@ pub(super) enum TextAlign {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Content<'a> {
     Label(&'a str),
-    Icon(AppIcon),
+    Icon(IconName),
 }
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct ContentSpec<'a> {
     pub(super) content: Content<'a>,
-    pub(super) leading_icon: Option<AppIcon>,
-    pub(super) trailing_icon: Option<AppIcon>,
+    pub(super) leading_icon: Option<IconName>,
+    pub(super) trailing_icon: Option<IconName>,
     pub(super) size: ControlSize,
     pub(super) text_align: TextAlign,
     pub(super) loading: bool,

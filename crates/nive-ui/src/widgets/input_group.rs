@@ -11,7 +11,7 @@ use crate::Element;
 
 use self::frame::InputGroupFrame;
 use self::style::{self as theme_input_group, GroupSlotPosition};
-use super::{button::Button, icon as icon_widget, input::Input, AppIcon};
+use super::{button::Button, icon as icon_widget, input::Input, IconName};
 
 pub use style::InputGroupVariant;
 
@@ -26,7 +26,7 @@ pub struct InputGroup<'a, Message> {
 
 enum InputGroupSlot<'a, Message> {
     Text(&'a str),
-    Icon(AppIcon),
+    Icon(IconName),
     Action(Button<'a, Message>),
     Visual(Element<'a, Message>),
 }
@@ -56,7 +56,7 @@ where
         self.push_slot(InputGroupSlotSide::Leading, InputGroupSlot::Text(leading))
     }
 
-    pub fn leading_icon(self, leading: AppIcon) -> Self {
+    pub fn leading_icon(self, leading: IconName) -> Self {
         self.push_slot(InputGroupSlotSide::Leading, InputGroupSlot::Icon(leading))
     }
 
@@ -75,7 +75,7 @@ where
         self.push_slot(InputGroupSlotSide::Trailing, InputGroupSlot::Text(trailing))
     }
 
-    pub fn trailing_icon(self, trailing: AppIcon) -> Self {
+    pub fn trailing_icon(self, trailing: IconName) -> Self {
         self.push_slot(InputGroupSlotSide::Trailing, InputGroupSlot::Icon(trailing))
     }
 

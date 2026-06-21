@@ -316,8 +316,9 @@ fn normalize_svg(source: &str, manifest: &IconsManifest) -> Result<String> {
 
 fn generate_icon_source(manifest: &IconsManifest) -> String {
     let mut source = String::from(
-        "#[derive(Debug, Clone, Copy, PartialEq, Eq)]\n\
-         pub enum Icon {\n",
+        "// Bundled icons are sourced from Lucide (https://lucide.dev) and distributed under the ISC License.\n\
+         #[derive(Debug, Clone, Copy, PartialEq, Eq)]\n\
+         pub enum IconName {\n",
     );
 
     for variant in manifest.icons.keys() {
@@ -326,7 +327,7 @@ fn generate_icon_source(manifest: &IconsManifest) -> String {
         source.push_str(",\n");
     }
 
-    source.push_str("}\n\nimpl Icon {\n");
+    source.push_str("}\n\nimpl IconName {\n");
     source.push_str("    fn svg_bytes(&self) -> &'static [u8] {\n");
     source.push_str("        match self {\n");
 

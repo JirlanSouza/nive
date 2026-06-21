@@ -8,13 +8,13 @@ use crate::Element;
 use super::super::button::ButtonFocusRing;
 use super::super::{
     feedback::LoadingIndicator, icon as icon_widget, pressable::Pressable,
-    tooltip as tooltip_widget, AppIcon,
+    tooltip as tooltip_widget, IconName,
 };
 use super::style as theme_toolbar;
 
 pub struct ToolbarAction<'a, Message> {
     label: Option<&'a str>,
-    icon: Option<AppIcon>,
+    icon: Option<IconName>,
     selected: bool,
     disabled: bool,
     loading: bool,
@@ -24,7 +24,7 @@ pub struct ToolbarAction<'a, Message> {
 }
 
 impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
-    pub fn icon(icon: AppIcon) -> Self {
+    pub fn icon(icon: IconName) -> Self {
         Self {
             label: None,
             icon: Some(icon),
@@ -50,7 +50,7 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
         }
     }
 
-    pub fn icon_label(icon: AppIcon, label: &'a str) -> Self {
+    pub fn icon_label(icon: IconName, label: &'a str) -> Self {
         Self {
             label: Some(label),
             icon: Some(icon),
@@ -152,7 +152,7 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
 
     fn icon_label_content(
         &self,
-        icon: AppIcon,
+        icon: IconName,
         label: &'a str,
         metrics: theme_toolbar::ToolbarMetrics,
     ) -> Element<'a, Message> {
@@ -169,7 +169,7 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
 
     fn icon_content(
         &self,
-        icon: AppIcon,
+        icon: IconName,
         metrics: theme_toolbar::ToolbarMetrics,
     ) -> Element<'a, Message> {
         if self.loading {
@@ -198,7 +198,7 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
         }
     }
 
-    fn leading_slot(&self, icon: Option<AppIcon>, size: f32) -> Element<'a, Message> {
+    fn leading_slot(&self, icon: Option<IconName>, size: f32) -> Element<'a, Message> {
         if self.loading {
             loading_indicator_slot(size)
         } else if let Some(icon) = icon {
