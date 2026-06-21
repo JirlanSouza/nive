@@ -1,0 +1,33 @@
+# {{app_name}} - Development Commands
+
+# Build the app
+build:
+    cargo build
+
+# Run in development mode
+dev:
+    cargo run
+
+# Check the app
+check:
+    cargo check --all-targets
+
+# Test the app
+test:
+    cargo test
+
+# Initialize icons manifest
+icons-init:
+    cargo run --package xtask -- icons init .
+
+# Sync icons
+icons-sync:
+    cargo run --package xtask -- icons sync
+
+# Check icons
+icons-check:
+    cargo run --package xtask -- icons check
+
+# Add icon. Usage: just icons-add Search search
+icons-add variant lucide_name:
+    cargo run --package xtask -- icons add {{ variant }} {{ lucide_name }}
