@@ -2,5 +2,11 @@
 name = "nive"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.92"
+license = "Apache-2.0"
+description = "A Rust/Iced framework for building desktop applications."
+categories = ["gui"]
 
 [dependencies]
+nive-ui = { path = "../nive-ui" }
+nive-runtime = { path = "../nive-runtime" }
