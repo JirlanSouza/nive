@@ -1,8 +1,8 @@
-# Generic app-framework recipes for the RAG Studio runtime.
+# Generic app-framework recipes for the Nive runtime.
 # App-specific justfiles should set variables and call these recipes.
 
 # Build an app package, run the binary, and watch terminal keys for reload/quit.
-# Set RAG_STUDIO_APP_GUI_FEATURES, RAG_STUDIO_DEV_ERROR, or NIVE_DEVTOOLS
+# Set NIVE_APP_FEATURES, NIVE_DEV_ERROR, or NIVE_DEVTOOLS
 # before calling this recipe to enable dev features.
 app-dev package binary features_env:
     #!/usr/bin/env bash
@@ -46,13 +46,13 @@ app-dev package binary features_env:
 
     while :; do
       if [ -n "{{ features_env }}" ]; then
-        RAG_STUDIO_APP_GUI_FEATURES="{{ features_env }}" cargo build --package {{ package }} --features "{{ features_env }}"
+        NIVE_APP_FEATURES="{{ features_env }}" cargo build --package {{ package }} --features "{{ features_env }}"
       else
         cargo build --package {{ package }}
       fi
 
-      if [ -n "${RAG_STUDIO_DEV_ERROR:-}" ]; then
-        printf 'Dev probes enabled: %s\n' "$RAG_STUDIO_DEV_ERROR"
+      if [ -n "${NIVE_DEV_ERROR:-}" ]; then
+        printf 'Dev probes enabled: %s\n' "$NIVE_DEV_ERROR"
       fi
       if [ -n "${NIVE_DEVTOOLS:-}" ]; then
         printf 'Devtools window enabled: %s\n' "$NIVE_DEVTOOLS"
@@ -104,11 +104,11 @@ app-dev package binary features_env:
 
 # Run dev loop with dev feature and devtools env.
 app-devtools package binary:
-    RAG_STUDIO_APP_GUI_FEATURES="dev" NIVE_DEVTOOLS=1 just app-dev {{ package }} {{ binary }} "dev"
+    NIVE_APP_FEATURES="dev" NIVE_DEVTOOLS=1 just app-dev {{ package }} {{ binary }} "dev"
 
 # Run dev loop with dev feature and a UI error scenario.
 app-dev-error package binary scenario:
-    RAG_STUDIO_APP_GUI_FEATURES="dev" RAG_STUDIO_DEV_ERROR="{{ scenario }}" just app-dev {{ package }} {{ binary }} "dev"
+    NIVE_APP_FEATURES="dev" NIVE_DEV_ERROR="{{ scenario }}" just app-dev {{ package }} {{ binary }} "dev"
 
 # Run the binary with --list-ui-error-scenarios.
 app-dev-error-list package:
