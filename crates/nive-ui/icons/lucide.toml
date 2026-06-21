@@ -1,0 +1,36 @@
+version = "0.460.0"
+stroke_width = "2"
+stroke_linecap = "round"
+stroke_linejoin = "round"
+
+[icons]
+# Navigation
+ChevronDown = "chevron-down"
+ChevronRight = "chevron-right"
+ChevronLeft = "chevron-left"
+ChevronUp = "chevron-up"
+ArrowLeft = "arrow-left"
+ArrowRight = "arrow-right"
+
+# Actions
+Search = "search"
+Close = "x"
+Check = "check"
+Plus = "plus"
+Minus = "minus"
+Settings = "settings"
+Menu = "menu"
+MoreHorizontal = "more-horizontal"
+
+# Feedback
+Info = "info"
+AlertCircle = "alert-circle"
+AlertTriangle = "alert-triangle"
+CheckCircle = "check-circle"
+
+# UI
+Eye = "eye"
+EyeOff = "eye-off"
+Copy = "copy"
+Trash = "trash"
+Edit = "edit"
