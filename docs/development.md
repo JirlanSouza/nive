@@ -1,147 +1,128 @@
-# Development Guide
+# Nive Development Guide
 
-This guide describes the active development workflow for RAG Studio. It is intended for contributors working on the current Rust/Iced application stack.
-
-## Active Stack
-
-Current development targets:
-
-- `crates/app-gui`: Rust/Iced desktop UI.
-- `crates/app-core`: domain services and orchestration.
-- `crates/app-models`: shared domain models.
-- `crates/app-database`: SQLite persistence and migrations.
-- `crates/document-parser-worker`: Rust manager for the Python parser process.
-- `crates/docling-payload-core`: Docling payload read/write and compatibility.
-- `crates/docling-payload-py`: Python binding for payload generation.
-- `document-parser`: Python parser implementation.
-
-Legacy areas remain in the repository for reference, but they are not part of the normal active workflow:
-
-- `app-ui`
-- `crates/app-tauri`
+This guide is for contributors working on the Nive framework itself.
 
 ## Requirements
 
-Install:
-
-- Rust stable and Cargo.
-- `just`.
-- `uv` for the Python document parser environment.
-- Python 3.11 or newer.
-
-Node.js and pnpm are only needed for legacy `app-ui` workflows.
+- Rust 1.92 or later
+- Cargo
+- just
+- curl (for icon syncing)
 
 ## Setup
 
-Sync the parser environment:
+Clone the repository:
 
-```sh
-just parser-sync
+```bash
+git clone https://github.com/yourusername/nive.git
+cd nive
 ```
 
-List available commands:
+## Development Commands
 
-```sh
-just
-```
+```bash
+# Format code
+just fmt
 
-## Development
-
-Run the active desktop app:
-
-```sh
-just dev
-```
-
-Run the app with an injected UI error scenario:
-
-```sh
-just dev-error create_project
-```
-
-Run the app with the Devtools auxiliary window:
-
-```sh
-just devtools
-```
-
-The Devtools auxiliary window is compiled by the `dev` feature and activated at runtime by `NIVE_DEVTOOLS=1`. It stays disabled by default when the env var is absent. It shows searchable, expandable Devtools rows for failure/delay probes plus resources and operations inferred from devtool-derived screen state structs. Resource failures support both first-load and cached refresh failure modes. `just dev-error-panel` remains available as a deprecated compatibility alias for `just devtools`.
-
-List UI error scenarios:
-
-```sh
-just dev-error-list
-```
-
-## Verification
-
-Use root `just` recipes for normal validation:
-
-```sh
+# Check formatting
 just fmt-check
+
+# Check all crates
 just check
-just rust-test
+
+# Lint all crates
+just lint
+
+# Run all tests
+just test
+
+# Build documentation
+just doc
+
+# Build all crates
+just build
+
+# Build release
+just release
 ```
 
-Run the broader active test suite, including parser checks:
+## Icon Management
 
-```sh
+The framework maintains a set of essential icons in `nive-ui`.
+
+```bash
+# List framework icons
+just icons-list
+
+# Sync framework icons
+just icons-sync
+
+# Check icons are up to date
+just icons-check
+
+# Add icon to framework
+just icons-add <Variant> <lucide-name>
+```
+
+## Creating Test Apps
+
+```bash
+# Create a new app using the framework
+just create-app test-app
+
+# Or manually
+cargo run --package create-nive-app -- test-app
+```
+
+## Architecture
+
+See [docs/agents/architecture.md](agents/architecture.md) for framework architecture.
+
+## Testing
+
+Run the full test suite:
+
+```bash
 just test
 ```
 
-Run the CI-equivalent local entrypoint:
+Run tests for a specific crate:
 
-```sh
-just ci
+```bash
+cargo test --package nive-ui
+cargo test --package nive-runtime
 ```
 
-Focused checks are available for common work areas:
+## Documentation
 
-```sh
-just check-gui
-just check-core
-just check-db
-just test-gui
-just test-core
-just test-db
-just test-parser-worker
-just test-payload-core
-just payload-py-test
+Build and open documentation:
+
+```bash
+just doc
 ```
 
-For Devtools and UI error-probe changes, run the `app-gui` dev-feature gates:
+Or manually:
 
-```sh
-just app-gui-check-dev
-just app-gui-test-dev
+```bash
+cargo doc --workspace --no-deps --open
 ```
 
-## Change Workflow
+## Publishing
 
-For behavior changes:
+When ready to publish:
 
-1. Identify the affected layer.
-2. Add or update the focused test closest to the behavior.
-3. Implement the smallest scoped change.
-4. Run focused verification.
-5. Run broader active checks when the change crosses crate boundaries.
+```bash
+# Dry run
+cargo publish --package nive-ui --dry-run
+cargo publish --package nive-runtime --dry-run
+cargo publish --package nive --dry-run
+cargo publish --package create-nive-app --dry-run
 
-Use these default test surfaces:
+# Publish
+cargo publish --package nive-ui
+cargo publish --package nive-runtime
+cargo publish --package nive
+cargo publish --package create-nive-app
+```
 
-- UI state and request behavior: `app-gui` reducer tests.
-- Domain orchestration: `app-core` service tests.
-- SQL behavior and isolation: `app-database` repository tests.
-- Parser process behavior: `document-parser-worker` tests.
-- Payload compatibility and views: `docling-payload-core` tests.
-- Python binding behavior: `payload-py-test`.
-
-## Architecture Decisions
-
-Architecture Decision Records live in `docs/adr/`.
-
-Read the relevant ADR before changing:
-
-- active UI/application stack
-- database scope or project isolation
-- parser process protocol
-- payload format or compatibility behavior
+Note: Publish order matters due to dependencies.
