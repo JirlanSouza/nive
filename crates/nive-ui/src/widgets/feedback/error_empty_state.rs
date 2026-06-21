@@ -1,5 +1,5 @@
 use crate::{
-    widgets::{IconName, EmptyState},
+    widgets::{EmptyState, IconName},
     Element,
 };
 

@@ -66,7 +66,7 @@ pub use feedback::{
     Spinner,
 };
 pub use field::{Field, FieldError, FieldGroup, FieldHint, FieldLabel};
-pub use icon::{IconName, Icon};
+pub use icon::{Icon, IconName};
 pub use initial_avatar::{AvatarClass, AvatarSize, InitialAvatar};
 pub use input::{FieldValidation, Input, TextInputAppearance};
 pub use input_group::{InputGroup, InputGroupVariant};

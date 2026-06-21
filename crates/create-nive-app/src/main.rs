@@ -17,7 +17,7 @@ struct Cli {
 }
 
 fn to_title_case(s: &str) -> String {
-    s.split(|c: char| c == '_' || c == '-')
+    s.split(['_', '-'])
         .filter(|w| !w.is_empty())
         .map(|word| {
             let mut chars = word.chars();
@@ -40,9 +40,7 @@ fn copy_templates(
 ) -> Result<(), Box<dyn std::error::Error>> {
     for file in dir.files() {
         let relative_path = file.path();
-        let target_relative = relative_path
-            .to_string_lossy()
-            .replace(".template", "");
+        let target_relative = relative_path.to_string_lossy().replace(".template", "");
         let target_path = app_dir.join(&target_relative);
 
         if let Some(parent) = target_path.parent() {

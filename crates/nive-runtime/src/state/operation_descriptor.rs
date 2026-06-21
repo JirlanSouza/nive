@@ -27,10 +27,14 @@ impl std::fmt::Display for OperationId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum OperationProgress {
+    #[default]
     Indeterminate,
-    Fraction { completed: u32, total: u32 },
+    Fraction {
+        completed: u32,
+        total: u32,
+    },
     Message(Cow<'static, str>),
 }
 
@@ -50,12 +54,6 @@ impl OperationProgress {
             }
             Self::Indeterminate | Self::Message(_) | Self::Fraction { .. } => None,
         }
-    }
-}
-
-impl Default for OperationProgress {
-    fn default() -> Self {
-        Self::Indeterminate
     }
 }
 
