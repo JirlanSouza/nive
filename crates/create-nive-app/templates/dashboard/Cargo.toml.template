@@ -1,0 +1,11 @@
+[package]
+name = "{{app_name}}"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nive = { version = "0.1", features = ["file-picker"] }
+iced = { version = "0.14", features = ["tokio", "svg", "advanced", "canvas"] }
+
+[dev-dependencies]
+xtask = { path = "../nive/crates/xtask" }

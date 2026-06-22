@@ -1,78 +1,43 @@
-use std::borrow::Cow;
-
 use nive::prelude::*;
 
 struct {{app_name_title}}App {
     counter: i32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 enum Message {
     Increment,
     Decrement,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum Window {
-    Main,
-}
-
 impl Application for {{app_name_title}}App {
     type Message = Message;
-    type Window = Window;
+    // `Window = ()` and `Bootstrap = ()` opt into the SimpleApplication
+    // marker: the runtime auto-registers one default window (no `Window`
+    // enum, no splash flow needed).
+    type Window = ();
     type Bootstrap = ();
 
     fn config() -> ApplicationConfig<Self::Window, Self::Bootstrap> {
         ApplicationConfig::new("{{app_name}}")
-            .window(Window::Main, WindowSpec::app().size(600.0, 400.0))
-            .initial_window(Window::Main)
     }
 
-    fn init(
-        _context: Context<'_, Self::Window>,
-        _bootstrap: Self::Bootstrap,
-    ) -> (Self, AppUpdate<Self::Message, Self::Window>) {
-        (Self { counter: 0 }, AppUpdate::none())
+    fn init(_context: Context<'_, Self::Window>, _bootstrap: Self::Bootstrap) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
+        (Self { counter: 0 }, ())
     }
 
-    fn update(
-        &mut self,
-        _context: Context<'_, Self::Window>,
-        _window: Option<WindowContext<Self::Window>>,
-        message: Self::Message,
-    ) -> AppUpdate<Self::Message, Self::Window> {
+    fn update(&mut self, _context: Context<'_, Self::Window>, _window: Option<WindowContext<Self::Window>>, message: Self::Message) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
         match message {
             Message::Increment => self.counter += 1,
             Message::Decrement => self.counter -= 1,
         }
-        AppUpdate::none()
     }
 
-    fn view(
-        &self,
-        _context: Context<'_, Self::Window>,
-        _window: WindowContext<Self::Window>,
-    ) -> ScreenView<'_, Self::Message> {
-        ScreenView::new(
-            column![
-                button("+").on_press(Message::Increment),
-                text(self.counter),
-                button("-").on_press(Message::Decrement),
-            ]
-            .padding(20)
-            .spacing(10),
-        )
-    }
-
-    fn window_title<'a>(
-        &'a self,
-        _context: Context<'a, Self::Window>,
-        _window: WindowContext<Self::Window>,
-    ) -> Cow<'a, str> {
-        Cow::Borrowed("{{app_name_title}}")
+    fn view(&self, _context: Context<'_, Self::Window>, _window: WindowContext<Self::Window>) -> ScreenView<'_, Self::Message> {
+        ScreenView::new(column![button("+").on_press(Message::Increment), text(self.counter), button("-").on_press(Message::Decrement)].padding(20).spacing(10))
     }
 }
 
-fn main() -> iced::Result {
+fn main() -> nive::Result {
     nive::run::<{{app_name_title}}App>()
 }
