@@ -6,6 +6,31 @@ use super::operation_descriptor::{
     OperationDescriptor, OperationId, OperationProgress, OperationStatus,
 };
 
+/// A runtime-level command that drives the internal [`OperationRegistry`] via
+/// `AppUpdate::op_start` / `op_complete` / `op_fail` / `op_cancel`.
+///
+/// Apps normally emit these through the [`AppUpdate`] builder methods rather
+/// than constructing this enum directly; the runtime collects each emitted
+/// command into a [`RuntimeCommand::Operation`] and applies it against its
+/// internal registry.
+///
+/// [`AppUpdate`]: crate::AppUpdate
+/// [`RuntimeCommand::Operation`]: crate::RuntimeCommand::Operation
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OperationCommand {
+    /// Register a new operation (or replace an existing one with the same id).
+    Start(OperationDescriptor),
+    /// Mark an in-flight operation as completed. Ignored if the id is unknown
+    /// or already terminal.
+    Complete(OperationId),
+    /// Mark an in-flight operation as failed. Ignored if the id is unknown or
+    /// already terminal.
+    Fail(OperationId, UserFacingError),
+    /// Mark a cancellable in-flight operation as cancelled. Ignored if the id
+    /// is unknown, already terminal, or not cancellable.
+    Cancel(OperationId),
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct OperationEntry {
     pub descriptor: OperationDescriptor,
@@ -33,7 +58,7 @@ impl OperationRegistry {
     }
 
     pub fn register(&mut self, descriptor: OperationDescriptor) -> Option<OperationDescriptor> {
-        let id = descriptor.id;
+        let id = descriptor.id.clone();
         let entry = OperationEntry {
             descriptor,
             status: OperationStatus::Running,
@@ -122,7 +147,7 @@ impl OperationRegistry {
             .entries
             .iter()
             .filter(|(_, entry)| entry.is_terminal())
-            .map(|(id, _)| *id)
+            .map(|(id, _)| id.clone())
             .collect();
         let count = terminal.len();
         for id in terminal {
@@ -269,8 +294,40 @@ mod operation_registry_tests {
         registry.register(descriptor("backup").cancellable(true));
         registry.complete("backup".into());
 
-        let cancellable: Vec<OperationId> = registry.cancellable().map(|(id, _)| *id).collect();
+        let cancellable: Vec<OperationId> =
+            registry.cancellable().map(|(id, _)| id.clone()).collect();
 
         assert_eq!(cancellable, vec!["ingest".into()]);
+    }
+
+    #[test]
+    fn mixed_static_and_owned_ids_lookup_by_either_form() {
+        let mut registry = OperationRegistry::new();
+        // Register using the static constructor (zero-cost Cow::Borrowed).
+        registry.register(OperationDescriptor::new(
+            OperationId::from_static("load-projects"),
+            "Load",
+        ));
+
+        // Look up using an owned id (Cow::Owned) with the same content — the
+        // BTreeMap orders by content so this succeeds.
+        let owned_id = OperationId::from_owned(String::from("load-projects"));
+        assert!(registry.get(owned_id.clone()).is_some());
+        assert!(registry.complete(owned_id).is_some());
+
+        // Register using an owned id; look up with a static id.
+        let dynamic = OperationId::from_owned(format!("user:{}:load", 42));
+        registry.register(OperationDescriptor::new(dynamic.clone(), "Per-user"));
+
+        assert!(registry
+            .get(OperationId::from_static("user:42:load"))
+            .is_some());
+    }
+
+    #[test]
+    fn owned_id_round_trips_through_display_and_as_str() {
+        let owned = OperationId::from_owned(String::from("user:7:fetch"));
+        assert_eq!(owned.as_str(), "user:7:fetch");
+        assert_eq!(owned.to_string(), "user:7:fetch");
     }
 }
