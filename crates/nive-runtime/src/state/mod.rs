@@ -10,6 +10,6 @@ pub use clock::{relative_time_label, unix_now};
 pub use operation_descriptor::{
     OperationDescriptor, OperationId, OperationProgress, OperationStatus,
 };
-pub use operation_registry::{OperationEntry, OperationRegistry};
+pub use operation_registry::{OperationCommand, OperationEntry, OperationRegistry};
 pub use operation_state::OperationState;
 pub use request::{RequestCounter, RequestId};
