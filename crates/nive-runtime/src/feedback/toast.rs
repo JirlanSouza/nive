@@ -35,7 +35,7 @@ pub enum ToastDuration {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ToastRequest {
+pub struct Toast {
     title: String,
     body: Option<String>,
     tone: ToastTone,
@@ -45,7 +45,7 @@ pub struct ToastRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ToastItem {
     id: ToastId,
-    request: ToastRequest,
+    request: Toast,
     expires_at: Instant,
 }
 
@@ -58,7 +58,7 @@ pub enum ToastMessage {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct QueuedToast {
     id: ToastId,
-    request: ToastRequest,
+    request: Toast,
 }
 
 #[derive(Debug, Default)]
@@ -69,7 +69,7 @@ pub struct ToastState {
     hidden_since: Option<Instant>,
 }
 
-impl ToastRequest {
+impl Toast {
     pub fn success(title: impl Into<String>) -> Self {
         Self::new(title, ToastTone::Success)
     }
@@ -88,8 +88,8 @@ impl ToastRequest {
 
     pub fn error(error: UserFacingError) -> Self {
         let mut toast = Self::danger(error.summary());
-        if error.has_diagnostic_detail() {
-            toast.body = Some(error.detail().to_owned());
+        if let Some(detail) = error.diagnostic_detail() {
+            toast.body = Some(detail.to_owned());
         }
         toast.long()
     }
@@ -146,7 +146,7 @@ impl ToastItem {
         self.id
     }
 
-    pub fn request(&self) -> &ToastRequest {
+    pub fn request(&self) -> &Toast {
         &self.request
     }
 }
@@ -200,14 +200,14 @@ impl ToastId {
 }
 
 impl ToastState {
-    pub fn push(&mut self, request: ToastRequest, now: Instant) -> ToastId {
+    pub fn push(&mut self, toast: Toast, now: Instant) -> ToastId {
         let id = ToastId(self.next_id);
         self.next_id += 1;
 
         self.visible.push_front(ToastItem {
             id,
-            expires_at: now + request.duration.as_duration(),
-            request,
+            expires_at: now + toast.duration.as_duration(),
+            request: toast,
         });
 
         while self.visible.len() > MAX_VISIBLE_TOASTS {
@@ -302,7 +302,7 @@ mod toast_tests {
         let mut state = ToastState::default();
 
         for index in 0..4 {
-            state.push(ToastRequest::info(format!("Toast {index}")), now);
+            state.push(Toast::info(format!("Toast {index}")), now);
         }
 
         let titles: Vec<&str> = state.visible().map(|item| item.request().title()).collect();
@@ -313,8 +313,8 @@ mod toast_tests {
     fn dismiss_removes_matching_toast() {
         let now = Instant::now();
         let mut state = ToastState::default();
-        let first = state.push(ToastRequest::info("First"), now);
-        state.push(ToastRequest::info("Second"), now);
+        let first = state.push(Toast::info("First"), now);
+        state.push(Toast::info("Second"), now);
 
         state.dismiss(first, now);
 
@@ -328,7 +328,7 @@ mod toast_tests {
         let mut state = ToastState::default();
 
         for index in 0..4 {
-            state.push(ToastRequest::info(format!("Toast {index}")), now);
+            state.push(Toast::info(format!("Toast {index}")), now);
         }
 
         let newest = state
@@ -348,7 +348,7 @@ mod toast_tests {
         let mut state = ToastState::default();
 
         for index in 0..4 {
-            state.push(ToastRequest::info(format!("Toast {index}")), now);
+            state.push(Toast::info(format!("Toast {index}")), now);
         }
 
         state.expire(now + Duration::from_secs(5));
@@ -365,19 +365,19 @@ mod toast_tests {
     #[test]
     fn default_duration_depends_on_tone() {
         assert_eq!(
-            ToastRequest::info("Info").duration.as_duration(),
+            Toast::info("Info").duration.as_duration(),
             Duration::from_secs(4)
         );
         assert_eq!(
-            ToastRequest::success("Success").duration.as_duration(),
+            Toast::success("Success").duration.as_duration(),
             Duration::from_secs(4)
         );
         assert_eq!(
-            ToastRequest::warning("Warning").duration.as_duration(),
+            Toast::warning("Warning").duration.as_duration(),
             Duration::from_secs(6)
         );
         assert_eq!(
-            ToastRequest::danger("Danger").duration.as_duration(),
+            Toast::danger("Danger").duration.as_duration(),
             Duration::from_secs(8)
         );
     }
@@ -386,8 +386,8 @@ mod toast_tests {
     fn expire_removes_elapsed_toasts() {
         let now = Instant::now();
         let mut state = ToastState::default();
-        state.push(ToastRequest::info("Short"), now);
-        state.push(ToastRequest::info("Long").long(), now);
+        state.push(Toast::info("Short"), now);
+        state.push(Toast::info("Long").long(), now);
 
         state.expire(now + Duration::from_secs(5));
 
@@ -399,7 +399,7 @@ mod toast_tests {
     fn pause_and_resume_preserves_remaining_toast_duration() {
         let now = Instant::now();
         let mut state = ToastState::default();
-        state.push(ToastRequest::info("Short"), now);
+        state.push(Toast::info("Short"), now);
 
         state.pause_expiration(now + Duration::from_secs(1));
         state.resume_expiration(now + Duration::from_secs(3));
@@ -420,7 +420,7 @@ mod toast_tests {
 
         assert!(!state.should_subscribe());
 
-        state.push(ToastRequest::info("Toast"), now);
+        state.push(Toast::info("Toast"), now);
 
         assert!(state.should_subscribe());
     }
@@ -429,7 +429,7 @@ mod toast_tests {
     fn handle_tick_expires_toasts_when_host_is_visible() {
         let now = Instant::now();
         let mut state = ToastState::default();
-        state.push(ToastRequest::info("Toast"), now);
+        state.push(Toast::info("Toast"), now);
 
         state.handle_tick(now + Duration::from_secs(5), true);
 
@@ -440,7 +440,7 @@ mod toast_tests {
     fn handle_tick_pauses_expiration_when_host_is_hidden() {
         let now = Instant::now();
         let mut state = ToastState::default();
-        state.push(ToastRequest::info("Toast"), now);
+        state.push(Toast::info("Toast"), now);
 
         state.handle_tick(now + Duration::from_secs(2), false);
         state.handle_tick(now + Duration::from_secs(6), true);
@@ -457,10 +457,7 @@ mod toast_tests {
     fn toast_item_implements_presentation_contract() {
         let now = Instant::now();
         let mut state = ToastState::default();
-        let id = state.push(
-            ToastRequest::success("Project created").with_body("details"),
-            now,
-        );
+        let id = state.push(Toast::success("Project created").with_body("details"), now);
 
         let item = state.visible().next().expect("toast is visible");
 
