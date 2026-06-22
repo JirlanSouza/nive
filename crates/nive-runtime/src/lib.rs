@@ -73,8 +73,8 @@ pub use actions::{command_palette_rows, Action, ActionId, ActionMap, DuplicateAc
 pub use application::run_with_devtools;
 pub use application::{
     client_task, run, AppUpdate, Application, ApplicationConfig, Context, CoreEvent, Error, Never,
-    Result, RuntimeCommand, ThemeController, ThemeEvent, Update, WindowContext, WindowQuery,
-    WindowRegistration,
+    Result, RuntimeCommand, SimpleApplication, ThemeController, ThemeEvent, Update, WindowContext,
+    WindowQuery, WindowRegistration,
 };
 #[cfg(feature = "devtools")]
 pub use devtools::{
@@ -82,10 +82,11 @@ pub use devtools::{
     DevtoolsHostState, DevtoolsPanelEffect, DevtoolsPanelMessage, DevtoolsPanelState,
     DevtoolsPanelTab, DevtoolsWindowSpec, ProbePanelState,
 };
+#[allow(deprecated)]
+pub use feedback::ToastRequest;
 pub use feedback::{
     ErrorCode, InvalidErrorCode, Toast, ToastDuration, ToastId, ToastItem, ToastMessage,
-    ToastPosition, ToastRequest, ToastState, ToastTone, UserFacingError, UserFacingErrorKind,
-    UserFacingResult,
+    ToastPosition, ToastState, ToastTone, UserFacingError, UserFacingErrorKind, UserFacingResult,
 };
 pub use input::{
     keyboard_navigation_subscription, KeyboardNavigation, ShortcutBinding, ShortcutKey, ShortcutMap,
@@ -98,6 +99,7 @@ pub use lifecycle::{
 pub use nive_ui::focus_trap::{
     direction_from_event, direction_from_keyboard_event, FocusDirection,
 };
+#[cfg(feature = "file-picker")]
 pub use platform::file_picker::{FileFilter, PickFileParams, SaveFileParams};
 pub use screen::{is_escape_key_press, DialogDismiss, DialogRequest, ScreenUpdate, ScreenView};
 pub use settings::{
@@ -105,9 +107,9 @@ pub use settings::{
     WindowSessionPosition, WindowSessionSize,
 };
 pub use state::{
-    relative_time_label, unix_now, AsyncState, OperationDescriptor, OperationEntry, OperationId,
-    OperationProgress, OperationRegistry, OperationState, OperationStatus, RequestCounter,
-    RequestId,
+    relative_time_label, unix_now, AsyncState, OperationCommand, OperationDescriptor,
+    OperationEntry, OperationId, OperationProgress, OperationRegistry, OperationState,
+    OperationStatus, RequestCounter, RequestId,
 };
 pub use support::{
     install_diagnostic_panic_hook, DiagnosticSnapshot, RuntimeEvent, RuntimeEventKind,
@@ -127,19 +129,48 @@ pub use platform::app_icon;
 #[cfg(feature = "file-picker")]
 pub use platform::file_picker::{pick_file, pick_files, pick_folder, save_file};
 pub mod prelude {
+    /// Minimal surface that compiles the scaffolded counter template without
+    /// extra `use` statements. Apps that use toasts, async state, dialogs,
+    /// file-picker params, theming, or window-management types pull in
+    /// [`crate::prelude::ui`] instead.
     pub use crate::{
         command_palette_rows, install_diagnostic_panic_hook, keyboard_navigation_subscription,
         relative_time_label, run, time, unix_now, window, Action, ActionId, ActionMap, AppUpdate,
-        Application, ApplicationConfig, BackgroundFit, BootstrapSpec, BrandContent, CloseDecision,
-        CommandRejected, CommandRejectionReason, Context, CoreEvent, DiagnosticSnapshot,
-        DuplicateActionId, Error, ErrorCode, ExitDecision, KeyboardNavigation, Never,
-        OperationDescriptor, OperationEntry, OperationId, OperationProgress, OperationRegistry,
-        OperationState, OperationStatus, PlatformError, Point, RequestCounter, RequestId, Result,
+        Application, ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason,
+        Context, CoreEvent, DiagnosticSnapshot, DuplicateActionId, Error, ExitDecision,
+        KeyboardNavigation, Never, PlatformError, Point, RequestCounter, RequestId, Result,
         RuntimeCommand, RuntimeEvent, RuntimeEventKind, RuntimeEventLog, RuntimeSession,
         ScreenView, SettingsConfig, SettingsError, SettingsErrorKind, ShortcutBinding, ShortcutKey,
-        ShortcutMap, Size, SplashBackground, Subscription, Task, Theme, ThemeBuilder, ThemeCatalog,
-        ThemeController, ThemeEvent, ThemeMode, ThemePreference, Toast, ToastPosition, Update,
-        UserFacingError, WindowCardinality, WindowCommand, WindowContext, WindowQuery, WindowRole,
-        WindowSession, WindowSessionPosition, WindowSessionSize, WindowSpec,
+        ShortcutMap, SimpleApplication, Size, Subscription, Task, Theme, ThemeBuilder,
+        ThemeCatalog, ThemeController, ThemeEvent, ThemeMode, ThemePreference, Toast,
+        ToastPosition, Update, WindowCardinality, WindowCommand, WindowContext, WindowQuery,
+        WindowRole, WindowSession, WindowSessionPosition, WindowSessionSize, WindowSpec,
     };
+
+    /// Extended surface for app code that uses toasts, async state,
+    /// dialogs, file picker params, theming, shortcuts, window handle types,
+    /// or splash-related types. Use `nive::prelude::ui::*`.
+    pub mod ui {
+        pub use super::*;
+        /// Deprecated `ToastRequest` alias. Kept for one release cycle
+        /// (v0.1) so external apps gradually migrate to `Toast`.
+        #[allow(deprecated)]
+        pub use crate::ToastRequest;
+        pub use crate::{
+            AsyncState, BackgroundFit, BootstrapSpec, BrandContent, DialogDismiss, DialogRequest,
+            ErrorCode, InvalidErrorCode, OperationDescriptor, OperationEntry, OperationId,
+            OperationProgress, OperationRegistry, OperationState, OperationStatus, ScreenUpdate,
+            ShortcutBinding, ShortcutKey, ShortcutMap, SplashBackground, ThemeBuilder,
+            ThemeCatalog, ThemeMode, ToastDuration, ToastTone, UserFacingError,
+            UserFacingErrorKind, UserFacingResult, WindowChrome, WindowHandle, WindowMode,
+            WindowRegistry,
+        };
+
+        /// File-picker param structs surfaced in the extended tier only when
+        /// the `file-picker` feature is enabled. Without the feature these
+        /// `pub use`s are absent and downstream code that constructs them
+        /// fails to compile (no orphaned types).
+        #[cfg(feature = "file-picker")]
+        pub use crate::{FileFilter, PickFileParams, SaveFileParams};
+    }
 }

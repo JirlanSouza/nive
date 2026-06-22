@@ -203,7 +203,7 @@ catalog through `ApplicationConfig::theme_catalog`.
 
 The runner owns the toast queue, expiration timers, hover pause/resume and
 manual dismiss. `RuntimeCommand::Toast` (built via `Update::toast`) enqueues a
-`ToastRequest`; the runtime assigns identity, shows up to three visible toasts,
+`Toast`; the runtime assigns identity, shows up to three visible toasts,
 keeps overflow queued and starts queued toast expiry only when promoted. A time
 subscription ticks only while toasts are visible, expiring due items and
 pausing expiration while the host is hovered. Default durations are

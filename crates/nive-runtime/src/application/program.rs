@@ -9,6 +9,7 @@ use iced::{window, ContentFit, Point, Size, Subscription, Task};
 use super::{
     Application, ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason,
     Context, CoreEvent, Error, ExitDecision, Result, WindowCommand, WindowContext, WindowQuery,
+    WindowRegistration,
 };
 #[cfg(feature = "devtools")]
 use crate::devtools::probe::{
@@ -22,11 +23,11 @@ use crate::lifecycle::bootstrap::{
     minimum_duration_task, BootstrapController, BootstrapTransition,
 };
 use crate::{
-    ActionMap, AppUpdate, BootstrapSpec, DialogRequest, KeyboardNavigation, RuntimeCommand,
-    RuntimeSession, ScreenView, SettingsConfig, SettingsError, SettingsErrorKind, ShortcutMap,
-    ThemeController, ThemeEvent, ToastId, ToastPosition, ToastState, UserFacingResult,
-    WindowCardinality, WindowChrome, WindowHandle, WindowMode, WindowRegistry, WindowRole,
-    WindowSpec,
+    ActionMap, AppUpdate, BootstrapSpec, DialogRequest, KeyboardNavigation, OperationCommand,
+    OperationRegistry, RuntimeCommand, RuntimeSession, ScreenView, SettingsConfig, SettingsError,
+    SettingsErrorKind, ShortcutMap, ThemeController, ThemeEvent, ToastId, ToastPosition,
+    ToastState, UserFacingResult, WindowCardinality, WindowChrome, WindowHandle, WindowMode,
+    WindowRegistry, WindowRole, WindowSpec,
 };
 
 #[cfg(not(feature = "devtools"))]
@@ -43,6 +44,37 @@ mod no_devtools_probe {
 use no_devtools_probe::{NoProbe, ProbeCatalogEntry};
 
 const TOAST_TICK_INTERVAL: Duration = Duration::from_millis(500);
+
+/// Auto-registers a single [`WindowSpec::app()`] when `A::Window = ()` and
+/// `ApplicationConfig` has no explicit `.window(...)` calls. Apps with custom
+/// `type Window` enums must declare windows in `Application::config()`.
+///
+/// Detection uses `TypeId` so that the explicit `()` defaulting flow stays
+/// generic-friendly without unstable specialization.
+fn auto_register_default_window<A>(config: &mut ApplicationConfig<A::Window, A::Bootstrap>)
+where
+    A: Application,
+{
+    use std::any::TypeId;
+
+    if !config.windows.is_empty() || !config.initial_windows.is_empty() {
+        return;
+    }
+
+    if TypeId::of::<A::Window>() != TypeId::of::<()>() {
+        return;
+    }
+
+    // SAFETY: We only enter this branch when `A::Window = ()`, verified above by
+    // `TypeId` equality. `()` is a zero-sized type, so `transmute_copy` reads no
+    // bytes and the resulting value is the canonical `()`.
+    let default_kind = unsafe { std::mem::transmute_copy::<(), A::Window>(&()) };
+    config.windows.push(WindowRegistration {
+        kind: default_kind,
+        spec: WindowSpec::app(),
+    });
+    config.initial_windows.push(default_kind);
+}
 
 pub(super) fn run<A: Application>() -> Result {
     #[cfg(feature = "devtools")]
@@ -296,6 +328,9 @@ struct NiveCore<K> {
     toasts_hovered: bool,
     pending_app_closes: HashSet<window::Id>,
     settings: Option<SettingsRuntime>,
+    /// Runtime-managed operation registry, driven by `AppUpdate::op_start`
+    /// / `op_complete` / `op_fail` / `op_cancel`. Observed by devtools.
+    operations: OperationRegistry,
 }
 
 #[derive(Debug, Clone)]
@@ -320,6 +355,10 @@ where
         {
             config.theme_preference = preference;
         }
+        // Auto-register a single WindowSpec::app() for apps with `type Window =
+        // ()` whose `ApplicationConfig` has no explicit windows. Apps with custom
+        // `type Window` enums must call `.window(...)` in `Application::config()`.
+        auto_register_default_window::<A>(&mut config);
         let core = NiveCore::new(&config, settings);
         let theme_task = core
             .theme
@@ -350,12 +389,14 @@ where
             NiveMessage::Core(message) => self.update_core(message),
             NiveMessage::Bootstrap(message) => self.update_bootstrap(message),
             NiveMessage::App { window_id, message } => {
-                let Some(app) = self.app.as_mut() else {
-                    return Task::none();
+                let update: AppUpdate<A::Message, A::Window> = {
+                    let Some(app) = self.app.as_mut() else {
+                        return Task::none();
+                    };
+                    let window = window_id.and_then(|id| self.core.window_context(id));
+                    let context = self.core.context();
+                    app.update(context, window, message).into()
                 };
-                let window = window_id.and_then(|id| self.core.window_context(id));
-                let context = self.core.context();
-                let update = app.update(context, window, message);
                 self.apply_update(update)
             }
             #[cfg(feature = "devtools")]
@@ -427,9 +468,11 @@ where
         self.core
             .window_context(window_id)
             .and_then(|window| {
-                self.app
-                    .as_ref()
-                    .map(|app| app.window_title(self.core.context(), window).into_owned())
+                self.app.as_ref().map(|app| {
+                    app.window_title(self.core.context(), window)
+                        .into()
+                        .into_owned()
+                })
             })
             .unwrap_or_else(|| self.core.app_name.clone())
     }
@@ -606,9 +649,22 @@ where
     }
 
     fn initialize_app(&mut self, bootstrap: A::Bootstrap) -> Task<RuntimeMessage<A, P>> {
-        let context = self.core.context();
-        let (app, update) = A::init(context, bootstrap);
+        // Compute `init`'s `(app, impl Into<AppUpdate>)` return inside a block
+        // and eagerly `.into()` it so the RPIT hidden borrows (against
+        // `context`, which borrows `self.core`) are discharged before we
+        // mutate `self.app` / `self.core.theme` below.
+        let (app, update) = {
+            let context = self.core.context();
+            let (app, update) = A::init(context, bootstrap);
+            (app, update.into())
+        };
         self.app = Some(app);
+
+        // Consult `Application::theme` once the app exists so that an
+        // app-driven preference (e.g. always `Dark`) takes effect before any
+        // `AppUpdate::theme` is emitted.
+        let resolved = self.resolve_theme_preference(None);
+        self.core.theme.set_preference(resolved);
 
         let (app_task, runtime_task) = self.apply_initial_update(update);
         let init_task = Task::batch([app_task, runtime_task.chain(self.open_initial_windows())]);
@@ -867,7 +923,18 @@ where
                 }
             }
             CoreMessage::Theme(event) => {
-                if self.core.theme.handle(event) {
+                let system_changed = self.core.theme.handle(event);
+                if self.app.is_some() {
+                    let resolved = self.resolve_theme_preference(None);
+                    let effective_changed = self.core.theme.set_preference(resolved);
+                    let event_task = if effective_changed {
+                        self.emit_core_event(CoreEvent::ThemeChanged(self.core.theme.effective()))
+                    } else {
+                        Task::none()
+                    };
+                    return event_task;
+                }
+                if system_changed {
                     self.emit_core_event(CoreEvent::ThemeChanged(self.core.theme.effective()))
                 } else {
                     Task::none()
@@ -923,9 +990,9 @@ where
 
     fn apply_initial_update(
         &mut self,
-        update: AppUpdate<A::Message, A::Window>,
+        update: impl Into<AppUpdate<A::Message, A::Window>>,
     ) -> (RuntimeTask<A, P>, RuntimeTask<A, P>) {
-        let (task, _, commands) = update.into_parts();
+        let (task, _, commands) = update.into().into_parts();
         let app_task = task.map(|message| NiveMessage::App {
             window_id: None,
             message,
@@ -939,9 +1006,9 @@ where
 
     fn apply_update(
         &mut self,
-        update: AppUpdate<A::Message, A::Window>,
+        update: impl Into<AppUpdate<A::Message, A::Window>>,
     ) -> Task<RuntimeMessage<A, P>> {
-        let (task, _, commands) = update.into_parts();
+        let (task, _, commands) = update.into().into_parts();
         let app_task = task.map(|message| NiveMessage::App {
             window_id: None,
             message,
@@ -965,12 +1032,16 @@ where
             RuntimeCommand::Window(command) => self.handle_window_command(command),
             RuntimeCommand::Theme(preference) => {
                 let preference_changed = self.core.theme.preference() != preference;
-                let effective_changed = self.core.theme.set_preference(preference);
+                // Persist the emitted preference so that future restarts and
+                // `Application::theme` calls returning `System` re-resolve to it.
                 let save_task = if preference_changed {
                     self.save_theme_preference(preference)
                 } else {
                     Task::none()
                 };
+                // Consult `Application::theme` to apply the tie-break rule.
+                let resolved = self.resolve_theme_preference(Some(preference));
+                let effective_changed = self.core.theme.set_preference(resolved);
                 let event_task = if effective_changed {
                     self.emit_core_event(CoreEvent::ThemeChanged(self.core.theme.effective()))
                 } else {
@@ -979,8 +1050,87 @@ where
 
                 Task::batch([event_task, save_task])
             }
+            RuntimeCommand::Operation(operation_command) => {
+                self.handle_operation_command(operation_command);
+                Task::none()
+            }
             RuntimeCommand::Exit => self.request_exit(),
         }
+    }
+
+    /// Applies an [`OperationCommand`] to the runtime-managed
+    /// [`OperationRegistry`]. Double completions, fails, or cancels for the
+    /// same id are silently rejected (the registry returns `None`); the
+    /// runtime logs these at `debug` level via the registry's terminal-guard.
+    fn handle_operation_command(&mut self, command: OperationCommand) {
+        match command {
+            OperationCommand::Start(descriptor) => {
+                let id = descriptor.id.clone();
+                if let Some(previous) = self.core.operations.register(descriptor) {
+                    log::debug!(
+                        target: "nive_runtime::operations",
+                        "operations.replaced id={id} previous_title={}",
+                        previous.title
+                    );
+                }
+            }
+            OperationCommand::Complete(id) => {
+                if self.core.operations.complete(id.clone()).is_none() {
+                    log::debug!(
+                        target: "nive_runtime::operations",
+                        "operations.complete_ignored id={id}"
+                    );
+                }
+            }
+            OperationCommand::Fail(id, error) => {
+                if self.core.operations.fail(id.clone(), error).is_none() {
+                    log::debug!(
+                        target: "nive_runtime::operations",
+                        "operations.fail_ignored id={id}"
+                    );
+                }
+            }
+            OperationCommand::Cancel(id) => {
+                if self.core.operations.cancel(id.clone()).is_none() {
+                    log::debug!(
+                        target: "nive_runtime::operations",
+                        "operations.cancel_ignored id={id}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Resolves the theme preference after consulting `Application::theme`
+    /// using the documented tie-break rule:
+    /// - `Light`/`Dark` from `Application::theme` wins.
+    /// - `System` (or no app yet) defers to `emitted` if `Some`, else the
+    ///   runtime's current preference (already set by the OS handler or
+    ///   settings).
+    fn resolve_theme_preference(
+        &self,
+        emitted: Option<crate::ThemePreference>,
+    ) -> crate::ThemePreference {
+        let context = self.core.context();
+        let window = self.first_app_window_context();
+        let app_pref = self.app.as_ref().map(|app| app.theme(context, window));
+        match app_pref {
+            Some(crate::ThemePreference::Light) | Some(crate::ThemePreference::Dark) => {
+                app_pref.unwrap()
+            }
+            _ => emitted.unwrap_or_else(|| self.core.theme.preference()),
+        }
+    }
+
+    fn first_app_window_context(&self) -> Option<WindowContext<A::Window>> {
+        self.core
+            .registry
+            .most_recent_app_window()
+            .map(|handle| WindowContext {
+                id: handle.id,
+                kind: handle.kind,
+                role: handle.role,
+            })
     }
 
     fn save_theme_preference(
@@ -1225,11 +1375,13 @@ where
     }
 
     fn emit_core_event(&mut self, event: CoreEvent<A::Window>) -> Task<RuntimeMessage<A, P>> {
-        let Some(app) = self.app.as_mut() else {
-            return Task::none();
+        let update: AppUpdate<A::Message, A::Window> = {
+            let Some(app) = self.app.as_mut() else {
+                return Task::none();
+            };
+            let context = self.core.context();
+            app.on_core_event(context, event)
         };
-        let context = self.core.context();
-        let update = app.on_core_event(context, event);
         self.apply_update(update)
     }
 
@@ -1406,6 +1558,7 @@ where
             toasts_hovered: false,
             pending_app_closes: HashSet::new(),
             settings,
+            operations: OperationRegistry::new(),
         };
         core.report_duplicate_window_session_keys();
         core
@@ -1494,6 +1647,20 @@ where
             }
         }
     }
+
+    /// Read-only access to the runtime-managed [`OperationRegistry`].
+    ///
+    /// Used by the devtools panel and probe modules to render the live
+    /// operation catalog without apps having to hand-roll their own field
+    /// registry. Apps that want in-app operation views can still hold their
+    /// own `OperationRegistry` field — the two registries are independent.
+    ///
+    /// The full devtools-panel integration is wired in the `simplify-devtools`
+    /// change; this accessor is published now so the surface is ready.
+    #[allow(dead_code)]
+    pub fn operations(&self) -> &OperationRegistry {
+        &self.operations
+    }
 }
 
 impl SettingsRuntime {
@@ -1545,13 +1712,13 @@ impl<K> From<WindowHandle<K>> for WindowContext<K> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(refining_impl_trait_internal)]
     use std::borrow::Cow;
     use std::time::Duration;
 
     use super::*;
     use crate::{
-        Action, DialogDismiss, ScreenView, ShortcutBinding, ThemePreference, ToastRequest,
-        WindowSession,
+        Action, DialogDismiss, ScreenView, ShortcutBinding, ThemePreference, Toast, WindowSession,
     };
     use nive_ui::theme::{testing::ThemeTestGuard, Theme};
 
@@ -2563,8 +2730,7 @@ mod tests {
     fn toast_runtime_command_enqueues_visible_toast() {
         let mut program = program();
 
-        let _task =
-            program.handle_runtime_command(RuntimeCommand::Toast(ToastRequest::info("Saved")));
+        let _task = program.handle_runtime_command(RuntimeCommand::Toast(Toast::info("Saved")));
 
         assert!(program.core.toasts.has_visible());
         assert!(program.core.toasts.should_subscribe());
@@ -2574,8 +2740,7 @@ mod tests {
     fn toast_tick_expires_visible_toast() {
         let now = Instant::now();
         let mut program = program();
-        let _task =
-            program.handle_runtime_command(RuntimeCommand::Toast(ToastRequest::info("Saved")));
+        let _task = program.handle_runtime_command(RuntimeCommand::Toast(Toast::info("Saved")));
 
         let _task = program.update_core(CoreMessage::ToastTick(now + Duration::from_secs(5)));
 
@@ -2586,7 +2751,7 @@ mod tests {
     fn toast_dismiss_message_removes_toast() {
         let now = Instant::now();
         let mut program = program();
-        let id = program.core.toasts.push(ToastRequest::info("Saved"), now);
+        let id = program.core.toasts.push(Toast::info("Saved"), now);
 
         let _task = program.update_core(CoreMessage::ToastDismiss(id));
 
@@ -2597,7 +2762,7 @@ mod tests {
     fn toast_hover_pauses_expiry_and_resume_lets_it_expire() {
         let now = Instant::now();
         let mut program = program();
-        let _id = program.core.toasts.push(ToastRequest::info("Saved"), now);
+        let _id = program.core.toasts.push(Toast::info("Saved"), now);
 
         let _task = program.update_core(CoreMessage::ToastHoverEntered);
         let _task = program.update_core(CoreMessage::ToastTick(now + Duration::from_secs(5)));
@@ -2620,7 +2785,7 @@ mod tests {
     fn toast_host_decorates_app_view_when_toast_visible() {
         let now = Instant::now();
         let mut program = program();
-        let _id = program.core.toasts.push(ToastRequest::info("Saved"), now);
+        let _id = program.core.toasts.push(Toast::info("Saved"), now);
         let main_id = main_window_id(&program);
 
         let _element: nive_ui::Element<'_, RuntimeMessage<TestApp>> = program.view(main_id);
@@ -2635,7 +2800,7 @@ mod tests {
         if let Some(app) = program.app.as_mut() {
             app.show_dialog = true;
         }
-        let _id = program.core.toasts.push(ToastRequest::info("Saved"), now);
+        let _id = program.core.toasts.push(Toast::info("Saved"), now);
         let main_id = main_window_id(&program);
 
         let _element: nive_ui::Element<'_, RuntimeMessage<TestApp>> = program.view(main_id);
@@ -2651,7 +2816,7 @@ mod tests {
             TestWindow::Secondary,
             window::Id::unique(),
         ));
-        let _id = program.core.toasts.push(ToastRequest::info("Saved"), now);
+        let _id = program.core.toasts.push(Toast::info("Saved"), now);
         let auxiliary_id = program
             .core
             .registry
