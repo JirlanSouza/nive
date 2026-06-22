@@ -28,28 +28,38 @@ This creates a new directory with:
 
 ### Application Trait
 
-Every Nive app implements the `Application` trait:
+Every Nive app implements the `Application` trait. The simplest template uses
+the unit marker types (`type Window = ()` and `type Bootstrap = ()`), which
+opts into the `SimpleApplication` marker: the runtime auto-registers one
+default `WindowSpec::app()` for `Window = ()` and skips the splash flow when
+`Bootstrap = ()`. Update hooks can return `()`, which the runtime treats as
+`AppUpdate::none()` when there are no side effects.
 
 ```rust
 use nive::prelude::*;
 
 struct MyApp;
 
+#[derive(Debug, Clone, Copy)]
+enum Message {
+    Increment,
+}
+
 impl Application for MyApp {
     type Message = Message;
-    type Window = Window;
+    // Single-window + no-splash marker — the runtime auto-registers
+    // one WindowSpec::app(); no `enum Window` declaration needed.
+    type Window = ();
     type Bootstrap = ();
 
     fn config() -> ApplicationConfig<Self::Window, Self::Bootstrap> {
         ApplicationConfig::new("my-app")
-            .window(Window::Main, WindowSpec::app().size(600.0, 400.0))
-            .initial_window(Window::Main)
     }
 
     fn init(
         _context: Context<'_, Self::Window>,
         _bootstrap: Self::Bootstrap,
-    ) -> (Self, AppUpdate<Self::Message, Self::Window>) {
+    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
         (Self, AppUpdate::none())
     }
 
@@ -57,9 +67,9 @@ impl Application for MyApp {
         &mut self,
         _context: Context<'_, Self::Window>,
         _window: Option<WindowContext<Self::Window>>,
-        message: Self::Message,
-    ) -> AppUpdate<Self::Message, Self::Window> {
-        AppUpdate::none()
+        _message: Self::Message,
+    ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
+        // Returning `()` is `AppUpdate::none()`.
     }
 
     fn view(
@@ -72,10 +82,13 @@ impl Application for MyApp {
 }
 ```
 
+Multi-window apps set `type Window = MyWindow` (an `enum`) and call
+`.window(MyWindow::Main, WindowSpec::app())` on `ApplicationConfig`.
+
 ### Running the App
 
 ```rust
-fn main() -> iced::Result {
+fn main() -> nive::Result {
     nive::run::<MyApp>()
 }
 ```
