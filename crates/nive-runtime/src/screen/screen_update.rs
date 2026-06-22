@@ -3,10 +3,10 @@ use iced::Task;
 /// The return value of a screen action: an Iced task, an optional outcome,
 /// and any toasts to surface.
 ///
-/// Generic over the toast payload so screens can use their own toast request
-/// type; defaults to [`ToastRequest`](crate::ToastRequest).
+/// Generic over the toast payload so screens can use their own toast type;
+/// defaults to [`Toast`](crate::Toast).
 #[derive(Debug)]
-pub struct ScreenUpdate<Message, Outcome, Toast = crate::ToastRequest> {
+pub struct ScreenUpdate<Message, Outcome, Toast = crate::Toast> {
     /// The Iced task to run after the action.
     pub task: Task<Message>,
     /// The action's typed outcome, if any.

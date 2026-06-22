@@ -60,6 +60,31 @@ impl UserFacingError {
         Self::new(UserFacingErrorKind::Devtools, error)
     }
 
+    /// Constructs a user-facing error of [`UserFacingErrorKind::Custom`]
+    /// with the provided code and message.
+    ///
+    /// # Message convention
+    ///
+    /// The `error` message is split on the first occurrence of the substring
+    /// `" ("` to derive a short summary (title) and a diagnostic detail (body).
+    /// Apps SHOULD follow the `"Short summary (context: value)"` convention so
+    /// `Toast::error` rendering surfaces a clean title plus a folded body:
+    ///
+    /// ```
+    /// use nive_runtime::{Toast, UserFacingError};
+    ///
+    /// let error = UserFacingError::custom(
+    ///     "record_catalog",
+    ///     "Record not found (record_id: r1)",
+    /// );
+    /// let toast = Toast::error(error);
+    ///
+    /// assert_eq!(toast.title(), "Record not found");
+    /// assert_eq!(toast.body(), Some("record_id: r1"));
+    /// ```
+    ///
+    /// When the message contains no parenthesised context, the summary
+    /// equals the detail and `Toast::error` only surfaces the title.
     pub fn custom(kind: impl Into<String>, error: impl fmt::Display) -> Self {
         Self::new(UserFacingErrorKind::Custom(kind.into()), error)
     }
@@ -82,6 +107,20 @@ impl UserFacingError {
 
     pub fn has_diagnostic_detail(&self) -> bool {
         self.detail != self.summary
+    }
+
+    /// Extracts the parenthesised context — the part after `" ("` and
+    /// before a trailing `")"` — when present. Returns `None` when the
+    /// message carries no context suffix.
+    ///
+    /// `Toast::error` uses this so toast bodies match the
+    /// `"Short summary (context: value)"` convention.
+    pub fn diagnostic_detail(&self) -> Option<&str> {
+        if !self.has_diagnostic_detail() {
+            return None;
+        }
+        let (_, body) = self.detail.split_once(" (")?;
+        Some(body.strip_suffix(')').unwrap_or(body))
     }
 }
 
@@ -211,5 +250,22 @@ mod user_facing_error_tests {
     fn rejects_invalid_error_codes() {
         assert!(ErrorCode::new("Project Catalog").is_err());
         assert!(ErrorCode::new("").is_err());
+    }
+
+    #[test]
+    fn accepts_valid_error_codes() {
+        assert!(ErrorCode::new("project-catalog").is_ok());
+        assert!(ErrorCode::new("record_catalog").is_ok());
+    }
+
+    #[test]
+    fn question_mark_operator_propagates_invalid_code_through_result_helper() {
+        fn try_build(code: &str) -> Result<ErrorCode, InvalidErrorCode> {
+            let parsed = ErrorCode::new(code)?;
+            Ok(parsed)
+        }
+
+        assert!(try_build("project-catalog").is_ok());
+        assert!(try_build("Project Catalog").is_err());
     }
 }
