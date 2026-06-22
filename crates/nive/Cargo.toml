@@ -7,6 +7,12 @@ license = "Apache-2.0"
 description = "A Rust/Iced framework for building desktop applications."
 categories = ["gui"]
 
+[features]
+default = []
+# Forwards `file-picker` to `nive-runtime`, exposing param structs and
+# `pick_*` / `save_file` functions through `nive::prelude::ui`.
+file-picker = ["nive-runtime/file-picker"]
+
 [dependencies]
 nive-ui = { path = "../nive-ui" }
 nive-runtime = { path = "../nive-runtime" }

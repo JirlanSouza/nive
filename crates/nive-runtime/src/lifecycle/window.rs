@@ -368,6 +368,16 @@ where
         self.windows.iter().map(|entry| entry.handle)
     }
 
+    /// Returns the most recently active app window (highest
+    /// `activity_sequence`), or `None` when no app window is open.
+    pub(crate) fn most_recent_app_window(&self) -> Option<WindowHandle<K>> {
+        self.windows
+            .iter()
+            .filter(|entry| entry.handle.role == WindowRole::App)
+            .max_by_key(|entry| entry.activity_sequence)
+            .map(|entry| entry.handle)
+    }
+
     pub(crate) fn app_window_count(&self) -> usize {
         self.windows
             .iter()

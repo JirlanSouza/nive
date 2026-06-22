@@ -1,9 +1,11 @@
 use std::borrow::Cow;
 
-use nive_runtime::prelude::*;
+use nive_runtime::prelude::ui::*;
+use nive_runtime::SimpleApplication;
 #[cfg(feature = "file-picker")]
-use nive_runtime::{pick_file, pick_files, pick_folder, save_file};
-use nive_runtime::{FileFilter, PickFileParams, SaveFileParams};
+use nive_runtime::{
+    pick_file, pick_files, pick_folder, save_file, FileFilter, PickFileParams, SaveFileParams,
+};
 use nive_ui::prelude::text;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -32,7 +34,7 @@ impl Application for TestApp {
     fn init(
         _context: Context<'_, Self::Window>,
         _bootstrap: Self::Bootstrap,
-    ) -> (Self, AppUpdate<Self::Message, Self::Window>) {
+    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
         (Self, AppUpdate::none())
     }
 
@@ -41,7 +43,7 @@ impl Application for TestApp {
         _context: Context<'_, Self::Window>,
         _window: Option<WindowContext<Self::Window>>,
         _message: Self::Message,
-    ) -> AppUpdate<Self::Message, Self::Window> {
+    ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
         AppUpdate::none()
     }
 
@@ -57,7 +59,7 @@ impl Application for TestApp {
         &'a self,
         _context: Context<'a, Self::Window>,
         _window: WindowContext<Self::Window>,
-    ) -> Cow<'a, str> {
+    ) -> impl Into<Cow<'a, str>> + 'a {
         Cow::Borrowed("Test")
     }
 }
@@ -166,8 +168,9 @@ fn runtime_reexports_root_devtools_derive() {
     assert_devtools::<DerivedApp>();
 }
 
+#[cfg(feature = "file-picker")]
 #[test]
-fn file_picker_params_constructible_without_feature() {
+fn file_picker_params_constructible_only_with_feature() {
     let pick: PickFileParams = PickFileParams {
         filters: Vec::new(),
         start_dir: None,
@@ -192,6 +195,8 @@ fn file_picker_params_constructible_without_feature() {
 #[cfg(feature = "file-picker")]
 #[test]
 fn file_picker_task_signatures_compile_with_feature() {
+    use std::path::PathBuf;
+
     fn assert_task_type() -> Task<Option<PathBuf>> {
         pick_file(PickFileParams {
             filters: Vec::new(),
@@ -219,4 +224,114 @@ fn file_picker_task_signatures_compile_with_feature() {
     let _ = assert_files_task_type();
     let _ = assert_folder_task_type();
     let _ = assert_save_task_type();
+}
+
+// Section 1 (Application trait defaults & return-type ergonomics) contract tests.
+
+struct SingleWindowApp {
+    counter: u32,
+}
+
+#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
+enum SingleWindowMessage {
+    Increment,
+    Reset,
+}
+
+impl Application for SingleWindowApp {
+    type Message = SingleWindowMessage;
+    // Omitting `type Window` and `type Bootstrap` is impossible on stable
+    // Rust (associated-type defaults require nightly). Apps instead set
+    // both to `()` explicitly; `SimpleApplication` is implied via the
+    // blanket impl, enabling the runtime's auto-registration path.
+    type Window = ();
+    type Bootstrap = ();
+
+    fn config() -> ApplicationConfig<Self::Window, Self::Bootstrap> {
+        // Single-window, no-splash apps can build a config without calling
+        // `.window(...)` or `.initial_window(...)`; the runtime detects
+        // `A::Window = ()` and auto-registers one `WindowSpec::app()`.
+        ApplicationConfig::new("single-window-app")
+    }
+
+    fn init(
+        _context: Context<'_, Self::Window>,
+        _bootstrap: Self::Bootstrap,
+    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
+        (Self { counter: 0 }, AppUpdate::none())
+    }
+
+    fn update(
+        &mut self,
+        _context: Context<'_, Self::Window>,
+        _window: Option<WindowContext<Self::Window>>,
+        message: Self::Message,
+    ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
+        match message {
+            SingleWindowMessage::Increment => self.counter += 1,
+            SingleWindowMessage::Reset => self.counter = 0,
+        }
+        // Returning `()` exercises `impl From<()> for AppUpdate`.
+    }
+
+    fn view(
+        &self,
+        _context: Context<'_, Self::Window>,
+        _window: WindowContext<Self::Window>,
+    ) -> ScreenView<'_, Self::Message> {
+        ScreenView::new(text("single"))
+    }
+
+    fn window_title<'a>(
+        &'a self,
+        _context: Context<'a, Self::Window>,
+        _window: WindowContext<Self::Window>,
+    ) -> impl Into<Cow<'a, str>> + 'a {
+        // Returning a `&'static str` exercises `impl Into<Cow<'a, str>>`
+        // without importing `Cow`.
+        "Single Window App"
+    }
+
+    fn theme(
+        &self,
+        _context: Context<'_, Self::Window>,
+        _window: Option<WindowContext<Self::Window>>,
+    ) -> ThemePreference {
+        ThemePreference::Dark
+    }
+}
+
+#[test]
+fn single_window_app_satisfies_simple_application_marker() {
+    fn assert_simple<A: SimpleApplication>() {}
+
+    assert_simple::<SingleWindowApp>();
+}
+
+#[test]
+fn single_window_app_config_has_zero_explicit_windows_until_auto_registration() {
+    let config = SingleWindowApp::config();
+
+    assert_eq!(config.app_id(), "single-window-app");
+    assert!(config.windows().is_empty());
+    assert!(config.initial_windows().is_empty());
+}
+
+#[test]
+fn single_window_app_window_title_signature_returns_into_cow() {
+    // Compile-time assertion: `SingleWindowApp::window_title` returns an
+    // `impl Into<Cow<'_, str>> + 'a` (the literal "Single Window App" the
+    // impl produces satisfies this bound). The contract that matters is
+    // that the impl type-checks against the new signature — verified just
+    // by compiling this test (`SingleWindowApp` impl block above).
+    fn _assert_application<A: Application>() {}
+    _assert_application::<SingleWindowApp>();
+}
+
+#[test]
+fn unit_return_compiles_as_appupdate_via_from_impl() {
+    fn returns_unit() -> impl Into<AppUpdate<SingleWindowMessage, ()>> {}
+
+    let _: AppUpdate<SingleWindowMessage, ()> = returns_unit().into();
 }
