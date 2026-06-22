@@ -1,0 +1,126 @@
+use nive::prelude::ui::*;
+
+struct {{app_name_title}}App {
+    // AsyncState with stale-request guarding — a fresh RequestId rejects
+    // stale responses from superseded fetches.
+    projects: AsyncState<Vec<String>>,
+    counter: RequestCounter,
+    // App-side toast + dialog emission.
+    pending_dialog: Option<DialogRequest<Message>>,
+    // The runtime-managed OperationRegistry is driven by `AppUpdate::op_start`
+    // etc. The dashboard does NOT hold its own `OperationRegistry` field for
+    // the blessed path — devtools observes the runtime registry directly.
+}
+
+#[derive(Debug, Clone)]
+enum Message {
+    RefreshProjects,
+    ProjectsLoaded(RequestId, Vec<String>),
+    ProjectsFailed(RequestId, UserFacingError),
+    OperationCompleted,
+    OpenDialog,
+    DismissDialog,
+}
+
+impl Application for {{app_name_title}}App {
+    type Message = Message;
+    type Window = ();
+    type Bootstrap = ();
+
+    fn config() -> ApplicationConfig<Self::Window, Self::Bootstrap> {
+        ApplicationConfig::new("{{app_name}}")
+    }
+
+    fn init(_context: Context<'_, Self::Window>, _bootstrap: Self::Bootstrap) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
+        (
+            Self {
+                projects: AsyncState::idle(),
+                counter: RequestCounter::default(),
+                pending_dialog: None,
+            },
+            AppUpdate::none().toast(Toast::info("Welcome to the {{app_name_title}} dashboard")),
+        )
+    }
+
+    fn update(&mut self, _context: Context<'_, Self::Window>, _window: Option<WindowContext<Self::Window>>, message: Self::Message) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
+        match message {
+            Message::RefreshProjects => {
+                let id = self.counter.next();
+                self.projects.set_loading_with(id);
+                // Demonstrate the runtime-managed OperationRegistry: op_start
+                // registers the operation with the runtime, so devtools
+                // surfaces it without further app code.
+                let descriptor = OperationDescriptor::new(
+                    OperationId::from_static("load-projects"),
+                    "Loading projects",
+                )
+                .progress(OperationProgress::fraction(0, 1))
+                .cancellable(true);
+                AppUpdate::none()
+                    .task(Task::perform(fetch_projects(id), move |result| match result {
+                        Ok(loaded) => Message::ProjectsLoaded(id, loaded),
+                        Err(error) => Message::ProjectsFailed(id, error),
+                    }))
+                    .op_start(OperationId::from_static("load-projects"), descriptor)
+            }
+            Message::ProjectsLoaded(id, projects) => {
+                // Stale-response guard: silently ignored if a newer fetch
+                // has superseded `id`.
+                self.projects.set_loaded_with(id, projects);
+                AppUpdate::none()
+                    .toast(Toast::success("Projects refreshed"))
+                    .op_complete(OperationId::from_static("load-projects"))
+            }
+            Message::ProjectsFailed(id, error) => {
+                self.projects.set_failed_with(id, error.clone());
+                AppUpdate::none()
+                    .op_fail(OperationId::from_static("load-projects"), error)
+            }
+            Message::OperationCompleted => AppUpdate::none(),
+            Message::OpenDialog => {
+                self.pending_dialog = Some(
+                    DialogRequest::new(column![text("Are you sure you want to continue?")])
+                        .dismiss_on_backdrop_or_escape(Message::DismissDialog),
+                );
+                AppUpdate::none()
+            }
+            Message::DismissDialog => {
+                self.pending_dialog = None;
+                // Returning `()` exercises `impl From<()> for AppUpdate`.
+            }
+        }
+    }
+
+    fn view(&self, _context: Context<'_, Self::Window>, _window: WindowContext<Self::Window>) -> ScreenView<'_, Self::Message> {
+        let body = match &self.projects {
+            AsyncState::Loaded(projects) if projects.is_empty() => column![text("No projects yet.")].into(),
+            AsyncState::Loaded(projects) => column(projects.iter().map(|p| text(p)).map(Element::from)).into(),
+            AsyncState::Loading { .. } => column![text("Loading...")].into(),
+            AsyncState::Failed { error, .. } => column![text(error.summary())].into(),
+            AsyncState::Idle => column![text("Press refresh to load projects.")].into(),
+        };
+
+        let refresh_button = button("Refresh").on_press(Message::RefreshProjects);
+        let open_dialog_button = button("Open dialog").on_press(Message::OpenDialog);
+
+        ScreenView::new(
+            column![body, row![refresh_button, open_dialog_button].spacing(10)]
+                .padding(20)
+                .spacing(10),
+        )
+        .dialog_maybe(self.pending_dialog.clone())
+    }
+}
+
+async fn fetch_projects(_id: RequestId) -> Result<Vec<String>, UserFacingError> {
+    // Stand-in for a real async datasource.
+    Ok(vec![
+        "Project Alpha".to_string(),
+        "Project Beta".to_string(),
+        "Project Gamma".to_string(),
+    ])
+}
+
+fn main() -> nive::Result {
+    nive::run::<{{app_name_title}}App>()
+}

@@ -1,0 +1,9 @@
+version = "0.460.0"
+stroke_width = "2"
+stroke_linecap = "round"
+stroke_linejoin = "round"
+
+[icons]
+# Add your app icons here
+# Example:
+# Search = "search"
