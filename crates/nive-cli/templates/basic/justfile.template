@@ -18,16 +18,16 @@ test:
 
 # Initialize icons manifest
 icons-init:
-    cargo run --package xtask -- icons init .
+    nive icons init
 
 # Sync icons
 icons-sync:
-    cargo run --package xtask -- icons sync
+    nive icons sync
 
 # Check icons
 icons-check:
-    cargo run --package xtask -- icons check
+    nive icons check
 
 # Add icon. Usage: just icons-add Search search
 icons-add variant lucide_name:
-    cargo run --package xtask -- icons add {{ variant }} {{ lucide_name }}
+    nive icons add {{ variant }} {{ lucide_name }}

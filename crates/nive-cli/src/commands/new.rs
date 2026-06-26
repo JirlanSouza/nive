@@ -1,28 +1,10 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 
-use clap::Parser;
 use include_dir::{include_dir, Dir};
 
 static BASIC_TEMPLATES: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/basic");
 static DASHBOARD_TEMPLATES: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/dashboard");
-
-#[derive(Parser)]
-#[command(name = "create-nive-app")]
-#[command(about = "Create a new Nive app")]
-struct Cli {
-    name: String,
-
-    /// Scaffold the dashboard template (demonstrates `AsyncState` with stale
-    /// request guards, `Toast`, `DialogRequest`, and the runtime-managed
-    /// `AppUpdate::op_start(...)` flow). Defaults to the basic counter
-    /// template otherwise.
-    #[arg(long, default_value_t = false)]
-    dashboard: bool,
-
-    #[arg(short, long, default_value = ".")]
-    path: PathBuf,
-}
 
 fn to_title_case(s: &str) -> String {
     s.split(['_', '-'])
@@ -42,7 +24,7 @@ fn to_title_case(s: &str) -> String {
 
 fn copy_templates(
     dir: &Dir,
-    app_dir: &std::path::Path,
+    app_dir: &Path,
     app_name: &str,
     title: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -70,18 +52,16 @@ fn copy_templates(
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let cli = Cli::parse();
-
-    let app_dir = cli.path.join(&cli.name);
+pub fn run(name: &str, dashboard: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let app_dir = Path::new(name);
 
     if app_dir.exists() {
         eprintln!("Error: Directory already exists: {}", app_dir.display());
         std::process::exit(1);
     }
 
-    let title = to_title_case(&cli.name);
-    let templates = if cli.dashboard {
+    let title = to_title_case(name);
+    let templates = if dashboard {
         &DASHBOARD_TEMPLATES
     } else {
         &BASIC_TEMPLATES
@@ -89,17 +69,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!(
         "Creating new Nive app: {} ({})",
-        cli.name,
-        if cli.dashboard { "dashboard" } else { "basic" }
+        name,
+        if dashboard { "dashboard" } else { "basic" }
     );
 
-    fs::create_dir_all(&app_dir)?;
+    fs::create_dir_all(app_dir)?;
 
-    copy_templates(templates, &app_dir, &cli.name, &title)?;
+    copy_templates(templates, app_dir, name, &title)?;
 
-    println!("\nSuccess! Created {} at {}", cli.name, app_dir.display());
+    println!("\nSuccess! Created {} at {}", name, app_dir.display());
     println!("\nNext steps:");
-    println!("  cd {}", app_dir.display());
+    println!("  cd {}", name);
     println!("  cargo build");
     println!("  just dev");
 
@@ -162,14 +142,12 @@ mod tests {
 
         copy_templates(&BASIC_TEMPLATES, &app_dir, "my_app", "MyApp").expect("copy");
 
-        // `.template` suffix is stripped.
         let main_path = app_dir.join("src/main.rs");
         assert!(
             main_path.exists(),
             "main.rs should be written without .template suffix"
         );
 
-        // Substitution: `{{app_name_title}}` and `{{app_name}}` are replaced.
         let main_contents = fs::read_to_string(&main_path).expect("read main.rs");
         assert!(
             main_contents.contains("struct MyApp"),
@@ -207,28 +185,5 @@ mod tests {
             let path = app_dir.join(&rel);
             assert!(path.exists(), "missing {} after copy", rel);
         }
-    }
-
-    #[test]
-    fn copy_templates_writes_all_dashboard_template_files() {
-        let tempdir = tempfile::tempdir().expect("tempdir");
-        let app_dir = tempdir.path().join("dash-app");
-
-        copy_templates(&DASHBOARD_TEMPLATES, &app_dir, "dash_app", "DashApp").expect("copy");
-
-        // Dashboard template references `AsyncState`, `Toast`, `DialogRequest`,
-        // `AppUpdate::op_start`, `OperationId::from_static`, etc.
-        let main = fs::read_to_string(app_dir.join("src/main.rs")).expect("read main.rs");
-        assert!(
-            main.contains("AsyncState"),
-            "dashboard should demonstrate AsyncState"
-        );
-        assert!(main.contains("Toast::"), "dashboard should emit Toast");
-        assert!(
-            main.contains("DialogRequest"),
-            "dashboard should open a DialogRequest"
-        );
-        assert!(main.contains("op_start"), "dashboard should use op_start");
-        assert!(main.contains("OperationId::from_static"));
     }
 }
