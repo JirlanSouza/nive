@@ -63,7 +63,7 @@ Presentation contracts keep runtime types out of the UI crate:
 - `ResourceStatusPresentation`
 - `OperationStatusPresentation`
 
-`nive-runtime::UserFacingError`, `AsyncState<T>` and `OperationState<C>`
+`nive-runtime::UserFacingError`, `Resource<T>` and `Operation<C>`
 implement these contracts. Applications supply product copy and messages while
 Nive owns the reusable visual composition.
 

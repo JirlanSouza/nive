@@ -11,11 +11,15 @@ This guide will help you create your first Nive application.
 ## Creating a New App
 
 ```bash
-# Using the framework repo
-cargo run --package create-nive-app -- my-app
+# Install the CLI
+cargo install nive-cli
 
-# Or using just
-just create-app my-app
+# Create a new app
+nive new my-app
+
+# Run it
+cd my-app
+cargo run
 ```
 
 This creates a new directory with:

@@ -8,8 +8,7 @@ Nive is a Rust/Iced desktop application framework. Active Cargo workspace member
 - `crates/nive-runtime`: application lifecycle, window management, feedback, devtools
 - `crates/nive-runtime-derive`: proc macros for devtools
 - `crates/nive`: umbrella crate that re-exports nive-ui and nive-runtime
-- `crates/xtask`: icon management and project automation
-- `crates/create-nive-app`: scaffolding CLI for new apps
+- `crates/nive-cli`: CLI for scaffolding and icon management (binary name: `nive`)
 
 Use the root `justfile` as the source of truth for active development commands.
 
@@ -42,8 +41,7 @@ Run package-specific `cargo` commands only for focused verification while iterat
 ## Package Roles
 
 - `nive-ui`: shared visual design system for tokens, semantic theme contracts, reusable UI primitives, and icon management.
-- `nive-runtime`: shared app runtime foundation for application/update contracts, UI state, operation state, request IDs, user-facing errors, lifecycle contracts, and optional devtools/probe behavior.
-- `nive-runtime-derive`: proc macros for devtools state, operation, probe catalog, runtime client probe declarations, and configurable devtools path generation.
+- `nive-runtime`: shared app runtime foundation for application/update contracts, `Resource`/`Operation` async state, request IDs, user-facing errors, lifecycle contracts, and optional devtools simulator (feature `devtools`). The `Inspect` trait + derive walk app state to discover simulatable fields; `SimulableState` exposes snapshots, explicit capabilities, and simulator actions.
+- `nive-runtime-derive`: proc macro `#[derive(Inspect)]` that generates recursive `Inspect::inspect` implementations for app state structs.
 - `nive`: umbrella crate that re-exports `nive-ui` and `nive-runtime` for convenient app development.
-- `xtask`: icon management (Lucide SVG sync) and project automation.
-- `create-nive-app`: scaffolding CLI that creates new apps using the Nive framework.
+- `nive-cli`: CLI binary (`nive`) for scaffolding new apps and managing Lucide icons.
