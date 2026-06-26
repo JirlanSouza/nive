@@ -17,7 +17,7 @@
 //!   rejection, minimum splash duration, retry, and cancellation.
 //! - `WindowSpec`, `WindowCommand`, `WindowRegistry` — generic window
 //!   contracts, cardinality, and open/close/exit handshakes.
-//! - `AsyncState` and `OperationState` — reusable resource and operation
+//! - `Resource` and `Operation` — reusable async resource and operation
 //!   state machines.
 //! - `UserFacingError` and toast state (`ToastState`, `ToastItem`) —
 //!   user-facing feedback.
@@ -44,8 +44,9 @@
 //! # Feature flags
 //!
 //! - `devtools` (off by default) — enables the optional devtools layer
-//!   (`devtools`), the `run_with_devtools` entry point, and the derive macros
-//!   from `nive-runtime-derive`. This is the most experimental part of Nive.
+//!   (`devtools`), the `run_with_devtools` entry point, and `#[derive(Inspect)]`
+//!   traversal from `nive-runtime-derive`. This is the most experimental part
+//!   of Nive.
 //! - `file-picker` (off by default) — enables `pick_file`, `pick_files`,
 //!   `pick_folder`, and `save_file` backed by `rfd`.
 //!
@@ -61,6 +62,8 @@ mod application;
 pub mod devtools;
 mod feedback;
 mod input;
+#[cfg(feature = "devtools")]
+pub mod inspect;
 mod lifecycle;
 pub mod platform;
 mod screen;
@@ -72,15 +75,16 @@ pub use actions::{command_palette_rows, Action, ActionId, ActionMap, DuplicateAc
 #[cfg(feature = "devtools")]
 pub use application::run_with_devtools;
 pub use application::{
-    client_task, run, AppUpdate, Application, ApplicationConfig, Context, CoreEvent, Error, Never,
+    perform, run, AppUpdate, Application, ApplicationConfig, Context, CoreEvent, Error, Never,
     Result, RuntimeCommand, SimpleApplication, ThemeController, ThemeEvent, Update, WindowContext,
     WindowQuery, WindowRegistration,
 };
 #[cfg(feature = "devtools")]
 pub use devtools::{
-    run_devtools_panel_effect, DevtoolStateCatalog, DevtoolStateHost, DevtoolsApp, DevtoolsConfig,
+    apply_simulate, collect_snapshot, DevtoolStateSnapshot, DevtoolsApp, DevtoolsConfig,
     DevtoolsHostState, DevtoolsPanelEffect, DevtoolsPanelMessage, DevtoolsPanelState,
-    DevtoolsPanelTab, DevtoolsWindowSpec, ProbePanelState,
+    DevtoolsPanelTab, DevtoolsWindowSpec, RegistryEntry, RegistryStatus, SimulateAction,
+    SimulateResult, SimulatorCapabilities, SimulatorEntry, SimulatorKind,
 };
 #[allow(deprecated)]
 pub use feedback::ToastRequest;
@@ -107,9 +111,8 @@ pub use settings::{
     WindowSessionPosition, WindowSessionSize,
 };
 pub use state::{
-    relative_time_label, unix_now, AsyncState, OperationCommand, OperationDescriptor,
-    OperationEntry, OperationId, OperationProgress, OperationRegistry, OperationState,
-    OperationStatus, RequestCounter, RequestId,
+    relative_time_label, unix_now, Operation, OperationDescriptor, OperationEntry, OperationId,
+    OperationProgress, OperationRegistry, OperationStatus, RequestId, Resource, Settled,
 };
 pub use support::{
     install_diagnostic_panic_hook, DiagnosticSnapshot, RuntimeEvent, RuntimeEventKind,
@@ -120,10 +123,19 @@ pub use iced::{time, window, Point, Size, Subscription, Task};
 pub use nive_ui::theme::{Theme, ThemeBuilder, ThemeCatalog, ThemeMode, ThemePreference};
 
 #[cfg(feature = "devtools")]
-pub use nive_runtime_derive::{
-    runtime_client, DevtoolOperationContext, DevtoolStateCatalog, DevtoolStateHost, Devtools,
-    UiErrorProbeCatalog,
+pub use inspect::{
+    Inspect, InspectPath, InspectSink, OperationSimulator, ResourceSimulator, SimulableSnapshot,
+    SimulableState,
 };
+pub use nive_runtime_derive::Inspect;
+
+#[cfg(feature = "devtools")]
+#[doc(hidden)]
+pub mod __inspect {
+    pub use crate::inspect::{
+        Inspect, InspectPath, InspectSink, OperationSimulator, ResourceSimulator,
+    };
+}
 
 pub use platform::app_icon;
 #[cfg(feature = "file-picker")]
@@ -138,9 +150,9 @@ pub mod prelude {
         relative_time_label, run, time, unix_now, window, Action, ActionId, ActionMap, AppUpdate,
         Application, ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason,
         Context, CoreEvent, DiagnosticSnapshot, DuplicateActionId, Error, ExitDecision,
-        KeyboardNavigation, Never, PlatformError, Point, RequestCounter, RequestId, Result,
-        RuntimeCommand, RuntimeEvent, RuntimeEventKind, RuntimeEventLog, RuntimeSession,
-        ScreenView, SettingsConfig, SettingsError, SettingsErrorKind, ShortcutBinding, ShortcutKey,
+        KeyboardNavigation, Never, PlatformError, Point, RequestId, Result, RuntimeCommand,
+        RuntimeEvent, RuntimeEventKind, RuntimeEventLog, RuntimeSession, ScreenView,
+        SettingsConfig, SettingsError, SettingsErrorKind, ShortcutBinding, ShortcutKey,
         ShortcutMap, SimpleApplication, Size, Subscription, Task, Theme, ThemeBuilder,
         ThemeCatalog, ThemeController, ThemeEvent, ThemeMode, ThemePreference, Toast,
         ToastPosition, Update, WindowCardinality, WindowCommand, WindowContext, WindowQuery,
@@ -157,9 +169,9 @@ pub mod prelude {
         #[allow(deprecated)]
         pub use crate::ToastRequest;
         pub use crate::{
-            AsyncState, BackgroundFit, BootstrapSpec, BrandContent, DialogDismiss, DialogRequest,
-            ErrorCode, InvalidErrorCode, OperationDescriptor, OperationEntry, OperationId,
-            OperationProgress, OperationRegistry, OperationState, OperationStatus, ScreenUpdate,
+            BackgroundFit, BootstrapSpec, BrandContent, DialogDismiss, DialogRequest, ErrorCode,
+            InvalidErrorCode, Operation, OperationDescriptor, OperationEntry, OperationId,
+            OperationProgress, OperationRegistry, OperationStatus, Resource, ScreenUpdate, Settled,
             ShortcutBinding, ShortcutKey, ShortcutMap, SplashBackground, ThemeBuilder,
             ThemeCatalog, ThemeMode, ToastDuration, ToastTone, UserFacingError,
             UserFacingErrorKind, UserFacingResult, WindowChrome, WindowHandle, WindowMode,
