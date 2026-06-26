@@ -1,20 +1,14 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
-    env,
-    error::Error,
     ffi::OsStr,
     fs,
     path::{Path, PathBuf},
-    process::Command,
 };
 
+use clap::Subcommand;
 use serde::{Deserialize, Serialize};
 
-type Result<T> = std::result::Result<T, Box<dyn Error>>;
-
-const MANIFEST_PATH: &str = "crates/nive-ui/icons/lucide.toml";
-const ASSET_DIR: &str = "crates/nive-ui/assets/icons/lucide";
-const GENERATED_PATH: &str = "crates/nive-ui/src/widgets/icon.generated.rs";
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 struct IconsManifest {
@@ -31,39 +25,56 @@ struct IconPaths {
     generated: PathBuf,
 }
 
-fn main() -> Result<()> {
-    let mut args = env::args().skip(1);
+#[derive(Subcommand)]
+pub enum IconsCommands {
+    /// List icons declared in the current directory's manifest
+    List,
+    /// Fetch declared SVGs from Lucide and regenerate the icon Rust module
+    Sync,
+    /// Check if manifest, assets, and generated module are in sync
+    Check,
+    /// Add a new icon entry to the manifest and sync
+    Add {
+        /// PascalCase variant name (e.g., Shield)
+        variant: String,
+        /// Kebab-case Lucide icon name (e.g., shield-check)
+        lucide_name: String,
+    },
+    /// Scaffold icons directory structure in the current directory
+    Init,
+}
 
-    match (args.next().as_deref(), args.next().as_deref()) {
-        (Some("icons"), Some("list")) => icons_list(),
-        (Some("icons"), Some("sync")) => icons_sync(),
-        (Some("icons"), Some("check")) => icons_check(),
-        (Some("icons"), Some("add")) => {
-            let variant = args.next().ok_or("Missing app icon variant")?;
-            let lucide_name = args.next().ok_or("Missing Lucide icon name")?;
-            if args.next().is_some() {
-                return Err("icons add accepts exactly two arguments".into());
-            }
-            icons_add(&variant, &lucide_name)
-        }
-        (Some("icons"), Some("init")) => {
-            let app_path = args.next().ok_or("Missing app crate path")?;
-            icons_init(&app_path)
-        }
-        _ => {
-            eprintln!("Usage:");
-            eprintln!("  cargo run --package xtask -- icons list");
-            eprintln!("  cargo run --package xtask -- icons sync");
-            eprintln!("  cargo run --package xtask -- icons check");
-            eprintln!("  cargo run --package xtask -- icons add <Variant> <lucide-name>");
-            eprintln!("  cargo run --package xtask -- icons init <app-crate-path>");
-            Err("Unknown xtask command".into())
-        }
+pub fn run(command: IconsCommands) -> Result<()> {
+    match command {
+        IconsCommands::List => icons_list(),
+        IconsCommands::Sync => icons_sync(),
+        IconsCommands::Check => icons_check(),
+        IconsCommands::Add {
+            variant,
+            lucide_name,
+        } => icons_add(&variant, &lucide_name),
+        IconsCommands::Init => icons_init(),
     }
 }
 
+fn cwd_paths() -> Result<IconPaths> {
+    let cwd = std::env::current_dir()?;
+    Ok(IconPaths {
+        manifest: cwd.join("icons/lucide.toml"),
+        asset_dir: cwd.join("assets/icons/lucide"),
+        generated: cwd.join("src/widgets/icon.generated.rs"),
+    })
+}
+
 fn icons_list() -> Result<()> {
-    let manifest = read_manifest(&paths()?.manifest)?;
+    let paths = cwd_paths()?;
+
+    if !paths.manifest.exists() {
+        eprintln!("No `icons/lucide.toml` found in cwd. Run `nive icons init` first.");
+        std::process::exit(1);
+    }
+
+    let manifest = read_manifest(&paths.manifest)?;
 
     for (variant, slug) in manifest.icons {
         println!("{variant} -> {slug}");
@@ -73,7 +84,13 @@ fn icons_list() -> Result<()> {
 }
 
 fn icons_sync() -> Result<()> {
-    let paths = paths()?;
+    let paths = cwd_paths()?;
+
+    if !paths.manifest.exists() {
+        eprintln!("No `icons/lucide.toml` found in cwd. Run `nive icons init` first.");
+        std::process::exit(1);
+    }
+
     let manifest = read_manifest(&paths.manifest)?;
 
     fs::create_dir_all(&paths.asset_dir)?;
@@ -96,7 +113,13 @@ fn icons_sync() -> Result<()> {
 }
 
 fn icons_check() -> Result<()> {
-    let paths = paths()?;
+    let paths = cwd_paths()?;
+
+    if !paths.manifest.exists() {
+        eprintln!("No `icons/lucide.toml` found in cwd. Run `nive icons init` first.");
+        std::process::exit(1);
+    }
+
     let manifest = read_manifest(&paths.manifest)?;
     let mut failures = Vec::new();
 
@@ -104,7 +127,7 @@ fn icons_check() -> Result<()> {
     match fs::read_to_string(&paths.generated) {
         Ok(actual) if actual == expected_generated => {}
         Ok(_) => failures.push(format!(
-            "{} is stale. Run `just icons-sync`.",
+            "{} is stale. Run `nive icons sync`.",
             display_path(&paths.generated)
         )),
         Err(error) => failures.push(format!(
@@ -113,12 +136,6 @@ fn icons_check() -> Result<()> {
         )),
     }
 
-    let expected_assets: BTreeSet<String> = manifest
-        .icons
-        .values()
-        .map(|slug| format!("{slug}.svg"))
-        .collect();
-
     for slug in manifest.icons.values() {
         let path = paths.asset_dir.join(format!("{slug}.svg"));
         match fs::read_to_string(&path) {
@@ -126,7 +143,7 @@ fn icons_check() -> Result<()> {
                 let expected = normalize_svg(&actual, &manifest)?;
                 if actual != expected {
                     failures.push(format!(
-                        "{} is not normalized. Run `just icons-sync`.",
+                        "{} is not normalized. Run `nive icons sync`.",
                         display_path(&path)
                     ));
                 }
@@ -139,6 +156,12 @@ fn icons_check() -> Result<()> {
     }
 
     if paths.asset_dir.exists() {
+        let expected_assets: BTreeSet<String> = manifest
+            .icons
+            .values()
+            .map(|slug| format!("{slug}.svg"))
+            .collect();
+
         for entry in fs::read_dir(&paths.asset_dir)? {
             let entry = entry?;
             let path = entry.path();
@@ -165,18 +188,24 @@ fn icons_check() -> Result<()> {
         return Ok(());
     }
 
-    for failure in failures {
+    for failure in &failures {
         eprintln!("{failure}");
     }
 
-    Err("Icon check failed".into())
+    Err(format!("Icon check failed: {} issue(s)", failures.len()).into())
 }
 
 fn icons_add(variant: &str, lucide_name: &str) -> Result<()> {
     validate_variant(variant)?;
     validate_slug(lucide_name)?;
 
-    let paths = paths()?;
+    let paths = cwd_paths()?;
+
+    if !paths.manifest.exists() {
+        eprintln!("No `icons/lucide.toml` found in cwd. Run `nive icons init` first.");
+        std::process::exit(1);
+    }
+
     let mut manifest = read_manifest(&paths.manifest)?;
     manifest
         .icons
@@ -188,24 +217,16 @@ fn icons_add(variant: &str, lucide_name: &str) -> Result<()> {
     icons_sync()
 }
 
-fn icons_init(app_path: &str) -> Result<()> {
-    let app_root = PathBuf::from(app_path);
+fn icons_init() -> Result<()> {
+    let paths = cwd_paths()?;
 
-    if !app_root.is_dir() {
-        return Err(format!("App path is not a directory: {}", app_path).into());
+    if paths.manifest.exists() {
+        return Err(format!("Manifest already exists: {}", paths.manifest.display()).into());
     }
 
-    let manifest_path = app_root.join("icons/lucide.toml");
-    let asset_dir = app_root.join("assets/icons/lucide");
-    let generated_path = app_root.join("src/widgets/icon.generated.rs");
-
-    if manifest_path.exists() {
-        return Err(format!("Manifest already exists: {}", manifest_path.display()).into());
-    }
-
-    fs::create_dir_all(manifest_path.parent().unwrap())?;
-    fs::create_dir_all(&asset_dir)?;
-    fs::create_dir_all(generated_path.parent().unwrap())?;
+    fs::create_dir_all(paths.manifest.parent().unwrap())?;
+    fs::create_dir_all(&paths.asset_dir)?;
+    fs::create_dir_all(paths.generated.parent().unwrap())?;
 
     let empty_manifest = IconsManifest {
         version: "0.460.0".to_string(),
@@ -216,30 +237,16 @@ fn icons_init(app_path: &str) -> Result<()> {
     };
 
     let toml_string = toml::to_string_pretty(&empty_manifest)?;
-    fs::write(&manifest_path, toml_string)?;
+    fs::write(&paths.manifest, toml_string)?;
 
-    println!("Created {}", manifest_path.display());
-    println!("Created {}", asset_dir.display());
-    println!("Created {}", generated_path.parent().unwrap().display());
+    println!("Created {}", paths.manifest.display());
+    println!("Created {}", paths.asset_dir.display());
+    println!("Created {}", paths.generated.parent().unwrap().display());
     println!("\nNext steps:");
-    println!("  just icons-add <Variant> <lucide-name>");
-    println!("  just icons-sync");
+    println!("  nive icons add <Variant> <lucide-name>");
+    println!("  nive icons sync");
 
     Ok(())
-}
-
-fn paths() -> Result<IconPaths> {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(Path::parent)
-        .ok_or("Could not resolve repository root")?
-        .to_path_buf();
-
-    Ok(IconPaths {
-        manifest: root.join(MANIFEST_PATH),
-        asset_dir: root.join(ASSET_DIR),
-        generated: root.join(GENERATED_PATH),
-    })
 }
 
 fn read_manifest(path: &Path) -> Result<IconsManifest> {
@@ -268,19 +275,17 @@ fn read_manifest(path: &Path) -> Result<IconsManifest> {
 fn fetch_lucide_svg(version: &str, slug: &str) -> Result<String> {
     let url =
         format!("https://raw.githubusercontent.com/lucide-icons/lucide/{version}/icons/{slug}.svg");
-    let output = Command::new("curl")
-        .args(["--fail", "--location", "--silent", "--show-error", &url])
-        .output()
-        .map_err(|error| format!("Failed to run curl for {url} (error: {error})"))?;
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Failed to fetch {url} ({stderr})").into());
-    }
+    let mut response = ureq::get(&url)
+        .call()
+        .map_err(|error| format!("Failed to fetch {url}: {error}"))?;
 
-    String::from_utf8(output.stdout).map_err(|error| {
-        format!("Lucide SVG response was not UTF-8 (icon: {slug}, error: {error})").into()
-    })
+    let body = response
+        .body_mut()
+        .read_to_string()
+        .map_err(|error| format!("Failed to read response for {url}: {error}"))?;
+
+    Ok(body)
 }
 
 fn normalize_svg(source: &str, manifest: &IconsManifest) -> Result<String> {
@@ -446,16 +451,9 @@ fn validate_stroke_line_value(field: &str, value: &str) -> Result<()> {
 }
 
 fn display_path(path: &Path) -> String {
-    path.strip_prefix(paths_root())
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    path.strip_prefix(&cwd)
         .unwrap_or(path)
         .display()
         .to_string()
-}
-
-fn paths_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(Path::parent)
-        .unwrap_or_else(|| Path::new("."))
-        .to_path_buf()
 }

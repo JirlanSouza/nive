@@ -1,19 +1,24 @@
 # Nive
 
+[![CI](https://github.com/nive-rs/nive/actions/workflows/ci.yml/badge.svg)](https://github.com/nive-rs/nive/actions/workflows/ci.yml)
+
 A Rust/Iced framework for building desktop applications.
 
 ## Features
 
 - **Design System**: Semantic theme contracts, tokens, and reusable widgets
 - **Application Lifecycle**: Window management, bootstrap, feedback, and devtools
-- **Icon Management**: Integrated Lucide icon system with xtask automation
-- **Scaffolding**: `create-nive-app` CLI for quick project setup
+- **Icon Management**: Integrated Lucide icon system with `nive icons` CLI
+- **Scaffolding**: `nive new` CLI for quick project setup
 
 ## Quick Start
 
 ```bash
+# Install the CLI
+cargo install nive-cli
+
 # Create a new app
-cargo run --package create-nive-app -- my-app
+nive new my-app
 
 # Build and run
 cd my-app
@@ -27,8 +32,29 @@ cargo run
 - [`nive-ui`](crates/nive-ui): Visual design system (tokens, theme, widgets, icons)
 - [`nive-runtime`](crates/nive-runtime): Application lifecycle, window management, feedback
 - [`nive-runtime-derive`](crates/nive-runtime-derive): Proc macros for devtools
-- [`xtask`](crates/xtask): Icon management and project automation
-- [`create-nive-app`](crates/create-nive-app): Scaffolding CLI
+- [`nive-cli`](crates/nive-cli): CLI for scaffolding and icon management
+
+## Platform Notes
+
+### macOS
+The app icon is set at runtime via `objc2-app-kit`. No build-time setup is needed — the icon is embedded automatically.
+
+### Windows
+The app icon is embedded into the `.exe` at build time via `winres`. Add a `build.rs` to your app:
+
+```rust
+fn main() {
+    #[cfg(target_os = "windows")]
+    nive_runtime::platform::app_icon::install_app_icon_at_build(
+        "assets/icons/app.ico",
+    );
+}
+```
+
+The icon path is relative to your crate's `Cargo.toml`. If the file is missing, the build emits a warning and the executable uses the default OS icon.
+
+### Linux
+On first launch, Nive installs a `.desktop` entry and icon PNG to `~/.local/share/` so GNOME/KDE show your app's branded icon in the launcher. Subsequent launches are idempotent. Upgrading the app version triggers a one-time overwrite of the `.desktop` file.
 
 ## Documentation
 
@@ -36,6 +62,17 @@ cargo run
 - [Adding Icons](docs/guides/adding-icons.md)
 - [Development Guide](docs/development.md)
 - [Architecture](docs/agents/architecture.md)
+
+## Examples
+
+- [Counter](examples/counter/README.md) — Minimal app with `Application`, `AppUpdate` builder, and `ScreenView`
+- [Forms](examples/forms/README.md) — Form inputs with `Field`, `InputGroup`, validation, and dialogs
+- [Async Data](examples/async-data/README.md) — `Resource` with guarded `begin`/`settle` loading and app-owned operations
+- [Multi Window](examples/multi-window/README.md) — Multiple windows with explicit `Window` enum
+- [Theming](examples/theming/README.md) — Runtime theme switching with `Application::theme` override
+- [Icons](examples/icons/README.md) — Icon display with sizes, colors, and `nive icons` CLI
+- [File Picker](examples/file-picker/README.md) — Native file picker dialogs (feature-gated)
+- [Devtools](examples/devtools/README.md) — Runtime state inspection panel (feature-gated)
 
 ## Development
 
