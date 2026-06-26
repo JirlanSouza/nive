@@ -21,13 +21,6 @@ pub(super) fn label_from_field_name(name: &str) -> String {
     label
 }
 
-pub(super) fn placeholder_for_field_name(name: &str) -> String {
-    match name {
-        "color" => "#2563eb".to_string(),
-        _ => label_from_field_name(name),
-    }
-}
-
 fn capitalize(word: &str) -> String {
     let mut chars = word.chars();
     let Some(first) = chars.next() else {

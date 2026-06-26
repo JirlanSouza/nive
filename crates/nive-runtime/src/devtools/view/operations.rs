@@ -5,112 +5,132 @@ use iced::{
 };
 
 use nive_ui::theme::{self, GapRole};
-use nive_ui::widgets::{button, Separator};
+use nive_ui::widgets::{button, Badge, Separator};
 use nive_ui::Element;
 
-use crate::devtools::probe::ProbeCatalogEntry;
+use crate::devtools::types::INPUT_CAPABILITY_HINT;
 use crate::devtools::{
-    DevtoolOperationView, DevtoolsPanelMessage, DevtoolsPanelState, DevtoolsRowId,
+    DevtoolsPanelMessage, DevtoolsPanelState, DevtoolsRowId, RegistryEntry, RegistryStatus,
+    SimulateAction, SimulatorEntry,
 };
 
 use super::shared::{
-    command_button, command_error_field, command_field, empty_message, normalized_query,
-    operation_status_view, row_action_button, row_error, scroll_footer, secondary_command_button,
-    state_control_indent, state_list_with_error, state_title, text_matches_query, ROW_ACTION_WIDTH,
-    STATE_TITLE_WIDTH, STATUS_WIDTH,
+    command_button, command_error_field, empty_message, normalized_query, row_action_button,
+    row_error, scroll_footer, simulable_status_view, snapshot_has_error, state_control_indent,
+    state_list_with_error, state_title, text_matches_query, ROW_ACTION_WIDTH, STATE_TITLE_WIDTH,
+    STATUS_WIDTH,
 };
 
-pub(super) fn operations_body<'a, P, Message>(
-    state: &'a DevtoolsPanelState<P>,
-    operations: Vec<DevtoolOperationView>,
-    map: impl Fn(DevtoolsPanelMessage<P>) -> Message + Copy + 'a,
+pub(super) fn operations_body<'a, Message>(
+    state: &'a DevtoolsPanelState,
+    entries: impl Iterator<Item = &'a SimulatorEntry>,
+    registry: &'a [RegistryEntry],
+    map: impl Fn(DevtoolsPanelMessage) -> Message + Copy + 'a,
 ) -> Element<'a, Message>
 where
-    P: ProbeCatalogEntry,
     Message: Clone + 'a + 'static,
 {
     let mut list = state_list_with_error(state, map);
 
     let query = normalized_query(state.query());
-    let operations: Vec<_> = operations
-        .into_iter()
-        .filter(|operation| {
-            text_matches_query(&query, [operation.label.as_str(), operation.path.as_str()])
-        })
+    let entries: Vec<_> = entries
+        .filter(|e| text_matches_query(&query, [e.label.as_str(), e.path.as_str()]))
         .collect();
 
-    if operations.is_empty() {
-        return list
-            .push(nive_ui::widgets::text::caption(empty_message(
-                state.query(),
-                "No OperationState entries for this screen",
-                "No operations match the current search",
-            )))
-            .into();
+    if !entries.is_empty() {
+        let header = row![
+            container(nive_ui::widgets::text::caption("Operation"))
+                .width(Length::Fixed(STATE_TITLE_WIDTH)),
+            container(nive_ui::widgets::text::caption("Status")).width(Length::Fixed(STATUS_WIDTH)),
+            container(nive_ui::widgets::text::caption("Controls")).width(Length::Fill),
+            container(nive_ui::widgets::text::caption("Actions"))
+                .width(Length::Fixed(ROW_ACTION_WIDTH)),
+        ]
+        .spacing(theme::gap(GapRole::Related))
+        .align_y(Alignment::Center);
+        list = list.push(header).push(Separator::horizontal());
+
+        for (index, entry) in entries.into_iter().enumerate() {
+            if index > 0 {
+                list = list.push(Separator::horizontal());
+            }
+            list = list.push(operation_row(state, entry, map));
+        }
+    } else {
+        list = list.push(nive_ui::widgets::text::caption(empty_message(
+            state.query(),
+            "No Operation fields for this screen",
+            "No operations match the current search",
+        )));
     }
 
-    let header = row![
-        container(nive_ui::widgets::text::caption("Operation"))
-            .width(Length::Fixed(STATE_TITLE_WIDTH)),
-        container(nive_ui::widgets::text::caption("Status")).width(Length::Fixed(STATUS_WIDTH)),
-        container(nive_ui::widgets::text::caption("Controls")).width(Length::Fill),
-        container(nive_ui::widgets::text::caption("Actions"))
-            .width(Length::Fixed(ROW_ACTION_WIDTH)),
-    ]
-    .spacing(theme::gap(GapRole::Related))
-    .align_y(Alignment::Center);
-    list = list.push(header).push(Separator::horizontal());
-
-    for (index, operation) in operations.into_iter().enumerate() {
-        if index > 0 {
-            list = list.push(Separator::horizontal());
+    // Read-only operation registry section (task 9.3)
+    if !registry.is_empty() {
+        list = list
+            .push(Separator::horizontal())
+            .push(nive_ui::widgets::text::caption(
+                "Active operations (read-only)",
+            ));
+        for entry in registry {
+            list = list.push(registry_row(entry));
         }
-        list = list.push(operation_row(state, operation, map));
     }
 
     list = list.push(scroll_footer());
-
     list.into()
 }
 
-fn operation_row<'a, P, Message>(
-    state: &'a DevtoolsPanelState<P>,
-    operation: DevtoolOperationView,
-    map: impl Fn(DevtoolsPanelMessage<P>) -> Message + Copy + 'a,
+fn operation_row<'a, Message>(
+    state: &'a DevtoolsPanelState,
+    entry: &'a SimulatorEntry,
+    map: impl Fn(DevtoolsPanelMessage) -> Message + Copy + 'a,
 ) -> Element<'a, Message>
 where
-    P: ProbeCatalogEntry,
     Message: Clone + 'a + 'static,
 {
-    let path = operation.path.clone();
-    let title = state_title(operation.label, operation.path.clone());
-    let status = operation_status_view(&operation.status);
+    let path = entry.path.clone();
+    let title = state_title(entry.label.clone(), entry.path.clone());
+    let status = simulable_status_view(&entry.snapshot);
+    let has_error = snapshot_has_error(&entry.snapshot);
+    let has_input = entry.capabilities.input;
     let row_id = DevtoolsRowId::Operation(path.clone());
     let expanded = state.is_row_expanded(&row_id);
-    let mut fields = row![]
-        .spacing(theme::gap(GapRole::Related))
-        .align_y(Alignment::Center);
-    let mut visible_fields = 0usize;
-
-    for field in operation.fields {
-        visible_fields += 1;
-        fields = fields.push(command_field(state, &path, field, map));
-    }
-
-    if visible_fields == 0 {
-        fields = fields.push(nive_ui::widgets::text::caption("No inputs"));
-    }
 
     let controls = row![
-        command_button(button::secondary("Start"))
-            .on_press(map(DevtoolsPanelMessage::SetOperationRunning(path.clone()))),
-        command_button(button::destructive("Fail"))
-            .on_press(map(DevtoolsPanelMessage::SetOperationFailed(path.clone()))),
-        command_button(button::secondary("Reset"))
-            .on_press(map(DevtoolsPanelMessage::SetOperationIdle(path.clone()))),
+        command_button(
+            button::secondary("Start")
+                .disabled(!has_input)
+                .tooltip_maybe((!has_input).then_some(INPUT_CAPABILITY_HINT))
+                .on_press_maybe(has_input.then(|| {
+                    map(DevtoolsPanelMessage::Simulate {
+                        path: path.clone(),
+                        action: SimulateAction::Start,
+                    })
+                }))
+        ),
+        command_button(
+            button::destructive("Fail")
+                .disabled(!has_input)
+                .tooltip_maybe((!has_input).then_some(INPUT_CAPABILITY_HINT))
+                .on_press_maybe(has_input.then(|| {
+                    map(DevtoolsPanelMessage::Simulate {
+                        path: path.clone(),
+                        action: SimulateAction::Error {
+                            message: state.error_input(&path),
+                        },
+                    })
+                }))
+        ),
+        command_button(
+            button::secondary("Reset").on_press(map(DevtoolsPanelMessage::Simulate {
+                path: path.clone(),
+                action: SimulateAction::Idle,
+            }))
+        ),
     ]
     .spacing(theme::gap(GapRole::Tight))
     .align_y(Alignment::Center);
+
     let action = row_action_button(button::ghost(if expanded { "Hide" } else { "Edit" }))
         .on_press(map(DevtoolsPanelMessage::ToggleRowExpanded(row_id.clone())));
 
@@ -131,30 +151,57 @@ where
         .padding(Padding::ZERO.vertical(theme::space(theme::SpaceStep::Xs)));
 
     if expanded {
-        content = content.push(
-            row![
-                Space::new().width(Length::Fixed(state_control_indent())),
-                container(fields).width(Length::Fill),
-            ]
-            .spacing(theme::gap(GapRole::Related))
-            .align_y(Alignment::Center),
-        );
-        content = content.push(
-            row![
-                Space::new().width(Length::Fixed(state_control_indent())),
-                command_error_field(state, &path, map),
-                secondary_command_button(button::ghost("Clear inputs"))
-                    .on_press(map(DevtoolsPanelMessage::ClearCommandInputs(path.clone()))),
-                Space::new().width(Length::Fill),
-            ]
-            .spacing(theme::gap(GapRole::Related))
-            .align_y(Alignment::Center),
-        );
+        let mut details = row![
+            Space::new().width(Length::Fixed(state_control_indent())),
+            command_error_field(state, &path, map),
+            Space::new().width(Length::Fill),
+        ]
+        .spacing(theme::gap(GapRole::Related))
+        .align_y(Alignment::Center);
+
+        if has_error {
+            details = details.push(command_button(button::ghost("Dismiss")).on_press(map(
+                DevtoolsPanelMessage::Simulate {
+                    path: path.clone(),
+                    action: SimulateAction::DismissError,
+                },
+            )));
+        }
+
+        content = content.push(details);
     }
 
-    if let Some(error) = state.row_command_error(&row_id) {
+    if let Some(error) = state.row_error(&row_id) {
         content = content.push(row_error(row_id, error, map));
     }
 
     content.into()
+}
+
+fn registry_row<'a, Message>(entry: &'a RegistryEntry) -> Element<'a, Message>
+where
+    Message: Clone + 'a + 'static,
+{
+    let status_badge: Element<'a, Message> = match &entry.status {
+        RegistryStatus::Running => Badge::info("Running").xs().into(),
+        RegistryStatus::Completed => Badge::success("Completed").xs().into(),
+        RegistryStatus::Failed(msg) => iced::widget::column![
+            Badge::danger("Failed").xs(),
+            nive_ui::widgets::text::caption(msg.clone()),
+        ]
+        .spacing(theme::gap(GapRole::Tight))
+        .into(),
+        RegistryStatus::Cancelled => Badge::neutral("Cancelled").xs().into(),
+    };
+
+    row![
+        container(nive_ui::widgets::text::caption(entry.label.clone()))
+            .width(Length::Fixed(STATE_TITLE_WIDTH)),
+        container(status_badge).width(Length::Fixed(STATUS_WIDTH)),
+        Space::new().width(Length::Fill),
+    ]
+    .spacing(theme::gap(GapRole::Related))
+    .align_y(Alignment::Center)
+    .padding(Padding::ZERO.vertical(theme::space(theme::SpaceStep::Xs)))
+    .into()
 }

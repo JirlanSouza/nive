@@ -8,10 +8,8 @@ use nive_ui::theme::{self, GapRole};
 use nive_ui::widgets::{button, input, Badge, InputGroup, Separator};
 use nive_ui::{Element, Renderer, Theme};
 
-use crate::devtools::{
-    DevtoolAsyncStatus, DevtoolFieldSchema, DevtoolOperationStatus, DevtoolsPanelMessage,
-    DevtoolsPanelState, DevtoolsRowId,
-};
+use crate::devtools::{DevtoolsPanelMessage, DevtoolsPanelState, DevtoolsRowId};
+use crate::inspect::SimulableSnapshot;
 
 #[cfg(test)]
 mod tests;
@@ -21,32 +19,28 @@ pub(super) const STATUS_WIDTH: f32 = 112.0;
 pub(super) const ROW_ACTION_WIDTH: f32 = 56.0;
 pub(super) const COMMAND_BUTTON_WIDTH: f32 = 76.0;
 pub(super) const SECONDARY_COMMAND_BUTTON_WIDTH: f32 = 96.0;
-pub(super) const FIXTURE_BUTTON_WIDTH: f32 = 132.0;
-pub(super) const FIELD_WIDTH: f32 = 150.0;
-pub(super) const ERROR_FIELD_WIDTH: f32 = 280.0;
 pub(super) const SEARCH_FIELD_WIDTH: f32 = 220.0;
 pub(super) const STATE_TITLE_LABEL_CHARS: usize = 32;
 pub(super) const STATE_TITLE_PATH_CHARS: usize = 38;
 
-pub(super) fn state_list_with_error<'a, P, Message>(
-    state: &'a DevtoolsPanelState<P>,
-    map: impl Fn(DevtoolsPanelMessage<P>) -> Message + Copy + 'a,
+pub(super) fn state_list_with_error<'a, Message>(
+    state: &'a DevtoolsPanelState,
+    map: impl Fn(DevtoolsPanelMessage) -> Message + Copy + 'a,
 ) -> iced::widget::Column<'a, Message, Theme, Renderer>
 where
-    P: Copy + Eq,
     Message: Clone + 'a + 'static,
 {
     let mut list = column![]
         .spacing(theme::gap(GapRole::Related))
         .width(Length::Fill);
 
-    if let Some(error) = state.last_command_error() {
+    if let Some(error) = state.last_error() {
         let alert = row![
             nive_ui::widgets::text::caption(error.to_string()),
             Space::new().width(Length::Fill),
             button::ghost("Dismiss")
                 .xs()
-                .on_press(map(DevtoolsPanelMessage::ClearCommandError)),
+                .on_press(map(DevtoolsPanelMessage::ClearLastError)),
         ]
         .spacing(theme::gap(GapRole::Related))
         .align_y(Alignment::Center);
@@ -94,30 +88,12 @@ where
     button.xs().width(Length::Fixed(ROW_ACTION_WIDTH))
 }
 
-pub(super) fn fixture_action<'a, Message>(label: String, on_press: Message) -> Element<'a, Message>
-where
-    Message: Clone + 'a,
-{
-    row![
-        container(nive_ui::widgets::text::caption(label).width(Length::Fill))
-            .width(Length::Fixed(120.0)),
-        button::secondary("Load")
-            .xs()
-            .width(Length::Fixed(FIXTURE_BUTTON_WIDTH))
-            .on_press(on_press),
-    ]
-    .spacing(theme::gap(GapRole::Tight))
-    .align_y(Alignment::Center)
-    .into()
-}
-
-pub(super) fn row_error<'a, P, Message>(
+pub(super) fn row_error<'a, Message>(
     row_id: DevtoolsRowId,
     error: &'a str,
-    map: impl Fn(DevtoolsPanelMessage<P>) -> Message + Copy + 'a,
+    map: impl Fn(DevtoolsPanelMessage) -> Message + Copy + 'a,
 ) -> Element<'a, Message>
 where
-    P: Copy + Eq,
     Message: Clone + 'a,
 {
     row![
@@ -160,15 +136,6 @@ pub(super) fn clamped_label_strong<'a>(
         .wrapping(text::Wrapping::None)
 }
 
-pub(super) fn clamped_caption<'a>(
-    content: impl Into<String>,
-    max_chars: usize,
-) -> iced::widget::text::Text<'a, Theme> {
-    nive_ui::widgets::text::caption(ellipsize_end(content.into(), max_chars))
-        .width(Length::Fill)
-        .wrapping(text::Wrapping::None)
-}
-
 fn clamped_code_small<'a>(
     content: impl Into<String>,
     max_chars: usize,
@@ -194,17 +161,12 @@ fn ellipsize_end(mut value: String, max_chars: usize) -> String {
     value
 }
 
-pub(super) fn async_status_has_value(status: &DevtoolAsyncStatus) -> bool {
-    match status {
-        DevtoolAsyncStatus::Idle => false,
-        DevtoolAsyncStatus::Loading { has_value }
-        | DevtoolAsyncStatus::Failed { has_value, .. } => *has_value,
-        DevtoolAsyncStatus::Loaded => true,
-    }
+pub(super) fn snapshot_has_value(s: &SimulableSnapshot) -> bool {
+    crate::devtools::host::snapshot_has_value(s)
 }
 
-pub(super) fn resource_status_has_error(status: &DevtoolAsyncStatus) -> bool {
-    matches!(status, DevtoolAsyncStatus::Failed { .. })
+pub(super) fn snapshot_has_error(s: &SimulableSnapshot) -> bool {
+    crate::devtools::host::snapshot_has_error(s)
 }
 
 pub(super) fn normalized_query(query: &str) -> String {
@@ -229,26 +191,29 @@ pub(super) fn empty_message<'a>(query: &str, empty: &'a str, filtered: &'a str) 
     }
 }
 
-pub(super) fn async_status_view<'a, Message>(status: &DevtoolAsyncStatus) -> Element<'a, Message>
+pub(super) fn simulable_status_view<'a, Message>(
+    snapshot: &SimulableSnapshot,
+) -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
-    match status {
-        DevtoolAsyncStatus::Idle => Badge::neutral("Idle").xs().into(),
-        DevtoolAsyncStatus::Loading { has_value } => {
+    match snapshot {
+        SimulableSnapshot::Idle => Badge::neutral("Idle").xs().into(),
+        SimulableSnapshot::Loading { has_value } => {
             let badge: Element<'a, Message> = Badge::info("Loading").xs().into();
-            match has_value {
-                true => column![
+            if *has_value {
+                column![
                     badge,
                     nive_ui::widgets::text::caption("preserving cached value")
                 ]
                 .spacing(theme::gap(GapRole::Tight))
-                .into(),
-                false => badge,
+                .into()
+            } else {
+                badge
             }
         }
-        DevtoolAsyncStatus::Loaded => Badge::success("Loaded").xs().into(),
-        DevtoolAsyncStatus::Failed { has_value, summary } => column![
+        SimulableSnapshot::Loaded => Badge::success("Loaded").xs().into(),
+        SimulableSnapshot::Failed { has_value, summary } => column![
             Badge::danger("Failed").xs(),
             nive_ui::widgets::text::caption(if *has_value {
                 format!("{summary} · cached")
@@ -258,19 +223,8 @@ where
         ]
         .spacing(theme::gap(GapRole::Tight))
         .into(),
-    }
-}
-
-pub(super) fn operation_status_view<'a, Message>(
-    status: &DevtoolOperationStatus,
-) -> Element<'a, Message>
-where
-    Message: Clone + 'a,
-{
-    match status {
-        DevtoolOperationStatus::Idle => Badge::neutral("Idle").xs().into(),
-        DevtoolOperationStatus::Running => Badge::info("Running").xs().into(),
-        DevtoolOperationStatus::Failed { summary } => column![
+        SimulableSnapshot::Running => Badge::info("Running").xs().into(),
+        SimulableSnapshot::OperationFailed { summary } => column![
             Badge::danger("Failed").xs(),
             nive_ui::widgets::text::caption(summary.clone()),
         ]
@@ -279,57 +233,27 @@ where
     }
 }
 
-pub(super) fn command_field<'a, P, Message>(
-    state: &'a DevtoolsPanelState<P>,
+pub(super) fn command_error_field<'a, Message>(
+    state: &'a DevtoolsPanelState,
     path: &str,
-    field: DevtoolFieldSchema,
-    map: impl Fn(DevtoolsPanelMessage<P>) -> Message + Copy + 'a,
+    map: impl Fn(DevtoolsPanelMessage) -> Message + Copy + 'a,
 ) -> Element<'a, Message>
 where
-    P: Copy + Eq,
     Message: Clone + 'a + 'static,
 {
-    let value = state.command_value(path, &field.name);
-    let path = path.to_string();
-    let field_name = field.name.clone();
-    let input = input::default_owned(field.placeholder.clone(), value)
-        .xs()
-        .on_input(move |value| {
-            map(DevtoolsPanelMessage::CommandInputChanged {
-                path: path.clone(),
-                field_name: field_name.clone(),
-                value,
-            })
-        });
-
-    column![nive_ui::widgets::text::caption(field.label), input]
-        .spacing(theme::gap(GapRole::Tight))
-        .width(Length::Fixed(FIELD_WIDTH))
-        .into()
-}
-
-pub(super) fn command_error_field<'a, P, Message>(
-    state: &'a DevtoolsPanelState<P>,
-    path: &str,
-    map: impl Fn(DevtoolsPanelMessage<P>) -> Message + Copy + 'a,
-) -> Element<'a, Message>
-where
-    P: Copy + Eq,
-    Message: Clone + 'a + 'static,
-{
-    let value = state.command_error_value(path);
+    let value = state.error_input(path);
     let path = path.to_string();
     let input = input::default_owned("Failure message", value)
         .xs()
         .on_input(move |value| {
-            map(DevtoolsPanelMessage::CommandErrorChanged {
+            map(DevtoolsPanelMessage::ErrorMessageChanged {
                 path: path.clone(),
                 value,
             })
         });
 
     container(InputGroup::new(input).leading_text("err").xs().fill())
-        .width(Length::Fixed(ERROR_FIELD_WIDTH))
+        .width(Length::Fixed(280.0))
         .align_y(alignment::Vertical::Center)
         .into()
 }

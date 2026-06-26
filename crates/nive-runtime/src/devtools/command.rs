@@ -1,124 +1,82 @@
-use std::collections::BTreeMap;
+/// The forcing action the devtools panel wants to apply to a single
+/// [`SimulableState`] leaf identified by its dotted path.
+///
+/// [`SimulableState`]: crate::inspect::SimulableState
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SimulateAction {
+    Idle,
+    /// Force loading without preserving the current value.
+    Loading,
+    /// Force an operation to running with its configured sample input.
+    Start,
+    /// Force loading while preserving the current value (refresh).
+    Refreshing,
+    /// Force an error with the given message.
+    Error {
+        message: String,
+    },
+    /// Force the default value when the field declared `#[inspect(default)]`.
+    Default,
+    /// Force the configured sample payload.
+    Sample,
+    /// Dismiss the current error without changing the load state.
+    DismissError,
+}
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+/// Identifies a row in the devtools panel for per-row error display.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DevtoolsRowId {
     Resource(String),
     Operation(String),
-    Probe(String),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DevtoolCommand {
-    SetResourceIdle {
-        path: String,
-    },
-    SetResourceLoading {
-        path: String,
-        preserve_value: bool,
-    },
-    SetResourceFailed {
-        path: String,
-        message: String,
-        preserve_value: bool,
-    },
-    SetResourceLoadedFixture {
-        path: String,
-        fixture_id: String,
-    },
-    DismissResourceError {
-        path: String,
-    },
-    SetOperationIdle {
-        path: String,
-    },
-    SetOperationRunning {
-        path: String,
-        input: BTreeMap<String, String>,
-    },
-    SetOperationFailed {
-        path: String,
-        input: BTreeMap<String, String>,
-        message: String,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DevtoolCommandResult {
-    handled: bool,
-    state_changed: bool,
-    error: Option<String>,
-}
-
-impl DevtoolCommand {
-    pub fn path(&self) -> &str {
-        match self {
-            Self::SetResourceIdle { path }
-            | Self::SetResourceLoading { path, .. }
-            | Self::SetResourceFailed { path, .. }
-            | Self::SetResourceLoadedFixture { path, .. }
-            | Self::DismissResourceError { path }
-            | Self::SetOperationIdle { path }
-            | Self::SetOperationRunning { path, .. }
-            | Self::SetOperationFailed { path, .. } => path,
-        }
-    }
-
-    pub fn row_id(&self) -> DevtoolsRowId {
-        match self {
-            Self::SetResourceIdle { path }
-            | Self::SetResourceLoading { path, .. }
-            | Self::SetResourceFailed { path, .. }
-            | Self::SetResourceLoadedFixture { path, .. }
-            | Self::DismissResourceError { path } => DevtoolsRowId::Resource(path.clone()),
-            Self::SetOperationIdle { path }
-            | Self::SetOperationRunning { path, .. }
-            | Self::SetOperationFailed { path, .. } => DevtoolsRowId::Operation(path.clone()),
-        }
-    }
 }
 
 impl DevtoolsRowId {
     pub fn path(&self) -> &str {
         match self {
-            Self::Resource(path) | Self::Operation(path) | Self::Probe(path) => path,
+            Self::Resource(p) | Self::Operation(p) => p,
         }
     }
 }
 
-impl DevtoolCommandResult {
-    pub fn changed() -> Self {
-        Self {
-            handled: true,
-            state_changed: true,
-            error: None,
+/// Result of applying a simulate action to the app state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SimulateResult {
+    Applied,
+    Unsupported { reason: String },
+    NotFound,
+}
+
+impl SimulateResult {
+    pub fn applied() -> Self {
+        Self::Applied
+    }
+
+    pub fn unsupported(reason: impl Into<String>) -> Self {
+        Self::Unsupported {
+            reason: reason.into(),
         }
     }
 
-    pub fn failed(error: impl Into<String>) -> Self {
-        Self {
-            handled: true,
-            state_changed: false,
-            error: Some(error.into()),
+    pub fn not_found() -> Self {
+        Self::NotFound
+    }
+
+    pub fn applied_result(&self) -> bool {
+        matches!(self, Self::Applied)
+    }
+
+    pub fn unsupported_reason(&self) -> Option<&str> {
+        match self {
+            Self::Unsupported { reason } => Some(reason.as_str()),
+            _ => None,
         }
     }
 
-    pub fn not_handled() -> Self {
-        Self {
-            handled: false,
-            state_changed: false,
-            error: None,
+    pub fn panel_error(&self, path: &str) -> Option<String> {
+        match self {
+            Self::Applied => None,
+            Self::Unsupported { reason } => Some(reason.clone()),
+            Self::NotFound => Some(format!("No state matched `{path}`")),
         }
-    }
-
-    pub fn handled(&self) -> bool {
-        self.handled
-    }
-
-    pub fn state_changed(&self) -> bool {
-        self.state_changed
-    }
-
-    pub fn into_parts(self) -> (bool, Option<String>) {
-        (self.handled, self.error)
     }
 }
