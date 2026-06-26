@@ -9,6 +9,8 @@ categories = ["gui"]
 
 [features]
 default = []
+# Forwards `devtools` to `nive-runtime`, enabling the devtools panel infrastructure.
+devtools = ["nive-runtime/devtools"]
 # Forwards `file-picker` to `nive-runtime`, exposing param structs and
 # `pick_*` / `save_file` functions through `nive::prelude::ui`.
 file-picker = ["nive-runtime/file-picker"]
