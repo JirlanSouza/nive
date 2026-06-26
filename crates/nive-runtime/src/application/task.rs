@@ -4,7 +4,10 @@ use iced::Task;
 
 use crate::UserFacingResult;
 
-pub fn client_task<T, Message, Fut>(
+/// Spawns a `UserFacingResult<T>` future as a `Task<Message>`, for async work
+/// not tied to a [`Resource`](crate::Resource) or [`Operation`](crate::Operation)
+/// (e.g. fire-and-forget that only toasts on completion).
+pub fn perform<T, Message, Fut>(
     future: Fut,
     map: impl Fn(UserFacingResult<T>) -> Message + Send + 'static,
 ) -> Task<Message>
@@ -17,12 +20,12 @@ where
 }
 
 #[cfg(test)]
-mod client_task_tests {
+mod perform_tests {
     use super::*;
 
     #[test]
-    fn client_task_wraps_future_result() {
-        let _task = client_task(async { Ok::<_, crate::UserFacingError>(()) }, |result| {
+    fn perform_wraps_future_result() {
+        let _task = perform(async { Ok::<_, crate::UserFacingError>(()) }, |result| {
             result
         });
     }

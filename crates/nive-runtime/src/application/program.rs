@@ -12,22 +12,20 @@ use super::{
     WindowRegistration,
 };
 #[cfg(feature = "devtools")]
-use crate::devtools::probe::{
-    NoProbe, ProbeCatalogEntry, ProbeInjectionSnapshot, ProbePanelEffect,
-};
-#[cfg(feature = "devtools")]
-use crate::devtools::DevtoolsPanelMessage;
+use crate::devtools::probe::{NoProbe, ProbeCatalogEntry};
 #[cfg(feature = "devtools")]
 use crate::devtools::{DevtoolsConfig, DevtoolsHostState, DevtoolsWindowSpec};
+#[cfg(feature = "devtools")]
+use crate::devtools::{DevtoolsPanelEffect, DevtoolsPanelMessage};
 use crate::lifecycle::bootstrap::{
     minimum_duration_task, BootstrapController, BootstrapTransition,
 };
 use crate::{
-    ActionMap, AppUpdate, BootstrapSpec, DialogRequest, KeyboardNavigation, OperationCommand,
-    OperationRegistry, RuntimeCommand, RuntimeSession, ScreenView, SettingsConfig, SettingsError,
-    SettingsErrorKind, ShortcutMap, ThemeController, ThemeEvent, ToastId, ToastPosition,
-    ToastState, UserFacingResult, WindowCardinality, WindowChrome, WindowHandle, WindowMode,
-    WindowRegistry, WindowRole, WindowSpec,
+    ActionMap, AppUpdate, BootstrapSpec, DialogRequest, KeyboardNavigation, RuntimeCommand,
+    RuntimeSession, ScreenView, SettingsConfig, SettingsError, SettingsErrorKind, ShortcutMap,
+    ThemeController, ThemeEvent, ToastId, ToastPosition, ToastState, UserFacingResult,
+    WindowCardinality, WindowChrome, WindowHandle, WindowMode, WindowRegistry, WindowRole,
+    WindowSpec,
 };
 
 #[cfg(not(feature = "devtools"))]
@@ -93,12 +91,12 @@ pub(super) fn run_with_devtools<A>() -> Result
 where
     A: crate::devtools::DevtoolsApp,
 {
-    let devtools = DevtoolsRuntime::<A, A::Probe>::new(DevtoolsConfig::from_env());
-    run_inner::<A, A::Probe>(Some(devtools))
+    let devtools = DevtoolsRuntime::<A>::new(DevtoolsConfig::from_env());
+    run_inner::<A, NoProbe>(Some(devtools))
 }
 
 #[cfg(feature = "devtools")]
-fn run_inner<A, P>(devtools: Option<DevtoolsRuntime<A, P>>) -> Result
+fn run_inner<A, P>(devtools: Option<DevtoolsRuntime<A>>) -> Result
 where
     A: Application,
     P: ProbeCatalogEntry,
@@ -162,44 +160,32 @@ struct Program<A: Application, P: ProbeCatalogEntry = NoProbe> {
     app: Option<A>,
     bootstrap: Option<BootstrapRuntime<A::Bootstrap>>,
     #[cfg(feature = "devtools")]
-    devtools: Option<DevtoolsRuntime<A, P>>,
+    devtools: Option<DevtoolsRuntime<A>>,
     _probe: PhantomData<P>,
 }
 
 #[cfg(feature = "devtools")]
-struct DevtoolsRuntime<A: Application, P: ProbeCatalogEntry> {
-    host: DevtoolsHostState<P>,
+struct DevtoolsRuntime<A: Application> {
+    host: DevtoolsHostState,
+    cached_snapshot: crate::devtools::DevtoolStateSnapshot,
     window_id: Option<window::Id>,
     start_open: bool,
     config: DevtoolsConfig,
-    #[cfg(feature = "devtools")]
-    snapshot: fn(&A) -> crate::devtools::DevtoolStateSnapshot,
-    #[cfg(feature = "devtools")]
-    apply_command:
-        fn(&mut A, &crate::devtools::DevtoolCommand) -> crate::devtools::DevtoolCommandResult,
-    probe_snapshot: fn(&A) -> ProbeInjectionSnapshot<P>,
-    #[cfg(feature = "devtools")]
-    apply_probe_effect: fn(&mut A, ProbePanelEffect<P>),
+    collect: fn(&mut A) -> crate::devtools::DevtoolStateSnapshot,
+    apply: fn(&mut A, &str, &crate::devtools::SimulateAction) -> crate::devtools::SimulateResult,
 }
 
 #[cfg(feature = "devtools")]
-impl<A> DevtoolsRuntime<A, A::Probe>
-where
-    A: crate::devtools::DevtoolsApp,
-{
+impl<A: crate::devtools::DevtoolsApp> DevtoolsRuntime<A> {
     fn new(config: DevtoolsConfig) -> Self {
         Self {
             host: DevtoolsHostState::disabled(),
+            cached_snapshot: Default::default(),
             window_id: None,
             start_open: config.enabled(),
             config,
-            #[cfg(feature = "devtools")]
-            snapshot: A::devtools_snapshot,
-            #[cfg(feature = "devtools")]
-            apply_command: A::apply_devtools_command,
-            probe_snapshot: A::devtools_probe_snapshot,
-            #[cfg(feature = "devtools")]
-            apply_probe_effect: A::devtools_apply_probe_effect,
+            collect: crate::devtools::collect_snapshot,
+            apply: crate::devtools::apply_simulate,
         }
     }
 }
@@ -221,8 +207,7 @@ enum NiveMessage<K, M, B, P> {
         message: M,
     },
     #[cfg(feature = "devtools")]
-    Devtools(DevtoolsPanelMessage<P>),
-    #[cfg(not(feature = "devtools"))]
+    Devtools(DevtoolsPanelMessage),
     Probe(std::marker::PhantomData<P>),
 }
 
@@ -293,7 +278,6 @@ where
             },
             #[cfg(feature = "devtools")]
             Self::Devtools(message) => Self::Devtools(message.clone()),
-            #[cfg(not(feature = "devtools"))]
             Self::Probe(marker) => Self::Probe(*marker),
         }
     }
@@ -328,9 +312,6 @@ struct NiveCore<K> {
     toasts_hovered: bool,
     pending_app_closes: HashSet<window::Id>,
     settings: Option<SettingsRuntime>,
-    /// Runtime-managed operation registry, driven by `AppUpdate::op_start`
-    /// / `op_complete` / `op_fail` / `op_cancel`. Observed by devtools.
-    operations: OperationRegistry,
 }
 
 #[derive(Debug, Clone)]
@@ -346,7 +327,7 @@ where
 {
     fn new(
         mut config: ApplicationConfig<A::Window, A::Bootstrap>,
-        #[cfg(feature = "devtools")] devtools: Option<DevtoolsRuntime<A, P>>,
+        #[cfg(feature = "devtools")] devtools: Option<DevtoolsRuntime<A>>,
     ) -> Result<ProgramBoot<A, P>> {
         let settings = SettingsRuntime::load(config.settings.as_ref());
         if let Some(preference) = settings
@@ -401,7 +382,6 @@ where
             }
             #[cfg(feature = "devtools")]
             NiveMessage::Devtools(message) => self.update_devtools(message),
-            #[cfg(not(feature = "devtools"))]
             NiveMessage::Probe(_) => Task::none(),
         }
     }
@@ -674,22 +654,29 @@ where
 
     #[cfg(feature = "devtools")]
     fn initialize_devtools(&mut self) -> Task<RuntimeMessage<A, P>> {
-        let Some(devtools) = self.devtools.as_mut() else {
+        if self.devtools.is_none() {
             return Task::none();
-        };
-        let Some(app) = self.app.as_ref() else {
-            return Task::none();
-        };
+        }
 
-        let probe_snapshot = (devtools.probe_snapshot)(app);
-        let panel = crate::devtools::DevtoolsPanelState::from_probe_snapshot_with_config(
-            &probe_snapshot,
-            devtools.config,
-        );
+        let config = self.devtools.as_ref().unwrap().config;
+        let panel = crate::devtools::DevtoolsPanelState::new().with_config(config);
+
+        let (devtools_opt, app_opt) = (&mut self.devtools, &mut self.app);
+        let devtools = devtools_opt.as_mut().unwrap();
         devtools.host = DevtoolsHostState::new(Some(panel));
+        if let Some(app) = app_opt.as_mut() {
+            let collect = devtools.collect;
+            devtools.cached_snapshot = collect(app);
+        }
 
-        if devtools.start_open {
+        let start_open = {
+            let devtools = self.devtools.as_mut().unwrap();
+            let v = devtools.start_open;
             devtools.start_open = false;
+            v
+        };
+
+        if start_open {
             self.open_devtools_window()
         } else {
             Task::none()
@@ -738,40 +725,44 @@ where
         let Some(panel) = devtools.host.panel() else {
             return iced::widget::text("").into();
         };
-        let Some(app) = self.app.as_ref() else {
-            return iced::widget::text("").into();
-        };
-        let snapshot = (devtools.snapshot)(app);
 
-        devtools_window(panel, snapshot, NiveMessage::Devtools)
+        devtools_window(panel, &devtools.cached_snapshot, NiveMessage::Devtools)
     }
 
     #[cfg(feature = "devtools")]
-    fn update_devtools(&mut self, message: DevtoolsPanelMessage<P>) -> Task<RuntimeMessage<A, P>> {
-        let Some(devtools) = self.devtools.as_mut() else {
+    fn update_devtools(&mut self, message: DevtoolsPanelMessage) -> Task<RuntimeMessage<A, P>> {
+        let effect = {
+            let Some(devtools) = self.devtools.as_mut() else {
+                return Task::none();
+            };
+            devtools.host.update(message)
+        };
+        let Some(DevtoolsPanelEffect::Simulate { path, action }) = effect else {
             return Task::none();
         };
 
-        let effect = devtools.host.update(message);
-        let Some(effect) = effect else {
+        let is_resource = self
+            .devtools
+            .as_ref()
+            .and_then(|d| d.cached_snapshot.entries.iter().find(|e| e.path == path))
+            .map(|e| e.is_resource())
+            .unwrap_or(true);
+
+        let (devtools_opt, app_opt) = (&mut self.devtools, &mut self.app);
+        let (Some(devtools), Some(app)) = (devtools_opt.as_mut(), app_opt.as_mut()) else {
             return Task::none();
         };
+        let collect = devtools.collect;
+        let apply = devtools.apply;
+        let result = apply(app, &path, &action);
+        devtools.cached_snapshot = collect(app);
+        let new_entries = devtools.cached_snapshot.entries.clone();
 
-        match effect {
-            crate::devtools::DevtoolsPanelEffect::Command(command) => {
-                let Some(app) = self.app.as_mut() else {
-                    return Task::none();
-                };
-                let result = (devtools.apply_command)(app, &command);
-                devtools.host.record_command_result(&command, result);
-            }
-            crate::devtools::DevtoolsPanelEffect::Probe(effect) => {
-                let Some(app) = self.app.as_mut() else {
-                    return Task::none();
-                };
-                (devtools.apply_probe_effect)(app, effect);
-            }
+        if let Some(panel) = devtools.host.panel_mut() {
+            panel.entries = new_entries;
+            panel.record_simulate_result(&path, is_resource, result);
         }
+
         Task::none()
     }
 
@@ -1050,54 +1041,7 @@ where
 
                 Task::batch([event_task, save_task])
             }
-            RuntimeCommand::Operation(operation_command) => {
-                self.handle_operation_command(operation_command);
-                Task::none()
-            }
             RuntimeCommand::Exit => self.request_exit(),
-        }
-    }
-
-    /// Applies an [`OperationCommand`] to the runtime-managed
-    /// [`OperationRegistry`]. Double completions, fails, or cancels for the
-    /// same id are silently rejected (the registry returns `None`); the
-    /// runtime logs these at `debug` level via the registry's terminal-guard.
-    fn handle_operation_command(&mut self, command: OperationCommand) {
-        match command {
-            OperationCommand::Start(descriptor) => {
-                let id = descriptor.id.clone();
-                if let Some(previous) = self.core.operations.register(descriptor) {
-                    log::debug!(
-                        target: "nive_runtime::operations",
-                        "operations.replaced id={id} previous_title={}",
-                        previous.title
-                    );
-                }
-            }
-            OperationCommand::Complete(id) => {
-                if self.core.operations.complete(id.clone()).is_none() {
-                    log::debug!(
-                        target: "nive_runtime::operations",
-                        "operations.complete_ignored id={id}"
-                    );
-                }
-            }
-            OperationCommand::Fail(id, error) => {
-                if self.core.operations.fail(id.clone(), error).is_none() {
-                    log::debug!(
-                        target: "nive_runtime::operations",
-                        "operations.fail_ignored id={id}"
-                    );
-                }
-            }
-            OperationCommand::Cancel(id) => {
-                if self.core.operations.cancel(id.clone()).is_none() {
-                    log::debug!(
-                        target: "nive_runtime::operations",
-                        "operations.cancel_ignored id={id}"
-                    );
-                }
-            }
         }
     }
 
@@ -1558,7 +1502,6 @@ where
             toasts_hovered: false,
             pending_app_closes: HashSet::new(),
             settings,
-            operations: OperationRegistry::new(),
         };
         core.report_duplicate_window_session_keys();
         core
@@ -1646,20 +1589,6 @@ where
                 seen.push(key);
             }
         }
-    }
-
-    /// Read-only access to the runtime-managed [`OperationRegistry`].
-    ///
-    /// Used by the devtools panel and probe modules to render the live
-    /// operation catalog without apps having to hand-roll their own field
-    /// registry. Apps that want in-app operation views can still hold their
-    /// own `OperationRegistry` field — the two registries are independent.
-    ///
-    /// The full devtools-panel integration is wired in the `simplify-devtools`
-    /// change; this accessor is published now so the surface is ready.
-    #[allow(dead_code)]
-    pub fn operations(&self) -> &OperationRegistry {
-        &self.operations
     }
 }
 
@@ -1752,26 +1681,6 @@ mod tests {
 
     #[derive(Debug)]
     struct PendingInitTaskApp;
-
-    #[cfg(feature = "devtools")]
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    enum TestProbe {
-        One,
-    }
-
-    #[cfg(feature = "devtools")]
-    impl ProbeCatalogEntry for TestProbe {
-        const ALL: &'static [Self] = &[Self::One];
-
-        fn meta(self) -> crate::devtools::probe::ProbeMeta {
-            crate::devtools::probe::ProbeMeta::new(
-                "test.one",
-                "one",
-                "Test probe",
-                crate::devtools::probe::ProbeErrorScope::Custom("test"),
-            )
-        }
-    }
 
     impl Application for TestApp {
         type Message = TestMessage;
@@ -1961,36 +1870,21 @@ mod tests {
     }
 
     #[cfg(feature = "devtools")]
-    impl crate::devtools::Devtools for TestApp {}
+    impl crate::inspect::Inspect for TestApp {
+        fn inspect(
+            &mut self,
+            _: &mut crate::inspect::InspectPath,
+            _: &mut dyn crate::inspect::InspectSink,
+        ) {
+        }
+    }
 
     #[cfg(feature = "devtools")]
     impl crate::devtools::DevtoolsApp for TestApp {
-        type Probe = TestProbe;
+        type State = Self;
 
-        fn devtools_snapshot(&self) -> crate::devtools::DevtoolStateSnapshot {
-            crate::devtools::DevtoolStateSnapshot::default()
-        }
-
-        fn apply_devtools_command(
-            &mut self,
-            _command: &crate::devtools::DevtoolCommand,
-        ) -> crate::devtools::DevtoolCommandResult {
-            crate::devtools::DevtoolCommandResult::not_handled()
-        }
-
-        fn devtools_probe_snapshot(
-            &self,
-        ) -> crate::devtools::probe::ProbeInjectionSnapshot<Self::Probe> {
-            crate::devtools::probe::ProbeInjectionSnapshot {
-                scenarios: Vec::new(),
-                unknown: Vec::new(),
-            }
-        }
-
-        fn devtools_apply_probe_effect(
-            &mut self,
-            _effect: crate::devtools::probe::ProbePanelEffect<Self::Probe>,
-        ) {
+        fn devtool_state_mut(&mut self) -> &mut Self {
+            self
         }
     }
 
@@ -2037,10 +1931,10 @@ mod tests {
     }
 
     #[cfg(feature = "devtools")]
-    fn devtools_program(config: DevtoolsConfig) -> Program<TestApp, TestProbe> {
+    fn devtools_program(config: DevtoolsConfig) -> Program<TestApp> {
         Program::new(
             TestApp::config(),
-            Some(DevtoolsRuntime::<TestApp, TestProbe>::new(config)),
+            Some(DevtoolsRuntime::<TestApp>::new(config)),
         )
         .map(|(program, _)| program)
         .unwrap_or_else(|error| panic!("test program failed: {error}"))
@@ -2342,7 +2236,8 @@ mod tests {
     #[test]
     fn devtools_config_applies_initial_panel_tab() {
         let program = devtools_program(
-            DevtoolsConfig::default().with_initial_tab(crate::devtools::DevtoolsPanelTab::Probes),
+            DevtoolsConfig::default()
+                .with_initial_tab(crate::devtools::DevtoolsPanelTab::Operations),
         );
         let active_tab = program
             .devtools
@@ -2350,7 +2245,10 @@ mod tests {
             .and_then(|devtools| devtools.host.panel())
             .map(|panel| panel.active_tab);
 
-        assert_eq!(active_tab, Some(crate::devtools::DevtoolsPanelTab::Probes));
+        assert_eq!(
+            active_tab,
+            Some(crate::devtools::DevtoolsPanelTab::Operations)
+        );
     }
 
     #[cfg(feature = "devtools")]
@@ -2399,7 +2297,7 @@ mod tests {
         };
 
         assert!(matches!(
-            devtools_toggle_from_event::<TestWindow, (), (), TestProbe>(event),
+            devtools_toggle_from_event::<TestWindow, (), (), NoProbe>(event),
             Some(NiveMessage::Core(CoreMessage::ToggleDevtools))
         ));
     }
