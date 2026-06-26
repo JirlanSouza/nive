@@ -19,52 +19,57 @@ fn view(&self) -> Element<Message> {
 
 Your app can have its own set of icons beyond the framework essentials.
 
-### Initialize Icon Manifest
+### External Apps (cargo install)
+
+If you installed Nive via `cargo install nive-cli`, use the `nive` CLI directly:
 
 ```bash
-cargo run --package xtask --manifest-path ../nive/Cargo.toml -- icons init .
+# Initialize icon manifest
+nive icons init
+
+# Add icons
+nive icons add User user
+nive icons add Settings settings
+nive icons add Home home
+
+# Sync icons (downloads SVGs and generates enum)
+nive icons sync
 ```
 
-This creates:
-- `icons/lucide.toml` - manifest for your app's icons
-- `assets/icons/lucide/` - directory for SVG files
-- `src/widgets/icon.generated.rs` - generated enum
+### Monorepo Development
 
-### Add Icons
+If you're working within the Nive monorepo, use the `just` recipes:
 
 ```bash
-# Add a single icon
-cargo run --package xtask --manifest-path ../nive/Cargo.toml -- icons add User user
+# Initialize icon manifest
+just icons-init
 
-# Add multiple icons
-cargo run --package xtask --manifest-path ../nive/Cargo.toml -- icons add Settings settings
-cargo run --package xtask --manifest-path ../nive/Cargo.toml -- icons add Home home
-```
+# Add icons
+just icons-add User user
+just icons-add Settings settings
+just icons-add Home home
 
-### Sync Icons
-
-```bash
-cargo run --package xtask --manifest-path ../nive/Cargo.toml -- icons sync
-```
-
-This downloads the SVGs from Lucide and generates the enum.
-
-### Using App Icons
-
-```rust
-use crate::widgets::icon_generated::AppIcon;
-
-fn view(&self) -> Element<Message> {
-    Icon::new(AppIcon::User).md().into()
-}
+# Sync icons
+just icons-sync
 ```
 
 ## Icon Management Commands
 
-- `icons init <path>` - Initialize icon manifest in your app
-- `icons sync` - Download SVGs and generate enum
-- `icons check` - Verify icons are up to date
-- `icons add <Variant> <lucide-name>` - Add a new icon
+- `nive icons init` - Initialize icon manifest in your app
+- `nive icons sync` - Download SVGs and generate enum
+- `nive icons check` - Verify icons are up to date
+- `nive icons add <Variant> <lucide-name>` - Add a new icon
+- `nive icons list` - List all icons in manifest
+
+## Using App Icons
+
+```rust
+use crate::widgets::icon_generated::IconName;
+
+fn view(&self) -> Element<Message> {
+    Icon::new(IconName::User).md().into()
+}
+```
 
 ## Finding Lucide Icons
 

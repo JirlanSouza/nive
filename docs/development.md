@@ -7,7 +7,6 @@ This guide is for contributors working on the Nive framework itself.
 - Rust 1.92 or later
 - Cargo
 - just
-- curl (for icon syncing)
 
 ## Setup
 
@@ -48,7 +47,8 @@ just release
 
 ## Icon Management
 
-The framework maintains a set of essential icons in `nive-ui`.
+The framework maintains a set of essential icons in `nive-ui`. For external
+apps, use `nive icons` (see [adding-icons.md](guides/adding-icons.md)).
 
 ```bash
 # List framework icons
@@ -68,10 +68,7 @@ just icons-add <Variant> <lucide-name>
 
 ```bash
 # Create a new app using the framework
-just create-app test-app
-
-# Or manually
-cargo run --package create-nive-app -- test-app
+nive new test-app
 ```
 
 ## Architecture
@@ -81,8 +78,7 @@ cargo run --package create-nive-app -- test-app
 
 The v0.1 "API ergonomics" change rewrote several public-contract surfaces.
 Apps written against the pre-v0.1 snapshot need the updates below. New apps
-scaffolded via `cargo run --package create-nive-app -- my-app` already use
-the new defaults.
+scaffolded via `nive new my-app` already use the new defaults.
 
 ### `Application` trait
 
@@ -120,21 +116,20 @@ two constructors: `OperationId::from_static("...")` (zero-cost) and
 `from_static`. Apps that declared `OperationId` `Copy` and `*id`-derefs must
 switch to `.clone()` (Cow is not `Copy`).
 
-### Runtime-managed `OperationRegistry`
+### App-owned `OperationRegistry`
 
-`AppUpdate` exposes `op_start / op_complete / op_fail / op_cancel` for driving
-the runtime-managed `OperationRegistry` (visible by devtools). Apps that
-previously held their own `OperationRegistry` field may keep it for in-app
-rendering, but should NOT also call `op_start` for the same ids — the two
-registries are independent and do not stay in sync. Pick one path per id.
+`OperationRegistry` is app-owned state. Apps hold it as a field, drive it from
+`update`, and render it in product UI as needed. Devtools discover the same
+field read-only through `#[derive(Inspect)]`; there is no runtime-managed mirror
+and no `AppUpdate::op_*` API.
 
-### `AsyncState` stale-request guarding
+### `Resource` stale-request guarding
 
-`AsyncState<T>` gained `set_loading_with(RequestId)`, `set_loaded_with(RequestId, T)`,
-and `set_failed_with(RequestId, UserFacingError)`. Stale responses are
-silently ignored. The unguarded `set_loading / set_loaded / set_failed`
-methods keep their pre-change behaviour (no id check) — existing apps do not
-need to migrate; new apps should prefer the `_with(...)` forms.
+`Resource<T>` owns its request counter. `begin()` transitions to loading and
+returns a `RequestId`; `settle(Settled<T>)` applies only when the carried token
+matches the most recent `begin`. The blessed `load` helper hides the token in
+the message value, while manual code can still construct `Settled::new(token,
+result)`.
 
 ### `ErrorCode::new` returns `Result`
 
@@ -158,6 +153,48 @@ toasts, async state, dialogs, file picker params, theming, shortcuts, or
 window-handle types switch to `nive::prelude::ui::*`. The Bootstrap-related
 types (`BootstrapSpec`, `BrandContent`, `SplashBackground`, `BackgroundFit`)
 moved out of the minimal tier into `prelude::ui`.
+
+### `AsyncState` → `Resource`, `OperationState` → `Operation`
+
+The `AsyncState<T>` and `OperationState<C>` types have been replaced. The
+setter-method API (`set_loading`, `set_loaded_with`, `set_failed`) has been
+removed in favour of a token-based `begin`/`settle` contract:
+
+| Old (pre-v0.1) | New (v0.1) |
+|---|---|
+| `AsyncState<T>` | `Resource<T>` |
+| `OperationState<C>` | `Operation<C>` |
+| `state.set_loading()` | `let tok = resource.begin()` |
+| `state.set_loading_with(id)` | `let tok = resource.begin()` (token is the guard) |
+| `state.set_loaded(val)` | `resource.settle(Settled::new(tok, Ok(val)))` |
+| `state.set_loaded_with(id, val)` | `resource.settle(Settled::new(tok, Ok(val)))` |
+| `state.set_failed(err)` | `resource.settle(Settled::new(tok, Err(err)))` |
+| `AppUpdate::op_start(id, desc)` | removed — use `Operation<C>` fields + `#[derive(Inspect)]` |
+| `AppUpdate::op_complete(id)` | removed |
+| `AppUpdate::op_fail(id, err)` | removed |
+| `#[probe]` / `ProbeCatalog` | `#[derive(Inspect)]` on state struct |
+
+Stale-request safety is automatic: `Resource::settle` silently drops results
+whose token doesn't match the most recent `begin` call, so the explicit `_with`
+variants are no longer needed.
+
+### Devtools: `#[derive(Inspect)]` replaces probe catalog
+
+The devtools simulator no longer requires a separate probe catalog or the
+`#[probe]` attribute. Instead:
+
+1. Derive `Inspect` on the application's state struct (or implement it
+   manually for custom traversal).
+2. Declare `impl DevtoolsApp for MyApp` with `type State = MyState;` and
+   `fn devtool_state_mut(&mut self) -> &mut MyState`.
+3. Run with `nive_runtime::run_with_devtools::<MyApp>()`.
+
+The simulator panel discovers all `Resource` and `Operation` fields
+automatically at runtime. Payload-bearing controls are explicit:
+`#[inspect(default)]` enables default Resource data,
+`#[inspect(sample = path)]` enables Resource sample data, and
+`#[inspect(input = path)]` enables Operation start/fail simulation. Missing
+capabilities remain visible as disabled controls with tooltips.
 
 ## Testing
 
@@ -190,20 +227,32 @@ cargo doc --workspace --no-deps --open
 
 ## Publishing
 
-When ready to publish:
+Publish in dependency order (leaves first, then the umbrella, then the CLI):
 
 ```bash
-# Dry run
+# 1. nive-ui (no intra-workspace deps)
 cargo publish --package nive-ui --dry-run
-cargo publish --package nive-runtime --dry-run
-cargo publish --package nive --dry-run
-cargo publish --package create-nive-app --dry-run
-
-# Publish
 cargo publish --package nive-ui
+
+# 2. nive-runtime-derive (no intra-workspace deps)
+cargo publish --package nive-runtime-derive --dry-run
+cargo publish --package nive-runtime-derive
+
+# 3. nive-runtime (depends on nive-ui, nive-runtime-derive)
+cargo publish --package nive-runtime --dry-run
 cargo publish --package nive-runtime
+
+# 4. nive (umbrella, depends on nive-ui, nive-runtime)
+cargo publish --package nive --dry-run
 cargo publish --package nive
-cargo publish --package create-nive-app
+
+# 5. nive-cli (binary, no workspace deps)
+cargo publish --package nive-cli --dry-run
+cargo publish --package nive-cli
 ```
 
-Note: Publish order matters due to dependencies.
+Post-publish verification:
+- `cargo install nive-cli` from a clean container
+- `nive new smoke-test && cd smoke-test && cargo build`
+- `nive new dashboard-test --dashboard && cd dashboard-test && cargo build`
+- `docs.rs/nive` resolves within 24 hours

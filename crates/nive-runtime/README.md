@@ -19,7 +19,7 @@ reused by Rust/Iced apps without depending on app-domain services. It sits above
   minimum splash duration, retry, and cancellation.
 - `WindowSpec`, `WindowCommand`, `WindowRegistry` — generic window contracts,
   cardinality, and open/close/exit handshakes.
-- `AsyncState` and `OperationState` — reusable resource and operation state
+- `Resource` and `Operation` — reusable async resource and operation state
   machines.
 - `UserFacingError` and toast state (`ToastState`, `ToastItem`) — user-facing
   feedback.
@@ -37,7 +37,7 @@ reused by Rust/Iced apps without depending on app-domain services. It sits above
 
 | Feature      | Default | Description                                                              |
 | ------------ | ------- | ------------------------------------------------------------------------ |
-| `devtools`   | off     | Enables the optional devtools layer, `run_with_devtools`, and the derive macros from `nive-runtime-derive`. The most experimental part of Nive. |
+| `devtools`   | off     | Enables the optional devtools layer, `run_with_devtools`, and `#[derive(Inspect)]` traversal from `nive-runtime-derive`. The most experimental part of Nive. |
 | `file-picker`| off     | Enables `pick_file`, `pick_files`, `pick_folder`, and `save_file` backed by `rfd`. |
 
 ## Usage (monorepo path dependency)
@@ -63,14 +63,14 @@ surface is the crate root/prelude and includes:
 
 - `Application`, `ApplicationConfig`, `Context`, `WindowContext`, and `run`.
 - `Action`, `ActionId`, `ActionMap`, and duplicate-ID validation.
-- `Update`, `AppUpdate`, `RuntimeCommand`, and `client_task`.
+- `Update`, `AppUpdate`, `RuntimeCommand`, and `perform`.
 - Lifecycle/window contracts such as `WindowSpec`, `WindowCommand`,
   `CloseDecision`, `ExitDecision`, `BootstrapSpec`, and `CoreEvent`.
 - Opt-in settings/session contracts such as `SettingsConfig`,
   `RuntimeSession`, `WindowSession`, `WindowSessionSize`, and
   `WindowSessionPosition`.
-- Reusable state and feedback types such as `AsyncState`, `OperationState`,
-  `Toast`, `UserFacingError`, `RequestId`, and clock helpers.
+- Reusable state and feedback types such as `Resource`, `Operation`,
+  `Settled`, `Toast`, `UserFacingError`, `RequestId`, and clock helpers.
 - Runtime task/subscription aliases and theme configuration reexports.
 - Feature-gated platform/devtools APIs.
 

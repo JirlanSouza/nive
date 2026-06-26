@@ -7,52 +7,49 @@ messages or generic UI.
 ```toml
 [features]
 default = []
-devtools = ["dep:nive-runtime-derive"]
+devtools = ["nive-runtime-derive/devtools"]
 ```
 
-With the feature enabled, `nive-runtime` exposes the `devtools` module and
-reexports the root `Devtools` derive. Applications derive that marker and
-implement `DevtoolsApp`, including the associated `Probe` catalog and state
-snapshot, command, probe snapshot and probe-effect hooks.
+With the feature enabled, `nive-runtime` exposes the `devtools` module,
+`run_with_devtools`, the `Inspect` trait, and the `#[derive(Inspect)]`
+traversal implementation. The derive macro remains available without the
+feature and expands to nothing, so applications can keep it in source with no
+production simulator code.
 
-Generic probe contracts live under `nive_runtime::devtools::probe`, including
-`ProbeCatalogEntry`, `ProbeMeta`, `ProbeMetaCatalog`, `ComposedProbeId`,
-`ProbeInjectionStore`, `ProbePanelEffect` and `ProbeRuntimeConfig`. Probe
-injection helpers such as `ClientTaskInjection`, `ProbeEffect` and
-`injected_client_task` are Devtools-only APIs; the root `client_task` helper
-remains available for normal runtime tasks.
-
-Use `run_with_devtools::<A>()` to install the capability. The runtime owns the
-host, generic view, panel state, auxiliary window, title, lifecycle, keyboard
-shortcut and message routing. Product window kinds and application messages do
-not include Devtools variants.
+Applications implement `DevtoolsApp` with mutable access to an inspectable
+state struct. The runtime owns the host, generic view, panel state, auxiliary
+window, title, lifecycle, keyboard shortcut and message routing. Product window
+kinds and application messages do not include Devtools variants.
 
 Devtools starts closed. `Cmd+Option+I` on macOS or `Ctrl+Alt+I` on
 Windows/Linux opens the single auxiliary window or focuses it when already
 open. Set `NIVE_DEVTOOLS=1` or `NIVE_DEVTOOLS=open` to open it during startup,
-and set `NIVE_DEVTOOLS_TAB=probes|resources|operations` to choose the initial
-tab.
+and set `NIVE_DEVTOOLS_TAB=resources|operations` to choose the initial tab.
 
-State, host, operation, runtime-client and probe derives are available through
-`nive-runtime`; apps do not depend directly on `nive-runtime-derive`. Derive
-inputs are parsed through `syn`, preserve generics and emit errors on the
-unsupported item or field span.
+`#[derive(Inspect)]` recurses through every field, following the same model as
+serde derives. `Resource<T>` and `Operation<C>` register simulator entries;
+`OperationRegistry` registers a read-only registry snapshot; common scalar
+types are no-op leaves; `Vec<T>`, `Option<T>` and `Box<T>` recurse when `T:
+Inspect`. Use `#[inspect(skip)]` for fields that should not be traversed.
 
-`DevtoolStateCatalog` requires explicit field annotations for state that cannot
-be inferred safely:
+Payload-bearing simulator controls are opt-in:
 
 ```rust
-#[derive(nive_runtime::DevtoolStateCatalog)]
+#[derive(nive_runtime::Inspect)]
 struct State {
-    #[devtool(fixtures = project_fixtures)]
-    projects: nive_runtime::AsyncState<Vec<Project>>,
-    #[devtool(nested)]
-    selection: SelectionState,
-    save: nive_runtime::OperationState<SaveContext>,
+    #[inspect(default)]
+    cached: nive_runtime::Resource<Vec<Project>>,
+    #[inspect(sample = sample_projects)]
+    projects: nive_runtime::Resource<Vec<Project>>,
+    #[inspect(input = SaveInput::devtools_sample)]
+    save: nive_runtime::Operation<SaveInput>,
+    operations: nive_runtime::OperationRegistry,
 }
 ```
 
-Every `AsyncState<_>` field supplies a fixture-provider function with signature
-`fn(&str) -> Vec<DevtoolFixture<T>>`. Nested catalogs use `#[devtool(nested)]`.
-`OperationState<_>` fields are recognized structurally and their context must
-implement `DevtoolOperationContext`. Other fields are ignored.
+`#[inspect(default)]` requires `T: Default`. `#[inspect(sample = path)]` uses a
+`fn() -> T` factory for Resource sample data. `#[inspect(input = path)]` uses a
+`fn() -> C` factory for Operation start/fail simulation. Missing capabilities
+are rendered as disabled controls with tooltips explaining the required
+attribute, and unsupported simulator actions return an explicit unsupported
+result instead of being treated as success.

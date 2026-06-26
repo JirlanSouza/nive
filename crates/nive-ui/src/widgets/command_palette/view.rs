@@ -14,7 +14,7 @@ use crate::Element;
 ///
 /// The view is intentionally a pure render helper: it does not own the
 /// search query, the highlighted row, the open/closed state, or the
-/// keyboard navigation. Apps wrap the result in a [`DialogRequest`] (or
+/// keyboard navigation. Apps wrap the result in a `DialogRequest` (or
 /// app-owned overlay) and route `ArrowUp`/`ArrowDown`/`Enter`/`Escape`
 /// themselves. Keyboard navigation is the host's responsibility so the
 /// palette does not steal focus from the search input.

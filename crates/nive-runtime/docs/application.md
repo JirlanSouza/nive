@@ -9,11 +9,11 @@ depending on runner module paths. The public contract includes:
 
 - `Application`, `ApplicationConfig`, `Context`, `WindowContext` and `run`
 - `Action`, `ActionId`, `ActionMap` and `DuplicateActionId`
-- `Update`, `AppUpdate`, `RuntimeCommand` and `client_task`
+- `Update`, `AppUpdate`, `RuntimeCommand` and `perform`
 - lifecycle/window contracts such as `WindowSpec`, `WindowCommand`,
   `CloseDecision`, `ExitDecision`, `BootstrapSpec` and `CoreEvent`
 - reusable feedback/state helpers such as `Toast`, `UserFacingError`,
-  `AsyncState`, `OperationState`, `RequestId` and clock helpers
+  `Resource`, `Operation`, `Settled`, `RequestId` and clock helpers
 - `Task`, `Subscription`, `time`, `window`, `Point` and `Size`
   aliases/reexports used by app hooks
 - settings/session contracts such as `SettingsConfig`, `RuntimeSession`,
@@ -103,7 +103,7 @@ behavior remains consistent.
 ## Operation Registry
 
 `OperationRegistry` is the app-wide store of long-running operations.
-It complements the per-operation `OperationState<C>` state machine and
+It complements the per-operation `Operation<C>` state machine and
 is the surface app-wide progress, cancellation, and retry UI can read
 from.
 
@@ -142,8 +142,7 @@ Invariants:
 
 Cancellation remains app-owned: `OperationRegistry::cancel` only
 flips the status. The app's reducer receives a `Cancel` action,
-breaks the underlying Iced task through its own request id
-(`RequestId`/`RequestCounter`), and then calls `registry.cancel(id)`
+breaks the underlying Iced task through its own cancellation path, and then calls `registry.cancel(id)`
 so the UI reflects the user intent immediately. The runtime does not
 spawn or cancel Iced tasks on the app's behalf.
 
@@ -244,11 +243,11 @@ primitives.
 ## Devtools Runtime
 
 With the `devtools` feature enabled, `run_with_devtools::<A>()` monomorphizes
-the runner with `A::Probe` and installs the internal Devtools host. The standard
+the runner with the inspectable `A::State` and installs the internal Devtools host. The standard
 `run::<A>()` path has no Devtools runtime. Default builds do not expose or
-compile the `nive_runtime::devtools` module or Devtools probe APIs.
+compile the `nive_runtime::devtools` module or simulator APIs.
 
 The runner owns the auxiliary window, title, window policy, keyboard shortcut,
-panel message routing and command/probe effects. Devtools is closed by default;
+panel message routing and simulator effects. Devtools is closed by default;
 `Cmd+Option+I` on macOS or `Ctrl+Alt+I` on Windows/Linux opens it and focuses the
 existing window on later toggles.
