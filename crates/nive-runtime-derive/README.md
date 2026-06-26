@@ -2,29 +2,27 @@
 
 Proc-macro support for the Nive runtime devtools layer.
 
-`nive-runtime-derive` provides the derive and attribute macros used by
-`nive-runtime`'s optional `devtools` feature. End users normally depend on
-`nive-runtime` (which re-exports these macros when `devtools` is enabled); this
-crate is published separately for transparency.
+`nive-runtime-derive` provides `#[derive(Inspect)]` for `nive-runtime`'s
+optional `devtools` simulator. End users normally depend on `nive-runtime` or
+`nive` (which re-export the derive); this crate is published separately for
+transparency.
 
 ## Macros
 
-- `Devtools` — implements the `nive_runtime::devtools::Devtools` marker.
-- `UiErrorProbeCatalog` — generates a probe catalog from an error enum.
-- `runtime_client` — generates dev probe metadata and key injection for a
-  client struct.
-- `DevtoolStateCatalog` — collects devtool state fields on a state struct.
-- `DevtoolStateHost` — marks the root state snapshot host.
-- `DevtoolOperationContext` — generates an operation input schema/builder.
+- `Inspect` — generates recursive `Inspect::inspect` traversal for structs
+  when the derive crate's `devtools` feature is enabled. With the feature off,
+  it expands to nothing so apps can leave `#[derive(Inspect)]` in production
+  source.
 
 ## Attributes
 
-- `#[devtool(fixtures = "path")]` — names a fixture-provider function for a
-  state field (used with `DevtoolStateCatalog`).
-- `#[devtool(nested)]` — marks a field whose devtool state is nested.
-- `#[devtools_path("path::to::devtools")]` — overrides the default
-  `nive_runtime::devtools` target path for `DevtoolStateCatalog`,
-  `DevtoolStateHost`, and `DevtoolOperationContext`.
+- `#[inspect(skip)]` — excludes a field from traversal.
+- `#[inspect(default)]` — enables Resource default-payload simulation and
+  requires the payload to implement `Default`.
+- `#[inspect(sample = path)]` — enables Resource sample-payload simulation
+  through a `fn() -> T` factory.
+- `#[inspect(input = path)]` — enables Operation start/fail simulation through
+  a `fn() -> C` input factory.
 
 See `nive-runtime/docs/devtools.md` for usage.
 

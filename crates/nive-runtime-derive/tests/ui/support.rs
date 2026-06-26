@@ -2,137 +2,119 @@
 
 use std::marker::PhantomData;
 
-pub struct AsyncState<T>(pub PhantomData<T>);
-pub struct OperationState<T>(pub PhantomData<T>);
+pub trait SimulableState {}
 
-pub struct DevtoolFixture<T> {
-    pub value: T,
+pub struct InspectPath {
+    segments: Vec<String>,
 }
 
-pub struct DevtoolStateSnapshot;
-pub struct DevtoolCommand;
-
-pub struct DevtoolCommandResult;
-
-impl DevtoolCommandResult {
-    pub fn not_handled() -> Self {
-        Self
+impl InspectPath {
+    pub fn new() -> Self {
+        Self { segments: Vec::new() }
     }
 
-    pub fn handled(&self) -> bool {
-        false
+    pub fn push(&mut self, segment: &str) {
+        self.segments.push(segment.to_owned());
     }
-}
 
-pub trait DevtoolStateCatalog {
-    fn devtool_collect(&self, _scope: &str, _snapshot: &mut DevtoolStateSnapshot) {}
+    pub fn pop(&mut self) {
+        self.segments.pop();
+    }
 
-    fn devtool_apply(
-        &mut self,
-        _scope: &str,
-        _command: &DevtoolCommand,
-    ) -> DevtoolCommandResult {
-        DevtoolCommandResult::not_handled()
+    pub fn as_str(&self) -> String {
+        self.segments.join(".")
     }
 }
 
-pub trait DevtoolStateHost {
-    type State: DevtoolStateCatalog;
-
-    fn devtool_state(&self) -> &Self::State;
-    fn devtool_state_mut(&mut self) -> &mut Self::State;
+pub trait InspectSink {
+    fn register(&mut self, path: &str, state: &mut dyn SimulableState);
 }
 
-pub fn join_path(scope: &str, field: &str) -> String {
-    format!("{scope}.{field}")
+pub trait Inspect {
+    fn inspect(&mut self, path: &mut InspectPath, sink: &mut dyn InspectSink);
 }
 
-pub fn collect_async_state_field<T>(
-    _state: &AsyncState<T>,
-    _path: &str,
-    _label: &str,
-    _snapshot: &mut DevtoolStateSnapshot,
-    _fixtures: Vec<DevtoolFixture<T>>,
-) {
-}
+pub struct Resource<T>(pub PhantomData<T>);
 
-pub fn apply_async_state_field<T>(
-    _state: &mut AsyncState<T>,
-    _path: &str,
-    _command: &DevtoolCommand,
-    _fixtures: impl FnOnce() -> Vec<DevtoolFixture<T>>,
-) -> DevtoolCommandResult {
-    DevtoolCommandResult::not_handled()
-}
+impl<T> SimulableState for Resource<T> {}
 
-pub fn collect_operation_state_field<T>(
-    _state: &OperationState<T>,
-    _path: &str,
-    _label: &str,
-    _snapshot: &mut DevtoolStateSnapshot,
-) where
-    T: DevtoolOperationContext,
-{
-}
-
-pub fn apply_operation_state_field<T>(
-    _state: &mut OperationState<T>,
-    _path: &str,
-    _command: &DevtoolCommand,
-) -> DevtoolCommandResult
-where
-    T: DevtoolOperationContext,
-{
-    DevtoolCommandResult::not_handled()
-}
-
-pub struct DevtoolFieldSchema;
-pub struct DevtoolInputValues<'a>(pub PhantomData<&'a ()>);
-
-pub trait DevtoolInputField: Sized {
-    fn devtool_schema(_name: &str) -> DevtoolFieldSchema;
-    fn devtool_build(_name: &str, _inputs: &DevtoolInputValues<'_>) -> Result<Self, String>;
-}
-
-impl DevtoolInputField for String {
-    fn devtool_schema(_name: &str) -> DevtoolFieldSchema {
-        DevtoolFieldSchema
-    }
-
-    fn devtool_build(_name: &str, _inputs: &DevtoolInputValues<'_>) -> Result<Self, String> {
-        Ok(String::new())
+impl<T> Inspect for Resource<T> {
+    fn inspect(&mut self, path: &mut InspectPath, sink: &mut dyn InspectSink) {
+        sink.register(&path.as_str(), self);
     }
 }
 
-pub trait DevtoolOperationContext: Sized {
-    fn devtool_fields() -> Vec<DevtoolFieldSchema>;
-    fn devtool_build(inputs: &DevtoolInputValues<'_>) -> Result<Self, String>;
-}
+pub struct ResourceSimulator<'a, T>(&'a mut Resource<T>);
 
-pub trait Devtools {}
+impl<'a, T> ResourceSimulator<'a, T> {
+    pub fn new(resource: &'a mut Resource<T>) -> Self {
+        Self(resource)
+    }
 
-#[derive(Clone, Copy)]
-pub struct ProbeMeta;
-
-impl ProbeMeta {
-    pub const fn new(
-        _key: &'static str,
-        _short_key: &'static str,
-        _summary: &'static str,
-        _scope: ProbeErrorScope,
-    ) -> Self {
-        Self
+    pub fn with_sample(self, _sample: fn() -> T) -> Self {
+        self
     }
 }
 
-#[derive(Clone, Copy)]
-pub enum ProbeErrorScope {
-    Bootstrap,
-    Custom(&'static str),
+impl<'a, T: Default> ResourceSimulator<'a, T> {
+    pub fn with_default(self) -> Self {
+        self
+    }
 }
 
-pub trait ProbeCatalogEntry: Sized + 'static {
-    const ALL: &'static [Self];
+impl<T> SimulableState for ResourceSimulator<'_, T> {}
 
-    fn meta(self) -> ProbeMeta;
+pub struct Operation<C>(pub PhantomData<C>);
+
+impl<C> SimulableState for Operation<C> {}
+
+impl<C> Inspect for Operation<C> {
+    fn inspect(&mut self, path: &mut InspectPath, sink: &mut dyn InspectSink) {
+        sink.register(&path.as_str(), self);
+    }
 }
+
+pub struct OperationSimulator<'a, C>(&'a mut Operation<C>);
+
+impl<'a, C> OperationSimulator<'a, C> {
+    pub fn new(operation: &'a mut Operation<C>) -> Self {
+        Self(operation)
+    }
+
+    pub fn with_input(self, _input: fn() -> C) -> Self {
+        self
+    }
+}
+
+impl<C> SimulableState for OperationSimulator<'_, C> {}
+
+impl<T: Inspect> Inspect for Vec<T> {
+    fn inspect(&mut self, path: &mut InspectPath, sink: &mut dyn InspectSink) {
+        for (i, item) in self.iter_mut().enumerate() {
+            let idx = i.to_string();
+            path.push(&idx);
+            item.inspect(path, sink);
+            path.pop();
+        }
+    }
+}
+
+impl<T: Inspect> Inspect for Option<T> {
+    fn inspect(&mut self, path: &mut InspectPath, sink: &mut dyn InspectSink) {
+        if let Some(inner) = self.as_mut() {
+            inner.inspect(path, sink);
+        }
+    }
+}
+
+macro_rules! noop_inspect {
+    ($($t:ty),*) => {
+        $(
+            impl Inspect for $t {
+                fn inspect(&mut self, _path: &mut InspectPath, _sink: &mut dyn InspectSink) {}
+            }
+        )*
+    };
+}
+
+noop_inspect!(bool, i8, i16, i32, i64, u8, u16, u32, u64, f32, f64, String, usize, isize);
