@@ -26,23 +26,23 @@ doc:
 
 # List framework icons
 icons-list:
-    cargo run --quiet --package xtask -- icons list
+    nive icons list
 
 # Sync framework icons
 icons-sync:
-    cargo run --quiet --package xtask -- icons sync
+    nive icons sync
 
 # Check framework icons are up to date
 icons-check:
-    cargo run --quiet --package xtask -- icons check
+    nive icons check
 
 # Add icon to framework. Usage: just icons-add Search search
 icons-add variant lucide_name:
-    cargo run --quiet --package xtask -- icons add {{ variant }} {{ lucide_name }}
+    nive icons add {{ variant }} {{ lucide_name }}
 
 # Create new app using Nive. Usage: just create-app my-app
 create-app name:
-    cargo run --quiet --package create-nive-app -- {{ name }}
+    nive new {{ name }}
 
 # Build all crates
 build:

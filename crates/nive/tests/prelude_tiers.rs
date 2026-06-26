@@ -72,7 +72,7 @@ mod minimal_tier_counter {
     }
 }
 
-// Extended tier: an app-shaped `Application` that uses `AsyncState`, `Toast`,
+// Extended tier: an app-shaped `Application` that uses `Resource`, `Toast`,
 // `DialogRequest`, `OperationId`, `OperationDescriptor`, `OperationRegistry`,
 // `ThemeBuilder`, `WindowRegistry`, `WindowHandle`, etc. must compile using
 // only `nive::prelude::ui::*`.
@@ -80,7 +80,7 @@ mod extended_tier_dashboard {
     use nive::prelude::ui::*;
 
     pub struct DashboardApp {
-        projects: AsyncState<Vec<String>>,
+        projects: Resource<Vec<String>>,
         #[allow(dead_code)]
         registry: OperationRegistry,
     }
@@ -107,7 +107,7 @@ mod extended_tier_dashboard {
         ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
             (
                 Self {
-                    projects: AsyncState::idle(),
+                    projects: Resource::idle(),
                     registry: OperationRegistry::new(),
                 },
                 AppUpdate::none(),
@@ -122,13 +122,8 @@ mod extended_tier_dashboard {
         ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
             match message {
                 DashboardMessage::Refresh => {
-                    self.projects.set_loading();
-                    let id = OperationId::from_static("refresh-projects");
-                    let descriptor =
-                        OperationDescriptor::new(id.clone(), "Refresh projects").cancellable(true);
-                    AppUpdate::none()
-                        .op_start(id, descriptor)
-                        .toast(Toast::info("Refreshing"))
+                    self.projects.begin();
+                    AppUpdate::none().toast(Toast::info("Refreshing"))
                 }
                 DashboardMessage::DismissDialog => AppUpdate::none(),
             }

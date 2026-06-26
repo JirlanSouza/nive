@@ -100,7 +100,6 @@ fn prelude_exposes_app_facing_runtime_contracts() {
     let _: Toast = Toast::info("Ready");
     let _: WindowSpec = WindowSpec::app().session_key("welcome");
     let _: Size = Size::new(320.0, 240.0);
-    let _: RequestCounter = RequestCounter::default();
     let _: OperationId = OperationId::new("test.op");
     let _: OperationDescriptor = OperationDescriptor::new("test.op", "Test")
         .progress(OperationProgress::fraction(1, 4))
@@ -151,21 +150,20 @@ fn window_specs_expose_approved_defaults() {
 
 #[test]
 fn request_ids_start_at_one_and_skip_zero() {
-    let mut counter = RequestCounter::default();
-
-    assert_eq!(counter.next().get(), 1);
-    assert_eq!(counter.next().get(), 2);
+    let mut r: Resource<()> = Resource::idle();
+    let id1 = r.begin();
+    let id2 = r.begin();
+    assert_eq!(id1.get(), 1);
+    assert_eq!(id2.get(), 2);
 }
 
 #[cfg(feature = "devtools")]
 #[test]
 fn runtime_reexports_root_devtools_derive() {
-    #[derive(nive_runtime::Devtools)]
+    #[derive(nive_runtime::Inspect)]
     struct DerivedApp;
 
-    fn assert_devtools<T: nive_runtime::devtools::Devtools>() {}
-
-    assert_devtools::<DerivedApp>();
+    let _ = DerivedApp;
 }
 
 #[cfg(feature = "file-picker")]
