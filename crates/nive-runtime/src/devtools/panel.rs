@@ -4,15 +4,16 @@ use iced::{window, Task};
 
 use crate::{open_window, WindowChrome, WindowHandle, WindowMode, WindowSpec};
 
-use super::probe::{
-    probe_drafts_from_snapshot, update_probe_drafts, ProbeCatalogEntry, ProbeDraft,
-    ProbeInjectionSnapshot, ProbePanelEffect, ProbePanelMessage,
-};
-use super::{DevtoolCommand, DevtoolCommandResult, DevtoolsRowId};
+use super::command::{DevtoolsRowId, SimulateAction, SimulateResult};
+use super::types::SimulatorEntry;
 
-const DEFAULT_DEVTOOLS_ERROR: &str = "Devtools injected failure";
+const DEFAULT_ERROR_MESSAGE: &str = "Devtools injected failure";
 const NIVE_DEVTOOLS_ENV_VAR: &str = "NIVE_DEVTOOLS";
 const NIVE_DEVTOOLS_TAB_ENV_VAR: &str = "NIVE_DEVTOOLS_TAB";
+
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct DevtoolsConfig {
@@ -21,106 +22,11 @@ pub struct DevtoolsConfig {
     probe_env: Option<&'static str>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DevtoolsPanelMessage<P> {
-    SelectTab(DevtoolsPanelTab),
-    SearchChanged(String),
-    ToggleActiveOnly(bool),
-    ToggleRowExpanded(DevtoolsRowId),
-    ClearRowCommandError(DevtoolsRowId),
-    Probe(ProbePanelMessage<P>),
-    CommandInputChanged {
-        path: String,
-        field_name: String,
-        value: String,
-    },
-    CommandErrorChanged {
-        path: String,
-        value: String,
-    },
-    SetResourceIdle(String),
-    SetResourceLoading {
-        path: String,
-        preserve_value: bool,
-    },
-    SetResourceFailedEmpty(String),
-    SetResourceFailedCached(String),
-    SetResourceLoadedFixture {
-        path: String,
-        fixture_id: String,
-    },
-    DismissResourceError(String),
-    SetOperationIdle(String),
-    SetOperationRunning(String),
-    SetOperationFailed(String),
-    ClearCommandInputs(String),
-    ClearCommandError,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DevtoolsPanelTab {
-    Probes,
-    Resources,
-    Operations,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DevtoolsPanelEffect<P> {
-    Command(DevtoolCommand),
-    Probe(ProbePanelEffect<P>),
-}
-
-pub fn run_devtools_panel_effect<P>(
-    effect: DevtoolsPanelEffect<P>,
-    apply_command: impl FnOnce(&DevtoolCommand) -> DevtoolCommandResult,
-    apply_probe: impl FnOnce(ProbePanelEffect<P>),
-) -> Option<(DevtoolCommand, DevtoolCommandResult)> {
-    match effect {
-        DevtoolsPanelEffect::Command(command) => {
-            let result = apply_command(&command);
-            Some((command, result))
-        }
-        DevtoolsPanelEffect::Probe(effect) => {
-            apply_probe(effect);
-            None
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ProbePanelState<P> {
-    pub drafts: Vec<ProbeDraft<P>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct DevtoolsPanelState<P> {
-    pub active_tab: DevtoolsPanelTab,
-    pub probes: ProbePanelState<P>,
-    query: String,
-    active_only: bool,
-    expanded_rows: BTreeSet<DevtoolsRowId>,
-    command_inputs: BTreeMap<String, BTreeMap<String, String>>,
-    command_errors: BTreeMap<String, String>,
-    command_failures: BTreeMap<DevtoolsRowId, String>,
-    last_command_error: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct DevtoolsHostState<P> {
-    panel: Option<DevtoolsPanelState<P>>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct DevtoolsWindowSpec {
-    pub size: iced::Size,
-    pub min_size: iced::Size,
-}
-
 impl DevtoolsConfig {
     pub fn from_env() -> Self {
         let mut config = Self::from_env_var(NIVE_DEVTOOLS_ENV_VAR);
-        if let Ok(tab_raw) = std::env::var(NIVE_DEVTOOLS_TAB_ENV_VAR) {
-            if let Some(tab) = parse_devtools_tab(&tab_raw) {
+        if let Ok(raw) = std::env::var(NIVE_DEVTOOLS_TAB_ENV_VAR) {
+            if let Some(tab) = parse_devtools_tab(&raw) {
                 config.initial_tab = Some(tab);
             }
         }
@@ -129,6 +35,13 @@ impl DevtoolsConfig {
 
     pub fn from_env_var(env_var: &str) -> Self {
         Self::from_env_value(std::env::var(env_var).ok().as_deref())
+    }
+
+    pub fn from_env_value(value: Option<&str>) -> Self {
+        Self {
+            enabled: value.is_some_and(env_flag_enabled),
+            ..Default::default()
+        }
     }
 
     pub fn enabled(self) -> bool {
@@ -152,18 +65,200 @@ impl DevtoolsConfig {
     pub fn probe_env_var(self) -> Option<&'static str> {
         self.probe_env
     }
+}
 
-    pub fn from_env_value(value: Option<&str>) -> Self {
+// ---------------------------------------------------------------------------
+// Tabs
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DevtoolsPanelTab {
+    Resources,
+    Operations,
+}
+
+// ---------------------------------------------------------------------------
+// Messages and effects
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DevtoolsPanelMessage {
+    SelectTab(DevtoolsPanelTab),
+    SearchChanged(String),
+    ToggleActiveOnly(bool),
+    ToggleRowExpanded(DevtoolsRowId),
+    ClearRowCommandError(DevtoolsRowId),
+    ClearLastError,
+    /// Update the error message text field for the given path.
+    ErrorMessageChanged {
+        path: String,
+        value: String,
+    },
+    /// Apply a simulate action to the state at `path`.
+    Simulate {
+        path: String,
+        action: SimulateAction,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DevtoolsPanelEffect {
+    Simulate {
+        path: String,
+        action: SimulateAction,
+    },
+}
+
+// ---------------------------------------------------------------------------
+// Panel state
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone)]
+pub struct DevtoolsPanelState {
+    pub active_tab: DevtoolsPanelTab,
+    /// Cached simulator entries, refreshed after each simulate action.
+    pub entries: Vec<SimulatorEntry>,
+    query: String,
+    active_only: bool,
+    expanded_rows: BTreeSet<DevtoolsRowId>,
+    /// Per-path error message inputs (shown in the expanded row).
+    error_inputs: BTreeMap<String, String>,
+    /// Per-row simulation errors.
+    row_errors: BTreeMap<DevtoolsRowId, String>,
+    last_error: Option<String>,
+}
+
+impl DevtoolsPanelState {
+    pub fn new() -> Self {
         Self {
-            enabled: value.is_some_and(env_flag_enabled),
-            initial_tab: None,
-            probe_env: None,
+            active_tab: DevtoolsPanelTab::Resources,
+            entries: Vec::new(),
+            query: String::new(),
+            active_only: false,
+            expanded_rows: BTreeSet::new(),
+            error_inputs: BTreeMap::new(),
+            row_errors: BTreeMap::new(),
+            last_error: None,
         }
+    }
+
+    pub fn with_config(mut self, config: DevtoolsConfig) -> Self {
+        if let Some(tab) = config.initial_tab() {
+            self.active_tab = tab;
+        }
+        self
+    }
+
+    pub fn update(&mut self, message: DevtoolsPanelMessage) -> Option<DevtoolsPanelEffect> {
+        match message {
+            DevtoolsPanelMessage::SelectTab(tab) => {
+                self.active_tab = tab;
+                None
+            }
+            DevtoolsPanelMessage::SearchChanged(query) => {
+                self.query = query;
+                None
+            }
+            DevtoolsPanelMessage::ToggleActiveOnly(v) => {
+                self.active_only = v;
+                None
+            }
+            DevtoolsPanelMessage::ToggleRowExpanded(row_id) => {
+                if !self.expanded_rows.remove(&row_id) {
+                    self.expanded_rows.insert(row_id);
+                }
+                None
+            }
+            DevtoolsPanelMessage::ClearRowCommandError(row_id) => {
+                self.row_errors.remove(&row_id);
+                None
+            }
+            DevtoolsPanelMessage::ClearLastError => {
+                self.last_error = None;
+                self.row_errors.clear();
+                None
+            }
+            DevtoolsPanelMessage::ErrorMessageChanged { path, value } => {
+                self.error_inputs.insert(path, value);
+                None
+            }
+            DevtoolsPanelMessage::Simulate { path, action } => {
+                Some(DevtoolsPanelEffect::Simulate { path, action })
+            }
+        }
+    }
+
+    /// Record the result of a simulate action and update per-row error state.
+    pub fn record_simulate_result(
+        &mut self,
+        path: &str,
+        is_resource: bool,
+        result: SimulateResult,
+    ) {
+        let row_id = if is_resource {
+            DevtoolsRowId::Resource(path.to_string())
+        } else {
+            DevtoolsRowId::Operation(path.to_string())
+        };
+        match result.panel_error(path) {
+            Some(error) => {
+                self.row_errors.insert(row_id, error.clone());
+                self.last_error = Some(error);
+            }
+            None => {
+                self.row_errors.remove(&row_id);
+                self.last_error = None;
+            }
+        }
+    }
+
+    // --- Accessors ---
+
+    pub fn query(&self) -> &str {
+        &self.query
+    }
+
+    pub fn active_only(&self) -> bool {
+        self.active_only
+    }
+
+    pub fn is_row_expanded(&self, row_id: &DevtoolsRowId) -> bool {
+        self.expanded_rows.contains(row_id)
+    }
+
+    pub fn row_error(&self, row_id: &DevtoolsRowId) -> Option<&str> {
+        self.row_errors.get(row_id).map(String::as_str)
+    }
+
+    pub fn last_error(&self) -> Option<&str> {
+        self.last_error.as_deref()
+    }
+
+    pub fn error_input(&self, path: &str) -> String {
+        self.error_inputs
+            .get(path)
+            .cloned()
+            .unwrap_or_else(|| DEFAULT_ERROR_MESSAGE.to_string())
     }
 }
 
-impl<P> DevtoolsHostState<P> {
-    pub fn new(panel: Option<DevtoolsPanelState<P>>) -> Self {
+impl Default for DevtoolsPanelState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Host state
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone)]
+pub struct DevtoolsHostState {
+    panel: Option<DevtoolsPanelState>,
+}
+
+impl DevtoolsHostState {
+    pub fn new(panel: Option<DevtoolsPanelState>) -> Self {
         Self { panel }
     }
 
@@ -175,41 +270,16 @@ impl<P> DevtoolsHostState<P> {
         self.panel.is_some()
     }
 
-    pub fn panel(&self) -> Option<&DevtoolsPanelState<P>> {
+    pub fn panel(&self) -> Option<&DevtoolsPanelState> {
         self.panel.as_ref()
     }
-}
 
-impl<P: Copy + Eq> DevtoolsHostState<P> {
-    pub fn update(&mut self, message: DevtoolsPanelMessage<P>) -> Option<DevtoolsPanelEffect<P>> {
+    pub fn panel_mut(&mut self) -> Option<&mut DevtoolsPanelState> {
+        self.panel.as_mut()
+    }
+
+    pub fn update(&mut self, message: DevtoolsPanelMessage) -> Option<DevtoolsPanelEffect> {
         self.panel.as_mut()?.update(message)
-    }
-
-    pub fn apply_update(
-        &mut self,
-        message: DevtoolsPanelMessage<P>,
-        apply_command: impl FnOnce(&DevtoolCommand) -> DevtoolCommandResult,
-        apply_probe: impl FnOnce(ProbePanelEffect<P>),
-    ) {
-        let Some(effect) = self.update(message) else {
-            return;
-        };
-
-        if let Some((command, result)) =
-            run_devtools_panel_effect(effect, apply_command, apply_probe)
-        {
-            self.record_command_result(&command, result);
-        }
-    }
-
-    pub fn record_command_result(
-        &mut self,
-        command: &DevtoolCommand,
-        result: DevtoolCommandResult,
-    ) {
-        if let Some(panel) = &mut self.panel {
-            panel.record_command_result(command, result);
-        }
     }
 
     pub fn open_sidecar_window<K, Message>(
@@ -224,12 +294,20 @@ impl<P: Copy + Eq> DevtoolsHostState<P> {
         if !self.is_enabled() {
             return None;
         }
-
         let (window_id, open_task) =
             open_window(DevtoolsWindowSpec::default().window_spec(), icon, on_open);
-
         Some((WindowHandle::auxiliary(kind, window_id), open_task))
     }
+}
+
+// ---------------------------------------------------------------------------
+// Window spec
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DevtoolsWindowSpec {
+    pub size: iced::Size,
+    pub min_size: iced::Size,
 }
 
 impl Default for DevtoolsWindowSpec {
@@ -265,245 +343,9 @@ impl DevtoolsWindowSpec {
     }
 }
 
-impl<P: ProbeCatalogEntry> ProbePanelState<P> {
-    pub fn from_snapshot(snapshot: &ProbeInjectionSnapshot<P>) -> Self {
-        Self {
-            drafts: probe_drafts_from_snapshot(snapshot),
-        }
-    }
-}
-
-impl<P: Copy + Eq> ProbePanelState<P> {
-    pub fn update(&mut self, message: ProbePanelMessage<P>) -> Option<ProbePanelEffect<P>> {
-        update_probe_drafts(&mut self.drafts, message)
-    }
-
-    pub fn active_count(&self) -> usize {
-        self.drafts.iter().filter(|draft| draft.enabled).count()
-    }
-}
-
-impl<P: ProbeCatalogEntry> DevtoolsPanelState<P> {
-    pub fn from_probe_snapshot(snapshot: &ProbeInjectionSnapshot<P>) -> Self {
-        Self::new(ProbePanelState::from_snapshot(snapshot))
-    }
-
-    pub fn from_probe_snapshot_with_config(
-        snapshot: &ProbeInjectionSnapshot<P>,
-        config: DevtoolsConfig,
-    ) -> Self {
-        let mut state = Self::from_probe_snapshot(snapshot);
-        if let Some(tab) = config.initial_tab() {
-            state.active_tab = tab;
-        }
-        state
-    }
-}
-
-impl<P: Copy + Eq> DevtoolsPanelState<P> {
-    pub fn new(probes: ProbePanelState<P>) -> Self {
-        Self {
-            active_tab: DevtoolsPanelTab::Resources,
-            probes,
-            query: String::new(),
-            active_only: false,
-            expanded_rows: BTreeSet::new(),
-            command_inputs: BTreeMap::new(),
-            command_errors: BTreeMap::new(),
-            command_failures: BTreeMap::new(),
-            last_command_error: None,
-        }
-    }
-
-    pub fn update(&mut self, message: DevtoolsPanelMessage<P>) -> Option<DevtoolsPanelEffect<P>> {
-        match message {
-            DevtoolsPanelMessage::SelectTab(tab) => {
-                self.active_tab = tab;
-                None
-            }
-            DevtoolsPanelMessage::SearchChanged(query) => {
-                self.query = query;
-                None
-            }
-            DevtoolsPanelMessage::ToggleActiveOnly(active_only) => {
-                self.active_only = active_only;
-                None
-            }
-            DevtoolsPanelMessage::ToggleRowExpanded(row_id) => {
-                if !self.expanded_rows.remove(&row_id) {
-                    self.expanded_rows.insert(row_id);
-                }
-                None
-            }
-            DevtoolsPanelMessage::ClearRowCommandError(row_id) => {
-                self.command_failures.remove(&row_id);
-                None
-            }
-            DevtoolsPanelMessage::Probe(message) => {
-                self.probes.update(message).map(DevtoolsPanelEffect::Probe)
-            }
-            DevtoolsPanelMessage::CommandInputChanged {
-                path,
-                field_name,
-                value,
-            } => {
-                self.command_inputs
-                    .entry(path)
-                    .or_default()
-                    .insert(field_name, value);
-                self.last_command_error = None;
-                None
-            }
-            DevtoolsPanelMessage::CommandErrorChanged { path, value } => {
-                self.command_errors.insert(path, value);
-                self.last_command_error = None;
-                None
-            }
-            DevtoolsPanelMessage::SetResourceIdle(path) => Some(DevtoolsPanelEffect::Command(
-                DevtoolCommand::SetResourceIdle { path },
-            )),
-            DevtoolsPanelMessage::SetResourceLoading {
-                path,
-                preserve_value,
-            } => Some(DevtoolsPanelEffect::Command(
-                DevtoolCommand::SetResourceLoading {
-                    path,
-                    preserve_value,
-                },
-            )),
-            DevtoolsPanelMessage::SetResourceFailedEmpty(path) => {
-                let message = self.command_error(&path);
-                Some(DevtoolsPanelEffect::Command(
-                    DevtoolCommand::SetResourceFailed {
-                        path,
-                        message,
-                        preserve_value: false,
-                    },
-                ))
-            }
-            DevtoolsPanelMessage::SetResourceFailedCached(path) => {
-                let message = self.command_error(&path);
-                Some(DevtoolsPanelEffect::Command(
-                    DevtoolCommand::SetResourceFailed {
-                        path,
-                        message,
-                        preserve_value: true,
-                    },
-                ))
-            }
-            DevtoolsPanelMessage::SetResourceLoadedFixture { path, fixture_id } => {
-                Some(DevtoolsPanelEffect::Command(
-                    DevtoolCommand::SetResourceLoadedFixture { path, fixture_id },
-                ))
-            }
-            DevtoolsPanelMessage::DismissResourceError(path) => Some(DevtoolsPanelEffect::Command(
-                DevtoolCommand::DismissResourceError { path },
-            )),
-            DevtoolsPanelMessage::SetOperationIdle(path) => Some(DevtoolsPanelEffect::Command(
-                DevtoolCommand::SetOperationIdle { path },
-            )),
-            DevtoolsPanelMessage::SetOperationRunning(path) => Some(DevtoolsPanelEffect::Command(
-                DevtoolCommand::SetOperationRunning {
-                    input: self.command_input(&path),
-                    path,
-                },
-            )),
-            DevtoolsPanelMessage::SetOperationFailed(path) => {
-                let message = self.command_error(&path);
-                Some(DevtoolsPanelEffect::Command(
-                    DevtoolCommand::SetOperationFailed {
-                        input: self.command_input(&path),
-                        path,
-                        message,
-                    },
-                ))
-            }
-            DevtoolsPanelMessage::ClearCommandInputs(path) => {
-                self.command_inputs.remove(&path);
-                self.command_errors.remove(&path);
-                self.command_failures
-                    .retain(|row_id, _| row_id.path() != path);
-                self.last_command_error = None;
-                None
-            }
-            DevtoolsPanelMessage::ClearCommandError => {
-                self.last_command_error = None;
-                self.command_failures.clear();
-                None
-            }
-        }
-    }
-
-    pub fn record_command_result(
-        &mut self,
-        command: &DevtoolCommand,
-        result: DevtoolCommandResult,
-    ) {
-        let row_id = command.row_id();
-        match result.into_parts() {
-            (_, Some(error)) => {
-                self.command_failures.insert(row_id, error.clone());
-                self.last_command_error = Some(error);
-            }
-            (false, None) => {
-                let error = format!("No devtools state matched `{}`", command.path());
-                self.command_failures.insert(row_id, error.clone());
-                self.last_command_error = Some(error);
-            }
-            (true, None) => {
-                self.command_failures.remove(&row_id);
-                self.last_command_error = None;
-            }
-        };
-    }
-
-    pub fn active_probe_count(&self) -> usize {
-        self.probes.active_count()
-    }
-
-    pub fn command_value(&self, path: &str, field_name: &str) -> String {
-        self.command_inputs
-            .get(path)
-            .and_then(|values| values.get(field_name))
-            .cloned()
-            .unwrap_or_default()
-    }
-
-    pub fn command_error_value(&self, path: &str) -> String {
-        self.command_errors
-            .get(path)
-            .cloned()
-            .unwrap_or_else(|| DEFAULT_DEVTOOLS_ERROR.to_string())
-    }
-
-    pub fn last_command_error(&self) -> Option<&str> {
-        self.last_command_error.as_deref()
-    }
-
-    pub fn query(&self) -> &str {
-        &self.query
-    }
-
-    pub fn active_only(&self) -> bool {
-        self.active_only
-    }
-
-    pub fn is_row_expanded(&self, row_id: &DevtoolsRowId) -> bool {
-        self.expanded_rows.contains(row_id)
-    }
-
-    pub fn row_command_error(&self, row_id: &DevtoolsRowId) -> Option<&str> {
-        self.command_failures.get(row_id).map(String::as_str)
-    }
-
-    fn command_input(&self, path: &str) -> BTreeMap<String, String> {
-        self.command_inputs.get(path).cloned().unwrap_or_default()
-    }
-
-    fn command_error(&self, path: &str) -> String {
-        self.command_error_value(path)
-    }
-}
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 fn env_flag_enabled(value: &str) -> bool {
     matches!(
@@ -514,47 +356,47 @@ fn env_flag_enabled(value: &str) -> bool {
 
 fn parse_devtools_tab(value: &str) -> Option<DevtoolsPanelTab> {
     match value.trim().to_ascii_lowercase().as_str() {
-        "probes" => Some(DevtoolsPanelTab::Probes),
         "resources" => Some(DevtoolsPanelTab::Resources),
         "operations" => Some(DevtoolsPanelTab::Operations),
         _ => None,
     }
 }
 
+// ---------------------------------------------------------------------------
+// Tests (task 9.5 — panel enumeration + forcing wiring)
+// ---------------------------------------------------------------------------
+
 #[cfg(test)]
 mod tests {
-    use crate::devtools::probe::{
-        ProbeEffect, ProbeErrorScope, ProbeInjectionConfig, ProbeInjectionStore, ProbeMeta,
-    };
-
     use super::*;
+    use crate::devtools::types::DevtoolStateSnapshot;
+    use crate::devtools::{SimulatorCapabilities, SimulatorKind};
+    use crate::inspect::SimulableSnapshot;
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    enum TestProbe {
-        One,
+    fn panel_with_entries(entries: Vec<SimulatorEntry>) -> DevtoolsPanelState {
+        let mut p = DevtoolsPanelState::new();
+        p.entries = entries;
+        p
     }
 
-    impl ProbeCatalogEntry for TestProbe {
-        const ALL: &'static [Self] = &[Self::One];
-
-        fn meta(self) -> ProbeMeta {
-            ProbeMeta::new(
-                "test.one",
-                "one",
-                "Couldn't run test",
-                ProbeErrorScope::Custom("test"),
-            )
+    fn resource_entry(path: &str) -> SimulatorEntry {
+        SimulatorEntry {
+            path: path.to_string(),
+            label: path.to_string(),
+            kind: SimulatorKind::Resource,
+            capabilities: SimulatorCapabilities::default(),
+            snapshot: SimulableSnapshot::Idle,
         }
     }
 
-    fn panel() -> DevtoolsPanelState<TestProbe> {
-        let snapshot = ProbeInjectionStore::new(ProbeInjectionConfig::<TestProbe> {
-            scenarios: Vec::new(),
-            unknown: Vec::new(),
-        })
-        .snapshot();
-
-        DevtoolsPanelState::from_probe_snapshot(&snapshot)
+    fn operation_entry(path: &str) -> SimulatorEntry {
+        SimulatorEntry {
+            path: path.to_string(),
+            label: path.to_string(),
+            kind: SimulatorKind::Operation,
+            capabilities: SimulatorCapabilities::default(),
+            snapshot: SimulableSnapshot::Idle,
+        }
     }
 
     #[test]
@@ -568,7 +410,6 @@ mod tests {
         for value in ["1", "true", "yes", "y", "on", "open", " TRUE "] {
             assert!(DevtoolsConfig::from_env_value(Some(value)).enabled());
         }
-
         for value in ["", "0", "false", "off", "no"] {
             assert!(!DevtoolsConfig::from_env_value(Some(value)).enabled());
         }
@@ -577,299 +418,101 @@ mod tests {
     #[test]
     fn devtools_config_probe_env_builder_sets_var_name() {
         let config = DevtoolsConfig::default().probe_env("APP_DEV_ERROR");
-
         assert_eq!(config.probe_env_var(), Some("APP_DEV_ERROR"));
     }
 
     #[test]
-    fn parse_devtools_tab_accepts_known_tabs_case_insensitively() {
-        assert_eq!(parse_devtools_tab("probes"), Some(DevtoolsPanelTab::Probes));
-        assert_eq!(
-            parse_devtools_tab("Resources"),
-            Some(DevtoolsPanelTab::Resources)
-        );
-        assert_eq!(
-            parse_devtools_tab(" OPERATIONS "),
-            Some(DevtoolsPanelTab::Operations)
-        );
+    fn devtools_config_with_initial_tab_applies_tab() {
+        let config = DevtoolsConfig::default().with_initial_tab(DevtoolsPanelTab::Operations);
+        let panel = DevtoolsPanelState::new().with_config(config);
+        assert_eq!(panel.active_tab, DevtoolsPanelTab::Operations);
     }
 
     #[test]
-    fn parse_devtools_tab_rejects_unknown_tabs() {
-        assert_eq!(parse_devtools_tab("debug"), None);
-        assert_eq!(parse_devtools_tab(""), None);
-    }
+    fn panel_tracks_search_and_row_expansion() {
+        let mut panel = DevtoolsPanelState::new();
+        let row_id = DevtoolsRowId::Resource("auth.profile".to_string());
 
-    #[test]
-    fn from_probe_snapshot_with_config_applies_initial_tab() {
-        let snapshot = ProbeInjectionStore::new(ProbeInjectionConfig::<TestProbe> {
-            scenarios: Vec::new(),
-            unknown: Vec::new(),
-        })
-        .snapshot();
-
-        let config = DevtoolsConfig::default()
-            .probe_env("APP_DEV_ERROR")
-            .with_initial_tab(DevtoolsPanelTab::Operations);
-        assert_eq!(config.probe_env_var(), Some("APP_DEV_ERROR"));
-
-        let state = DevtoolsPanelState::from_probe_snapshot_with_config(&snapshot, config);
-
-        assert_eq!(state.active_tab, DevtoolsPanelTab::Operations);
-    }
-
-    #[test]
-    fn devtools_panel_tracks_search_active_filter_and_row_expansion() {
-        let mut panel = panel();
-        let row_id = DevtoolsRowId::Probe("test.one".to_string());
-
-        panel.update(DevtoolsPanelMessage::SearchChanged("test".to_string()));
+        panel.update(DevtoolsPanelMessage::SearchChanged("auth".to_string()));
         panel.update(DevtoolsPanelMessage::ToggleActiveOnly(true));
         panel.update(DevtoolsPanelMessage::ToggleRowExpanded(row_id.clone()));
 
-        assert_eq!(panel.query(), "test");
+        assert_eq!(panel.query(), "auth");
         assert!(panel.active_only());
         assert!(panel.is_row_expanded(&row_id));
 
         panel.update(DevtoolsPanelMessage::ToggleRowExpanded(row_id.clone()));
-
         assert!(!panel.is_row_expanded(&row_id));
     }
 
     #[test]
-    fn devtools_panel_records_command_failure_on_matching_row() {
-        let mut panel = panel();
-        let command = DevtoolCommand::SetResourceIdle {
-            path: "welcome.tags".to_string(),
-        };
-        let row_id = DevtoolsRowId::Resource("welcome.tags".to_string());
-
-        panel.record_command_result(&command, DevtoolCommandResult::failed("No fixture"));
-
-        assert_eq!(panel.row_command_error(&row_id), Some("No fixture"));
-
-        panel.record_command_result(&command, DevtoolCommandResult::changed());
-
-        assert_eq!(panel.row_command_error(&row_id), None);
-    }
-
-    #[test]
-    fn devtools_host_state_is_disabled_without_panel() {
-        let mut host = DevtoolsHostState::<TestProbe>::disabled();
-
-        assert!(!host.is_enabled());
-        assert!(host.panel().is_none());
+    fn panel_simulate_message_produces_effect() {
+        let mut panel = DevtoolsPanelState::new();
+        let effect = panel.update(DevtoolsPanelMessage::Simulate {
+            path: "auth.profile".to_string(),
+            action: SimulateAction::Loading,
+        });
         assert_eq!(
-            host.update(DevtoolsPanelMessage::SetResourceIdle(
-                "welcome.tags".to_string()
-            )),
-            None
-        );
-    }
-
-    #[test]
-    fn devtools_host_state_routes_updates_and_records_results() {
-        let mut host = DevtoolsHostState::new(Some(panel()));
-        let command = DevtoolCommand::SetResourceIdle {
-            path: "welcome.tags".to_string(),
-        };
-        let row_id = DevtoolsRowId::Resource("welcome.tags".to_string());
-
-        assert!(host.is_enabled());
-        assert!(matches!(
-            host.update(DevtoolsPanelMessage::SetResourceIdle(
-                "welcome.tags".to_string()
-            )),
-            Some(DevtoolsPanelEffect::Command(
-                DevtoolCommand::SetResourceIdle { .. }
-            ))
-        ));
-
-        host.record_command_result(&command, DevtoolCommandResult::failed("No match"));
-        assert_eq!(
-            host.panel()
-                .and_then(|panel| panel.row_command_error(&row_id)),
-            Some("No match")
-        );
-
-        host.record_command_result(&command, DevtoolCommandResult::changed());
-        assert_eq!(
-            host.panel()
-                .and_then(|panel| panel.row_command_error(&row_id)),
-            None
-        );
-    }
-
-    #[test]
-    fn devtools_host_state_applies_command_effect_and_records_result() {
-        let mut host = DevtoolsHostState::new(Some(panel()));
-        let row_id = DevtoolsRowId::Resource("welcome.tags".to_string());
-
-        host.apply_update(
-            DevtoolsPanelMessage::SetResourceIdle("welcome.tags".to_string()),
-            |command| {
-                assert_eq!(command.path(), "welcome.tags");
-                DevtoolCommandResult::failed("No match")
-            },
-            |_| panic!("probe effect should not run for commands"),
-        );
-
-        assert_eq!(
-            host.panel()
-                .and_then(|panel| panel.row_command_error(&row_id)),
-            Some("No match")
-        );
-    }
-
-    #[test]
-    fn devtools_host_state_applies_probe_effect_without_recording_command() {
-        let mut host = DevtoolsHostState::new(Some(panel()));
-        let mut applied = None;
-
-        host.apply_update(
-            DevtoolsPanelMessage::Probe(ProbePanelMessage::ClearAll),
-            |_| panic!("command effect should not run for probes"),
-            |effect| applied = Some(effect),
-        );
-
-        assert_eq!(applied, Some(ProbePanelEffect::<TestProbe>::ClearAll));
-        assert_eq!(
-            host.panel()
-                .and_then(DevtoolsPanelState::last_command_error),
-            None
-        );
-    }
-
-    #[test]
-    fn devtools_window_spec_uses_runtime_defaults() {
-        let spec = DevtoolsWindowSpec::default();
-
-        assert_eq!(spec.size, iced::Size::new(940.0, 640.0));
-        assert_eq!(spec.min_size, iced::Size::new(820.0, 520.0));
-    }
-
-    #[test]
-    fn devtools_window_spec_builds_auxiliary_window_spec() {
-        let spec = DevtoolsWindowSpec::default().window_spec();
-        let settings = spec.settings(None);
-
-        assert_eq!(settings.size, iced::Size::new(940.0, 640.0));
-        assert_eq!(settings.min_size, Some(iced::Size::new(820.0, 520.0)));
-        assert!(settings.resizable);
-        assert!(!settings.maximized);
-        assert!(!settings.fullscreen);
-        assert_eq!(settings.level, window::Level::AlwaysOnTop);
-        assert!(settings.decorations);
-    }
-
-    #[test]
-    fn devtools_window_title_uses_app_name() {
-        assert_eq!(
-            DevtoolsWindowSpec::title_for_app("Test App"),
-            "Test App · Devtools"
-        );
-    }
-
-    #[test]
-    fn disabled_devtools_host_does_not_open_sidecar_window() {
-        let host = DevtoolsHostState::<TestProbe>::disabled();
-
-        assert!(host.open_sidecar_window("devtools", None, |_| ()).is_none());
-    }
-
-    #[test]
-    fn enabled_devtools_host_opens_auxiliary_sidecar_window() {
-        let host = DevtoolsHostState::new(Some(panel()));
-        let (handle, _task) = host
-            .open_sidecar_window("devtools", None, |_| ())
-            .expect("enabled devtools should open a sidecar");
-
-        assert_eq!(handle.kind, "devtools");
-        assert_eq!(handle.role, crate::WindowRole::Auxiliary);
-    }
-
-    #[test]
-    fn run_devtools_panel_effect_returns_command_result_for_recording() {
-        let outcome = run_devtools_panel_effect::<TestProbe>(
-            DevtoolsPanelEffect::Command(DevtoolCommand::SetResourceIdle {
-                path: "welcome.tags".to_string(),
-            }),
-            |command| {
-                assert_eq!(command.path(), "welcome.tags");
-                DevtoolCommandResult::changed()
-            },
-            |_| panic!("probe effect should not run for commands"),
-        );
-
-        assert_eq!(
-            outcome,
-            Some((
-                DevtoolCommand::SetResourceIdle {
-                    path: "welcome.tags".to_string()
-                },
-                DevtoolCommandResult::changed()
-            ))
-        );
-    }
-
-    #[test]
-    fn run_devtools_panel_effect_applies_probe_effects() {
-        let mut applied = None;
-
-        let outcome = run_devtools_panel_effect(
-            DevtoolsPanelEffect::Probe(ProbePanelEffect::ClearAll),
-            |_| panic!("command effect should not run for probes"),
-            |effect| applied = Some(effect),
-        );
-
-        assert_eq!(outcome, None);
-        assert_eq!(applied, Some(ProbePanelEffect::<TestProbe>::ClearAll));
-    }
-
-    #[test]
-    fn devtools_panel_builds_explicit_resource_failure_modes() {
-        let mut panel = panel();
-
-        let empty = panel
-            .update(DevtoolsPanelMessage::SetResourceFailedEmpty(
-                "welcome.tags".to_string(),
-            ))
-            .unwrap();
-        let cached = panel
-            .update(DevtoolsPanelMessage::SetResourceFailedCached(
-                "welcome.tags".to_string(),
-            ))
-            .unwrap();
-
-        assert!(matches!(
-            empty,
-            DevtoolsPanelEffect::Command(DevtoolCommand::SetResourceFailed {
-                preserve_value: false,
-                ..
-            })
-        ));
-        assert!(matches!(
-            cached,
-            DevtoolsPanelEffect::Command(DevtoolCommand::SetResourceFailed {
-                preserve_value: true,
-                ..
-            })
-        ));
-    }
-
-    #[test]
-    fn devtools_panel_routes_probe_updates_as_effects() {
-        let mut panel = panel();
-
-        let effect = panel
-            .update(DevtoolsPanelMessage::Probe(
-                ProbePanelMessage::EffectChanged(TestProbe::One, ProbeEffect::DelayOnly),
-            ))
-            .unwrap();
-
-        assert!(matches!(
             effect,
-            DevtoolsPanelEffect::Probe(ProbePanelEffect::SetProbeConfig(TestProbe::One, _))
-        ));
+            Some(DevtoolsPanelEffect::Simulate {
+                path: "auth.profile".to_string(),
+                action: SimulateAction::Loading,
+            })
+        );
+    }
+
+    #[test]
+    fn panel_records_simulate_failure_and_clears_on_success() {
+        let mut panel = panel_with_entries(vec![resource_entry("auth.profile")]);
+        let path = "auth.profile";
+        let row_id = DevtoolsRowId::Resource(path.to_string());
+
+        panel.record_simulate_result(path, true, SimulateResult::not_found());
+        assert!(panel.row_error(&row_id).is_some());
+        assert!(panel.last_error().is_some());
+
+        panel.record_simulate_result(path, true, SimulateResult::applied());
+        assert!(panel.row_error(&row_id).is_none());
+        assert!(panel.last_error().is_none());
+    }
+
+    #[test]
+    fn host_disabled_returns_none_on_update() {
+        let mut host = DevtoolsHostState::disabled();
+        assert!(!host.is_enabled());
+        assert!(host
+            .update(DevtoolsPanelMessage::Simulate {
+                path: "x".to_string(),
+                action: SimulateAction::Idle,
+            })
+            .is_none());
+    }
+
+    #[test]
+    fn host_enabled_routes_simulate_message_to_effect() {
+        let mut host = DevtoolsHostState::new(Some(DevtoolsPanelState::new()));
+        let effect = host.update(DevtoolsPanelMessage::Simulate {
+            path: "auth.profile".to_string(),
+            action: SimulateAction::Loading,
+        });
+        assert!(matches!(effect, Some(DevtoolsPanelEffect::Simulate { .. })));
+    }
+
+    #[test]
+    fn snapshot_resource_and_operation_splitting() {
+        let mut panel = panel_with_entries(vec![
+            resource_entry("auth.profile"),
+            operation_entry("auth.login"),
+        ]);
+        // manually set operation snapshot
+        panel.entries[1].snapshot = SimulableSnapshot::Running;
+
+        let snapshot = DevtoolStateSnapshot {
+            entries: panel.entries.clone(),
+            registry: Vec::new(),
+        };
+
+        assert_eq!(snapshot.resources().count(), 1);
+        assert_eq!(snapshot.operations().count(), 1);
     }
 }

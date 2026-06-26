@@ -1,292 +1,156 @@
-use crate::{Application, AsyncState, OperationState, RequestId, UserFacingError};
+use crate::inspect::{Inspect, InspectPath, InspectSink, SimulableSnapshot, SimulableState};
+use crate::Application;
 
-use super::probe::{ProbeCatalogEntry, ProbeInjectionSnapshot, ProbePanelEffect};
-use super::{
-    command_input::DevtoolOperationContext, DevtoolAsyncStatus, DevtoolCommand,
-    DevtoolCommandResult, DevtoolFixture, DevtoolFixtureView, DevtoolInputValues,
-    DevtoolOperationStatus, DevtoolOperationView, DevtoolResourceView, DevtoolStateSnapshot,
-};
+use super::command::SimulateAction;
+use super::types::{DevtoolStateSnapshot, RegistryEntry, SimulatorEntry};
 
-const DEVTOOLS_DEFAULT_ERROR: &str = "Devtools injected failure";
+// ---------------------------------------------------------------------------
+// DevtoolsApp
+// ---------------------------------------------------------------------------
 
-pub trait DevtoolStateCatalog {
-    fn devtool_collect(&self, _scope: &str, _snapshot: &mut DevtoolStateSnapshot) {}
+/// Application contract for devtools support.
+///
+/// Implement this (or derive it via framework scaffolding) to enable the
+/// devtools window. The `State` associated type must implement [`Inspect`] so
+/// the devtools panel can enumerate and force-simulate every `Resource` and
+/// `Operation` field without any extra boilerplate.
+pub trait DevtoolsApp: Application {
+    /// The part of the application state that devtools can inspect. Typically
+    /// a struct that `#[derive(Inspect)]` is applied to.
+    type State: Inspect;
 
-    fn devtool_apply(&mut self, _scope: &str, _command: &DevtoolCommand) -> DevtoolCommandResult {
-        DevtoolCommandResult::not_handled()
-    }
-
-    fn devtool_snapshot(&self, scope: &str) -> DevtoolStateSnapshot {
-        let mut snapshot = DevtoolStateSnapshot::default();
-        self.devtool_collect(scope, &mut snapshot);
-        snapshot
-    }
-}
-
-pub trait DevtoolStateHost {
-    type State: DevtoolStateCatalog;
-
-    fn devtool_state(&self) -> &Self::State;
-
+    /// Mutable access to the inspectable state.
     fn devtool_state_mut(&mut self) -> &mut Self::State;
+}
 
-    fn devtool_snapshot(&self, scope: &str) -> DevtoolStateSnapshot {
-        self.devtool_state().devtool_snapshot(scope)
+// ---------------------------------------------------------------------------
+// Collection and simulation helpers (called from program.rs)
+// ---------------------------------------------------------------------------
+
+/// Build a fresh [`DevtoolStateSnapshot`] by traversing the inspectable state
+/// and reading each leaf's [`SimulableSnapshot`].
+///
+/// Called during the `update` cycle (requires `&mut A`) so that the panel's
+/// cached `entries` stay up to date without needing a mutable borrow in `view`.
+pub fn collect_snapshot<A: DevtoolsApp>(app: &mut A) -> DevtoolStateSnapshot {
+    collect_state_snapshot(app.devtool_state_mut())
+}
+
+fn collect_state_snapshot(state: &mut impl Inspect) -> DevtoolStateSnapshot {
+    #[derive(Default)]
+    struct CollectSink {
+        entries: Vec<SimulatorEntry>,
+        registry: Vec<RegistryEntry>,
     }
 
-    fn devtool_apply(&mut self, scope: &str, command: &DevtoolCommand) -> DevtoolCommandResult {
-        self.devtool_state_mut().devtool_apply(scope, command)
-    }
-}
-
-pub trait DevtoolsApp: Application + super::Devtools {
-    type Probe: ProbeCatalogEntry;
-
-    fn devtools_snapshot(&self) -> DevtoolStateSnapshot;
-
-    fn apply_devtools_command(&mut self, command: &DevtoolCommand) -> DevtoolCommandResult;
-
-    fn devtools_probe_snapshot(&self) -> ProbeInjectionSnapshot<Self::Probe>;
-
-    fn devtools_apply_probe_effect(&mut self, effect: ProbePanelEffect<Self::Probe>);
-}
-
-pub trait DevtoolValue: Clone {
-    fn devtool_fixtures(path: &str) -> Vec<DevtoolFixture<Self>>;
-}
-
-pub trait DevtoolStateField {
-    fn devtool_collect_field(&self, path: &str, label: &str, snapshot: &mut DevtoolStateSnapshot);
-
-    fn devtool_apply_field(&mut self, path: &str, command: &DevtoolCommand)
-        -> DevtoolCommandResult;
-}
-
-/// Collects an async resource entry for a devtools snapshot.
-pub fn collect_async_state_field<T>(
-    state: &AsyncState<T>,
-    path: &str,
-    label: &str,
-    snapshot: &mut DevtoolStateSnapshot,
-    fixtures: Vec<DevtoolFixture<T>>,
-) {
-    snapshot.resources.push(DevtoolResourceView {
-        path: path.to_string(),
-        label: label.to_string(),
-        status: async_status(state),
-        fixtures: fixtures
-            .into_iter()
-            .map(|fixture| DevtoolFixtureView {
-                id: fixture.id,
-                label: fixture.label,
-            })
-            .collect(),
-    });
-}
-
-/// Applies a devtools command to an async resource field.
-pub fn apply_async_state_field<T>(
-    state: &mut AsyncState<T>,
-    path: &str,
-    command: &DevtoolCommand,
-    fixtures: impl FnOnce() -> Vec<DevtoolFixture<T>>,
-) -> DevtoolCommandResult {
-    if command.path() != path {
-        return DevtoolCommandResult::not_handled();
-    }
-
-    match command {
-        DevtoolCommand::SetResourceIdle { .. } => {
-            state.set_idle();
-            DevtoolCommandResult::changed()
+    impl InspectSink for CollectSink {
+        fn register(&mut self, path: &str, state: &mut dyn SimulableState) {
+            let label = label_from_path(path);
+            self.entries.push(SimulatorEntry {
+                path: path.to_string(),
+                label,
+                kind: state.kind(),
+                capabilities: state.capabilities(),
+                snapshot: state.snapshot(),
+            });
         }
-        DevtoolCommand::SetResourceLoading { preserve_value, .. } => {
-            if *preserve_value {
-                state.set_refreshing();
-            } else {
-                state.set_loading();
+
+        fn register_registry(&mut self, _path: &str, registry: &crate::state::OperationRegistry) {
+            self.registry.extend(
+                registry
+                    .iter()
+                    .map(|(id, entry)| RegistryEntry::from_registry_entry(id.clone(), entry)),
+            );
+        }
+    }
+
+    let mut sink = CollectSink::default();
+    let mut path = InspectPath::new();
+    state.inspect(&mut path, &mut sink);
+    DevtoolStateSnapshot {
+        entries: sink.entries,
+        registry: sink.registry,
+    }
+}
+
+/// Apply a [`SimulateAction`] to the leaf at `target_path` in the inspectable
+/// state, returning whether it applied, was unsupported, or was not found.
+pub fn apply_simulate<A: DevtoolsApp>(
+    app: &mut A,
+    target_path: &str,
+    action: &SimulateAction,
+) -> crate::devtools::SimulateResult {
+    struct SimulateSink<'a> {
+        path: &'a str,
+        action: &'a SimulateAction,
+        result: crate::devtools::SimulateResult,
+    }
+
+    impl InspectSink for SimulateSink<'_> {
+        fn register(&mut self, path: &str, state: &mut dyn SimulableState) {
+            if path != self.path
+                || !matches!(&self.result, crate::devtools::SimulateResult::NotFound)
+            {
+                return;
             }
-            DevtoolCommandResult::changed()
-        }
-        DevtoolCommand::SetResourceFailed {
-            message,
-            preserve_value,
-            ..
-        } => {
-            let error = devtool_error(message);
-            if *preserve_value {
-                state.set_failed(error);
-            } else {
-                state.set_failed_empty(error);
-            }
-            DevtoolCommandResult::changed()
-        }
-        DevtoolCommand::SetResourceLoadedFixture { fixture_id, .. } => {
-            let Some(fixture) = fixtures()
-                .into_iter()
-                .find(|fixture| fixture.id == *fixture_id)
-            else {
-                return DevtoolCommandResult::failed(format!(
-                    "Unknown fixture `{fixture_id}` for `{path}`"
-                ));
-            };
-
-            state.set_loaded(fixture.value);
-            DevtoolCommandResult::changed()
-        }
-        DevtoolCommand::DismissResourceError { .. } => {
-            state.dismiss_error();
-            DevtoolCommandResult::changed()
-        }
-        DevtoolCommand::SetOperationIdle { .. }
-        | DevtoolCommand::SetOperationRunning { .. }
-        | DevtoolCommand::SetOperationFailed { .. } => {
-            DevtoolCommandResult::failed(format!("`{path}` is a resource, not an operation"))
+            self.result = state.apply(self.action);
         }
     }
+
+    let mut sink = SimulateSink {
+        path: target_path,
+        action,
+        result: crate::devtools::SimulateResult::not_found(),
+    };
+    let mut path = InspectPath::new();
+    app.devtool_state_mut().inspect(&mut path, &mut sink);
+    sink.result
 }
 
-/// Collects an operation entry for a devtools snapshot.
-pub fn collect_operation_state_field<C>(
-    state: &OperationState<C>,
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+fn label_from_path(path: &str) -> String {
+    let segment = path.split('.').next_back().unwrap_or(path);
+    super::helpers::label_from_field_name(segment)
+}
+
+// ---------------------------------------------------------------------------
+// Retain public symbols needed by existing test code in program.rs
+// ---------------------------------------------------------------------------
+
+/// Snapshot for the panel produced by collecting from an `A: DevtoolsApp`.
+pub fn devtool_snapshot<A: DevtoolsApp>(app: &mut A) -> DevtoolStateSnapshot {
+    collect_snapshot(app)
+}
+
+/// Apply a simulate action from the panel effect.
+pub fn devtool_apply<A: DevtoolsApp>(
+    app: &mut A,
     path: &str,
-    label: &str,
-    snapshot: &mut DevtoolStateSnapshot,
-) where
-    C: DevtoolOperationContext,
-{
-    snapshot.operations.push(DevtoolOperationView {
-        path: path.to_string(),
-        label: label.to_string(),
-        status: operation_status(state),
-        fields: C::devtool_fields(),
-    });
+    action: &SimulateAction,
+) -> crate::devtools::SimulateResult {
+    apply_simulate(app, path, action)
 }
 
-/// Applies a devtools command to an operation field.
-pub fn apply_operation_state_field<C>(
-    state: &mut OperationState<C>,
-    path: &str,
-    command: &DevtoolCommand,
-) -> DevtoolCommandResult
-where
-    C: DevtoolOperationContext,
-{
-    if command.path() != path {
-        return DevtoolCommandResult::not_handled();
-    }
+// ---------------------------------------------------------------------------
+// SimulableSnapshot helpers re-exported for view use
+// ---------------------------------------------------------------------------
 
-    match command {
-        DevtoolCommand::SetOperationIdle { .. } => {
-            state.clear();
-            DevtoolCommandResult::changed()
+pub fn snapshot_has_value(s: &SimulableSnapshot) -> bool {
+    match s {
+        SimulableSnapshot::Loading { has_value } | SimulableSnapshot::Failed { has_value, .. } => {
+            *has_value
         }
-        DevtoolCommand::SetOperationRunning { input, .. } => {
-            let inputs = DevtoolInputValues::new(input);
-            let Ok(context) = C::devtool_build(&inputs) else {
-                return DevtoolCommandResult::failed(format!("Invalid inputs for `{path}`"));
-            };
-
-            state.start(devtools_request_id(), context);
-            DevtoolCommandResult::changed()
-        }
-        DevtoolCommand::SetOperationFailed { input, message, .. } => {
-            let inputs = DevtoolInputValues::new(input);
-            let Ok(context) = C::devtool_build(&inputs) else {
-                return DevtoolCommandResult::failed(format!("Invalid inputs for `{path}`"));
-            };
-
-            let request_id = devtools_request_id();
-            state.start(request_id, context);
-            state.fail(request_id, devtool_error(message));
-            DevtoolCommandResult::changed()
-        }
-        DevtoolCommand::SetResourceIdle { .. }
-        | DevtoolCommand::SetResourceLoading { .. }
-        | DevtoolCommand::SetResourceFailed { .. }
-        | DevtoolCommand::SetResourceLoadedFixture { .. }
-        | DevtoolCommand::DismissResourceError { .. } => {
-            DevtoolCommandResult::failed(format!("`{path}` is an operation, not a resource"))
-        }
+        SimulableSnapshot::Loaded => true,
+        _ => false,
     }
 }
 
-impl<T> DevtoolStateField for AsyncState<T>
-where
-    T: DevtoolValue,
-{
-    fn devtool_collect_field(&self, path: &str, label: &str, snapshot: &mut DevtoolStateSnapshot) {
-        collect_async_state_field(self, path, label, snapshot, T::devtool_fixtures(path));
-    }
-
-    fn devtool_apply_field(
-        &mut self,
-        path: &str,
-        command: &DevtoolCommand,
-    ) -> DevtoolCommandResult {
-        apply_async_state_field(self, path, command, || T::devtool_fixtures(path))
-    }
-}
-
-impl<C> DevtoolStateField for OperationState<C>
-where
-    C: DevtoolOperationContext,
-{
-    fn devtool_collect_field(&self, path: &str, label: &str, snapshot: &mut DevtoolStateSnapshot) {
-        collect_operation_state_field(self, path, label, snapshot);
-    }
-
-    fn devtool_apply_field(
-        &mut self,
-        path: &str,
-        command: &DevtoolCommand,
-    ) -> DevtoolCommandResult {
-        apply_operation_state_field(self, path, command)
-    }
-}
-
-fn devtools_request_id() -> RequestId {
-    RequestId::new(1_000_000)
-}
-
-fn devtool_error(message: &str) -> UserFacingError {
-    let message = message.trim();
-    if message.is_empty() {
-        UserFacingError::devtools(DEVTOOLS_DEFAULT_ERROR)
-    } else {
-        UserFacingError::devtools(message)
-    }
-}
-
-fn async_status<T>(state: &AsyncState<T>) -> DevtoolAsyncStatus {
-    if let Some(error) = state.error() {
-        return DevtoolAsyncStatus::Failed {
-            has_value: state.value().is_some(),
-            summary: error.summary().to_string(),
-        };
-    }
-
-    if state.is_loading() {
-        return DevtoolAsyncStatus::Loading {
-            has_value: state.value().is_some(),
-        };
-    }
-
-    if state.value().is_some() {
-        DevtoolAsyncStatus::Loaded
-    } else {
-        DevtoolAsyncStatus::Idle
-    }
-}
-
-fn operation_status<C>(state: &OperationState<C>) -> DevtoolOperationStatus {
-    if let Some(error) = state.error() {
-        DevtoolOperationStatus::Failed {
-            summary: error.summary().to_string(),
-        }
-    } else if state.is_running() {
-        DevtoolOperationStatus::Running
-    } else {
-        DevtoolOperationStatus::Idle
-    }
+pub fn snapshot_has_error(s: &SimulableSnapshot) -> bool {
+    matches!(
+        s,
+        SimulableSnapshot::Failed { .. } | SimulableSnapshot::OperationFailed { .. }
+    )
 }

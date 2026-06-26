@@ -1,9 +1,6 @@
-use std::future::Future;
 use std::time::Duration;
 
-use iced::Task;
-
-use crate::{UserFacingError, UserFacingResult};
+use crate::UserFacingError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProbeEffect {
@@ -60,37 +57,6 @@ impl ClientTaskInjection {
             ClientTaskInjectionKind::DelayOnly { .. } => None,
         }
     }
-}
-
-pub fn injected_client_task<T, Message, Fut>(
-    injection: ClientTaskInjection,
-    future: Fut,
-    map: impl Fn(UserFacingResult<T>) -> Message + Send + 'static,
-) -> Task<Message>
-where
-    T: Send + 'static,
-    Message: Send + 'static,
-    Fut: Future<Output = UserFacingResult<T>> + Send + 'static,
-{
-    crate::client_task(
-        async move {
-            match injection.kind {
-                ClientTaskInjectionKind::Fail { error, delay } => {
-                    if let Some(delay) = delay {
-                        tokio::time::sleep(delay).await;
-                    }
-                    Err(error)
-                }
-                ClientTaskInjectionKind::DelayOnly { delay } => {
-                    if let Some(delay) = delay {
-                        tokio::time::sleep(delay).await;
-                    }
-                    future.await
-                }
-            }
-        },
-        map,
-    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

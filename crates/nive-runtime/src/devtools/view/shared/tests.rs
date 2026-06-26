@@ -1,18 +1,19 @@
 use super::*;
+use crate::inspect::SimulableSnapshot;
 
 #[test]
-fn fail_resource_preserves_value_when_status_has_cache() {
-    assert!(async_status_has_value(&DevtoolAsyncStatus::Loaded));
-    assert!(async_status_has_value(&DevtoolAsyncStatus::Loading {
-        has_value: true,
+fn snapshot_has_value_returns_true_for_loaded_and_loading_with_cache() {
+    assert!(snapshot_has_value(&SimulableSnapshot::Loaded));
+    assert!(snapshot_has_value(&SimulableSnapshot::Loading {
+        has_value: true
     }));
-    assert!(async_status_has_value(&DevtoolAsyncStatus::Failed {
+    assert!(snapshot_has_value(&SimulableSnapshot::Failed {
         has_value: true,
-        summary: "Already failed".to_string(),
+        summary: "err".to_string()
     }));
-    assert!(!async_status_has_value(&DevtoolAsyncStatus::Idle));
-    assert!(!async_status_has_value(&DevtoolAsyncStatus::Loading {
-        has_value: false,
+    assert!(!snapshot_has_value(&SimulableSnapshot::Idle));
+    assert!(!snapshot_has_value(&SimulableSnapshot::Loading {
+        has_value: false
     }));
 }
 

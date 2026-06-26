@@ -6,31 +6,6 @@ use super::operation_descriptor::{
     OperationDescriptor, OperationId, OperationProgress, OperationStatus,
 };
 
-/// A runtime-level command that drives the internal [`OperationRegistry`] via
-/// `AppUpdate::op_start` / `op_complete` / `op_fail` / `op_cancel`.
-///
-/// Apps normally emit these through the [`AppUpdate`] builder methods rather
-/// than constructing this enum directly; the runtime collects each emitted
-/// command into a [`RuntimeCommand::Operation`] and applies it against its
-/// internal registry.
-///
-/// [`AppUpdate`]: crate::AppUpdate
-/// [`RuntimeCommand::Operation`]: crate::RuntimeCommand::Operation
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum OperationCommand {
-    /// Register a new operation (or replace an existing one with the same id).
-    Start(OperationDescriptor),
-    /// Mark an in-flight operation as completed. Ignored if the id is unknown
-    /// or already terminal.
-    Complete(OperationId),
-    /// Mark an in-flight operation as failed. Ignored if the id is unknown or
-    /// already terminal.
-    Fail(OperationId, UserFacingError),
-    /// Mark a cancellable in-flight operation as cancelled. Ignored if the id
-    /// is unknown, already terminal, or not cancellable.
-    Cancel(OperationId),
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct OperationEntry {
     pub descriptor: OperationDescriptor,
