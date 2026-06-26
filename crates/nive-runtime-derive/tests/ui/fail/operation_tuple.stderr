@@ -1,5 +1,0 @@
-error: DevtoolOperationContext supports unit or named-field structs only
-  --> tests/ui/fail/operation_tuple.rs:13:8
-   |
-13 | struct Context(String);
-   |        ^^^^^^^

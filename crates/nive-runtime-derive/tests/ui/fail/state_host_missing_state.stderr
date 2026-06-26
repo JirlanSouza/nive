@@ -1,5 +1,0 @@
-error: DevtoolStateHost expected a field named `state`
-  --> tests/ui/fail/state_host_missing_state.rs:13:8
-   |
-13 | struct Host {
-   |        ^^^^

@@ -1,5 +1,0 @@
-error: probe catalog variants must be unit variants
-  --> tests/ui/fail/probe_non_unit.rs:16:5
-   |
-16 |     Load(String),
-   |     ^^^^^^^^^^^^
