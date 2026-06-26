@@ -49,9 +49,9 @@ pub mod prelude {
         relative_time_label, run, time, unix_now, window, Action, ActionId, ActionMap, AppUpdate,
         Application, ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason,
         Context, CoreEvent, DiagnosticSnapshot, DuplicateActionId, Error, ExitDecision,
-        KeyboardNavigation, Never, PlatformError, Point, RequestCounter, RequestId, Result,
-        RuntimeCommand, RuntimeEvent, RuntimeEventKind, RuntimeEventLog, RuntimeSession,
-        ScreenView, SettingsConfig, SettingsError, SettingsErrorKind, ShortcutBinding, ShortcutKey,
+        KeyboardNavigation, Never, PlatformError, Point, RequestId, Result, RuntimeCommand,
+        RuntimeEvent, RuntimeEventKind, RuntimeEventLog, RuntimeSession, ScreenView,
+        SettingsConfig, SettingsError, SettingsErrorKind, ShortcutBinding, ShortcutKey,
         ShortcutMap, SimpleApplication, Size, Subscription, Task, Theme, ThemeBuilder,
         ThemeCatalog, ThemeController, ThemeEvent, ThemeMode, ThemePreference, Toast,
         ToastPosition, Update, WindowCardinality, WindowCommand, WindowContext, WindowQuery,
@@ -78,12 +78,11 @@ pub mod prelude {
         #[allow(deprecated)]
         pub use crate::ToastRequest;
         pub use crate::{
-            AsyncState, BackgroundFit, BootstrapSpec, BrandContent, DialogDismiss, DialogRequest,
-            ErrorCode, InvalidErrorCode, OperationCommand, OperationDescriptor, OperationEntry,
-            OperationId, OperationProgress, OperationRegistry, OperationState, OperationStatus,
-            RequestCounter, RequestId, ScreenUpdate, Toast, ToastDuration, UserFacingError,
-            UserFacingErrorKind, UserFacingResult, WindowChrome, WindowHandle, WindowMode,
-            WindowRegistry,
+            BackgroundFit, BootstrapSpec, BrandContent, DialogDismiss, DialogRequest, ErrorCode,
+            InvalidErrorCode, Operation, OperationDescriptor, OperationEntry, OperationId,
+            OperationProgress, OperationRegistry, OperationStatus, RequestId, Resource,
+            ScreenUpdate, Settled, Toast, ToastDuration, UserFacingError, UserFacingErrorKind,
+            UserFacingResult, WindowChrome, WindowHandle, WindowMode, WindowRegistry,
         };
         #[cfg(feature = "file-picker")]
         pub use crate::{FileFilter, PickFileParams, SaveFileParams};
@@ -94,3 +93,10 @@ pub use nive_runtime::*;
 pub use nive_ui::*;
 
 pub use nive_runtime::{ToastPosition, ToastTone};
+
+#[cfg(feature = "devtools")]
+#[doc(hidden)]
+pub use nive_runtime::__inspect;
+
+#[cfg(feature = "devtools")]
+pub use nive_runtime::devtools;
