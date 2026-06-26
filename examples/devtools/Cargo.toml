@@ -1,0 +1,15 @@
+[workspace]
+
+[package]
+name = "nive-example-devtools"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "devtools"
+path = "src/main.rs"
+
+[dependencies]
+nive = { path = "../../crates/nive", features = ["devtools"] }
+nive-runtime = { path = "../../crates/nive-runtime", features = ["devtools"] }

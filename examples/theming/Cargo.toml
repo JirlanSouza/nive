@@ -1,0 +1,14 @@
+[workspace]
+
+[package]
+name = "nive-example-theming"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "theming"
+path = "src/main.rs"
+
+[dependencies]
+nive = { path = "../../crates/nive" }
