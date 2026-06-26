@@ -1,0 +1,14 @@
+[workspace]
+
+[package]
+name = "nive-example-forms"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "forms"
+path = "src/main.rs"
+
+[dependencies]
+nive = { path = "../../crates/nive" }
