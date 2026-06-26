@@ -21,7 +21,7 @@ pub use crate::lifecycle::{
 pub use config::{ApplicationConfig, WindowRegistration};
 pub use context::{Context, WindowContext, WindowQuery};
 pub use event::CoreEvent;
-pub use task::client_task;
+pub use task::perform;
 pub use theme::{ThemeController, ThemeEvent};
 pub use update::{AppUpdate, Never, RuntimeCommand, Update};
 

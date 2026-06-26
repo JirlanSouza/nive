@@ -207,13 +207,13 @@ impl std::fmt::Display for DuplicateActionId {
 
 impl std::error::Error for DuplicateActionId {}
 
-/// Builds a [`CommandPaletteRow`] for each enabled action in `actions`.
+/// Builds a [`nive_ui::widgets::CommandPaletteRow`] for each enabled action in `actions`.
 ///
 /// Disabled actions are still included as rows so the palette can present
-/// them, but their [`CommandPaletteRow::activated`] returns `None` so the
+/// them, but their [`nive_ui::widgets::CommandPaletteRow::activated`] returns `None` so the
 /// app-level submit handler ignores them. Apps that want to hide disabled
 /// actions entirely can drop rows where `row.activated().is_none()` before
-/// passing them to [`command_palette_filter`].
+/// passing them to [`nive_ui::widgets::command_palette_filter`].
 pub fn command_palette_rows<M>(
     actions: &ActionMap<M>,
 ) -> Vec<nive_ui::widgets::CommandPaletteRow<'_, M>>

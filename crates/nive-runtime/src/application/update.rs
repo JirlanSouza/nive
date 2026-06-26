@@ -3,8 +3,7 @@ use std::convert::Infallible;
 use iced::Task;
 use nive_ui::theme::ThemePreference;
 
-use crate::state::OperationCommand;
-use crate::{OperationDescriptor, OperationId, Toast, UserFacingError, WindowCommand};
+use crate::{Toast, WindowCommand};
 
 /// Alias for an outcome type that can never occur.
 pub type Never = Infallible;
@@ -34,8 +33,6 @@ pub enum RuntimeCommand<K> {
     Window(WindowCommand<K>),
     /// Change the active theme preference.
     Theme(ThemePreference),
-    /// Drive the runtime-managed [`OperationRegistry`](crate::OperationRegistry).
-    Operation(OperationCommand),
     /// Exit the application.
     Exit,
 }
@@ -94,47 +91,6 @@ impl<M, O, K> Update<M, O, K> {
 
     pub fn theme(mut self, preference: ThemePreference) -> Self {
         self.runtime.push(RuntimeCommand::Theme(preference));
-        self
-    }
-
-    /// Start (or replace) an operation in the runtime-managed
-    /// [`OperationRegistry`](crate::OperationRegistry).
-    ///
-    /// The runtime holds a single internal registry used by the devtools
-    /// panel; apps that emit `op_start` SHOULD NOT also hold their own
-    /// `OperationRegistry` field and call `register` on it for the same ids.
-    /// Holding both causes two sources of truth: the runtime registry drives
-    /// devtools, your app field drives your UI — they will not stay in sync.
-    /// Apps that want in-app operation rendering should hold their own
-    /// registry and never call `op_start`/`op_complete`/`op_fail`/`op_cancel`.
-    pub fn op_start(mut self, id: OperationId, mut descriptor: OperationDescriptor) -> Self {
-        descriptor.id = id;
-        self.runtime
-            .push(RuntimeCommand::Operation(OperationCommand::Start(
-                descriptor,
-            )));
-        self
-    }
-
-    /// Mark an operation as completed in the runtime-managed registry.
-    pub fn op_complete(mut self, id: OperationId) -> Self {
-        self.runtime
-            .push(RuntimeCommand::Operation(OperationCommand::Complete(id)));
-        self
-    }
-
-    /// Mark an operation as failed in the runtime-managed registry.
-    pub fn op_fail(mut self, id: OperationId, error: UserFacingError) -> Self {
-        self.runtime
-            .push(RuntimeCommand::Operation(OperationCommand::Fail(id, error)));
-        self
-    }
-
-    /// Cancel an operation in the runtime-managed registry (no-op if not
-    /// cancellable or already terminal).
-    pub fn op_cancel(mut self, id: OperationId) -> Self {
-        self.runtime
-            .push(RuntimeCommand::Operation(OperationCommand::Cancel(id)));
         self
     }
 
