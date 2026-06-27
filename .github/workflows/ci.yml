@@ -24,19 +24,49 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
+      - name: Check
+        run: cargo check --workspace --all-targets --all-features
+
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
       - name: Test
-        run: cargo test --workspace
+        run: cargo test --workspace --all-features
 
       - name: Documentation
-        run: cargo doc --workspace --no-deps
+        run: cargo doc --workspace --no-deps --all-features
         env:
           RUSTDOCFLAGS: "-D warnings"
 
+      - name: Examples
+        shell: bash
+        run: |
+          for manifest in examples/*/Cargo.toml; do
+            cargo check --manifest-path "$manifest"
+          done
+
+      - name: Package readiness
+        run: |
+          cargo package --package nive-ui
+          cargo package --package nive-runtime-derive
+          cargo package --package nive-runtime \
+            --config 'patch.crates-io.nive-runtime-derive.path="crates/nive-runtime-derive"' \
+            --config 'patch.crates-io.nive-ui.path="crates/nive-ui"'
+          cargo package --package nive \
+            --config 'patch.crates-io.nive-runtime-derive.path="crates/nive-runtime-derive"' \
+            --config 'patch.crates-io.nive-runtime.path="crates/nive-runtime"' \
+            --config 'patch.crates-io.nive-ui.path="crates/nive-ui"'
+          cargo package --package nive-cli
+        shell: bash
+
       - name: Build nive-cli
         run: cargo build --release --package nive-cli
+
+      - name: Scaffold smoke basic
+        run: bash scripts/scaffold-smoke.sh basic
+
+      - name: Scaffold smoke dashboard
+        run: bash scripts/scaffold-smoke.sh dashboard
 
       - name: Icons check
         run: ../../target/release/nive icons check
