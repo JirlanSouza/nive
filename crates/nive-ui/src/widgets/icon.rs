@@ -13,25 +13,40 @@ use crate::Element;
 
 include!("icon.generated.rs");
 
-pub fn new(icon: IconName) -> Icon {
+pub trait IconSource: Copy + 'static {
+    fn svg_bytes(self) -> &'static [u8];
+
+    fn provider_slug(self) -> &'static str;
+}
+
+pub fn new<S>(icon: S) -> Icon<S>
+where
+    S: IconSource,
+{
     Icon::new(icon)
 }
 
-pub(crate) fn handle(icon: IconName) -> Handle {
+pub(crate) fn handle<S>(icon: S) -> Handle
+where
+    S: IconSource,
+{
     Handle::from_memory(icon.svg_bytes())
 }
 
-pub struct Icon {
-    icon: IconName,
+pub struct Icon<S = IconName> {
+    icon: S,
     size: f32,
     color: Option<Color>,
     rotation: Radians,
 }
 
-impl Icon {
+impl<S> Icon<S>
+where
+    S: IconSource,
+{
     const DEFAULT_SIZE: f32 = 16.0;
 
-    pub fn new(icon: IconName) -> Self {
+    pub fn new(icon: S) -> Self {
         Self {
             icon,
             size: Self::DEFAULT_SIZE,
@@ -81,7 +96,10 @@ impl Icon {
     }
 }
 
-impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for Icon {
+impl<Message, Theme, S> Widget<Message, Theme, iced::Renderer> for Icon<S>
+where
+    S: IconSource,
+{
     fn size(&self) -> Size<Length> {
         Size {
             width: Length::Fixed(self.size),
@@ -125,11 +143,12 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for Icon {
     }
 }
 
-impl<'a, Message> From<Icon> for Element<'a, Message>
+impl<'a, Message, S> From<Icon<S>> for Element<'a, Message>
 where
     Message: 'a,
+    S: IconSource,
 {
-    fn from(icon: Icon) -> Self {
+    fn from(icon: Icon<S>) -> Self {
         Element::new(icon)
     }
 }
