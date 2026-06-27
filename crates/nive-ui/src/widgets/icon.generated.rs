@@ -1,4 +1,5 @@
 // Bundled icons are sourced from Lucide (https://lucide.dev) and distributed under the ISC License.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IconName {
     AlertCircle,
@@ -29,8 +30,8 @@ pub enum IconName {
     Trash,
 }
 
-impl IconName {
-    fn svg_bytes(&self) -> &'static [u8] {
+impl IconSource for IconName {
+    fn svg_bytes(self) -> &'static [u8] {
         match self {
             Self::AlertCircle => include_bytes!("../../assets/icons/lucide/circle-alert.svg"),
             Self::AlertTriangle => include_bytes!("../../assets/icons/lucide/triangle-alert.svg"),
@@ -61,8 +62,7 @@ impl IconName {
         }
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn provider_slug(&self) -> &'static str {
+    fn provider_slug(self) -> &'static str {
         match self {
             Self::AlertCircle => "circle-alert",
             Self::AlertTriangle => "triangle-alert",

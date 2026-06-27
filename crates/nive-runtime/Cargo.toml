@@ -5,6 +5,10 @@ edition = "2021"
 rust-version = "1.92"
 license = "Apache-2.0"
 description = "Reusable runtime foundation for Rust/Iced desktop applications."
+repository = "https://github.com/nive-rs/nive"
+documentation = "https://docs.rs/nive-runtime"
+readme = "README.md"
+keywords = ["gui", "desktop", "iced", "runtime"]
 categories = ["gui"]
 
 [features]
@@ -15,8 +19,8 @@ devtools = ["nive-runtime-derive/devtools"]
 [dependencies]
 iced = { workspace = true }
 log = { workspace = true }
-nive-runtime-derive = { path = "../nive-runtime-derive" }
-nive-ui = { path = "../nive-ui" }
+nive-runtime-derive = { version = "0.1.0", path = "../nive-runtime-derive" }
+nive-ui = { version = "0.1.0", path = "../nive-ui" }
 rfd = { version = "0.16", optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
