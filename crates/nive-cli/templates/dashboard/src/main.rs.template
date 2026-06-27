@@ -1,8 +1,10 @@
 use nive::prelude::ui::*;
 
+mod widgets;
+
 struct {{app_name_title}}App {
     projects: Resource<Vec<String>>,
-    pending_dialog: Option<DialogRequest<Message>>,
+    dialog_open: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -26,7 +28,7 @@ impl Application for {{app_name_title}}App {
         (
             Self {
                 projects: Resource::idle(),
-                pending_dialog: None,
+                dialog_open: false,
             },
             AppUpdate::none().toast(Toast::info("Welcome to the {{app_name_title}} dashboard")),
         )
@@ -48,46 +50,49 @@ impl Application for {{app_name_title}}App {
                 }
             }
             Message::OpenDialog => {
-                self.pending_dialog = Some(
-                    DialogRequest::new(column![text("Are you sure you want to continue?")])
-                        .dismiss_on_backdrop_or_escape(Message::DismissDialog),
-                );
+                self.dialog_open = true;
                 AppUpdate::none()
             }
             Message::DismissDialog => {
-                self.pending_dialog = None;
+                self.dialog_open = false;
+                AppUpdate::none()
             }
         }
     }
 
     fn view(&self, _context: Context<'_, Self::Window>, _window: WindowContext<Self::Window>) -> ScreenView<'_, Self::Message> {
         let body: nive::Element<'_, Message> = if self.projects.is_loading() && self.projects.value().is_none() {
-            column![text("Loading...")].into()
+            nive::prelude::column![text("Loading...")].into()
         } else if let Some(error) = self.projects.error() {
-            column![text(error.summary())].into()
+            nive::prelude::column![text(error.summary())].into()
         } else if let Some(projects) = self.projects.value() {
             if projects.is_empty() {
-                column![text("No projects yet.")].into()
+                nive::prelude::column![text("No projects yet.")].into()
             } else {
-                column(projects.iter().map(|p| text(p.as_str())).map(nive::Element::from)).into()
+                nive::prelude::column(projects.iter().map(|p| text(p.as_str())).map(nive::Element::from)).into()
             }
         } else {
-            column![text("Press Refresh to load projects.")].into()
+            nive::prelude::column![text("Press Refresh to load projects.")].into()
         };
 
         let refresh_button = button("Refresh").on_press(Message::RefreshProjects);
         let open_dialog_button = button("Open dialog").on_press(Message::OpenDialog);
 
         ScreenView::new(
-            column![body, row![refresh_button, open_dialog_button].spacing(10)]
+            nive::prelude::column![body, nive::prelude::row![refresh_button, open_dialog_button].spacing(10)]
                 .padding(20)
                 .spacing(10),
         )
-        .dialog_maybe(self.pending_dialog.clone())
+        .dialog_maybe(self.dialog_open.then(|| {
+            DialogRequest::new(nive::prelude::column![text(
+                "Are you sure you want to continue?"
+            )])
+            .dismiss_on_backdrop_or_escape(Message::DismissDialog)
+        }))
     }
 }
 
-async fn fetch_projects() -> Result<Vec<String>, UserFacingError> {
+async fn fetch_projects() -> UserFacingResult<Vec<String>> {
     // Stand-in for a real async datasource.
     Ok(vec![
         "Project Alpha".to_string(),
