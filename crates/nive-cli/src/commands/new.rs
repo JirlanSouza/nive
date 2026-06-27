@@ -56,8 +56,7 @@ pub fn run(name: &str, dashboard: bool) -> Result<(), Box<dyn std::error::Error>
     let app_dir = Path::new(name);
 
     if app_dir.exists() {
-        eprintln!("Error: Directory already exists: {}", app_dir.display());
-        std::process::exit(1);
+        return Err(format!("Directory already exists: {}", app_dir.display()).into());
     }
 
     let title = to_title_case(name);
