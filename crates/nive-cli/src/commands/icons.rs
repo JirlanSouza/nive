@@ -23,6 +23,20 @@ struct IconPaths {
     manifest: PathBuf,
     asset_dir: PathBuf,
     generated: PathBuf,
+    widgets_mod: PathBuf,
+    wrapper: PathBuf,
+}
+
+impl IconPaths {
+    fn from_root(root: &Path) -> Self {
+        Self {
+            manifest: root.join("icons/lucide.toml"),
+            asset_dir: root.join("assets/icons/lucide"),
+            generated: root.join("src/widgets/icon.generated.rs"),
+            widgets_mod: root.join("src/widgets/mod.rs"),
+            wrapper: root.join("src/widgets/icon.rs"),
+        }
+    }
 }
 
 #[derive(Subcommand)]
@@ -45,34 +59,27 @@ pub enum IconsCommands {
 }
 
 pub fn run(command: IconsCommands) -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    run_in_dir(command, &cwd)
+}
+
+fn run_in_dir(command: IconsCommands, root: &Path) -> Result<()> {
+    let paths = IconPaths::from_root(root);
+
     match command {
-        IconsCommands::List => icons_list(),
-        IconsCommands::Sync => icons_sync(),
-        IconsCommands::Check => icons_check(),
+        IconsCommands::List => icons_list(&paths),
+        IconsCommands::Sync => icons_sync(&paths),
+        IconsCommands::Check => icons_check(&paths),
         IconsCommands::Add {
             variant,
             lucide_name,
-        } => icons_add(&variant, &lucide_name),
-        IconsCommands::Init => icons_init(),
+        } => icons_add(&paths, &variant, &lucide_name),
+        IconsCommands::Init => icons_init(&paths),
     }
 }
 
-fn cwd_paths() -> Result<IconPaths> {
-    let cwd = std::env::current_dir()?;
-    Ok(IconPaths {
-        manifest: cwd.join("icons/lucide.toml"),
-        asset_dir: cwd.join("assets/icons/lucide"),
-        generated: cwd.join("src/widgets/icon.generated.rs"),
-    })
-}
-
-fn icons_list() -> Result<()> {
-    let paths = cwd_paths()?;
-
-    if !paths.manifest.exists() {
-        eprintln!("No `icons/lucide.toml` found in cwd. Run `nive icons init` first.");
-        std::process::exit(1);
-    }
+fn icons_list(paths: &IconPaths) -> Result<()> {
+    require_manifest(paths)?;
 
     let manifest = read_manifest(&paths.manifest)?;
 
@@ -83,13 +90,9 @@ fn icons_list() -> Result<()> {
     Ok(())
 }
 
-fn icons_sync() -> Result<()> {
-    let paths = cwd_paths()?;
-
-    if !paths.manifest.exists() {
-        eprintln!("No `icons/lucide.toml` found in cwd. Run `nive icons init` first.");
-        std::process::exit(1);
-    }
+fn icons_sync(paths: &IconPaths) -> Result<()> {
+    require_manifest(paths)?;
+    ensure_icon_module_files(paths)?;
 
     let manifest = read_manifest(&paths.manifest)?;
 
@@ -112,13 +115,8 @@ fn icons_sync() -> Result<()> {
     Ok(())
 }
 
-fn icons_check() -> Result<()> {
-    let paths = cwd_paths()?;
-
-    if !paths.manifest.exists() {
-        eprintln!("No `icons/lucide.toml` found in cwd. Run `nive icons init` first.");
-        std::process::exit(1);
-    }
+fn icons_check(paths: &IconPaths) -> Result<()> {
+    require_manifest(paths)?;
 
     let manifest = read_manifest(&paths.manifest)?;
     let mut failures = Vec::new();
@@ -195,16 +193,11 @@ fn icons_check() -> Result<()> {
     Err(format!("Icon check failed: {} issue(s)", failures.len()).into())
 }
 
-fn icons_add(variant: &str, lucide_name: &str) -> Result<()> {
+fn icons_add(paths: &IconPaths, variant: &str, lucide_name: &str) -> Result<()> {
     validate_variant(variant)?;
     validate_slug(lucide_name)?;
 
-    let paths = cwd_paths()?;
-
-    if !paths.manifest.exists() {
-        eprintln!("No `icons/lucide.toml` found in cwd. Run `nive icons init` first.");
-        std::process::exit(1);
-    }
+    require_manifest(paths)?;
 
     let mut manifest = read_manifest(&paths.manifest)?;
     manifest
@@ -214,39 +207,89 @@ fn icons_add(variant: &str, lucide_name: &str) -> Result<()> {
     let updated = toml::to_string_pretty(&manifest)?;
     write_if_changed(&paths.manifest, updated.as_bytes())?;
 
-    icons_sync()
+    icons_sync(paths)
 }
 
-fn icons_init() -> Result<()> {
-    let paths = cwd_paths()?;
-
-    if paths.manifest.exists() {
-        return Err(format!("Manifest already exists: {}", paths.manifest.display()).into());
-    }
-
+fn icons_init(paths: &IconPaths) -> Result<()> {
     fs::create_dir_all(paths.manifest.parent().unwrap())?;
     fs::create_dir_all(&paths.asset_dir)?;
     fs::create_dir_all(paths.generated.parent().unwrap())?;
 
-    let empty_manifest = IconsManifest {
-        version: "0.460.0".to_string(),
-        stroke_width: "2".to_string(),
-        stroke_linecap: "round".to_string(),
-        stroke_linejoin: "round".to_string(),
-        icons: BTreeMap::new(),
-    };
+    if paths.manifest.exists() {
+        println!("Already exists {}", paths.manifest.display());
+    } else {
+        let empty_manifest = empty_manifest();
+        let toml_string = toml::to_string_pretty(&empty_manifest)?;
+        fs::write(&paths.manifest, toml_string)?;
+        println!("Created {}", paths.manifest.display());
+    }
 
-    let toml_string = toml::to_string_pretty(&empty_manifest)?;
-    fs::write(&paths.manifest, toml_string)?;
-
-    println!("Created {}", paths.manifest.display());
     println!("Created {}", paths.asset_dir.display());
-    println!("Created {}", paths.generated.parent().unwrap().display());
+    ensure_icon_module_files(paths)?;
+
+    if !paths.generated.exists() {
+        let manifest = read_manifest(&paths.manifest)?;
+        fs::write(&paths.generated, generate_icon_source(&manifest))?;
+        println!("Created {}", paths.generated.display());
+    }
+
     println!("\nNext steps:");
     println!("  nive icons add <Variant> <lucide-name>");
     println!("  nive icons sync");
 
     Ok(())
+}
+
+fn empty_manifest() -> IconsManifest {
+    IconsManifest {
+        version: "0.460.0".to_string(),
+        stroke_width: "2".to_string(),
+        stroke_linecap: "round".to_string(),
+        stroke_linejoin: "round".to_string(),
+        icons: BTreeMap::new(),
+    }
+}
+
+fn require_manifest(paths: &IconPaths) -> Result<()> {
+    if paths.manifest.exists() {
+        return Ok(());
+    }
+
+    Err(format!(
+        "No `icons/lucide.toml` found at {}. Run `nive icons init` first.",
+        paths.manifest.display()
+    )
+    .into())
+}
+
+fn ensure_icon_module_files(paths: &IconPaths) -> Result<()> {
+    fs::create_dir_all(paths.generated.parent().unwrap())?;
+
+    if paths.widgets_mod.exists() {
+        let contents = fs::read_to_string(&paths.widgets_mod)?;
+        if !contents.contains("pub mod icon;") {
+            println!(
+                "{} already exists; add `pub mod icon;` to expose generated icons.",
+                paths.widgets_mod.display()
+            );
+        }
+    } else {
+        fs::write(&paths.widgets_mod, "pub mod icon;\n")?;
+        println!("Created {}", paths.widgets_mod.display());
+    }
+
+    if paths.wrapper.exists() {
+        println!("Already exists {}", paths.wrapper.display());
+    } else {
+        fs::write(&paths.wrapper, icon_wrapper_source())?;
+        println!("Created {}", paths.wrapper.display());
+    }
+
+    Ok(())
+}
+
+fn icon_wrapper_source() -> &'static str {
+    "use nive::prelude::IconSource;\n\ninclude!(\"icon.generated.rs\");\n"
 }
 
 fn read_manifest(path: &Path) -> Result<IconsManifest> {
@@ -322,6 +365,7 @@ fn normalize_svg(source: &str, manifest: &IconsManifest) -> Result<String> {
 fn generate_icon_source(manifest: &IconsManifest) -> String {
     let mut source = String::from(
         "// Bundled icons are sourced from Lucide (https://lucide.dev) and distributed under the ISC License.\n\
+         #[allow(dead_code)]\n\
          #[derive(Debug, Clone, Copy, PartialEq, Eq)]\n\
          pub enum IconName {\n",
     );
@@ -332,8 +376,8 @@ fn generate_icon_source(manifest: &IconsManifest) -> String {
         source.push_str(",\n");
     }
 
-    source.push_str("}\n\nimpl IconName {\n");
-    source.push_str("    fn svg_bytes(&self) -> &'static [u8] {\n");
+    source.push_str("}\n\nimpl IconSource for IconName {\n");
+    source.push_str("    fn svg_bytes(self) -> &'static [u8] {\n");
     source.push_str("        match self {\n");
 
     for (variant, slug) in &manifest.icons {
@@ -347,8 +391,7 @@ fn generate_icon_source(manifest: &IconsManifest) -> String {
 
     source.push_str("        }\n");
     source.push_str("    }\n\n");
-    source.push_str("    #[allow(dead_code)]\n");
-    source.push_str("    pub(crate) fn provider_slug(&self) -> &'static str {\n");
+    source.push_str("    fn provider_slug(self) -> &'static str {\n");
     source.push_str("        match self {\n");
 
     for (variant, slug) in &manifest.icons {
@@ -456,4 +499,141 @@ fn display_path(path: &Path) -> String {
         .unwrap_or(path)
         .display()
         .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn manifest_with_icons(icons: &[(&str, &str)]) -> IconsManifest {
+        let mut manifest = empty_manifest();
+        manifest.icons = icons
+            .iter()
+            .map(|(variant, slug)| ((*variant).to_string(), (*slug).to_string()))
+            .collect();
+        manifest
+    }
+
+    fn write_manifest(path: &Path, manifest: &IconsManifest) {
+        fs::create_dir_all(path.parent().unwrap()).expect("create manifest parent");
+        fs::write(
+            path,
+            toml::to_string_pretty(manifest).expect("serialize manifest"),
+        )
+        .expect("write manifest");
+    }
+
+    #[test]
+    fn path_planning_uses_standard_app_icon_locations() {
+        let root = Path::new("/tmp/demo-app");
+        let paths = IconPaths::from_root(root);
+
+        assert_eq!(paths.manifest, root.join("icons/lucide.toml"));
+        assert_eq!(paths.asset_dir, root.join("assets/icons/lucide"));
+        assert_eq!(paths.generated, root.join("src/widgets/icon.generated.rs"));
+        assert_eq!(paths.widgets_mod, root.join("src/widgets/mod.rs"));
+        assert_eq!(paths.wrapper, root.join("src/widgets/icon.rs"));
+    }
+
+    #[test]
+    fn manifest_validation_rejects_invalid_icon_slug() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let paths = IconPaths::from_root(tempdir.path());
+        write_manifest(
+            &paths.manifest,
+            &manifest_with_icons(&[("BadSlug", "bad_slug")]),
+        );
+
+        let error = read_manifest(&paths.manifest).expect_err("invalid slug should fail");
+
+        assert!(
+            error.to_string().contains("kebab-case ASCII"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn source_generation_implements_icon_source_contract() {
+        let manifest = manifest_with_icons(&[("Shield", "shield-check")]);
+
+        let source = generate_icon_source(&manifest);
+
+        assert!(source.contains("pub enum IconName"));
+        assert!(source.contains("impl IconSource for IconName"));
+        assert!(source.contains(
+            "Self::Shield => include_bytes!(\"../../assets/icons/lucide/shield-check.svg\")"
+        ));
+        assert!(source.contains("Self::Shield => \"shield-check\""));
+    }
+
+    #[test]
+    fn generated_module_integration_files_are_created_without_network() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let paths = IconPaths::from_root(tempdir.path());
+
+        icons_init(&paths).expect("init icons");
+
+        assert_eq!(
+            fs::read_to_string(&paths.widgets_mod).expect("read widgets mod"),
+            "pub mod icon;\n"
+        );
+        assert_eq!(
+            fs::read_to_string(&paths.wrapper).expect("read wrapper"),
+            icon_wrapper_source()
+        );
+        assert!(fs::read_to_string(&paths.generated)
+            .expect("read generated")
+            .contains("impl IconSource for IconName"));
+    }
+
+    #[test]
+    fn init_does_not_overwrite_user_authored_wrapper_files() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let paths = IconPaths::from_root(tempdir.path());
+        fs::create_dir_all(paths.wrapper.parent().unwrap()).expect("create widgets dir");
+        fs::write(&paths.widgets_mod, "// custom widgets\n").expect("write custom mod");
+        fs::write(&paths.wrapper, "// custom icon wrapper\n").expect("write custom wrapper");
+
+        icons_init(&paths).expect("init icons");
+
+        assert_eq!(
+            fs::read_to_string(&paths.widgets_mod).expect("read custom mod"),
+            "// custom widgets\n"
+        );
+        assert_eq!(
+            fs::read_to_string(&paths.wrapper).expect("read custom wrapper"),
+            "// custom icon wrapper\n"
+        );
+    }
+
+    #[test]
+    fn stale_assets_are_removed_offline() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let paths = IconPaths::from_root(tempdir.path());
+        fs::create_dir_all(&paths.asset_dir).expect("create asset dir");
+        fs::write(paths.asset_dir.join("shield-check.svg"), "<svg></svg>").expect("write icon");
+        fs::write(paths.asset_dir.join("stale.svg"), "<svg></svg>").expect("write stale icon");
+
+        remove_stale_assets(
+            &paths.asset_dir,
+            &manifest_with_icons(&[("Shield", "shield-check")]),
+        )
+        .expect("remove stale assets");
+
+        assert!(paths.asset_dir.join("shield-check.svg").exists());
+        assert!(!paths.asset_dir.join("stale.svg").exists());
+    }
+
+    #[test]
+    fn command_check_returns_missing_manifest_error() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+
+        let error =
+            run_in_dir(IconsCommands::Check, tempdir.path()).expect_err("missing manifest fails");
+
+        assert!(
+            error.to_string().contains("No `icons/lucide.toml` found"),
+            "unexpected error: {error}"
+        );
+    }
 }
