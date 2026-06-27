@@ -5,6 +5,10 @@ edition = "2021"
 rust-version = "1.92"
 license = "Apache-2.0"
 description = "CLI for scaffolding and icon management in Nive apps."
+repository = "https://github.com/nive-rs/nive"
+documentation = "https://docs.rs/nive-cli"
+readme = "README.md"
+keywords = ["gui", "desktop", "iced", "cli"]
 categories = ["gui", "command-line-utilities"]
 
 [[bin]]
