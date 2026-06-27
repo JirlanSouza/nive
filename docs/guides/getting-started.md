@@ -25,6 +25,7 @@ cargo run
 This creates a new directory with:
 - `Cargo.toml` with Nive dependencies
 - `src/main.rs` with a basic counter app
+- `src/widgets/icon.rs` with the app icon module wrapper
 - `justfile` with development commands
 - `icons/lucide.toml` for icon management
 
