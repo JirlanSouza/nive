@@ -15,6 +15,9 @@ just dev
 just icons-sync
 ```
 
+App-owned icons are exposed at `crate::widgets::icon::IconName` and render
+through `nive::prelude::Icon`.
+
 ## License
 
 Your license here.

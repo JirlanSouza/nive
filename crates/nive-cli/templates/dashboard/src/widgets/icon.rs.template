@@ -1,0 +1,3 @@
+use nive::prelude::IconSource;
+
+include!("icon.generated.rs");

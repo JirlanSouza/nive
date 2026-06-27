@@ -1,5 +1,7 @@
 use nive::prelude::*;
 
+mod widgets;
+
 struct {{app_name_title}}App {
     counter: i32,
 }
@@ -34,7 +36,7 @@ impl Application for {{app_name_title}}App {
     }
 
     fn view(&self, _context: Context<'_, Self::Window>, _window: WindowContext<Self::Window>) -> ScreenView<'_, Self::Message> {
-        ScreenView::new(column![button("+").on_press(Message::Increment), text(self.counter), button("-").on_press(Message::Decrement)].padding(20).spacing(10))
+        ScreenView::new(nive::prelude::column![button("+").on_press(Message::Increment), text(self.counter), button("-").on_press(Message::Decrement)].padding(20).spacing(10))
     }
 }
 
