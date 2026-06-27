@@ -28,6 +28,15 @@
 //! window-handle types switch to `nive::prelude::ui::*` for the extended
 //! surface.
 //!
+//! The crate root also re-exports the runtime and UI crates for convenience.
+//! Those broad crate-root exports are beta before 1.0; application templates
+//! should prefer the prelude tiers above for the most stable import shape.
+//!
+//! Feature-gated APIs are exposed through the corresponding `nive` feature
+//! flags, including `devtools` and `file-picker`. Devtools simulator internals
+//! and generated inspect support are experimental before 1.0 and should not be
+//! treated as production template dependencies.
+//!
 //! # Crates
 //!
 //! - `nive-ui`: visual design system (tokens, theme, widgets, icons)
