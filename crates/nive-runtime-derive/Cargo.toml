@@ -5,6 +5,10 @@ edition = "2021"
 rust-version = "1.92"
 license = "Apache-2.0"
 description = "Proc-macro support for the Nive runtime devtools layer."
+repository = "https://github.com/nive-rs/nive"
+documentation = "https://docs.rs/nive-runtime-derive"
+readme = "README.md"
+keywords = ["gui", "desktop", "iced", "proc-macro"]
 categories = ["development-tools::procedural-macro-helpers"]
 
 [features]

@@ -1,3 +1,9 @@
+//! Experimental devtools simulator support.
+//!
+//! These APIs are useful for framework diagnostics and development builds, but
+//! the simulator internals are experimental before Nive 1.0. Production app
+//! templates should not depend on this module directly.
+
 pub mod command;
 pub mod command_input;
 mod helpers;
