@@ -38,6 +38,9 @@ just test
 # Build documentation
 just doc
 
+# Run CI-like readiness checks
+just readiness
+
 # Build all crates
 just build
 
@@ -212,6 +215,34 @@ cargo test --package nive-ui
 cargo test --package nive-runtime
 ```
 
+## Readiness Checks
+
+Local readiness recipes mirror CI categories where the local environment
+allows:
+
+```bash
+just fmt-check
+just check
+just test
+just lint
+just doc-check
+just examples-check
+just scaffold-smoke
+just package-check
+just icons-check
+```
+
+`just scaffold-smoke` creates temporary apps outside the workspace, patches the
+generated app to the local `nive` checkout, and runs `cargo check` for both the
+basic and dashboard templates.
+
+`just package-check` verifies package readiness only. It runs `cargo package`
+for `nive-ui`, `nive-runtime-derive`, `nive-runtime`, `nive`, and `nive-cli`
+in dependency order. For crates that depend on unpublished internal Nive crates,
+the recipe passes temporary Cargo patch config so verification models the local
+dependency chain without publishing anything. It does not publish crates, tag a
+release, or perform post-publish docs.rs verification.
+
 ## Documentation
 
 Build and open documentation:
@@ -228,6 +259,7 @@ cargo doc --workspace --no-deps --open
 
 ## Publishing
 
+Publishing is a separate maintainer action after package readiness passes.
 Publish in dependency order (leaves first, then the umbrella, then the CLI):
 
 ```bash

@@ -22,6 +22,11 @@ Prefer these root commands for active work:
 - `just lint`
 - `just test`
 - `just doc`
+- `just doc-check`
+- `just examples-check`
+- `just scaffold-smoke`
+- `just package-check`
+- `just readiness`
 - `just build`
 - `just release`
 

@@ -4,12 +4,14 @@
 
 - `just fmt`: format active Rust crates.
 - `just fmt-check`: check formatting for active Rust crates.
-- `just check`: check active Rust crates.
-- `just lint`: run clippy for active Rust crates.
-- `just rust-test`: run tests for active Rust crates.
-- `just test`: run active Rust tests plus parser tests.
-- `just app-gui-check-dev`: check `app-gui` with the `dev` feature enabled for Devtools/probe changes.
-- `just app-gui-test-dev`: test `app-gui` with the `dev` feature enabled for Devtools/probe changes.
+- `just check`: run `cargo check --workspace --all-targets --all-features`.
+- `just lint`: run clippy with all targets and all features, treating warnings as errors.
+- `just test`: run workspace tests with all features.
+- `just doc-check`: build workspace docs with all features and warnings denied.
+- `just examples-check`: run `cargo check` for every standalone example under `examples/*/Cargo.toml`.
+- `just scaffold-smoke`: scaffold basic and dashboard apps outside the workspace with a temporary local `nive` patch and run `cargo check`.
+- `just package-check`: run package-readiness checks for publishable crates in dependency order.
+- `just readiness`: run the local CI-like readiness suite.
 
 ## Rust Tests
 
@@ -29,6 +31,6 @@ Follow the `<name>.rs` plus `<name>/` module convention. Do not use `mod.rs`. Sh
 
 Add or update tests with every behavior change. Scale test coverage with risk and blast radius:
 
-- parsing, chunking, indexing, and persistence changes need focused tests
-- reducer/state/action behavior should be covered when user-visible flows change
+- icon manifest, source generation, path planning, and scaffold changes need offline tests or smoke coverage
+- runtime, widget, and public API changes should be covered by focused unit or compile-contract tests
 - tiny mechanical edits or documentation-only changes do not require automated tests
