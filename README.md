@@ -89,6 +89,9 @@ just test
 # Build documentation
 just doc
 
+# Run CI-like readiness checks
+just readiness
+
 # Sync framework icons
 just icons-sync
 ```
