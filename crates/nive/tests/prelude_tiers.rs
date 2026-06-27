@@ -141,6 +141,56 @@ mod extended_tier_dashboard {
     pub(super) fn _assert_application_compiles_with_extended_prelude() {
         fn _assert<A: Application>() {}
         _assert::<DashboardApp>();
+
+        let _operation = Operation::<()>::idle();
+        let _descriptor = OperationDescriptor::new("sync", "Sync");
+        let _registry = OperationRegistry::new();
+        let _dialog: Option<DialogRequest<'static, DashboardMessage>> = None;
+        let _theme = ThemeBuilder::new("contract", ThemeMode::Light).build();
+        let _shortcuts = ShortcutMap::<DashboardMessage>::new();
+        let _windows = WindowRegistry::<()>::default();
+
+        #[cfg(feature = "file-picker")]
+        {
+            let _filter = FileFilter {
+                name: "Rust",
+                extensions: &["rs"],
+            };
+            let _pick = PickFileParams {
+                filters: Vec::new(),
+                start_dir: None,
+            };
+            let _save = SaveFileParams {
+                filters: Vec::new(),
+                start_dir: None,
+                default_name: None,
+            };
+        }
+    }
+}
+
+mod app_icon_contract {
+    use nive::prelude::*;
+
+    #[derive(Debug, Clone, Copy)]
+    enum AppIconName {
+        Shield,
+    }
+
+    impl IconSource for AppIconName {
+        fn svg_bytes(self) -> &'static [u8] {
+            br#"<svg xmlns="http://www.w3.org/2000/svg"></svg>"#
+        }
+
+        fn provider_slug(self) -> &'static str {
+            match self {
+                Self::Shield => "shield",
+            }
+        }
+    }
+
+    pub(super) fn _assert_app_icon_source_compiles_with_icon_widget() {
+        let _element: Element<'static, ()> = Icon::new(AppIconName::Shield).md().into();
     }
 }
 
@@ -152,4 +202,9 @@ fn minimal_prelude_compiles_counter_template() {
 #[test]
 fn extended_prelude_compiles_dashboard_template() {
     extended_tier_dashboard::_assert_application_compiles_with_extended_prelude();
+}
+
+#[test]
+fn generated_app_icon_source_compiles_with_icon_widget() {
+    app_icon_contract::_assert_app_icon_source_compiles_with_icon_widget();
 }
