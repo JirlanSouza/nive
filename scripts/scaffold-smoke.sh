@@ -31,6 +31,18 @@ case "$template" in
 esac
 
 app_dir="$tmpdir/$app_name"
+
+# Pin nive to the exact workspace version so [patch.crates-io] resolves
+# correctly even when the workspace version is a pre-release (e.g. 0.1.0-alpha.1).
+nive_ver="$(grep '^version = ' "$root/crates/nive/Cargo.toml" | head -1 | sed 's/version = "\(.*\)"/\1/')"
+if [[ "$(uname)" == "Darwin" ]]; then
+    sed -i '' "s/nive = \"[0-9a-z.+-]*\"/nive = \"=$nive_ver\"/" "$app_dir/Cargo.toml"
+    sed -i '' "s/nive = { version = \"[0-9a-z.+-]*\"/nive = { version = \"=$nive_ver\"/" "$app_dir/Cargo.toml"
+else
+    sed -i "s/nive = \"[0-9a-z.+-]*\"/nive = \"=$nive_ver\"/" "$app_dir/Cargo.toml"
+    sed -i "s/nive = { version = \"[0-9a-z.+-]*\"/nive = { version = \"=$nive_ver\"/" "$app_dir/Cargo.toml"
+fi
+
 cat >> "$app_dir/Cargo.toml" <<EOF
 
 [patch.crates-io]
