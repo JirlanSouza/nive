@@ -24,6 +24,9 @@ Prefer these root commands for active work:
 - `just doc`
 - `just doc-check`
 - `just examples-check`
+- `just example-dev <example>`
+- `just widget-gallery-dev`
+- `just widget-gallery-devtools`
 - `just scaffold-smoke`
 - `just package-check`
 - `just readiness`
@@ -40,6 +43,12 @@ Icon management commands:
 App scaffolding:
 
 - `just create-app <name>`
+
+Standalone example development:
+
+- `just example-dev <example>` runs `examples/<example>` with terminal-triggered reload.
+- `just widget-gallery-dev` runs the widget gallery without devtools.
+- `just widget-gallery-devtools` runs the widget gallery with devtools explicitly enabled.
 
 Run package-specific `cargo` commands only for focused verification while iterating.
 

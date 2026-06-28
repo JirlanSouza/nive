@@ -41,6 +41,15 @@ just doc
 # Run CI-like readiness checks
 just readiness
 
+# Run the widget gallery with terminal-triggered reload
+just widget-gallery-dev
+
+# Run the widget gallery with devtools explicitly enabled
+just widget-gallery-devtools
+
+# Run any standalone example with terminal-triggered reload
+just example-dev widget-gallery
+
 # Build all crates
 just build
 
