@@ -1,5 +1,7 @@
 # Nive Framework - Development Commands
 
+import 'just/app-framework.just'
+
 # Format code
 fmt:
     cargo fmt --all
@@ -31,6 +33,18 @@ doc-check:
 # Check every standalone example
 examples-check:
     for manifest in examples/*/Cargo.toml; do cargo check --manifest-path "$manifest"; done
+
+# Run a standalone example with the reusable dev reload loop.
+example-dev example:
+    just app-dev-cwd examples/{{ example }} nive-example-{{ example }} {{ example }} ""
+
+# Run the widget gallery with terminal-triggered reload.
+widget-gallery-dev:
+    just example-dev widget-gallery
+
+# Run the widget gallery with devtools and terminal-triggered reload.
+widget-gallery-devtools:
+    NIVE_DEVTOOLS=1 just app-dev-cwd examples/widget-gallery nive-example-widget-gallery widget-gallery "devtools"
 
 # Smoke-check a basic scaffold outside the workspace
 scaffold-smoke-basic:
