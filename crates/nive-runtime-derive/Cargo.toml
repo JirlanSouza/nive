@@ -11,6 +11,9 @@ readme = "README.md"
 keywords = ["gui", "desktop", "iced", "proc-macro"]
 categories = ["development-tools::procedural-macro-helpers"]
 
+[lints]
+workspace = true
+
 [features]
 devtools = []
 

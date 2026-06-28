@@ -21,3 +21,7 @@ iced = { version = "0.14", features = ["tokio", "svg", "advanced", "canvas"] }
 toml = "0.8.2"
 clap = { version = "4", features = ["derive"] }
 include_dir = "0.7"
+
+[workspace.lints.clippy]
+mod_module_files = "warn"
+wildcard_imports = "warn"

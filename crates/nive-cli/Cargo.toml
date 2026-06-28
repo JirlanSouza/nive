@@ -11,6 +11,9 @@ readme = "README.md"
 keywords = ["gui", "desktop", "iced", "cli"]
 categories = ["gui", "command-line-utilities"]
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "nive"
 path = "src/main.rs"
