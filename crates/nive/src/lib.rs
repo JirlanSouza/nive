@@ -23,10 +23,13 @@
 //! # Prelude tiers
 //!
 //! `nive::prelude::*` exposes the minimal template-stable surface: it
-//! compiles the scaffolded counter template out of the box. Apps that use
-//! toasts, async state, dialogs, file picker, theming, shortcuts, or
-//! window-handle types switch to `nive::prelude::ui::*` for the extended
-//! surface.
+//! compiles the scaffolded counter template out of the box, and already
+//! includes basic toasts, theming, shortcuts, actions, core events, and the
+//! window *declaration* types (`WindowSpec`/`WindowRole`). Apps switch to
+//! `nive::prelude::ui::*` for the extended surface: async state
+//! (`Resource`/`Operation`), dialogs, `UserFacingError`, bootstrap/splash,
+//! runtime window handles (`WindowHandle`/`WindowRegistry`/`WindowMode`),
+//! `ToastDuration`, and file picker params.
 //!
 //! The crate root also re-exports the runtime and UI crates for convenience.
 //! Those broad crate-root exports are beta before 1.0; application templates
