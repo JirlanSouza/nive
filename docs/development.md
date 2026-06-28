@@ -13,7 +13,7 @@ This guide is for contributors working on the Nive framework itself.
 Clone the repository:
 
 ```bash
-git clone https://github.com/nive-rs/nive.git
+git clone https://github.com/JirlanSouza/nive.git
 cd nive
 ```
 
@@ -151,11 +151,14 @@ must set the `file-picker` feature on the `nive` or `nive-runtime` crate
 
 ### Two-tier prelude
 
-`nive::prelude::*` is the minimal template-stable surface. Apps that use
-toasts, async state, dialogs, file picker params, theming, shortcuts, or
-window-handle types switch to `nive::prelude::ui::*`. The Bootstrap-related
-types (`BootstrapSpec`, `BrandContent`, `SplashBackground`, `BackgroundFit`)
-moved out of the minimal tier into `prelude::ui`.
+`nive::prelude::*` is the minimal template-stable surface. It already includes
+basic toasts (`Toast`), theming (`Theme`/`ThemeBuilder`/`ThemeController`),
+shortcuts (`ShortcutMap`), actions, core events, and the window *declaration*
+types (`WindowSpec`/`WindowRole`). Apps switch to `nive::prelude::ui::*` for
+async state (`Resource`/`Operation`), dialogs, `UserFacingError`, file picker
+params, runtime window handles (`WindowHandle`/`WindowRegistry`/`WindowMode`),
+`ToastDuration`, and the Bootstrap-related types (`BootstrapSpec`,
+`BrandContent`, `BackgroundFit`) — all of which live in the extended tier.
 
 ### `AsyncState` → `Resource`, `OperationState` → `Operation`
 
@@ -227,13 +230,19 @@ just lint
 just doc-check
 just examples-check
 just scaffold-smoke
+just scaffold-smoke-github
 just package-check
 just icons-check
 ```
 
 `just scaffold-smoke` creates temporary apps outside the workspace, patches the
-generated app to the local `nive` checkout, and runs `cargo check` for both the
-basic and dashboard templates.
+generated app to the local `nive` checkout via `[patch.crates-io]`, and runs
+`cargo check` for both the basic and dashboard templates.
+
+`just scaffold-smoke-github` creates temporary apps outside the workspace using
+a Git dependency (`file://<repo> + HEAD rev`). This validates the exact
+dependency shape that real apps use with GitHub alpha tags, without requiring a
+pushed tag.
 
 `just package-check` verifies package readiness only. It runs `cargo package`
 for `nive-ui`, `nive-runtime-derive`, `nive-runtime`, `nive`, and `nive-cli`
@@ -256,9 +265,86 @@ Or manually:
 cargo doc --workspace --no-deps --open
 ```
 
-## Publishing
+## Alpha Release Ritual (GitHub pre-crates.io)
 
-Publishing is a separate maintainer action after package readiness passes.
+GitHub alpha releases let you dogfood the framework from real apps before the
+irreversible crates.io publication. The distribution channel is
+`https://github.com/JirlanSouza/nive` with annotated `v0.1.0-alpha.N` tags.
+
+### Releasing an alpha
+
+1. **Bump versions** — update all publishable crate versions to `0.1.0-alpha.N`
+   in their `Cargo.toml` files: `nive-ui`, `nive-runtime-derive`, `nive-runtime`,
+   `nive`, `nive-cli`. Update internal dependency version requirements to match.
+
+2. **Run readiness** — all checks must pass before tagging:
+
+   ```bash
+   just readiness
+   ```
+
+   `just readiness` now includes both the local `[patch.crates-io]` scaffold
+   smoke and the GitHub consumer smoke (`just scaffold-smoke-github`).
+
+3. **Create an annotated tag:**
+
+   ```bash
+   git tag -a v0.1.0-alpha.1 -m "v0.1.0-alpha.1 — initial GitHub dogfood release"
+   git push origin v0.1.0-alpha.1
+   ```
+
+4. **Create a GitHub pre-release** for the tag. Mark it as a pre-release (not
+   a latest release). Include install and dependency snippets in the release
+   notes (see template below).
+
+5. **Dogfood verification** — install the CLI from the tag on a clean machine
+   and create a test app:
+
+   ```bash
+   cargo install --git https://github.com/JirlanSouza/nive --tag v0.1.0-alpha.1 --locked nive-cli
+   nive new my-alpha-app --git https://github.com/JirlanSouza/nive --tag v0.1.0-alpha.1
+   cd my-alpha-app && cargo build
+   ```
+
+### Rollback strategy
+
+Do **not** delete tags that may already be consumed by real apps. If an alpha is
+bad, document it in the GitHub release notes and publish `v0.1.0-alpha.N+1` with
+the fix.
+
+### Release notes template
+
+```markdown
+## v0.1.0-alpha.1
+
+Pre-crates.io dogfood release. Install from GitHub:
+
+### Install the CLI
+
+\`\`\`bash
+cargo install --git https://github.com/JirlanSouza/nive --tag v0.1.0-alpha.1 --locked nive-cli
+\`\`\`
+
+### Create an app
+
+\`\`\`bash
+nive new my-app --git https://github.com/JirlanSouza/nive --tag v0.1.0-alpha.1
+cd my-app && cargo build
+\`\`\`
+
+### Add as a dependency
+
+\`\`\`toml
+nive = { git = "https://github.com/JirlanSouza/nive", tag = "v0.1.0-alpha.1" }
+# or with the file-picker feature:
+nive = { git = "https://github.com/JirlanSouza/nive", tag = "v0.1.0-alpha.1", features = ["file-picker"] }
+\`\`\`
+```
+
+## Publishing (crates.io — final v0.1.0 release)
+
+Publishing to crates.io is a separate maintainer action after all alpha
+dogfooding is complete. Bump all crate versions to `0.1.0` before publishing.
 Publish in dependency order (leaves first, then the umbrella, then the CLI):
 
 ```bash
