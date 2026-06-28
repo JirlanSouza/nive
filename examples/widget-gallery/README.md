@@ -15,7 +15,7 @@ The gallery exercises:
   theme preference
 - real overlay behavior for popovers, dialogs, autocomplete, and command
   palette content
-- devtools inspection for sample `Resource` and `Operation` fields
+- opt-in devtools inspection for sample `Resource` and `Operation` fields
 - module-public helper coverage for `nive::ui::widgets::skeleton`, which is not
   re-exported from `crates/nive-ui/src/widgets.rs`
 
@@ -38,11 +38,23 @@ Run it with:
 cargo run
 ```
 
+From the repository root, run it with terminal-triggered rebuild/reload:
+
+```bash
+just widget-gallery-dev
+```
+
+Run devtools explicitly when inspecting simulator integration:
+
+```bash
+just widget-gallery-devtools
+```
+
 Check it with:
 
 ```bash
 cargo check
 ```
 
-Open devtools with Cmd+Option+I on macOS or Ctrl+Alt+I on other platforms to
-force the inspected feedback sample states.
+With devtools enabled, open the panel with Cmd+Option+I on macOS or Ctrl+Alt+I
+on other platforms to force the inspected feedback sample states.
