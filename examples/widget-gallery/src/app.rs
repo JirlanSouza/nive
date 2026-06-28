@@ -7,6 +7,7 @@ use nive::ui::widgets::text as ntext;
 use nive::widget::{column, row};
 
 use crate::catalog::{entry_for, matches, PageId, CATALOG};
+#[cfg(feature = "devtools")]
 use crate::fixtures::DevState;
 use crate::{layout, pages};
 
@@ -82,6 +83,7 @@ pub struct WidgetGallery {
     pub overlays: OverlayState,
     pub feedback: FeedbackMode,
     pub layout: LayoutState,
+    #[cfg(feature = "devtools")]
     pub dev: DevState,
 }
 
@@ -171,6 +173,7 @@ impl Application for WidgetGallery {
                 overlays: OverlayState::default(),
                 feedback: FeedbackMode::Loaded,
                 layout: LayoutState::default(),
+                #[cfg(feature = "devtools")]
                 dev: DevState::new(),
             },
             (),
@@ -336,6 +339,7 @@ impl WidgetGallery {
     }
 }
 
+#[cfg(feature = "devtools")]
 impl nive::DevtoolsApp for WidgetGallery {
     type State = DevState;
 

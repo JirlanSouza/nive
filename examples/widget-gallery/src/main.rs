@@ -1,9 +1,18 @@
 mod app;
 mod catalog;
+#[cfg(feature = "devtools")]
 mod fixtures;
 mod layout;
 mod pages;
 
 fn main() -> nive::Result {
-    nive::run_with_devtools::<app::WidgetGallery>()
+    #[cfg(feature = "devtools")]
+    {
+        nive::run_with_devtools::<app::WidgetGallery>()
+    }
+
+    #[cfg(not(feature = "devtools"))]
+    {
+        nive::run::<app::WidgetGallery>()
+    }
 }

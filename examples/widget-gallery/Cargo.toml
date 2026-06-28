@@ -6,9 +6,13 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+[features]
+default = []
+devtools = ["nive/devtools"]
+
 [[bin]]
 name = "widget-gallery"
 path = "src/main.rs"
 
 [dependencies]
-nive = { path = "../../crates/nive", features = ["devtools"] }
+nive = { path = "../../crates/nive" }
