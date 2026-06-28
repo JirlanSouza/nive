@@ -76,6 +76,7 @@ On first launch, Nive installs a `.desktop` entry and icon PNG to `~/.local/shar
 - [Multi Window](examples/multi-window/README.md) — Multiple windows with explicit `Window` enum
 - [Theming](examples/theming/README.md) — Runtime theme switching with `Application::theme` override
 - [Icons](examples/icons/README.md) — Icon display with sizes, colors, and `nive icons` CLI
+- [Widget Gallery](examples/widget-gallery/README.md) — Navigable visual baseline for public widgets, variants, overlays, feedback, theme, icons, and motion
 - [File Picker](examples/file-picker/README.md) — Native file picker dialogs (feature-gated)
 - [Devtools](examples/devtools/README.md) — Runtime state inspection panel (feature-gated)
 
