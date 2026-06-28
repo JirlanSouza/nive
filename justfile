@@ -40,8 +40,19 @@ scaffold-smoke-basic:
 scaffold-smoke-dashboard:
     bash scripts/scaffold-smoke.sh dashboard
 
-# Smoke-check all scaffolds outside the workspace
+# Smoke-check all scaffolds outside the workspace (local [patch.crates-io] form)
 scaffold-smoke: scaffold-smoke-basic scaffold-smoke-dashboard
+
+# Smoke-check a basic scaffold using a Git dependency (file:// URL + HEAD rev)
+scaffold-smoke-github-basic:
+    bash scripts/scaffold-smoke-github.sh basic
+
+# Smoke-check a dashboard scaffold using a Git dependency (file:// URL + HEAD rev)
+scaffold-smoke-github-dashboard:
+    bash scripts/scaffold-smoke-github.sh dashboard
+
+# Smoke-check all scaffolds using the GitHub alpha dependency shape
+scaffold-smoke-github: scaffold-smoke-github-basic scaffold-smoke-github-dashboard
 
 # Verify publishable crates can be packaged in dependency order
 package-check:
@@ -52,7 +63,7 @@ package-check:
     cargo package --package nive-cli
 
 # Run local readiness checks that mirror CI categories
-readiness: fmt-check check test lint doc-check examples-check scaffold-smoke package-check icons-check
+readiness: fmt-check check test lint doc-check examples-check scaffold-smoke scaffold-smoke-github package-check icons-check
 
 # List framework icons
 icons-list:
