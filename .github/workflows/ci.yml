@@ -68,6 +68,14 @@ jobs:
       - name: Scaffold smoke dashboard
         run: bash scripts/scaffold-smoke.sh dashboard
 
+      - name: GitHub consumer smoke basic
+        shell: bash
+        run: bash scripts/scaffold-smoke-github.sh basic
+
+      - name: GitHub consumer smoke dashboard
+        shell: bash
+        run: bash scripts/scaffold-smoke-github.sh dashboard
+
       - name: Icons check
         run: ../../target/release/nive icons check
         working-directory: crates/nive-ui
