@@ -1,0 +1,4 @@
+allow-private-module-inception = false
+pass-by-value-size-limit = 256
+too-many-arguments-threshold = 7
+warn-on-all-wildcard-imports = false
