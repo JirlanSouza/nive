@@ -22,11 +22,64 @@ fn to_title_case(s: &str) -> String {
         .collect()
 }
 
+/// Builds the TOML value for the `nive` dependency line given the source args.
+///
+/// - No git args → crates.io stable form
+/// - `--git <url>` plus exactly one of `--tag`, `--rev`, or `--branch` → Git form
+///
+/// Returns an error for invalid combinations.
+fn build_nive_dep(
+    git: Option<&str>,
+    tag: Option<&str>,
+    rev: Option<&str>,
+    branch: Option<&str>,
+    dashboard: bool,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let ref_count = [tag, rev, branch].iter().filter(|o| o.is_some()).count();
+
+    if git.is_none() {
+        if ref_count > 0 {
+            return Err("--tag, --rev, and --branch require --git".into());
+        }
+        if dashboard {
+            return Ok(r#"nive = { version = "0.1", features = ["file-picker"] }"#.to_string());
+        }
+        return Ok(r#"nive = "0.1""#.to_string());
+    }
+
+    let url = git.unwrap();
+
+    if ref_count == 0 {
+        return Err("--git requires exactly one of --tag, --rev, or --branch".into());
+    }
+    if ref_count > 1 {
+        return Err("--git requires exactly one of --tag, --rev, or --branch; got multiple".into());
+    }
+
+    let ref_part = if let Some(t) = tag {
+        format!(r#", tag = "{}""#, t)
+    } else if let Some(r) = rev {
+        format!(r#", rev = "{}""#, r)
+    } else {
+        format!(r#", branch = "{}""#, branch.unwrap())
+    };
+
+    if dashboard {
+        Ok(format!(
+            r#"nive = {{ git = "{}"{}, features = ["file-picker"] }}"#,
+            url, ref_part
+        ))
+    } else {
+        Ok(format!(r#"nive = {{ git = "{}"{} }}"#, url, ref_part))
+    }
+}
+
 fn copy_templates(
     dir: &Dir,
     app_dir: &Path,
     app_name: &str,
     title: &str,
+    nive_dep: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     for file in dir.files() {
         let relative_path = file.path();
@@ -40,24 +93,34 @@ fn copy_templates(
         let content = file.contents_utf8().unwrap_or("");
         let content = content.replace("{{app_name}}", app_name);
         let content = content.replace("{{app_name_title}}", title);
+        let content = content.replace("{{nive_dep}}", nive_dep);
 
         fs::write(&target_path, content)?;
         println!("  Created {}", target_relative);
     }
 
     for subdir in dir.dirs() {
-        copy_templates(subdir, app_dir, app_name, title)?;
+        copy_templates(subdir, app_dir, app_name, title, nive_dep)?;
     }
 
     Ok(())
 }
 
-pub fn run(name: &str, dashboard: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(
+    name: &str,
+    dashboard: bool,
+    git: Option<&str>,
+    tag: Option<&str>,
+    rev: Option<&str>,
+    branch: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let app_dir = Path::new(name);
 
     if app_dir.exists() {
         return Err(format!("Directory already exists: {}", app_dir.display()).into());
     }
+
+    let nive_dep = build_nive_dep(git, tag, rev, branch, dashboard)?;
 
     let title = to_title_case(name);
     let templates = if dashboard {
@@ -74,7 +137,7 @@ pub fn run(name: &str, dashboard: bool) -> Result<(), Box<dyn std::error::Error>
 
     fs::create_dir_all(app_dir)?;
 
-    copy_templates(templates, app_dir, name, &title)?;
+    copy_templates(templates, app_dir, name, &title, &nive_dep)?;
 
     println!("\nSuccess! Created {} at {}", name, app_dir.display());
     println!("\nNext steps:");
@@ -114,6 +177,119 @@ mod tests {
         assert_eq!(to_title_case("my_cool_app"), "MyCoolApp");
     }
 
+    // --- build_nive_dep ---
+
+    #[test]
+    fn dep_crates_io_basic() {
+        let dep = build_nive_dep(None, None, None, None, false).unwrap();
+        assert_eq!(dep, r#"nive = "0.1""#);
+    }
+
+    #[test]
+    fn dep_crates_io_dashboard() {
+        let dep = build_nive_dep(None, None, None, None, true).unwrap();
+        assert_eq!(
+            dep,
+            r#"nive = { version = "0.1", features = ["file-picker"] }"#
+        );
+    }
+
+    #[test]
+    fn dep_git_tag_basic() {
+        let dep = build_nive_dep(
+            Some("https://github.com/JirlanSouza/nive"),
+            Some("v0.1.0-alpha.1"),
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            dep,
+            r#"nive = { git = "https://github.com/JirlanSouza/nive", tag = "v0.1.0-alpha.1" }"#
+        );
+    }
+
+    #[test]
+    fn dep_git_tag_dashboard() {
+        let dep = build_nive_dep(
+            Some("https://github.com/JirlanSouza/nive"),
+            Some("v0.1.0-alpha.1"),
+            None,
+            None,
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            dep,
+            r#"nive = { git = "https://github.com/JirlanSouza/nive", tag = "v0.1.0-alpha.1", features = ["file-picker"] }"#
+        );
+    }
+
+    #[test]
+    fn dep_git_rev_basic() {
+        let dep = build_nive_dep(
+            Some("https://github.com/JirlanSouza/nive"),
+            None,
+            Some("abc1234"),
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            dep,
+            r#"nive = { git = "https://github.com/JirlanSouza/nive", rev = "abc1234" }"#
+        );
+    }
+
+    #[test]
+    fn dep_git_branch_basic() {
+        let dep = build_nive_dep(
+            Some("https://github.com/JirlanSouza/nive"),
+            None,
+            None,
+            Some("main"),
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            dep,
+            r#"nive = { git = "https://github.com/JirlanSouza/nive", branch = "main" }"#
+        );
+    }
+
+    #[test]
+    fn dep_git_without_ref_is_error() {
+        let err = build_nive_dep(
+            Some("https://github.com/JirlanSouza/nive"),
+            None,
+            None,
+            None,
+            false,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("--git requires exactly one"));
+    }
+
+    #[test]
+    fn dep_ref_without_git_is_error() {
+        let err = build_nive_dep(None, Some("v0.1.0-alpha.1"), None, None, false).unwrap_err();
+        assert!(err.to_string().contains("require --git"));
+    }
+
+    #[test]
+    fn dep_multiple_refs_is_error() {
+        let err = build_nive_dep(
+            Some("https://github.com/JirlanSouza/nive"),
+            Some("v0.1.0-alpha.1"),
+            Some("abc1234"),
+            None,
+            false,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("exactly one"));
+    }
+
     fn collect_relative_files(dir: &Dir) -> Vec<String> {
         let mut out: Vec<String> = dir
             .files()
@@ -138,8 +314,9 @@ mod tests {
     fn copy_templates_substitutes_placeholders_and_strips_template_suffix() {
         let tempdir = tempfile::tempdir().expect("tempdir");
         let app_dir = tempdir.path().join("my-app");
+        let nive_dep = r#"nive = "0.1""#;
 
-        copy_templates(&BASIC_TEMPLATES, &app_dir, "my_app", "MyApp").expect("copy");
+        copy_templates(&BASIC_TEMPLATES, &app_dir, "my_app", "MyApp", nive_dep).expect("copy");
 
         let main_path = app_dir.join("src/main.rs");
         assert!(
@@ -167,6 +344,11 @@ mod tests {
 
         let toml = fs::read_to_string(app_dir.join("Cargo.toml")).expect("read Cargo.toml");
         assert!(toml.starts_with("[package]\nname = \"my_app\""));
+        assert!(toml.contains(nive_dep), "nive_dep placeholder not replaced");
+        assert!(
+            !toml.contains("{{nive_dep}}"),
+            "nive_dep placeholder left behind"
+        );
     }
 
     #[test]
@@ -174,7 +356,14 @@ mod tests {
         let tempdir = tempfile::tempdir().expect("tempdir");
         let app_dir = tempdir.path().join("basic-app");
 
-        copy_templates(&BASIC_TEMPLATES, &app_dir, "basic_app", "BasicApp").expect("copy");
+        copy_templates(
+            &BASIC_TEMPLATES,
+            &app_dir,
+            "basic_app",
+            "BasicApp",
+            r#"nive = "0.1""#,
+        )
+        .expect("copy");
 
         let expected = collect_relative_files(&BASIC_TEMPLATES)
             .into_iter()
@@ -184,5 +373,66 @@ mod tests {
             let path = app_dir.join(&rel);
             assert!(path.exists(), "missing {} after copy", rel);
         }
+    }
+
+    #[test]
+    fn scaffold_basic_git_tag() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let app_dir = tempdir.path().join("git-tag-app");
+        let nive_dep =
+            r#"nive = { git = "https://github.com/JirlanSouza/nive", tag = "v0.1.0-alpha.1" }"#;
+
+        copy_templates(
+            &BASIC_TEMPLATES,
+            &app_dir,
+            "git_tag_app",
+            "GitTagApp",
+            nive_dep,
+        )
+        .expect("copy");
+
+        let toml = fs::read_to_string(app_dir.join("Cargo.toml")).expect("read Cargo.toml");
+        assert!(toml.contains(nive_dep), "git tag dep not in Cargo.toml");
+    }
+
+    #[test]
+    fn scaffold_dashboard_git_tag() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let app_dir = tempdir.path().join("dashboard-git-tag-app");
+        let nive_dep = r#"nive = { git = "https://github.com/JirlanSouza/nive", tag = "v0.1.0-alpha.1", features = ["file-picker"] }"#;
+
+        copy_templates(
+            &DASHBOARD_TEMPLATES,
+            &app_dir,
+            "dashboard_git_tag_app",
+            "DashboardGitTagApp",
+            nive_dep,
+        )
+        .expect("copy");
+
+        let toml = fs::read_to_string(app_dir.join("Cargo.toml")).expect("read Cargo.toml");
+        assert!(
+            toml.contains(nive_dep),
+            "dashboard git tag dep not in Cargo.toml"
+        );
+    }
+
+    #[test]
+    fn scaffold_basic_git_rev() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let app_dir = tempdir.path().join("git-rev-app");
+        let nive_dep = r#"nive = { git = "https://github.com/JirlanSouza/nive", rev = "abc1234" }"#;
+
+        copy_templates(
+            &BASIC_TEMPLATES,
+            &app_dir,
+            "git_rev_app",
+            "GitRevApp",
+            nive_dep,
+        )
+        .expect("copy");
+
+        let toml = fs::read_to_string(app_dir.join("Cargo.toml")).expect("read Cargo.toml");
+        assert!(toml.contains(nive_dep), "git rev dep not in Cargo.toml");
     }
 }

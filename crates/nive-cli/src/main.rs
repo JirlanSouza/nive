@@ -20,6 +20,22 @@ enum Commands {
         /// Scaffold the dashboard template instead of basic
         #[arg(long, default_value_t = false)]
         dashboard: bool,
+
+        /// Git URL for the nive dependency (pre-crates.io alpha)
+        #[arg(long)]
+        git: Option<String>,
+
+        /// Git tag to use with --git (e.g. v0.1.0-alpha.1)
+        #[arg(long)]
+        tag: Option<String>,
+
+        /// Exact git revision to use with --git
+        #[arg(long)]
+        rev: Option<String>,
+
+        /// Git branch to use with --git
+        #[arg(long)]
+        branch: Option<String>,
     },
 
     /// Manage Lucide icons in the current app
@@ -33,7 +49,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::New { name, dashboard } => commands::new::run(&name, dashboard),
+        Commands::New {
+            name,
+            dashboard,
+            git,
+            tag,
+            rev,
+            branch,
+        } => commands::new::run(
+            &name,
+            dashboard,
+            git.as_deref(),
+            tag.as_deref(),
+            rev.as_deref(),
+            branch.as_deref(),
+        ),
         Commands::Icons { command } => commands::icons::run(command),
     }
 }
