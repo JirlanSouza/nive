@@ -1850,7 +1850,7 @@ dependencies = [
 
 [[package]]
 name = "nive"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "nive-runtime",
  "nive-ui",
@@ -1866,7 +1866,7 @@ dependencies = [
 
 [[package]]
 name = "nive-runtime"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "iced",
  "log",
@@ -1883,7 +1883,7 @@ dependencies = [
 
 [[package]]
 name = "nive-runtime-derive"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -1893,7 +1893,7 @@ dependencies = [
 
 [[package]]
 name = "nive-ui"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "iced",
 ]
