@@ -8,14 +8,22 @@ This guide will help you create your first Nive application.
 - Cargo
 - just (optional, for convenience commands)
 
+## Installing the CLI
+
+### GitHub alpha (pre-crates.io)
+
+```bash
+cargo install --git https://github.com/JirlanSouza/nive --tag v0.1.0-alpha.1 --locked nive-cli
+```
+
+> **crates.io (final release):** `cargo install nive-cli` is the install path
+> after the v0.1.0 crates.io publication.
+
 ## Creating a New App
 
 ```bash
-# Install the CLI
-cargo install nive-cli
-
-# Create a new app
-nive new my-app
+# Create a new app depending on the GitHub alpha tag
+nive new my-app --git https://github.com/JirlanSouza/nive --tag v0.1.0-alpha.1
 
 # Run it
 cd my-app
@@ -101,5 +109,5 @@ fn main() -> nive::Result {
 ## Next Steps
 
 - [Adding Icons](adding-icons.md)
-- Explore the [API documentation](https://docs.rs/nive)
+- Explore the [API documentation](https://docs.rs/nive) _(available after crates.io publication)_
 - Check out the [architecture guide](../agents/architecture.md)

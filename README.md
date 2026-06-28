@@ -1,6 +1,6 @@
 # Nive
 
-[![CI](https://github.com/nive-rs/nive/actions/workflows/ci.yml/badge.svg)](https://github.com/nive-rs/nive/actions/workflows/ci.yml)
+[![CI](https://github.com/JirlanSouza/nive/actions/workflows/ci.yml/badge.svg)](https://github.com/JirlanSouza/nive/actions/workflows/ci.yml)
 
 A Rust/Iced framework for building desktop applications.
 
@@ -13,18 +13,23 @@ A Rust/Iced framework for building desktop applications.
 
 ## Quick Start
 
-```bash
-# Install the CLI
-cargo install nive-cli
+> **Alpha channel (pre-crates.io):** Install from GitHub using an alpha tag.
 
-# Create a new app
-nive new my-app
+```bash
+# Install the CLI from the GitHub alpha channel
+cargo install --git https://github.com/JirlanSouza/nive --tag v0.1.0-alpha.1 --locked nive-cli
+
+# Create a new app (uses the same alpha tag as the dependency)
+nive new my-app --git https://github.com/JirlanSouza/nive --tag v0.1.0-alpha.1
 
 # Build and run
 cd my-app
 cargo build
 cargo run
 ```
+
+> **crates.io (final release):** `cargo install nive-cli` and `nive = "0.1"` will be
+> the install path after the v0.1.0 crates.io publication.
 
 ## Crates
 
