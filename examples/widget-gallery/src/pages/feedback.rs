@@ -192,8 +192,8 @@ fn controls(app: &WidgetGallery) -> Element<'_, Message> {
             .item(mode_item("Empty", FeedbackMode::Empty, app.feedback))
             .item(mode_item("Running", FeedbackMode::Running, app.feedback))
             .fill(),
-        InlineAlert::new("Devtools state")
-            .body("Open devtools to force the inspected Resource and Operation sample fields.")
+        InlineAlert::new("Devtools optional")
+            .body("Run the explicit devtools command only when inspecting simulator integration.")
             .info(),
     ]
     .spacing(12)
