@@ -10,8 +10,14 @@ use crate::theme::ControlSize;
 use crate::Element;
 
 use self::frame::InputGroupFrame;
-use self::style::{self as theme_input_group, GroupSlotPosition};
-use super::{button::Button, icon as icon_widget, input::Input, IconName};
+use self::style as theme_input_group;
+use super::{
+    button::Button,
+    control_group::{position_for_index, radius_for_position, SlotPosition},
+    icon as icon_widget,
+    input::Input,
+    IconName,
+};
 
 pub use style::InputGroupVariant;
 
@@ -161,7 +167,7 @@ where
         }
 
         let input_radius =
-            theme_input_group::slot_radius(position_for_index(index, slot_count), metrics.radius);
+            radius_for_position(position_for_index(index, slot_count), metrics.radius);
         row = row.push(self.input.into_group_element(
             self.fill,
             input_radius,
@@ -217,9 +223,9 @@ where
         _fill: bool,
         disabled: bool,
         metrics: theme_input_group::InputGroupMetrics,
-        position: GroupSlotPosition,
+        position: SlotPosition,
     ) -> Element<'a, Message> {
-        let radius = theme_input_group::slot_radius(position, metrics.radius);
+        let radius = radius_for_position(position, metrics.radius);
 
         match self {
             InputGroupSlot::Text(label) => container(
@@ -258,31 +264,5 @@ where
 {
     fn from(group: InputGroup<'a, Message>) -> Self {
         group.into_element()
-    }
-}
-
-fn position_for_index(index: usize, len: usize) -> GroupSlotPosition {
-    match (index, len) {
-        (_, 1) => GroupSlotPosition::Single,
-        (0, _) => GroupSlotPosition::First,
-        (index, len) if index + 1 == len => GroupSlotPosition::Last,
-        _ => GroupSlotPosition::Middle,
-    }
-}
-
-#[cfg(test)]
-mod input_group_tests {
-    use super::*;
-
-    #[test]
-    fn maps_single_slot_to_single_position() {
-        assert_eq!(position_for_index(0, 1), GroupSlotPosition::Single);
-    }
-
-    #[test]
-    fn maps_multi_slot_edges_and_middle_positions() {
-        assert_eq!(position_for_index(0, 3), GroupSlotPosition::First);
-        assert_eq!(position_for_index(1, 3), GroupSlotPosition::Middle);
-        assert_eq!(position_for_index(2, 3), GroupSlotPosition::Last);
     }
 }
