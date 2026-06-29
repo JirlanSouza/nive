@@ -67,6 +67,15 @@ Presentation contracts keep runtime types out of the UI crate:
 implement these contracts. Applications supply product copy and messages while
 Nive owns the reusable visual composition.
 
+## Action Surfaces
+
+`ActionGroup` is the inline grouped-action control. Its outer height follows
+`theme::control_metrics(size).height`, matching buttons, inputs and other
+inline controls of the same size.
+
+`Toolbar` is a surface bar for application chrome. Its `size` configures the
+actions inside the bar; the toolbar itself may add surrounding chrome padding.
+
 ## Bootstrap Template
 
 `BootstrapView` owns the generic loading and startup-failure composition,
