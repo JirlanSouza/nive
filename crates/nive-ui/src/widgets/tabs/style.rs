@@ -1,16 +1,9 @@
-use iced::{
-    border::Radius,
-    widget::{button, container},
-    Background, Color, Shadow,
-};
+use iced::{widget::container, Background, Shadow};
 
-use super::super::button::button_control_state;
+use super::super::control_group::{radius_for_position, SlotPosition};
 use super::super::control_style::{border_with_radius, transparent_border_with_radius};
 
-use crate::theme::{
-    self, control_metrics, BorderSpec, ControlRole, ControlSize, ControlState, SurfaceRole,
-    TextRole,
-};
+use crate::theme::{self, control_metrics, ControlRole, ControlSize, ControlState, SurfaceRole};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TabPart {
@@ -21,6 +14,7 @@ pub(crate) enum TabPart {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TabBarMetrics {
+    pub size: ControlSize,
     pub height: f32,
     pub tab_height: f32,
     pub radius: f32,
@@ -42,6 +36,7 @@ pub fn metrics(size: ControlSize) -> TabBarMetrics {
     let bar_padding_v = spacing.xs;
 
     TabBarMetrics {
+        size,
         height: control.height + bar_padding_v * 2.0,
         tab_height: control.height,
         radius: control.radius,
@@ -81,53 +76,6 @@ pub fn bar_style(role: SurfaceRole) -> impl Fn(&crate::theme::Theme) -> containe
     }
 }
 
-pub(crate) fn tab_style(
-    selected: bool,
-    part: TabPart,
-    radius: f32,
-) -> impl Fn(&crate::theme::Theme, button::Status) -> button::Style {
-    move |theme: &crate::theme::Theme, status: button::Status| {
-        let theme = *theme;
-        let control = theme.control(ControlRole::Standard, button_control_state(status));
-        let selected_control = theme.control(ControlRole::Selectable, ControlState::SELECTED);
-        let disabled_control = theme.control(ControlRole::Standard, ControlState::DISABLED);
-
-        let background = match (selected, status) {
-            (true, button::Status::Hovered) => selected_control.background.scale_alpha(1.20),
-            (true, button::Status::Pressed) => selected_control.background.scale_alpha(0.88),
-            (true, button::Status::Disabled) => selected_control.background.scale_alpha(0.68),
-            (true, _) => selected_control.background,
-            (false, button::Status::Hovered | button::Status::Pressed) => control.background,
-            (false, button::Status::Disabled) => Color::TRANSPARENT,
-            (false, _) => Color::TRANSPARENT,
-        };
-
-        let text_color = match (selected, status) {
-            (true, button::Status::Disabled) => selected_control.foreground.scale_alpha(0.62),
-            (true, _) => selected_control.foreground,
-            (false, button::Status::Hovered | button::Status::Pressed) => {
-                theme.text(TextRole::Primary).color
-            }
-            (false, button::Status::Disabled) => disabled_control.foreground,
-            (false, _) => theme.text(TextRole::Secondary).color,
-        };
-
-        let border = if selected {
-            selected_control.border
-        } else {
-            BorderSpec::none()
-        };
-
-        button::Style {
-            background: Some(Background::Color(background)),
-            text_color,
-            border: border_with_radius(border, part_radius(part, radius)),
-            shadow: Shadow::default(),
-            ..button::Style::default()
-        }
-    }
-}
-
 pub fn dirty_indicator_style(size: f32) -> impl Fn(&crate::theme::Theme) -> container::Style {
     move |theme: &crate::theme::Theme| {
         let accent = theme.control(ControlRole::Selectable, ControlState::SELECTED);
@@ -142,19 +90,21 @@ pub fn dirty_indicator_style(size: f32) -> impl Fn(&crate::theme::Theme) -> cont
     }
 }
 
-fn part_radius(part: TabPart, radius: f32) -> Radius {
+pub(crate) fn slot_position_for_part(part: TabPart) -> SlotPosition {
     match part {
-        TabPart::Full => Radius::new(radius),
-        TabPart::Leading => Radius::default().left(radius),
-        TabPart::Trailing => Radius::default().right(radius),
+        TabPart::Full => SlotPosition::Single,
+        TabPart::Leading => SlotPosition::First,
+        TabPart::Trailing => SlotPosition::Last,
     }
+}
+
+pub(crate) fn part_radius(part: TabPart, radius: f32) -> iced::border::Radius {
+    radius_for_position(slot_position_for_part(part), radius)
 }
 
 #[cfg(test)]
 mod tabs_tests {
     use super::*;
-    use crate::theme::Theme;
-
     #[test]
     fn metrics_follow_control_size() {
         assert_eq!(
@@ -165,22 +115,15 @@ mod tabs_tests {
     }
 
     #[test]
-    fn selected_tab_uses_app_selected_control_background() {
-        let theme = Theme::Dark;
-        let tab = tab_style(true, TabPart::Full, 6.0)(&theme, button::Status::Active);
-
+    fn tab_parts_map_to_group_slot_positions() {
         assert_eq!(
-            background_color(&tab),
-            theme
-                .control(ControlRole::Selectable, ControlState::SELECTED)
-                .background
+            slot_position_for_part(TabPart::Leading),
+            SlotPosition::First
         );
-    }
-
-    fn background_color(style: &button::Style) -> Color {
-        match style.background.as_ref() {
-            Some(Background::Color(color)) => *color,
-            _ => panic!("Expected color background"),
-        }
+        assert_eq!(
+            slot_position_for_part(TabPart::Trailing),
+            SlotPosition::Last
+        );
+        assert_eq!(slot_position_for_part(TabPart::Full), SlotPosition::Single);
     }
 }

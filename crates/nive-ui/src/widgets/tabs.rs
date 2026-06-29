@@ -1,5 +1,5 @@
 use iced::{
-    widget::{button, container, row, text, Row, Space},
+    widget::{container, row, text, Row, Space},
     Alignment, Length, Padding,
 };
 
@@ -7,10 +7,12 @@ use crate::theme::{ControlSize, SurfaceRole};
 use crate::Element;
 
 use self::style::{self as theme_tabs, TabPart};
-use super::button::ButtonFocusRing;
 
 mod style;
-use super::{icon as icon_widget, pressable::Pressable, tooltip as tooltip_widget, IconName};
+use super::{
+    button::{self, GroupedItemKind, GroupedItemSpec},
+    icon as icon_widget, tooltip as tooltip_widget, IconName,
+};
 
 pub struct TabBar<'a, Message> {
     tabs: Vec<TabItem<'a, Message>>,
@@ -201,31 +203,21 @@ impl<'a, Message: Clone + 'a> TabItem<'a, Message> {
         };
         let main = self.main_button(metrics, main_part);
         let content: Element<'a, Message> = if let Some(close_message) = self.on_close {
-            let close_activation = (!self.disabled).then_some(close_message.clone());
-            let close = button::Button::new(
-                icon_widget::new(IconName::Close).size(metrics.close_icon_size),
-            )
-            .style(theme_tabs::tab_style(
-                self.selected,
-                TabPart::Trailing,
-                metrics.radius,
-            ))
-            .padding(Padding::ZERO)
-            .width(Length::Fixed(metrics.close_side))
-            .height(Length::Fixed(metrics.tab_height))
-            .on_press_maybe(close_activation.clone());
-            row![
-                main,
-                Pressable::maybe(
-                    close,
-                    close_activation,
-                    metrics.radius.into(),
-                    ButtonFocusRing::Default,
-                )
-            ]
-            .spacing(0)
-            .align_y(Alignment::Center)
-            .into()
+            let close = button::icon(IconName::Close)
+                .disabled(self.disabled)
+                .on_press(close_message)
+                .into_grouped_item(GroupedItemSpec {
+                    size: metrics.size,
+                    radius: theme_tabs::part_radius(TabPart::Trailing, metrics.radius),
+                    height: metrics.tab_height,
+                    padding_h: 0.0,
+                    selected: self.selected,
+                    kind: GroupedItemKind::Selectable,
+                });
+            row![main, close]
+                .spacing(0)
+                .align_y(Alignment::Center)
+                .into()
         } else {
             main
         };
@@ -269,17 +261,16 @@ impl<'a, Message: Clone + 'a> TabItem<'a, Message> {
         } else {
             self.on_press.clone()
         };
-        let button = button::Button::new(content)
-            .style(theme_tabs::tab_style(self.selected, part, metrics.radius))
-            .padding(Padding::ZERO.horizontal(metrics.padding_h))
-            .height(Length::Fixed(metrics.tab_height))
-            .on_press_maybe(activation.clone());
-
-        Pressable::maybe(
-            button,
-            activation,
-            metrics.radius.into(),
-            ButtonFocusRing::Default,
-        )
+        button::Button::custom(content.into())
+            .on_press_maybe(activation)
+            .disabled(self.disabled)
+            .into_grouped_item(GroupedItemSpec {
+                size: metrics.size,
+                radius: theme_tabs::part_radius(part, metrics.radius),
+                height: metrics.tab_height,
+                padding_h: metrics.padding_h,
+                selected: self.selected,
+                kind: GroupedItemKind::Selectable,
+            })
     }
 }
