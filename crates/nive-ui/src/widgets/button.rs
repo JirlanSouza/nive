@@ -17,7 +17,7 @@ pub use style::ButtonVariant;
 pub use style::{button_control_state, focus_ring, ButtonFocusRing};
 
 pub struct Button<'a, Message> {
-    content: Content<'a>,
+    content: Content<'a, Message>,
     leading_icon: Option<IconName>,
     trailing_icon: Option<IconName>,
     variant: ButtonVariant,
@@ -33,6 +33,22 @@ pub struct Button<'a, Message> {
     id: Option<Id>,
     on_press: Option<Message>,
     tooltip: Option<&'a str>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GroupedItemKind {
+    Embedded,
+    Selectable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct GroupedItemSpec {
+    pub(crate) size: ControlSize,
+    pub(crate) radius: Radius,
+    pub(crate) height: f32,
+    pub(crate) padding_h: f32,
+    pub(crate) selected: bool,
+    pub(crate) kind: GroupedItemKind,
 }
 
 pub fn primary<'a, Message>(label: &'a str) -> Button<'a, Message>
@@ -88,7 +104,7 @@ impl<'a, Message> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
-    fn new(content: Content<'a>, variant: ButtonVariant) -> Self {
+    fn new(content: Content<'a, Message>, variant: ButtonVariant) -> Self {
         Self {
             content,
             leading_icon: None,
@@ -112,6 +128,10 @@ where
     pub fn variant(mut self, variant: ButtonVariant) -> Self {
         self.variant = variant;
         self
+    }
+
+    pub(crate) fn custom(content: Element<'a, Message>) -> Self {
+        Self::new(Content::Custom(content), ButtonVariant::Ghost)
     }
 
     pub fn primary(self) -> Self {
@@ -244,25 +264,23 @@ where
         self
     }
 
-    pub fn into_group_action(
-        mut self,
-        size: ControlSize,
-        radius: Radius,
-        height: f32,
-        padding_h: f32,
-    ) -> Element<'a, Message> {
-        self.size = size;
-        self.height = Some(Length::Fixed(height));
-        self.width = Some(match self.content {
-            Content::Icon(_) => Length::Fixed(height),
-            Content::Label(_) => Length::Shrink,
-        });
-        self.padding = Some(match self.content {
-            Content::Icon(_) => Padding::ZERO,
-            Content::Label(_) => Padding::ZERO.horizontal(padding_h),
-        });
+    pub(crate) fn into_grouped_item(mut self, spec: GroupedItemSpec) -> Element<'a, Message> {
+        self.size = spec.size;
+        self.height = Some(Length::Fixed(spec.height));
+        if self.width.is_none() {
+            self.width = Some(match &self.content {
+                Content::Icon(_) => Length::Fixed(spec.height),
+                Content::Label(_) | Content::Custom(_) => Length::Shrink,
+            });
+        }
+        if self.padding.is_none() {
+            self.padding = Some(match &self.content {
+                Content::Icon(_) => Padding::ZERO,
+                Content::Label(_) | Content::Custom(_) => Padding::ZERO.horizontal(spec.padding_h),
+            });
+        }
 
-        self.into_element_chrome(ButtonChrome::Embedded { radius })
+        self.into_element_chrome(ButtonChrome::Grouped(spec))
     }
 
     fn into_element_chrome(self, chrome: ButtonChrome) -> Element<'a, Message> {
