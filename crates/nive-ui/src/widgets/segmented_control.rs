@@ -1,21 +1,31 @@
+mod style;
+
 use iced::{
-    widget::{button, container, row, text, Row},
-    Alignment, Length, Padding,
+    border::Radius,
+    widget::{container, Row},
+    Alignment, Length,
 };
 
 use crate::theme::ControlSize;
 use crate::Element;
 
-use self::style::{self as theme_segmented_control, SegmentPosition};
-use super::button::ButtonFocusRing;
+use self::style as theme_segmented_control;
 
-mod style;
-use super::{icon as icon_widget, pressable::Pressable, IconName};
+use super::{
+    button::{self, GroupedItemKind, GroupedItemSpec},
+    control_group::radius_for_position,
+    control_group::{position_for_index, SlotPosition},
+    IconName,
+};
 
+/// A single-selection control rendered as a track with a rounded selected thumb.
+///
+/// Use [`SegmentedControl::flat`] for the linked button-group variant.
 pub struct SegmentedControl<'a, Message> {
     items: Vec<SegmentedItem<'a, Message>>,
     size: ControlSize,
     fill: bool,
+    variant: SegmentedControlVariant,
 }
 
 pub struct SegmentedItem<'a, Message> {
@@ -24,6 +34,12 @@ pub struct SegmentedItem<'a, Message> {
     selected: bool,
     disabled: bool,
     on_press: Option<Message>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SegmentedControlVariant {
+    Default,
+    Flat,
 }
 
 impl<'a, Message> SegmentedControl<'a, Message>
@@ -35,6 +51,7 @@ where
             items: Vec::new(),
             size: ControlSize::Sm,
             fill: false,
+            variant: SegmentedControlVariant::Default,
         }
     }
 
@@ -73,20 +90,36 @@ where
         self
     }
 
+    /// Renders the control as linked items sharing one outer border.
+    ///
+    /// The default variant uses an inset rounded thumb for the selected item.
+    /// The flat variant removes that inset and rounds only the outer corners.
+    pub fn flat(mut self) -> Self {
+        self.variant = SegmentedControlVariant::Flat;
+        self
+    }
+
     fn into_element(self) -> Element<'a, Message> {
         let metrics = theme_segmented_control::metrics(self.size);
         let item_count = self.items.len();
+        let variant = self.variant;
+        let size = self.size;
+        let outer_padding = outer_padding_for_variant(variant, metrics);
+        let item_height = item_height_for_variant(variant, metrics);
         let items = self.items.into_iter().enumerate().map(|(index, item)| {
             item.into_element(
+                size,
                 metrics,
-                theme_segmented_control::position_for_index(index, item_count),
+                position_for_index(index, item_count),
                 self.fill,
+                variant,
+                item_height,
             )
         });
         let mut content = Row::new()
             .spacing(0)
             .align_y(Alignment::Center)
-            .height(Length::Fixed(metrics.height + metrics.outer_padding * 2.0));
+            .height(Length::Fixed(item_height));
 
         for item in items {
             content = content.push(item);
@@ -94,7 +127,8 @@ where
 
         let mut segmented = container(content)
             .style(theme_segmented_control::container_style(metrics.radius))
-            .padding(metrics.outer_padding);
+            .padding(outer_padding)
+            .height(Length::Fixed(metrics.height));
 
         if self.fill {
             segmented = segmented.width(Length::Fill);
@@ -160,47 +194,84 @@ impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
 
     fn into_element(
         self,
+        size: ControlSize,
         metrics: theme_segmented_control::SegmentedControlMetrics,
-        position: SegmentPosition,
+        position: SlotPosition,
         fill: bool,
+        variant: SegmentedControlVariant,
+        item_height: f32,
     ) -> Element<'a, Message> {
-        let label = text(self.label).size(metrics.font_size);
-        let content: Element<'a, Message> = if let Some(icon) = self.icon {
-            row![
-                icon_widget::new(icon).size(metrics.icon_size),
-                label.shaping(text::Shaping::Auto),
-            ]
-            .spacing(metrics.gap)
-            .align_y(Alignment::Center)
-            .into()
-        } else {
-            label.shaping(text::Shaping::Auto).into()
-        };
-        let mut item = button::Button::new(content)
-            .style(theme_segmented_control::item_style(
-                self.selected,
-                position,
-                metrics.radius,
-            ))
-            .padding(Padding::ZERO.horizontal(metrics.padding_h))
-            .height(Length::Fixed(metrics.height));
+        let mut item = button::secondary(self.label);
+        if let Some(icon) = self.icon {
+            item = item.leading_icon(icon);
+        }
+        if self.disabled {
+            item = item.disabled(true);
+        }
 
         if fill {
             item = item.width(Length::Fill);
         }
 
-        let activation = if self.disabled {
-            None
-        } else {
-            self.on_press.clone()
+        let (kind, radius) = match variant {
+            SegmentedControlVariant::Default => {
+                (GroupedItemKind::Selectable, Radius::new(metrics.radius))
+            }
+            SegmentedControlVariant::Flat => (
+                GroupedItemKind::Embedded,
+                radius_for_position(position, metrics.radius),
+            ),
         };
-        let item = item.on_press_maybe(activation.clone());
+        item.on_press_maybe(self.on_press)
+            .into_grouped_item(GroupedItemSpec {
+                size,
+                radius,
+                height: item_height,
+                padding_h: metrics.padding_h,
+                selected: self.selected,
+                kind,
+            })
+    }
+}
 
-        Pressable::maybe(
-            item,
-            activation,
-            metrics.radius.into(),
-            ButtonFocusRing::Default,
-        )
+fn outer_padding_for_variant(
+    variant: SegmentedControlVariant,
+    metrics: theme_segmented_control::SegmentedControlMetrics,
+) -> f32 {
+    match variant {
+        SegmentedControlVariant::Default => metrics.outer_padding,
+        SegmentedControlVariant::Flat => 0.0,
+    }
+}
+
+fn item_height_for_variant(
+    variant: SegmentedControlVariant,
+    metrics: theme_segmented_control::SegmentedControlMetrics,
+) -> f32 {
+    (metrics.height - outer_padding_for_variant(variant, metrics) * 2.0).max(0.0)
+}
+
+#[cfg(test)]
+mod segmented_control_tests {
+    use super::*;
+
+    #[test]
+    fn default_item_height_consumes_track_inset_inside_control_height() {
+        let metrics = theme_segmented_control::metrics(ControlSize::Sm);
+
+        assert_eq!(
+            item_height_for_variant(SegmentedControlVariant::Default, metrics),
+            metrics.height - metrics.outer_padding * 2.0
+        );
+    }
+
+    #[test]
+    fn flat_item_height_matches_control_height() {
+        let metrics = theme_segmented_control::metrics(ControlSize::Sm);
+
+        assert_eq!(
+            item_height_for_variant(SegmentedControlVariant::Flat, metrics),
+            metrics.height
+        );
     }
 }

@@ -12,7 +12,7 @@ use crate::Element;
 use self::frame::InputGroupFrame;
 use self::style as theme_input_group;
 use super::{
-    button::Button,
+    button::{Button, GroupedItemKind, GroupedItemSpec},
     control_group::{position_for_index, radius_for_position, SlotPosition},
     icon as icon_widget,
     input::Input,
@@ -244,9 +244,14 @@ where
                 .height(Length::Fill)
                 .align_y(Alignment::Center)
                 .into(),
-            InputGroupSlot::Action(action) => {
-                action.into_group_action(size, radius, metrics.height, metrics.slot_padding_h)
-            }
+            InputGroupSlot::Action(action) => action.into_grouped_item(GroupedItemSpec {
+                size,
+                radius,
+                height: metrics.height,
+                padding_h: metrics.slot_padding_h,
+                selected: false,
+                kind: GroupedItemKind::Embedded,
+            }),
             InputGroupSlot::Visual(content) => container(content)
                 .style(theme_input_group::slot_style(radius, disabled))
                 .padding(Padding::ZERO.horizontal(metrics.slot_padding_h))
