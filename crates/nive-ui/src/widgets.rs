@@ -9,6 +9,7 @@ pub mod color_input;
 pub mod color_picker;
 pub mod color_swatch;
 pub mod command_palette;
+pub mod control_group;
 pub mod control_style;
 pub mod dialog;
 pub mod dropdown_menu;

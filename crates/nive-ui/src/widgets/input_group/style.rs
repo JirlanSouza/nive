@@ -34,14 +34,6 @@ pub(crate) enum InputGroupStatus {
     Disabled,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum GroupSlotPosition {
-    Single,
-    First,
-    Middle,
-    Last,
-}
-
 pub fn metrics(size: ControlSize) -> InputGroupMetrics {
     let control = control_metrics(size);
     let spacing = theme::spacing();
@@ -69,15 +61,6 @@ pub fn metrics(size: ControlSize) -> InputGroupMetrics {
             ControlSize::Md => spacing.md + spacing.xxs,
             ControlSize::Lg => spacing.xl,
         },
-    }
-}
-
-pub(crate) fn slot_radius(position: GroupSlotPosition, radius: f32) -> Radius {
-    match position {
-        GroupSlotPosition::Single => Radius::new(radius),
-        GroupSlotPosition::First => Radius::default().left(radius),
-        GroupSlotPosition::Middle => Radius::default(),
-        GroupSlotPosition::Last => Radius::default().right(radius),
     }
 }
 
