@@ -1,11 +1,12 @@
 use iced::{
     border::Radius,
     widget::button::{self, Status},
-    Border,
+    Background, Border, Color, Shadow,
 };
 
 use crate::theme::{
-    self, control_metrics, BorderRole, BorderSpec, ButtonClass, ControlSize, ControlState, ToneRole,
+    self, control_metrics, BorderRole, BorderSpec, ButtonClass, ControlRole, ControlSize,
+    ControlState, TextRole, ToneRole,
 };
 
 use super::super::control_style::border_with_radius;
@@ -65,6 +66,47 @@ pub(crate) fn embedded_style(
         let mut style = <crate::theme::Theme as button::Catalog>::style(theme, &class, status);
         style.border.radius = radius;
         style
+    }
+}
+
+pub(crate) fn selectable_style(
+    selected: bool,
+    radius: Radius,
+) -> impl Fn(&crate::theme::Theme, Status) -> button::Style {
+    move |theme: &crate::theme::Theme, status: Status| {
+        let theme = *theme;
+        let control = theme.control(ControlRole::Standard, button_control_state(status));
+        let selected_control = theme.control(ControlRole::Selectable, ControlState::SELECTED);
+        let disabled_control = theme.control(ControlRole::Standard, ControlState::DISABLED);
+
+        let background = match (selected, status) {
+            (true, Status::Hovered) => selected_control.background.scale_alpha(1.20),
+            (true, Status::Pressed) => selected_control.background.scale_alpha(0.88),
+            (true, Status::Disabled) => selected_control.background.scale_alpha(0.60),
+            (true, _) => selected_control.background,
+            (false, Status::Hovered | Status::Pressed) => control.background,
+            (false, _) => Color::TRANSPARENT,
+        };
+        let text_color = match (selected, status) {
+            (true, Status::Disabled) => selected_control.foreground.scale_alpha(0.60),
+            (true, _) => selected_control.foreground,
+            (false, Status::Hovered | Status::Pressed) => theme.text(TextRole::Primary).color,
+            (false, Status::Disabled) => disabled_control.foreground,
+            (false, _) => theme.text(TextRole::Secondary).color,
+        };
+        let border = if selected {
+            selected_control.border
+        } else {
+            BorderSpec::none()
+        };
+
+        button::Style {
+            background: Some(Background::Color(background)),
+            text_color,
+            border: border_with_radius(border, radius),
+            shadow: Shadow::default(),
+            ..button::Style::default()
+        }
     }
 }
 
@@ -178,6 +220,64 @@ mod button_tests {
         assert_eq!(style.border.color, expected.border.color);
         assert_eq!(style.border.width, expected.border.width);
         assert_eq!(style.border.radius, radius);
+    }
+
+    #[test]
+    fn selectable_selected_uses_selectable_role() {
+        let theme = Theme::Dark;
+        let style = selectable_style(true, Radius::new(6.0))(&theme, Status::Active);
+        let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
+
+        assert_eq!(background_color(&style), selected.background);
+        assert_eq!(style.text_color, selected.foreground);
+        assert_eq!(style.border.color, selected.border.color);
+        assert_eq!(style.border.width, selected.border.width);
+    }
+
+    #[test]
+    fn selectable_unselected_active_is_transparent() {
+        let theme = Theme::Dark;
+        let style = selectable_style(false, Radius::new(6.0))(&theme, Status::Active);
+
+        assert_eq!(background_color(&style), Color::TRANSPARENT);
+        assert_eq!(style.text_color, theme.text(TextRole::Secondary).color);
+        assert_eq!(style.border.color, Color::TRANSPARENT);
+    }
+
+    #[test]
+    fn selectable_unselected_hover_uses_standard_control_background() {
+        let theme = Theme::Dark;
+        let style = selectable_style(false, Radius::new(6.0))(&theme, Status::Hovered);
+        let control = theme.control(ControlRole::Standard, ControlState::HOVERED);
+
+        assert_eq!(background_color(&style), control.background);
+        assert_eq!(style.text_color, theme.text(TextRole::Primary).color);
+    }
+
+    #[test]
+    fn selectable_selected_pressed_scales_selected_background() {
+        let theme = Theme::Dark;
+        let style = selectable_style(true, Radius::new(6.0))(&theme, Status::Pressed);
+        let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
+
+        assert_eq!(
+            background_color(&style),
+            selected.background.scale_alpha(0.88)
+        );
+        assert_eq!(style.text_color, selected.foreground);
+    }
+
+    #[test]
+    fn selectable_disabled_selected_uses_canonical_scaled_selected_color() {
+        let theme = Theme::Dark;
+        let style = selectable_style(true, Radius::new(6.0))(&theme, Status::Disabled);
+        let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
+
+        assert_eq!(
+            background_color(&style),
+            selected.background.scale_alpha(0.60)
+        );
+        assert_eq!(style.text_color, selected.foreground.scale_alpha(0.60));
     }
 
     fn background_color(style: &button::Style) -> Color {

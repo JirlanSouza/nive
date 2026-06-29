@@ -15,15 +15,14 @@ pub(super) enum TextAlign {
     Start,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Content<'a> {
+pub(super) enum Content<'a, Message> {
     Label(&'a str),
     Icon(IconName),
+    Custom(Element<'a, Message>),
 }
 
-#[derive(Debug, Clone, Copy)]
-pub(super) struct ContentSpec<'a> {
-    pub(super) content: Content<'a>,
+pub(super) struct ContentSpec<'a, Message> {
+    pub(super) content: Content<'a, Message>,
     pub(super) leading_icon: Option<IconName>,
     pub(super) trailing_icon: Option<IconName>,
     pub(super) size: ControlSize,
@@ -32,30 +31,38 @@ pub(super) struct ContentSpec<'a> {
     pub(super) reserve_loading_indicator: bool,
 }
 
-impl Content<'_> {
-    pub(super) fn default_width(self, size: ControlSize) -> Length {
+impl<Message> Content<'_, Message> {
+    pub(super) fn default_width(&self, size: ControlSize) -> Length {
         match self {
             Content::Icon(_) => Length::Fixed(theme_button::icon_side(size)),
             Content::Label(_) => Length::Fill,
+            Content::Custom(_) => Length::Shrink,
         }
     }
 
-    pub(super) fn default_height(self, size: ControlSize) -> Length {
+    pub(super) fn default_height(&self, size: ControlSize) -> Length {
         match self {
             Content::Icon(_) => Length::Fixed(theme_button::icon_side(size)),
-            Content::Label(_) => Length::Fixed(theme_button::metrics(size).height),
+            Content::Label(_) | Content::Custom(_) => {
+                Length::Fixed(theme_button::metrics(size).height)
+            }
         }
     }
 
-    pub(super) fn default_padding(self, size: ControlSize) -> Padding {
+    pub(super) fn default_padding(&self, size: ControlSize) -> Padding {
         match self {
             Content::Icon(_) => Padding::ZERO,
-            Content::Label(_) => Padding::ZERO.horizontal(theme_button::metrics(size).padding_h),
+            Content::Label(_) | Content::Custom(_) => {
+                Padding::ZERO.horizontal(theme_button::metrics(size).padding_h)
+            }
         }
     }
 }
 
-pub(super) fn element<'a, Message>(spec: ContentSpec<'a>, width: Length) -> Element<'a, Message>
+pub(super) fn element<'a, Message>(
+    spec: ContentSpec<'a, Message>,
+    width: Length,
+) -> Element<'a, Message>
 where
     Message: 'a,
 {
@@ -109,6 +116,7 @@ where
                 icon_widget::new(app_icon).size(icon_size).into()
             }
         }
+        Content::Custom(content) => content,
     };
 
     match spec.text_align {
