@@ -1,18 +1,14 @@
-use iced::{
-    widget::{button, container},
-    Background, Color, Shadow,
-};
+use iced::{widget::container, Background, Shadow};
 
 use crate::theme::{
-    self, control_metrics, BorderRole, BorderSpec, ControlRole, ControlSize, ControlState,
-    SurfaceRole, TextRole,
+    self, control_metrics, BorderRole, ControlRole, ControlSize, ControlState, SurfaceRole,
 };
 
-use super::super::button::button_control_state;
 use super::super::control_style::{border_with_radius, transparent_border};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ToolbarMetrics {
+    pub size: ControlSize,
     pub height: f32,
     pub action_height: f32,
     pub radius: f32,
@@ -36,6 +32,7 @@ pub fn metrics(size: ControlSize) -> ToolbarMetrics {
     let group_padding = spacing.xxs;
 
     ToolbarMetrics {
+        size,
         height: control.height + group_padding * 2.0 + toolbar_padding_v * 2.0,
         action_height: control.height,
         radius: control.radius,
@@ -101,56 +98,9 @@ pub fn separator_style() -> impl Fn(&crate::theme::Theme) -> container::Style {
     }
 }
 
-pub fn action_style(
-    selected: bool,
-    radius: f32,
-) -> impl Fn(&crate::theme::Theme, button::Status) -> button::Style {
-    move |theme: &crate::theme::Theme, status: button::Status| {
-        let theme = *theme;
-        let control = theme.control(ControlRole::Standard, button_control_state(status));
-        let selected_control = theme.control(ControlRole::Selectable, ControlState::SELECTED);
-        let disabled_control = theme.control(ControlRole::Standard, ControlState::DISABLED);
-
-        let background = match (selected, status) {
-            (true, button::Status::Hovered) => selected_control.background.scale_alpha(1.20),
-            (true, button::Status::Pressed) => selected_control.background.scale_alpha(0.88),
-            (true, button::Status::Disabled) => selected_control.background.scale_alpha(0.60),
-            (true, _) => selected_control.background,
-            (false, button::Status::Hovered | button::Status::Pressed) => control.background,
-            (false, button::Status::Disabled) => Color::TRANSPARENT,
-            (false, _) => Color::TRANSPARENT,
-        };
-
-        let text_color = match (selected, status) {
-            (true, button::Status::Disabled) => selected_control.foreground.scale_alpha(0.60),
-            (true, _) => selected_control.foreground,
-            (false, button::Status::Hovered | button::Status::Pressed) => {
-                theme.text(TextRole::Primary).color
-            }
-            (false, button::Status::Disabled) => disabled_control.foreground,
-            (false, _) => theme.text(TextRole::Secondary).color,
-        };
-
-        let border = if selected {
-            selected_control.border
-        } else {
-            BorderSpec::none()
-        };
-
-        button::Style {
-            background: Some(Background::Color(background)),
-            text_color,
-            border: border_with_radius(border, radius),
-            shadow: Shadow::default(),
-            ..button::Style::default()
-        }
-    }
-}
-
 #[cfg(test)]
 mod toolbar_tests {
     use super::*;
-    use crate::theme::Theme;
 
     #[test]
     fn metrics_follow_control_size() {
@@ -159,25 +109,5 @@ mod toolbar_tests {
             control_metrics(ControlSize::Sm).height
         );
         assert!(metrics(ControlSize::Xs).height < metrics(ControlSize::Lg).height);
-    }
-
-    #[test]
-    fn selected_action_uses_app_selected_control_background() {
-        let theme = Theme::Dark;
-        let action = action_style(true, 6.0)(&theme, button::Status::Active);
-
-        assert_eq!(
-            background_color(&action),
-            theme
-                .control(ControlRole::Selectable, ControlState::SELECTED)
-                .background
-        );
-    }
-
-    fn background_color(style: &button::Style) -> Color {
-        match style.background.as_ref() {
-            Some(Background::Color(color)) => *color,
-            _ => panic!("Expected color background"),
-        }
     }
 }

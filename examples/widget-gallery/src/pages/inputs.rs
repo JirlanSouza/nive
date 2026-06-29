@@ -1,6 +1,8 @@
 use nive::prelude::*;
-use nive::ui::theme::{ControlSize, SurfaceRole};
-use nive::ui::widgets::{button as nbutton, text as ntext};
+use nive::ui::{
+    theme::{ControlSize, SurfaceRole},
+    widgets::{button as nbutton, text as ntext},
+};
 use nive::widget::column;
 
 use crate::app::{Message, WidgetGallery};
@@ -169,6 +171,15 @@ fn choices(app: &WidgetGallery) -> Element<'_, Message> {
         example_cell(
             "SegmentedControl",
             SegmentedControl::new()
+                .item(segment("Preview", app.form.segment))
+                .item(segment("Code", app.form.segment))
+                .item(segment("Tests", app.form.segment).icon(IconName::Check))
+                .fill(),
+        ),
+        example_cell(
+            "SegmentedControl flat",
+            SegmentedControl::new()
+                .flat()
                 .item(segment("Preview", app.form.segment))
                 .item(segment("Code", app.form.segment))
                 .item(segment("Tests", app.form.segment).icon(IconName::Check))

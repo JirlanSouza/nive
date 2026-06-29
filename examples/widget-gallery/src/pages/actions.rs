@@ -13,6 +13,11 @@ pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
         column![
             section("Button variants", buttons(app.control_size)),
             section("Action states", button_states()),
+            section(
+                "SegmentedControl",
+                segmented_controls(app.control_size, app.form.segment)
+            ),
+            section("ActionGroup", action_groups(app.control_size)),
             section("Toolbar", toolbar(app.control_size)),
             section("DropdownMenu", dropdown_menu()),
             section("ActionCard", action_cards()),
@@ -120,11 +125,53 @@ fn button_states() -> Element<'static, Message> {
     ])
 }
 
-fn toolbar(size: ControlSize) -> Element<'static, Message> {
-    Toolbar::new()
-        .size(size)
-        .group(
-            ToolbarGroup::new()
+fn segmented_controls(size: ControlSize, selected: &'static str) -> Element<'static, Message> {
+    variant_grid([
+        example_cell(
+            "Default",
+            SegmentedControl::new()
+                .size(size)
+                .item(segment("Preview", selected))
+                .item(segment("Code", selected))
+                .item(segment("Tests", selected).icon(IconName::Check))
+                .fill(),
+        ),
+        example_cell(
+            "Flat",
+            SegmentedControl::new()
+                .flat()
+                .size(size)
+                .item(segment("Preview", selected))
+                .item(segment("Code", selected))
+                .item(segment("Tests", selected).icon(IconName::Check))
+                .fill(),
+        ),
+        example_cell(
+            "Inline",
+            variant_row([
+                nbutton::secondary("Run").size(size).on_press(Message::Noop).into(),
+                SegmentedControl::new()
+                    .size(size)
+                    .item(segment("Preview", selected))
+                    .item(segment("Code", selected))
+                    .item(segment("Tests", selected))
+                    .into(),
+                nbutton::icon(IconName::Settings)
+                    .size(size)
+                    .tooltip("Settings")
+                    .on_press(Message::Noop)
+                    .into(),
+            ]),
+        ),
+    ])
+}
+
+fn action_groups(size: ControlSize) -> Element<'static, Message> {
+    variant_grid([
+        example_cell(
+            "Inline actions",
+            ActionGroup::new()
+                .size(size)
                 .action(
                     ToolbarAction::icon(IconName::ArrowLeft)
                         .tooltip("Back")
@@ -137,22 +184,100 @@ fn toolbar(size: ControlSize) -> Element<'static, Message> {
                 )
                 .separator()
                 .action(ToolbarAction::icon_label(IconName::RefreshCw, "Refresh").loading(true)),
-        )
-        .group(
-            ToolbarGroup::new()
+        ),
+        example_cell(
+            "Selectable actions",
+            ActionGroup::new()
+                .size(size)
                 .action(
                     ToolbarAction::label("Preview")
                         .selected(true)
                         .on_press(Message::Noop),
                 )
+                .action(ToolbarAction::label("Code").on_press(Message::Noop))
                 .action(
                     ToolbarAction::icon(IconName::Trash)
                         .disabled(true)
                         .tooltip("Delete"),
                 ),
-        )
-        .fill()
-        .into()
+        ),
+        example_cell(
+            "Inline with button",
+            variant_row([
+                nbutton::secondary("Run").size(size).on_press(Message::Noop).into(),
+                ActionGroup::new()
+                    .size(size)
+                    .action(
+                        ToolbarAction::icon(IconName::ArrowLeft)
+                            .tooltip("Back")
+                            .on_press(Message::Noop),
+                    )
+                    .action(
+                        ToolbarAction::icon(IconName::ArrowRight)
+                            .tooltip("Forward")
+                            .on_press(Message::Noop),
+                    )
+                    .into(),
+                nbutton::icon(IconName::Settings)
+                    .size(size)
+                    .tooltip("Settings")
+                    .on_press(Message::Noop)
+                    .into(),
+            ]),
+        ),
+    ])
+}
+
+fn toolbar(size: ControlSize) -> Element<'static, Message> {
+    Panel::new(
+        column![
+            Toolbar::new()
+                .size(size)
+                .group(
+                    ToolbarGroup::new()
+                        .action(
+                            ToolbarAction::icon(IconName::ArrowLeft)
+                                .tooltip("Back")
+                                .on_press(Message::Noop),
+                        )
+                        .action(
+                            ToolbarAction::icon(IconName::ArrowRight)
+                                .tooltip("Forward")
+                                .on_press(Message::Noop),
+                        )
+                        .separator()
+                        .action(
+                            ToolbarAction::icon_label(IconName::RefreshCw, "Refresh")
+                                .loading(true)
+                        ),
+                )
+                .group(
+                    ToolbarGroup::new()
+                        .action(
+                            ToolbarAction::label("Preview")
+                                .selected(true)
+                                .on_press(Message::Noop),
+                        )
+                        .action(
+                            ToolbarAction::icon(IconName::Trash)
+                                .disabled(true)
+                                .tooltip("Delete"),
+                        ),
+                )
+                .fill(),
+            container(ntext::body_small("Selected project activity")).padding(16)
+        ]
+        .spacing(0),
+    )
+    .role(SurfaceRole::Panel)
+    .padding(0)
+    .into()
+}
+
+fn segment(label: &'static str, selected: &'static str) -> SegmentedItem<'static, Message> {
+    SegmentedItem::new(label)
+        .selected(label == selected)
+        .on_press(Message::SelectSegment(label))
 }
 
 fn dropdown_menu() -> Element<'static, Message> {

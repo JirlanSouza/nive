@@ -26,7 +26,15 @@ pub const CATALOG: &[CatalogEntry] = &[
         family: "Actions",
         title: "Actions",
         summary: "Buttons, toolbars, menus, and action cards.",
-        terms: &["button", "toolbar", "dropdown", "menu", "action card"],
+        terms: &[
+            "button",
+            "action group",
+            "segmented",
+            "toolbar",
+            "dropdown",
+            "menu",
+            "action card",
+        ],
     },
     CatalogEntry {
         id: PageId::Inputs,
