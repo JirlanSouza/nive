@@ -53,7 +53,8 @@ where
     let button_widget = iced_button::Button::new(content)
         .padding(padding)
         .width(width)
-        .height(height);
+        .height(height)
+        .clip(true);
 
     let button_widget = match chrome {
         ButtonChrome::Standalone => {
