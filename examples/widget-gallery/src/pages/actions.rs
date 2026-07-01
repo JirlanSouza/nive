@@ -1,7 +1,11 @@
-use nive::prelude::*;
-use nive::ui::theme::{ControlSize, SurfaceRole};
-use nive::ui::widgets::{button as nbutton, text as ntext};
-use nive::widget::column;
+use nive::{
+    prelude::*,
+    ui::{
+        theme::{ControlSize, SurfaceRole},
+        widgets::{button as nbutton, text as ntext},
+    },
+    widget::column,
+};
 
 use crate::app::{Message, WidgetGallery};
 use crate::catalog::PageId;
@@ -149,7 +153,10 @@ fn segmented_controls(size: ControlSize, selected: &'static str) -> Element<'sta
         example_cell(
             "Inline",
             variant_row([
-                nbutton::secondary("Run").size(size).on_press(Message::Noop).into(),
+                nbutton::secondary("Run")
+                    .size(size)
+                    .on_press(Message::Noop)
+                    .into(),
                 SegmentedControl::new()
                     .size(size)
                     .item(segment("Preview", selected))
@@ -204,7 +211,10 @@ fn action_groups(size: ControlSize) -> Element<'static, Message> {
         example_cell(
             "Inline with button",
             variant_row([
-                nbutton::secondary("Run").size(size).on_press(Message::Noop).into(),
+                nbutton::secondary("Run")
+                    .size(size)
+                    .on_press(Message::Noop)
+                    .into(),
                 ActionGroup::new()
                     .size(size)
                     .action(
@@ -247,8 +257,7 @@ fn toolbar(size: ControlSize) -> Element<'static, Message> {
                         )
                         .separator()
                         .action(
-                            ToolbarAction::icon_label(IconName::RefreshCw, "Refresh")
-                                .loading(true)
+                            ToolbarAction::icon_label(IconName::RefreshCw, "Refresh").loading(true)
                         ),
                 )
                 .group(
