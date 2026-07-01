@@ -234,7 +234,7 @@ impl<'a, Message: Clone + 'a> DropdownMenuItem<'a, Message> {
         let mut content = row![left]
             .align_y(Alignment::Center)
             .width(Length::Fill)
-            .height(Length::Shrink);
+            .height(Length::Fill);
 
         if let Some(trailing) = self.trailing {
             content = content
@@ -243,6 +243,24 @@ impl<'a, Message: Clone + 'a> DropdownMenuItem<'a, Message> {
         }
 
         content.into()
+    }
+}
+
+#[cfg(test)]
+mod dropdown_menu_tests {
+    use iced::Length;
+
+    use super::*;
+
+    #[derive(Clone)]
+    enum TestMessage {}
+
+    #[test]
+    fn item_content_fills_fixed_button_height() {
+        let metrics = theme_menu::metrics(ControlSize::Sm);
+        let content = DropdownMenuItem::<TestMessage>::new("Rename").content(metrics);
+
+        assert_eq!(content.as_widget().size().height, Length::Fill);
     }
 }
 

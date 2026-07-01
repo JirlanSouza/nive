@@ -144,13 +144,48 @@ where
         } else {
             SelectableItemVariant::Default
         };
+        let fill = self.fill;
+        let activation = if self.disabled {
+            None
+        } else {
+            self.on_press.clone()
+        };
+        let tooltip_label = self.tooltip_label;
+        let content = self.content(metrics);
 
+        let mut item = button::Button::new(content)
+            .style(style(variant, metrics.radius))
+            .padding([metrics.padding_v, metrics.padding_h]);
+
+        if fill {
+            item = item.width(Length::Fill);
+        }
+
+        item = item.height(metrics.height);
+        let item = item.on_press_maybe(activation.clone());
+
+        let item = Pressable::maybe(
+            item,
+            activation,
+            metrics.radius.into(),
+            ButtonFocusRing::Default,
+        );
+
+        if let Some(label) = tooltip_label {
+            super::tooltip::bottom(item, label)
+        } else {
+            item
+        }
+    }
+
+    fn content(self, metrics: SelectableItemMetrics) -> Element<'a, Message> {
         let label = text(self.label).size(metrics.font_size).width(Length::Fill);
 
         let mut content = Row::new()
             .spacing(metrics.gap)
             .align_y(Alignment::Center)
-            .width(Length::Fill);
+            .width(Length::Fill)
+            .height(Length::Fill);
 
         if let Some(color) = self.leading_color {
             content = content.push(color_square(color, metrics.leading_size));
@@ -174,34 +209,7 @@ where
             content = content.push(trailing);
         }
 
-        let mut item = button::Button::new(content)
-            .style(style(variant, metrics.radius))
-            .padding([metrics.padding_v, metrics.padding_h]);
-
-        if self.fill {
-            item = item.width(Length::Fill);
-        }
-
-        item = item.height(metrics.height);
-        let activation = if self.disabled {
-            None
-        } else {
-            self.on_press.clone()
-        };
-        let item = item.on_press_maybe(activation.clone());
-
-        let item = Pressable::maybe(
-            item,
-            activation,
-            metrics.radius.into(),
-            ButtonFocusRing::Default,
-        );
-
-        if let Some(label) = self.tooltip_label {
-            super::tooltip::bottom(item, label)
-        } else {
-            item
-        }
+        content.into()
     }
 }
 
@@ -369,6 +377,17 @@ fn transparent_border() -> Border {
 mod selectable_item_tests {
     use super::*;
     use crate::theme::Theme;
+
+    #[derive(Clone)]
+    enum TestMessage {}
+
+    #[test]
+    fn content_fills_fixed_button_height() {
+        let metrics = metrics(ControlSize::Sm);
+        let content = SelectableItem::<TestMessage>::new("Project").content(metrics);
+
+        assert_eq!(content.as_widget().size().height, Length::Fill);
+    }
 
     #[test]
     fn selected_item_uses_app_selected_control_spec() {

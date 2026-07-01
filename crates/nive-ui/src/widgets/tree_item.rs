@@ -2,7 +2,7 @@ mod outline_tree_item;
 mod tone_dot;
 
 use iced::{
-    widget::{button, text, Row, Space},
+    widget::{button, container, text, Row, Space},
     Alignment, Length, Padding,
 };
 
@@ -158,13 +158,17 @@ where
     fn expander(&self, metrics: theme_tree_item::TreeItemMetrics) -> Element<'a, Message> {
         match self.expanded {
             Some(expanded) => {
-                let marker = if expanded { "v" } else { ">" };
+                let icon = if expanded {
+                    IconName::ChevronDown
+                } else {
+                    IconName::ChevronRight
+                };
                 let activation = if self.disabled {
                     None
                 } else {
                     self.on_toggle.clone().or_else(|| self.on_press.clone())
                 };
-                let button = button::Button::new(text(marker).size(metrics.font_size))
+                let button = button::Button::new(expander_content(icon, metrics.icon_size))
                     .style(theme_tree_item::expander_style(metrics.radius))
                     .padding(Padding::ZERO)
                     .width(Length::Fixed(metrics.expander_side))
@@ -190,10 +194,34 @@ where
         } else {
             TreeItemVariant::Default
         };
+        let activation = if self.disabled {
+            None
+        } else {
+            self.on_press.clone()
+        };
+        let content = self.main_content(metrics);
+
+        let button = button::Button::new(content)
+            .style(theme_tree_item::item_style(variant, metrics.radius))
+            .padding(Padding::ZERO.horizontal(metrics.padding_h))
+            .width(Length::Fill)
+            .height(Length::Fixed(metrics.height))
+            .on_press_maybe(activation.clone());
+
+        Pressable::maybe(
+            button,
+            activation,
+            metrics.radius.into(),
+            ButtonFocusRing::Default,
+        )
+    }
+
+    fn main_content(self, metrics: theme_tree_item::TreeItemMetrics) -> Element<'a, Message> {
         let mut content = Row::new()
             .spacing(metrics.gap)
             .align_y(Alignment::Center)
-            .width(Length::Fill);
+            .width(Length::Fill)
+            .height(Length::Fill);
 
         if let Some(tone) = self.tone {
             content = content.push(tone_dot(tone, metrics.tone_size));
@@ -222,25 +250,20 @@ where
             content = content.push(trailing);
         }
 
-        let activation = if self.disabled {
-            None
-        } else {
-            self.on_press.clone()
-        };
-        let button = button::Button::new(content)
-            .style(theme_tree_item::item_style(variant, metrics.radius))
-            .padding(Padding::ZERO.horizontal(metrics.padding_h))
-            .width(Length::Fill)
-            .height(Length::Fixed(metrics.height))
-            .on_press_maybe(activation.clone());
-
-        Pressable::maybe(
-            button,
-            activation,
-            metrics.radius.into(),
-            ButtonFocusRing::Default,
-        )
+        content.into()
     }
+}
+
+fn expander_content<'a, Message>(icon: IconName, icon_size: f32) -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    container(icon_widget::new(icon).size(icon_size))
+        .align_x(Alignment::Center)
+        .align_y(Alignment::Center)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into()
 }
 
 impl<'a, Message> From<TreeItem<'a, Message>> for Element<'a, Message>
@@ -249,5 +272,29 @@ where
 {
     fn from(item: TreeItem<'a, Message>) -> Self {
         item.into_element()
+    }
+}
+
+#[cfg(test)]
+mod tree_item_tests {
+    use super::*;
+
+    #[derive(Clone)]
+    enum TestMessage {}
+
+    #[test]
+    fn main_content_fills_fixed_button_height() {
+        let metrics = theme_tree_item::metrics(ControlSize::Sm);
+        let content = TreeItem::<TestMessage>::new("Node").main_content(metrics);
+
+        assert_eq!(content.as_widget().size().height, Length::Fill);
+    }
+
+    #[test]
+    fn expander_content_fills_fixed_button_height() {
+        let metrics = theme_tree_item::metrics(ControlSize::Sm);
+        let content = expander_content::<TestMessage>(IconName::ChevronRight, metrics.icon_size);
+
+        assert_eq!(content.as_widget().size().height, Length::Fill);
     }
 }
