@@ -125,12 +125,14 @@ where
             .align_y(Alignment::Center)
             .width(width)
             .height(Length::Fill)
+            .clip(true)
             .into(),
         TextAlign::Start => container(content)
             .align_x(Alignment::Start)
             .align_y(Alignment::Center)
             .width(width)
             .height(Length::Fill)
+            .clip(true)
             .into(),
     }
 }
