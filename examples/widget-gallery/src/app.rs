@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::BTreeSet};
 
 use nive::prelude::ui::DialogRequest;
 use nive::prelude::*;
@@ -44,6 +44,14 @@ pub enum PopoverKind {
     Collision,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum DemoTreeNode {
+    Examples,
+    WidgetGallery,
+    Src,
+    Pages,
+}
+
 pub struct FormState {
     pub name: String,
     pub email: String,
@@ -71,7 +79,7 @@ pub struct LayoutState {
     pub selected_card: usize,
     pub selected_item: usize,
     pub split_ratio: f32,
-    pub tree_expanded: bool,
+    pub expanded_tree_nodes: BTreeSet<DemoTreeNode>,
 }
 
 pub struct WidgetGallery {
@@ -108,7 +116,7 @@ pub enum Message {
     ToggleDirtyTab,
     SelectCard(usize),
     SelectItem(usize),
-    ToggleTree,
+    ToggleTree(DemoTreeNode),
     SplitRatioChanged(f32),
     ShowDialog(DialogKind),
     CloseDialog,
@@ -145,7 +153,14 @@ impl Default for LayoutState {
             selected_card: 0,
             selected_item: 0,
             split_ratio: 0.42,
-            tree_expanded: true,
+            expanded_tree_nodes: [
+                DemoTreeNode::Examples,
+                DemoTreeNode::WidgetGallery,
+                DemoTreeNode::Src,
+                DemoTreeNode::Pages,
+            ]
+            .into_iter()
+            .collect(),
         }
     }
 }
@@ -208,7 +223,11 @@ impl Application for WidgetGallery {
             Message::ToggleDirtyTab => self.layout.dirty_tab = !self.layout.dirty_tab,
             Message::SelectCard(index) => self.layout.selected_card = index,
             Message::SelectItem(index) => self.layout.selected_item = index,
-            Message::ToggleTree => self.layout.tree_expanded = !self.layout.tree_expanded,
+            Message::ToggleTree(node) => {
+                if !self.layout.expanded_tree_nodes.remove(&node) {
+                    self.layout.expanded_tree_nodes.insert(node);
+                }
+            }
             Message::SplitRatioChanged(ratio) => self.layout.split_ratio = ratio,
             Message::ShowDialog(dialog) => self.overlays.active_dialog = Some(dialog),
             Message::CloseDialog => self.overlays.active_dialog = None,
