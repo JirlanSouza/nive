@@ -1,4 +1,3 @@
-mod outline_tree_item;
 mod tone_dot;
 
 use iced::{
@@ -15,8 +14,6 @@ use super::button::ButtonFocusRing;
 mod style;
 use super::{icon as icon_widget, pressable::Pressable, IconName};
 use tone_dot::tone_dot;
-
-pub use outline_tree_item::OutlineTreeItem;
 
 pub struct TreeItem<'a, Message> {
     label: &'a str,

@@ -86,5 +86,5 @@ pub use split_pane::{SplitPane, SplitPaneConstraints, SplitPaneDirection};
 pub use switch::Switch;
 pub use tabs::{TabBar, TabItem};
 pub use toolbar::{ActionGroup, Toolbar, ToolbarAction, ToolbarGroup};
-pub use tree_item::{OutlineTreeItem, TreeItem};
+pub use tree_item::TreeItem;
 pub use version_badge::VersionBadge;
