@@ -1,12 +1,12 @@
 use iced::{
     border::Radius,
-    widget::{button, container},
+    widget::{button, container, text},
     Background, Border, Color, Shadow,
 };
 
 use super::super::button::button_control_state;
 use super::super::control_style::{
-    border_with_radius, disabled_alpha, transparent_border_with_radius,
+    border_with_radius, disabled_alpha, transparent_border, transparent_border_with_radius,
 };
 
 use crate::theme::{
@@ -42,10 +42,10 @@ pub fn metrics(size: ControlSize) -> TreeItemMetrics {
         icon_size: control.icon_size,
         expander_side: control.height,
         indent: match size {
-            ControlSize::Xs => spacing.lg,
-            ControlSize::Sm => spacing.xl,
-            ControlSize::Md => spacing.xl + spacing.xs,
-            ControlSize::Lg => spacing.xxl,
+            ControlSize::Xs => spacing.md,
+            ControlSize::Sm => spacing.lg,
+            ControlSize::Md => spacing.xl,
+            ControlSize::Lg => spacing.xl + spacing.xs,
         },
         gap: control.gap,
         padding_h: match size {
@@ -70,20 +70,10 @@ pub fn item_style(
     move |theme: &crate::theme::Theme, status: button::Status| {
         let theme = *theme;
         let control = theme.control(ControlRole::Standard, button_control_state(status));
-        let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
         let disabled = theme.control(ControlRole::Standard, ControlState::DISABLED);
 
         let background = match (variant, status) {
-            (TreeItemVariant::Selected, button::Status::Active) => selected.background,
-            (TreeItemVariant::Selected, button::Status::Hovered) => {
-                selected.background.scale_alpha(1.20)
-            }
-            (TreeItemVariant::Selected, button::Status::Pressed) => {
-                selected.background.scale_alpha(0.88)
-            }
-            (TreeItemVariant::Selected, button::Status::Disabled) => {
-                selected.background.scale_alpha(0.55)
-            }
+            (TreeItemVariant::Selected, _) => Color::TRANSPARENT,
             (TreeItemVariant::Default, button::Status::Hovered | button::Status::Pressed) => {
                 control.background
             }
@@ -92,22 +82,22 @@ pub fn item_style(
 
         let text_color = match (variant, status) {
             (_, button::Status::Disabled) => disabled.foreground,
-            (TreeItemVariant::Selected, _) => selected.foreground,
+            (TreeItemVariant::Selected, _) => theme.text(TextRole::Primary).color,
             (TreeItemVariant::Default, button::Status::Hovered | button::Status::Pressed) => {
                 theme.text(TextRole::Primary).color
             }
-            (TreeItemVariant::Default, _) => theme.text(TextRole::Secondary).color,
+            (TreeItemVariant::Default, _) => theme.text(TextRole::Primary).color,
         };
 
-        let border = match variant {
-            TreeItemVariant::Selected => selected.border,
-            TreeItemVariant::Default => BorderSpec::none(),
+        let border_radius = match variant {
+            TreeItemVariant::Selected => 0.0,
+            TreeItemVariant::Default => radius,
         };
 
         button::Style {
             background: Some(Background::Color(background)),
             text_color,
-            border: border_with_radius(border, radius),
+            border: border_with_radius(BorderSpec::none(), border_radius),
             shadow: Shadow::default(),
             ..button::Style::default()
         }
@@ -115,28 +105,80 @@ pub fn item_style(
 }
 
 pub fn expander_style(
+    selected: bool,
     radius: f32,
 ) -> impl Fn(&crate::theme::Theme, button::Status) -> button::Style {
     move |theme: &crate::theme::Theme, status: button::Status| {
         let theme = *theme;
         let control = theme.control(ControlRole::Standard, button_control_state(status));
 
+        let background = match (selected, status) {
+            (true, _) => Color::TRANSPARENT,
+            (false, button::Status::Hovered | button::Status::Pressed) => control.background,
+            (false, _) => Color::TRANSPARENT,
+        };
+
+        let text_color = match (selected, status) {
+            (_, button::Status::Disabled) => disabled_alpha(theme.text(TextRole::Muted).color),
+            (true, _) => theme.text(TextRole::Primary).color,
+            (false, button::Status::Hovered | button::Status::Pressed) => {
+                theme.text(TextRole::Primary).color
+            }
+            (false, button::Status::Active) => theme.text(TextRole::Secondary).color,
+        };
+
+        let border_radius = if selected { 0.0 } else { radius };
+
         button::Style {
-            background: Some(Background::Color(match status {
-                button::Status::Hovered | button::Status::Pressed => control.background,
-                _ => Color::TRANSPARENT,
-            })),
-            text_color: match status {
-                button::Status::Disabled => disabled_alpha(theme.text(TextRole::Muted).color),
-                button::Status::Hovered | button::Status::Pressed => {
-                    theme.text(TextRole::Primary).color
-                }
-                button::Status::Active => theme.text(TextRole::Muted).color,
-            },
-            border: transparent_border_with_radius(radius),
+            background: Some(Background::Color(background)),
+            text_color,
+            border: transparent_border_with_radius(border_radius),
             shadow: Shadow::default(),
             ..button::Style::default()
         }
+    }
+}
+
+pub fn row_style(
+    selected: bool,
+    disabled: bool,
+) -> impl Fn(&crate::theme::Theme) -> container::Style {
+    move |theme: &crate::theme::Theme| {
+        let theme = *theme;
+        let selected_control = theme.control(ControlRole::Selectable, ControlState::SELECTED);
+
+        let background = if selected {
+            if disabled {
+                selected_control.background.scale_alpha(0.55)
+            } else {
+                selected_control.background
+            }
+        } else {
+            Color::TRANSPARENT
+        };
+
+        container::Style {
+            text_color: None,
+            background: Some(Background::Color(background)),
+            border: transparent_border(),
+            shadow: Shadow::default(),
+            ..container::Style::default()
+        }
+    }
+}
+
+pub fn trailing_text_style(disabled: bool) -> impl Fn(&crate::theme::Theme) -> text::Style {
+    move |theme: &crate::theme::Theme| {
+        let theme = *theme;
+        let disabled_control = theme.control(ControlRole::Standard, ControlState::DISABLED);
+
+        let color = if disabled {
+            disabled_control.foreground
+        } else {
+            theme.text(TextRole::Secondary).color
+        };
+
+        text::Style { color: Some(color) }
     }
 }
 
@@ -169,7 +211,7 @@ mod tree_item_tests {
     #[test]
     fn selected_item_uses_app_selected_control_background() {
         let theme = Theme::Dark;
-        let item = item_style(TreeItemVariant::Selected, 6.0)(&theme, button::Status::Active);
+        let item = row_style(true, false)(&theme);
 
         assert_eq!(
             background_color(&item),
@@ -177,6 +219,27 @@ mod tree_item_tests {
                 .control(ControlRole::Selectable, ControlState::SELECTED)
                 .background
         );
+        assert_eq!(item.border.width, 0.0);
+        assert_eq!(item.border.radius, Radius::default());
+    }
+
+    #[test]
+    fn selected_item_button_keeps_row_background_visible() {
+        let theme = Theme::Dark;
+        let item = item_style(TreeItemVariant::Selected, 6.0)(&theme, button::Status::Active);
+
+        assert_eq!(button_background_color(&item), Color::TRANSPARENT);
+        assert_eq!(item.text_color, theme.text(TextRole::Primary).color);
+        assert_eq!(item.border.width, 0.0);
+        assert_eq!(item.border.radius, Radius::default());
+    }
+
+    #[test]
+    fn default_item_uses_primary_text() {
+        let theme = Theme::Dark;
+        let item = item_style(TreeItemVariant::Default, 6.0)(&theme, button::Status::Active);
+
+        assert_eq!(item.text_color, theme.text(TextRole::Primary).color);
     }
 
     #[test]
@@ -184,7 +247,19 @@ mod tree_item_tests {
         assert!(metrics(ControlSize::Xs).indent < metrics(ControlSize::Lg).indent);
     }
 
-    fn background_color(style: &button::Style) -> Color {
+    #[test]
+    fn sm_indentation_uses_compact_theme_spacing() {
+        assert_eq!(metrics(ControlSize::Sm).indent, theme::spacing().lg);
+    }
+
+    fn background_color(style: &container::Style) -> Color {
+        match style.background.as_ref() {
+            Some(Background::Color(color)) => *color,
+            _ => panic!("Expected color background"),
+        }
+    }
+
+    fn button_background_color(style: &button::Style) -> Color {
         match style.background.as_ref() {
             Some(Background::Color(color)) => *color,
             _ => panic!("Expected color background"),
