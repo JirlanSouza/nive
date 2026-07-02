@@ -157,7 +157,7 @@ flowchart TB
         Panel
         SplitPane
         Tabs["TabBar / TabItem"]
-        TreeItem["TreeItem / OutlineTreeItem"]
+        TreeItem
         SectionHeader
         SelectableCard
         SelectableItem
