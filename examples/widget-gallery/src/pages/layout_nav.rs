@@ -3,7 +3,7 @@ use nive::ui::theme::{SurfaceRole, ToneRole};
 use nive::ui::widgets::{button as nbutton, text as ntext};
 use nive::widget::{column, row};
 
-use crate::app::{DemoTab, Message, WidgetGallery};
+use crate::app::{DemoTab, DemoTreeNode, Message, WidgetGallery};
 use crate::catalog::PageId;
 use crate::layout::{example_cell, section, variant_grid};
 
@@ -113,41 +113,93 @@ fn split_pane(app: &WidgetGallery) -> Element<'_, Message> {
 }
 
 fn trees(app: &WidgetGallery) -> Element<'_, Message> {
-    variant_grid([
-        example_cell(
-            "TreeItem",
-            column![
-                TreeItem::new("examples")
-                    .expanded(app.layout.tree_expanded)
-                    .leading_icon(IconName::Folder)
-                    .selected(true)
-                    .on_toggle(Message::ToggleTree),
+    let expanded = &app.layout.expanded_tree_nodes;
+    let examples_expanded = expanded.contains(&DemoTreeNode::Examples);
+    let widget_gallery_expanded = expanded.contains(&DemoTreeNode::WidgetGallery);
+    let src_expanded = expanded.contains(&DemoTreeNode::Src);
+    let pages_expanded = expanded.contains(&DemoTreeNode::Pages);
+
+    let mut items = column![TreeItem::new("examples")
+        .expanded(examples_expanded)
+        .leading_icon(IconName::Folder)
+        .selected(true)
+        .on_toggle(Message::ToggleTree(DemoTreeNode::Examples))]
+    .spacing(2);
+
+    if examples_expanded {
+        items = items
+            .push(
                 TreeItem::new("widget-gallery")
                     .depth(1)
                     .leading_icon(IconName::Folder)
+                    .expanded(widget_gallery_expanded)
+                    .on_toggle(Message::ToggleTree(DemoTreeNode::WidgetGallery))
                     .trailing_text("new"),
-                TreeItem::new("disabled-file.rs")
-                    .depth(2)
-                    .disabled(true)
-                    .leading_icon(IconName::Edit),
-            ]
-            .spacing(2),
-        ),
-        example_cell(
-            "OutlineTreeItem",
-            column![
-                OutlineTreeItem::new("Public widgets")
-                    .expanded(true)
-                    .on_toggle(Message::Noop),
-                OutlineTreeItem::new("Inputs")
+            )
+            .push(
+                TreeItem::new("target")
                     .depth(1)
-                    .selected(true)
-                    .on_press(Message::Noop),
-                OutlineTreeItem::new("A very long nested item label that tests layout").depth(2),
-            ]
-            .spacing(2),
-        ),
-    ])
+                    .disabled(true)
+                    .leading_icon(IconName::Folder)
+                    .trailing_text("ignored"),
+            );
+    }
+
+    if examples_expanded && widget_gallery_expanded {
+        items = items
+            .push(
+                TreeItem::new("Cargo.toml")
+                    .depth(2)
+                    .leading_icon(IconName::Edit),
+            )
+            .push(
+                TreeItem::new("src")
+                    .depth(2)
+                    .expanded(src_expanded)
+                    .leading_icon(IconName::Folder)
+                    .on_toggle(Message::ToggleTree(DemoTreeNode::Src)),
+            );
+    }
+
+    if examples_expanded && widget_gallery_expanded && src_expanded {
+        items = items
+            .push(
+                TreeItem::new("app.rs")
+                    .depth(3)
+                    .leading_icon(IconName::Edit)
+                    .trailing_text("modified"),
+            )
+            .push(
+                TreeItem::new("pages")
+                    .depth(3)
+                    .expanded(pages_expanded)
+                    .leading_icon(IconName::Folder)
+                    .on_toggle(Message::ToggleTree(DemoTreeNode::Pages)),
+            );
+    }
+
+    if examples_expanded && widget_gallery_expanded && src_expanded && pages_expanded {
+        items = items
+            .push(
+                TreeItem::new("layout_nav.rs")
+                    .depth(4)
+                    .leading_icon(IconName::Edit),
+            )
+            .push(
+                TreeItem::new("inputs.rs")
+                    .depth(4)
+                    .leading_icon(IconName::Edit),
+            );
+    }
+
+    row![
+        Panel::new(column![ntext::caption("TreeItem"), items].spacing(10))
+            .role(SurfaceRole::Panel)
+            .padding(14)
+            .width(Length::Fixed(360.0))
+    ]
+    .width(Length::Fill)
+    .into()
 }
 
 fn selectable(app: &WidgetGallery) -> Element<'_, Message> {
