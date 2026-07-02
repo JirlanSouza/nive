@@ -146,10 +146,17 @@ where
             .height(Length::Fixed(metrics.height));
 
         row = row.push(Space::new().width(Length::Fixed(metrics.indent * self.depth as f32)));
+        let selected = self.selected;
+        let disabled = self.disabled;
+
         row = row.push(self.expander(metrics));
         row = row.push(self.main_button(metrics));
 
-        row.into()
+        container(row)
+            .style(theme_tree_item::row_style(selected, disabled))
+            .width(Length::Fill)
+            .height(Length::Fixed(metrics.height))
+            .into()
     }
 
     fn expander(&self, metrics: theme_tree_item::TreeItemMetrics) -> Element<'a, Message> {
@@ -166,7 +173,10 @@ where
                     self.on_toggle.clone().or_else(|| self.on_press.clone())
                 };
                 let button = button::Button::new(expander_content(icon, metrics.icon_size))
-                    .style(theme_tree_item::expander_style(metrics.radius))
+                    .style(theme_tree_item::expander_style(
+                        self.selected,
+                        metrics.radius,
+                    ))
                     .padding(Padding::ZERO)
                     .width(Length::Fixed(metrics.expander_side))
                     .height(Length::Fixed(metrics.height))
@@ -214,6 +224,7 @@ where
     }
 
     fn main_content(self, metrics: theme_tree_item::TreeItemMetrics) -> Element<'a, Message> {
+        let disabled = self.disabled;
         let mut content = Row::new()
             .spacing(metrics.gap)
             .align_y(Alignment::Center)
@@ -239,7 +250,8 @@ where
             content = content.push(
                 text(trailing)
                     .size(metrics.font_size)
-                    .shaping(text::Shaping::Auto),
+                    .shaping(text::Shaping::Auto)
+                    .style(theme_tree_item::trailing_text_style(disabled)),
             );
         }
 
