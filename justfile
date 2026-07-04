@@ -70,10 +70,11 @@ scaffold-smoke-github: scaffold-smoke-github-basic scaffold-smoke-github-dashboa
 
 # Verify publishable crates can be packaged in dependency order
 package-check:
-    cargo package --package nive-ui
+    cargo package --package nive-core
+    cargo package --package nive-ui --config 'patch.crates-io.nive-core.path="crates/nive-core"'
     cargo package --package nive-runtime-derive
-    cargo package --package nive-runtime --config 'patch.crates-io.nive-runtime-derive.path="crates/nive-runtime-derive"' --config 'patch.crates-io.nive-ui.path="crates/nive-ui"'
-    cargo package --package nive --config 'patch.crates-io.nive-runtime-derive.path="crates/nive-runtime-derive"' --config 'patch.crates-io.nive-runtime.path="crates/nive-runtime"' --config 'patch.crates-io.nive-ui.path="crates/nive-ui"'
+    cargo package --package nive-runtime --config 'patch.crates-io.nive-core.path="crates/nive-core"' --config 'patch.crates-io.nive-runtime-derive.path="crates/nive-runtime-derive"' --config 'patch.crates-io.nive-ui.path="crates/nive-ui"'
+    cargo package --package nive --config 'patch.crates-io.nive-core.path="crates/nive-core"' --config 'patch.crates-io.nive-runtime-derive.path="crates/nive-runtime-derive"' --config 'patch.crates-io.nive-runtime.path="crates/nive-runtime"' --config 'patch.crates-io.nive-ui.path="crates/nive-ui"'
     cargo package --package nive-cli
 
 # Run local readiness checks that mirror CI categories
