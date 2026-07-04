@@ -139,6 +139,36 @@ pub fn expander_style(
     }
 }
 
+pub fn indent_style(
+    selected: bool,
+) -> impl Fn(&crate::theme::Theme, button::Status) -> button::Style {
+    move |theme: &crate::theme::Theme, status: button::Status| {
+        let theme = *theme;
+        let control = theme.control(ControlRole::Standard, button_control_state(status));
+
+        let background = if selected {
+            Color::TRANSPARENT
+        } else {
+            match status {
+                button::Status::Hovered | button::Status::Pressed => control.background,
+                _ => Color::TRANSPARENT,
+            }
+        };
+
+        button::Style {
+            background: Some(Background::Color(background)),
+            text_color: Color::TRANSPARENT,
+            border: Border {
+                color: Color::TRANSPARENT,
+                width: 0.0,
+                radius: Radius::new(0.0),
+            },
+            shadow: Shadow::default(),
+            ..button::Style::default()
+        }
+    }
+}
+
 pub fn row_style(
     selected: bool,
     disabled: bool,
@@ -250,6 +280,33 @@ mod tree_item_tests {
     #[test]
     fn sm_indentation_uses_compact_theme_spacing() {
         assert_eq!(metrics(ControlSize::Sm).indent, theme::spacing().lg);
+    }
+
+    #[test]
+    fn indent_hover_shows_control_background() {
+        let theme = Theme::Dark;
+        let style = indent_style(false)(&theme, button::Status::Hovered);
+        let expected = theme
+            .control(ControlRole::Standard, ControlState::HOVERED)
+            .background;
+
+        assert_eq!(button_background_color(&style), expected);
+    }
+
+    #[test]
+    fn indent_selected_hover_is_transparent() {
+        let theme = Theme::Dark;
+        let style = indent_style(true)(&theme, button::Status::Hovered);
+
+        assert_eq!(button_background_color(&style), Color::TRANSPARENT);
+    }
+
+    #[test]
+    fn indent_active_is_transparent() {
+        let theme = Theme::Dark;
+        let style = indent_style(false)(&theme, button::Status::Active);
+
+        assert_eq!(button_background_color(&style), Color::TRANSPARENT);
     }
 
     fn background_color(style: &container::Style) -> Color {
