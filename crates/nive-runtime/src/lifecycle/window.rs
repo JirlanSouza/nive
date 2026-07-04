@@ -1,4 +1,4 @@
-use iced::{window, Size, Task};
+use iced::{window, Size};
 
 /// The display mode of a window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -174,11 +174,12 @@ impl From<WindowSpec> for window::Settings {
     }
 }
 
+#[cfg(feature = "devtools")]
 pub fn open_window<Message>(
     spec: WindowSpec,
     icon: Option<window::Icon>,
     on_open: impl Fn(window::Id) -> Message + Send + 'static,
-) -> (window::Id, Task<Message>)
+) -> (window::Id, iced::Task<Message>)
 where
     Message: Send + 'static,
 {

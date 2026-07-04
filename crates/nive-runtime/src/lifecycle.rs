@@ -7,7 +7,9 @@ pub use command::{
     CloseDecision, CommandRejected, CommandRejectionReason, ExitDecision, PlatformError,
     WindowCommand,
 };
+#[cfg(feature = "devtools")]
+pub(crate) use window::open_window;
 pub use window::{
-    open_window, WindowCardinality, WindowChrome, WindowHandle, WindowMode, WindowRegistry,
-    WindowRole, WindowSpec,
+    WindowCardinality, WindowChrome, WindowHandle, WindowMode, WindowRegistry, WindowRole,
+    WindowSpec,
 };

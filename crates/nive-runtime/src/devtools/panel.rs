@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use iced::{window, Task};
 
-use crate::{open_window, WindowChrome, WindowHandle, WindowMode, WindowSpec};
+use crate::{lifecycle::open_window, WindowChrome, WindowHandle, WindowMode, WindowSpec};
 
 use super::command::{DevtoolsRowId, SimulateAction, SimulateResult};
 use super::types::SimulatorEntry;
