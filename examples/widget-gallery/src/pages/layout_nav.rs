@@ -1,6 +1,7 @@
 use nive::prelude::*;
 use nive::ui::theme::{SurfaceRole, ToneRole};
 use nive::ui::widgets::{button as nbutton, text as ntext};
+use nive::ui::{SelectionMode, TransferOperation};
 use nive::widget::{column, row};
 
 use crate::app::{DemoTab, DemoTreeNode, Message, WidgetGallery};
@@ -113,92 +114,170 @@ fn split_pane(app: &WidgetGallery) -> Element<'_, Message> {
 }
 
 fn trees(app: &WidgetGallery) -> Element<'_, Message> {
+    // Keep `Tree` and `TreeItem` side by side: `Tree` owns hierarchy
+    // interactions, while `TreeItem` remains the focused row primitive sample.
     let expanded = &app.layout.expanded_tree_nodes;
     let examples_expanded = expanded.contains(&DemoTreeNode::Examples);
     let widget_gallery_expanded = expanded.contains(&DemoTreeNode::WidgetGallery);
-    let src_expanded = expanded.contains(&DemoTreeNode::Src);
-    let pages_expanded = expanded.contains(&DemoTreeNode::Pages);
 
-    let mut items = column![TreeItem::new("examples")
-        .expanded(examples_expanded)
-        .leading_icon(IconName::Folder)
-        .selected(true)
-        .on_toggle(Message::ToggleTree(DemoTreeNode::Examples))]
+    let mode = app.layout.tree_selection_mode;
+    let tree = Tree::new(tree_nodes(
+        app.layout.tree_deferred_loaded,
+        app.layout.tree_deferred_loading,
+    ))
+    .state(&app.layout.tree_state)
+    .selection_mode(mode)
+    .size(app.control_size)
+    .drag(
+        TreeDrag::enabled()
+            .operations([TransferOperation::Move, TransferOperation::Copy])
+            .can_drop(|drop| !matches!(drop.target, TreeDropTarget::Into(DemoTreeNode::Target))),
+    )
+    .height(260)
+    .on_event(Message::TreeEvent);
+
+    let tree_item_rows = column![
+        TreeItem::new("examples")
+            .expanded(examples_expanded)
+            .leading_icon(IconName::Folder)
+            .selected(true)
+            .size(app.control_size)
+            .on_toggle(Message::ToggleTree(DemoTreeNode::Examples)),
+        TreeItem::new("widget-gallery")
+            .depth(1)
+            .expanded(widget_gallery_expanded)
+            .leading_icon(IconName::Folder)
+            .trailing_text("primitive")
+            .size(app.control_size)
+            .on_toggle(Message::ToggleTree(DemoTreeNode::WidgetGallery)),
+        TreeItem::new("disabled target")
+            .depth(1)
+            .leaf()
+            .disabled(true)
+            .leading_icon(IconName::Folder)
+            .trailing_text("ignored")
+            .size(app.control_size),
+    ]
     .spacing(2);
 
-    if examples_expanded {
-        items = items
-            .push(
-                TreeItem::new("widget-gallery")
-                    .depth(1)
-                    .leading_icon(IconName::Folder)
-                    .expanded(widget_gallery_expanded)
-                    .on_toggle(Message::ToggleTree(DemoTreeNode::WidgetGallery))
-                    .trailing_text("new"),
-            )
-            .push(
-                TreeItem::new("target")
-                    .depth(1)
-                    .disabled(true)
-                    .leading_icon(IconName::Folder)
-                    .trailing_text("ignored"),
-            );
-    }
-
-    if examples_expanded && widget_gallery_expanded {
-        items = items
-            .push(
-                TreeItem::new("Cargo.toml")
-                    .depth(2)
-                    .leading_icon(IconName::Edit),
-            )
-            .push(
-                TreeItem::new("src")
-                    .depth(2)
-                    .expanded(src_expanded)
-                    .leading_icon(IconName::Folder)
-                    .on_toggle(Message::ToggleTree(DemoTreeNode::Src)),
-            );
-    }
-
-    if examples_expanded && widget_gallery_expanded && src_expanded {
-        items = items
-            .push(
-                TreeItem::new("app.rs")
-                    .depth(3)
-                    .leading_icon(IconName::Edit)
-                    .trailing_text("modified"),
-            )
-            .push(
-                TreeItem::new("pages")
-                    .depth(3)
-                    .expanded(pages_expanded)
-                    .leading_icon(IconName::Folder)
-                    .on_toggle(Message::ToggleTree(DemoTreeNode::Pages)),
-            );
-    }
-
-    if examples_expanded && widget_gallery_expanded && src_expanded && pages_expanded {
-        items = items
-            .push(
-                TreeItem::new("layout_nav.rs")
-                    .depth(4)
-                    .leading_icon(IconName::Edit),
-            )
-            .push(
-                TreeItem::new("inputs.rs")
-                    .depth(4)
-                    .leading_icon(IconName::Edit),
-            );
-    }
-
     row![
-        Panel::new(column![ntext::caption("TreeItem"), items].spacing(10))
+        Panel::new(
+            column![
+                row![
+                    ntext::caption("Tree"),
+                    Badge::info(match mode {
+                        SelectionMode::Multiple => "Multi-select",
+                        SelectionMode::Single => "Single-select",
+                        SelectionMode::None => "Selection off",
+                    }),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center),
+                row![
+                    nbutton::secondary("Single")
+                        .shrink()
+                        .on_press(Message::TreeSelectionModeChanged(SelectionMode::Single)),
+                    nbutton::secondary("Multiple")
+                        .shrink()
+                        .on_press(Message::TreeSelectionModeChanged(SelectionMode::Multiple)),
+                ]
+                .spacing(8),
+                tree,
+                tree_feedback(app),
+            ]
+            .spacing(10)
+        )
+        .role(SurfaceRole::Panel)
+        .padding(14)
+        .width(Length::FillPortion(2)),
+        Panel::new(column![ntext::caption("TreeItem primitive"), tree_item_rows].spacing(10))
             .role(SurfaceRole::Panel)
             .padding(14)
-            .width(Length::Fixed(360.0))
+            .width(Length::FillPortion(1)),
     ]
+    .spacing(12)
     .width(Length::Fill)
+    .into()
+}
+
+fn tree_nodes(deferred_loaded: bool, deferred_loading: bool) -> Vec<TreeNode<'static, DemoTreeNode>> {
+    let remote_branch = if deferred_loaded {
+        TreeNode::branch(
+            DemoTreeNode::RemotePackages,
+            "remote-packages",
+            [
+                TreeNode::leaf(DemoTreeNode::RemoteSchema, "schema.json")
+                    .leading_icon(IconName::Edit)
+                    .trailing_text("loaded"),
+                TreeNode::leaf(DemoTreeNode::RemoteCache, "cache.bin")
+                    .leading_icon(IconName::Copy)
+                    .trailing_text("2 MB"),
+            ],
+        )
+        .leading_icon(IconName::Folder)
+        .tone(ToneRole::Success)
+        .trailing_text("loaded")
+    } else {
+        TreeNode::branch_deferred(DemoTreeNode::RemotePackages, "remote-packages")
+            .leading_icon(IconName::Inbox)
+            .tone(ToneRole::Info)
+            .trailing_text(if deferred_loading { "loading" } else { "deferred" })
+    };
+
+    vec![TreeNode::branch(
+        DemoTreeNode::Examples,
+        "examples",
+        [
+            TreeNode::branch(
+                DemoTreeNode::WidgetGallery,
+                "widget-gallery",
+                [
+                    TreeNode::leaf(DemoTreeNode::CargoToml, "Cargo.toml")
+                        .leading_icon(IconName::Edit),
+                    TreeNode::leaf(DemoTreeNode::Target, "target")
+                        .leading_icon(IconName::Folder)
+                        .disabled(true)
+                        .trailing_text("disabled"),
+                    TreeNode::branch(
+                        DemoTreeNode::Src,
+                        "src",
+                        [
+                            TreeNode::leaf(DemoTreeNode::AppRs, "app.rs")
+                                .leading_icon(IconName::Edit)
+                                .trailing_text("modified"),
+                            TreeNode::branch(
+                                DemoTreeNode::Pages,
+                                "pages",
+                                [
+                                    TreeNode::leaf(DemoTreeNode::LayoutNavRs, "layout_nav.rs")
+                                        .leading_icon(IconName::Edit)
+                                        .tone(ToneRole::Warning),
+                                    TreeNode::leaf(DemoTreeNode::InputsRs, "inputs.rs")
+                                        .leading_icon(IconName::Edit),
+                                ],
+                            )
+                            .leading_icon(IconName::Folder),
+                        ],
+                    )
+                    .leading_icon(IconName::Folder),
+                    remote_branch,
+                ],
+            )
+            .leading_icon(IconName::Folder)
+            .trailing_text("new"),
+        ],
+    )
+    .leading_icon(IconName::Folder)]
+}
+
+fn tree_feedback(app: &WidgetGallery) -> Element<'_, Message> {
+    column![
+        ntext::body_small(&app.layout.tree_event_feedback),
+        ntext::body_small(&app.layout.tree_context_feedback),
+        ntext::body_small(&app.layout.tree_clipboard_feedback),
+        ntext::body_small(&app.layout.tree_drop_feedback),
+    ]
+    .spacing(4)
     .into()
 }
 
