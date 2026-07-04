@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "crates/nive-core",
   "crates/nive-ui",
   "crates/nive-runtime",
   "crates/nive-runtime-derive",
