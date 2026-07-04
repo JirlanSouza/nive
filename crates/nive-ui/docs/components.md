@@ -11,6 +11,29 @@ builders/catalogs, and reusable widgets. Lower-level submodules under
 helpers and focused tests, but they are not the default integration surface for
 product code.
 
+`nive_ui::widgets` is organized as both a flat app-facing facade and a
+taxonomy of category facades:
+
+- `widgets::primitives` — text helpers, icons, color swatches, separators,
+  Iced `space` and SVG helpers.
+- `widgets::controls` — buttons, checkbox, switch, input, select, segmented
+  control, autocomplete and color controls.
+- `widgets::display` — badges, avatars, metadata, metric cards, trees, empty
+  states and version badges.
+- `widgets::containers` — cards, action/selectable cards, panels and split
+  panes.
+- `widgets::navigation` — tabs, toolbars, dropdown menus and command palette
+  helpers.
+- `widgets::overlays` — dialogs, popovers, tooltips, `DialogHost` and
+  `ToastHost`.
+- `widgets::feedback` — alerts, callouts, loading indicators, progress,
+  skeletons, error/resource/operation status surfaces.
+- `widgets::composite` — fields, field groups, input groups, path inputs and
+  section headers.
+
+The crate root also exposes focused `layout`, `graphics` and `accessibility`
+facades for code that wants narrower imports than the full widget catalog.
+
 Theme definitions remain in `nive-ui`. `Theme::Light` and `Theme::Dark` are the
 framework defaults. `ThemeBuilder` creates product-specific themes from a
 semantic palette plus optional typography, shape, spacing and control metric
@@ -57,15 +80,17 @@ Dialog content remains composed with `Dialog`, `DialogHeader`,
 - `ResourceStatusLine`, `OperationStatusLine` and `OperationActionGroup`
 - `InitialAvatar`, `MetricCard` and `VersionBadge`
 
-Presentation contracts keep runtime types out of the UI crate:
+Presentation contracts keep runtime types out of the UI crate. They are
+defined in `nive-core` (zero dependencies) and reexported here:
 
 - `ErrorPresentation`
 - `ResourceStatusPresentation`
 - `OperationStatusPresentation`
 
 `nive-runtime::UserFacingError`, `Resource<T>` and `Operation<C>`
-implement these contracts. Applications supply product copy and messages while
-Nive owns the reusable visual composition.
+implement these contracts by depending on `nive-core` directly, not on
+`nive-ui`. Applications supply product copy and messages while Nive owns the
+reusable visual composition.
 
 ## Action Surfaces
 
@@ -87,11 +112,13 @@ error-details dialog content. Applications supply product assets and copy;
 
 `ToastHost` owns the generic toast overlay: corner positioning, hover
 pause/resume wiring and dismissible toast rows built from the
-`ToastPresentation` contract. `nive-runtime::ToastItem` implements
-`ToastPresentation`, so the runtime owns toast identity, visible/queued state,
-promotion and timing while `nive-ui` owns only the visual composition. The
-runtime applies the host automatically to app-role windows; applications do not
-mount it themselves and toasts may remain visible alongside a modal dialog.
+`ToastPresentation` contract (defined in `nive-core`, reexported here).
+`nive-runtime::ToastItem` implements `ToastPresentation` by depending on
+`nive-core` directly, so the runtime owns toast identity, visible/queued
+state, promotion and timing while `nive-ui` owns only the visual composition.
+The runtime applies the host automatically to app-role windows; applications
+do not mount it themselves and toasts may remain visible alongside a modal
+dialog.
 
 ## Command Palette
 

@@ -4,6 +4,8 @@ use iced::{
     Length, Padding,
 };
 
+pub use nive_core::{ToastPresentation, ToastTone};
+
 use crate::theme::{self, GapRole, ToneRole};
 use crate::widgets::{button, IconName, InlineAlert};
 use crate::Element;
@@ -15,23 +17,6 @@ pub enum ToastPosition {
     BottomLeft,
     #[default]
     BottomRight,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ToastTone {
-    Info,
-    Success,
-    Warning,
-    Danger,
-}
-
-pub trait ToastPresentation {
-    type Id: Copy;
-
-    fn id(&self) -> Self::Id;
-    fn title(&self) -> &str;
-    fn body(&self) -> Option<&str>;
-    fn tone(&self) -> ToastTone;
 }
 
 pub struct ToastHost<'a, Message> {

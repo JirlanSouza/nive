@@ -2,9 +2,10 @@
 
 Reusable visual design system for Rust/Iced desktop applications.
 
-`nive-ui` is the lowest layer of the [Nive](../) framework. It owns the design
-tokens, semantic theme contracts, and reusable primitive widgets that are
-independent of product-specific domain logic. It depends only on `iced` and does
+`nive-ui` is the design system layer of the [Nive](../) framework. It owns the
+design tokens, semantic theme contracts, and reusable primitive widgets that
+are independent of product-specific domain logic. It depends on `iced` and
+[`nive-core`](../nive-core) (zero-dependency presentation contracts) and does
 **not** depend on `nive-runtime` or any application crate.
 
 ## What's inside
@@ -13,14 +14,18 @@ independent of product-specific domain logic. It depends only on `iced` and does
 - `theme` — semantic role enums, framework themes (`Nive Light` / `Nive Dark`),
   custom theme builders/catalogs, active-theme accessors, and iced `Catalog`
   implementations.
-- `widgets` — reusable primitive widgets (buttons, cards, fields, dialogs,
-  toasts, feedback, metadata, animation, command palette, and more).
+- `widgets` — reusable widgets exposed through a flat facade and category
+  facades: `primitives`, `controls`, `display`, `containers`, `navigation`,
+  `overlays`, `feedback`, and `composite`.
+- `layout`, `graphics`, `accessibility` — focused facades for layout surfaces,
+  visual assets, and keyboard/focus helpers.
 - `focus_trap` — Tab/Shift+Tab focus cycling helpers for overlays.
 - `BootstrapView` — generic startup loading/failure template.
 - `DialogHost` / `ToastHost` — modal and toast overlay composition.
 
-Presentation contracts such as `ToastPresentation` keep runtime types out of the
-UI crate. See `docs/components.md` for contract details.
+Presentation contracts such as `ToastPresentation` are defined in `nive-core`
+and reexported here, keeping runtime types out of the UI crate. See
+`docs/components.md` for contract details.
 
 ## Public API
 
