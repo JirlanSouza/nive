@@ -1,0 +1,18 @@
+[package]
+name = "nive-core"
+version = "0.1.0-alpha.1"
+edition = "2021"
+rust-version = "1.92"
+license = "Apache-2.0"
+description = "Neutral presentation contracts shared by nive-ui and nive-runtime."
+repository = "https://github.com/JirlanSouza/nive"
+documentation = "https://docs.rs/nive-core"
+readme = "README.md"
+keywords = ["gui", "desktop", "iced", "contracts"]
+categories = ["gui"]
+
+[lints]
+workspace = true
+
+[features]
+default = []
