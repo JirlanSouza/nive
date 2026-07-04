@@ -40,6 +40,7 @@ pub mod tabs;
 pub mod text;
 pub mod toolbar;
 pub mod tooltip;
+pub mod tree;
 pub mod tree_item;
 pub mod version_badge;
 
@@ -86,5 +87,10 @@ pub use split_pane::{SplitPane, SplitPaneConstraints, SplitPaneDirection};
 pub use switch::Switch;
 pub use tabs::{TabBar, TabItem};
 pub use toolbar::{ActionGroup, Toolbar, ToolbarAction, ToolbarGroup};
+pub use tree::{
+    reveal, row_height, scroll_offset_to, visible_index_of, Tree, TreeChildren, TreeDrag, TreeDrop,
+    TreeDropTarget, TreeEvent, TreeEventKind, TreeExpandBehavior, TreeNode, TreePasteTarget,
+    TreeState, TreeStateChange,
+};
 pub use tree_item::TreeItem;
 pub use version_badge::VersionBadge;
