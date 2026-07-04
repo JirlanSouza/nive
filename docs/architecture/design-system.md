@@ -118,13 +118,23 @@ no widget.
 ## 3. Catálogo de Widgets (40+)
 
 Todos são `nive-ui` puros (dependem só de `iced`), type-safe e estilizados por role.
+O contrato público é duplo: `nive_ui::widgets::*` continua sendo o facade plano
+para app code, enquanto `nive_ui::widgets::{primitives, controls, display,
+containers, navigation, overlays, feedback, composite}` organiza a taxonomia
+final para imports explícitos, docs, gallery e crescimento futuro.
 
 ```mermaid
 flowchart TB
-    subgraph inputs["Inputs & Formulários"]
+    subgraph primitives["Primitives"]
+        Text
+        Icon
+        ColorSwatch
+        Separator
+        SpaceSvg["space / svg"]
+    end
+    subgraph controls["Controls"]
+        Button
         Input
-        InputGroup
-        Field
         Checkbox
         Switch
         Select
@@ -132,41 +142,44 @@ flowchart TB
         Autocomplete
         ColorInput
         ColorPicker
-        PathInput
     end
-    subgraph actions["Botões & Ações"]
-        Button
-        Pressable
-        Toolbar
-        DropdownMenu
-        ActionCard
-    end
-    subgraph data["Dados & Display"]
-        Text
-        Icon
+    subgraph display["Display"]
         Badge
-        Card
         MetricCard
         KeyValueList["KeyValueList / DataRow"]
-        ColorSwatch
         InitialAvatar
         VersionBadge
-        Separator
+        Tree
+        TreeItem
+        EmptyState
     end
-    subgraph layout["Contêineres & Layout"]
+    subgraph containers["Containers"]
+        Card
+        ActionCard
         Panel
         SplitPane
-        Tabs["TabBar / TabItem"]
-        TreeItem
-        SectionHeader
         SelectableCard
-        SelectableItem
+    end
+    subgraph navigation["Navigation"]
+        Tabs["TabBar / TabItem"]
+        Toolbar
+        DropdownMenu
+        CommandPalette["command_palette"]
     end
     subgraph overlays["Overlays"]
         Dialog
         Popover
         Tooltip
-        CommandPalette["command_palette"]
+        DialogHost
+        ToastHost
+    end
+    subgraph composite["Composite"]
+        Field
+        FieldGroup
+        InputGroup
+        PathInput
+        SectionHeader
+        SelectableItem
     end
     subgraph feedback["Feedback & Estado"]
         Callout

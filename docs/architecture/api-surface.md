@@ -3,6 +3,10 @@
 O contrato que um app implementa, como a superfície pública é organizada em *prelude tiers*,
 e quais APIs ficam atrás de feature flags.
 
+> Este arquivo descreve a superfície existente. As decisões de contrato alvo
+> pré-publicação, renomeações e remoções ficam em
+> [`api-target.md`](api-target.md).
+
 ---
 
 ## 1. Prelude tiers (importação estável em camadas)
@@ -35,7 +39,31 @@ toasts básicos (`Toast`), theming (`Theme`/`ThemeBuilder`/`ThemeController`), a
 
 ---
 
-## 2. O contrato `Application`
+## 2. Módulos runtime por área
+
+Além dos preludes, `nive-runtime` expõe módulos públicos por área para consumidores
+diretos da camada runtime:
+
+| Módulo | Papel |
+|--------|-------|
+| `nive_runtime::application` | Contrato `Application`, `ApplicationConfig`, `Context`, `Update`, `RuntimeCommand`, eventos core e runner público. |
+| `nive_runtime::actions` | `Action`, `ActionId`, `ActionMap` e helpers de command palette. |
+| `nive_runtime::input` | Atalhos e navegação por teclado. |
+| `nive_runtime::lifecycle` | Bootstrap, decisões de close/exit, `WindowCommand`, specs e registry de janelas. |
+| `nive_runtime::state` | `Resource`, `Operation`, `OperationRegistry`, `RequestId`, `Settled` e helpers de tempo. |
+| `nive_runtime::feedback` | `Toast`, `ToastState`, `UserFacingError` e tipos relacionados. |
+| `nive_runtime::screen` | `ScreenView`, `ScreenUpdate` e contratos de dialog. |
+| `nive_runtime::settings` | `SettingsConfig`, `RuntimeSession` e sessão de janelas. |
+| `nive_runtime::support` | Diagnósticos, panic hook e runtime event log. |
+
+O crate root continua como conveniência beta. Apps devem preferir `nive::prelude::*`,
+`nive::prelude::ui::*` ou os módulos por área acima quando quiserem imports mais
+explícitos. Helpers de runner, como abertura direta de janela Iced, permanecem internos;
+apps emitem `WindowCommand` por `Update`.
+
+---
+
+## 3. O contrato `Application`
 
 Quatro métodos obrigatórios; o resto tem default. O runtime nunca depende de tipos de
 domínio — clientes/serviços entram via `Bootstrap` em `init`.
@@ -74,7 +102,7 @@ classDiagram
 
 ---
 
-## 3. `Update` — composição de efeitos
+## 4. `Update` — composição de efeitos
 
 O valor de retorno dos hooks. Combina um `Task` async, um `outcome` opcional e comandos de
 runtime ordenados, construídos fluentemente.
@@ -116,7 +144,7 @@ AppUpdate::none()
 
 ---
 
-## 4. Feature flags & modularidade
+## 5. Feature flags & modularidade
 
 ```mermaid
 flowchart LR
@@ -149,7 +177,8 @@ flowchart LR
 | `file-picker` | ✅ | `pick_*`, `save_file`, `FileFilter`, `PickFileParams`, `SaveFileParams` |
 | `tables`, `charts`, `i18n` | ⬜ roadmap | (ver [`../roadmap.md`](../roadmap.md)) |
 
-**Estabilidade:** prelude tiers já são estáveis; APIs feature-gated (devtools/inspect)
-permanecem beta até 1.0. Restrição a `unsafe` honrada — 2 ocorrências: o FFI objc2 do ícone
-de app (`platform/app_icon.rs`) e um `transmute_copy` da janela-unit no program runner
-(`application/program.rs`).
+**Estabilidade:** os prelude tiers são o contrato atual de app, mas ainda podem receber
+breaking changes pré-publicação conforme [`api-target.md`](api-target.md). APIs feature-gated
+(devtools/inspect) permanecem beta até 1.0. Restrição a `unsafe` honrada — 2 ocorrências: o
+FFI objc2 do ícone de app (`platform/app_icon.rs`) e um `transmute_copy` da janela-unit no
+program runner (`application/program.rs`).

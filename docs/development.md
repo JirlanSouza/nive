@@ -115,9 +115,9 @@ scaffolded via `nive new my-app` already use the new defaults.
 ### `Toast` ≠ `ToastRequest`
 
 `ToastRequest` is renamed `Toast` consistently across `nive-runtime`,
-`nive-ui`, preludes, and docs. A deprecated `pub use Toast as ToastRequest;`
-alias remains for one release cycle (v0.1) and is removed in v0.2.
-Existing apps should rename `ToastRequest` references to `Toast`.
+`nive-ui`, preludes, and docs. The deprecated `ToastRequest` alias has been
+removed before the first public compatibility promise. Existing local apps
+should rename `ToastRequest` references to `Toast`.
 
 ### `OperationId` becomes `Cow<'static, str>`
 
@@ -254,8 +254,8 @@ dependency shape that real apps use with GitHub alpha tags, without requiring a
 pushed tag.
 
 `just package-check` verifies package readiness only. It runs `cargo package`
-for `nive-ui`, `nive-runtime-derive`, `nive-runtime`, `nive`, and `nive-cli`
-in dependency order. For crates that depend on unpublished internal Nive crates,
+for `nive-core`, `nive-ui`, `nive-runtime-derive`, `nive-runtime`, `nive`, and
+`nive-cli` in dependency order. For crates that depend on unpublished internal Nive crates,
 the recipe passes temporary Cargo patch config so verification models the local
 dependency chain without publishing anything. It does not publish crates, tag a
 release, or perform post-publish docs.rs verification.
@@ -283,8 +283,9 @@ irreversible crates.io publication. The distribution channel is
 ### Releasing an alpha
 
 1. **Bump versions** — update all publishable crate versions to `0.1.0-alpha.N`
-   in their `Cargo.toml` files: `nive-ui`, `nive-runtime-derive`, `nive-runtime`,
-   `nive`, `nive-cli`. Update internal dependency version requirements to match.
+   in their `Cargo.toml` files: `nive-core`, `nive-ui`, `nive-runtime-derive`,
+   `nive-runtime`, `nive`, `nive-cli`. Update internal dependency version
+   requirements to match.
 
 2. **Run readiness** — all checks must pass before tagging:
 
@@ -357,23 +358,27 @@ dogfooding is complete. Bump all crate versions to `0.1.0` before publishing.
 Publish in dependency order (leaves first, then the umbrella, then the CLI):
 
 ```bash
-# 1. nive-ui (no intra-workspace deps)
+# 1. nive-core (zero dependencies)
+cargo publish --package nive-core --dry-run
+cargo publish --package nive-core
+
+# 2. nive-ui (depends on nive-core)
 cargo publish --package nive-ui --dry-run
 cargo publish --package nive-ui
 
-# 2. nive-runtime-derive (no intra-workspace deps)
+# 3. nive-runtime-derive (no intra-workspace deps)
 cargo publish --package nive-runtime-derive --dry-run
 cargo publish --package nive-runtime-derive
 
-# 3. nive-runtime (depends on nive-ui, nive-runtime-derive)
+# 4. nive-runtime (depends on nive-core, nive-ui, nive-runtime-derive)
 cargo publish --package nive-runtime --dry-run
 cargo publish --package nive-runtime
 
-# 4. nive (umbrella, depends on nive-ui, nive-runtime)
+# 5. nive (umbrella, depends on nive-ui, nive-runtime)
 cargo publish --package nive --dry-run
 cargo publish --package nive
 
-# 5. nive-cli (binary, no workspace deps)
+# 6. nive-cli (binary, no workspace deps)
 cargo publish --package nive-cli --dry-run
 cargo publish --package nive-cli
 ```
