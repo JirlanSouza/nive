@@ -22,6 +22,7 @@ devtools = ["nive-runtime-derive/devtools"]
 [dependencies]
 iced = { workspace = true }
 log = { workspace = true }
+nive-core = { version = "0.1.0-alpha.1", path = "../nive-core" }
 nive-runtime-derive = { version = "0.1.0-alpha.1", path = "../nive-runtime-derive" }
 nive-ui = { version = "0.1.0-alpha.1", path = "../nive-ui" }
 rfd = { version = "0.16", optional = true }

@@ -1,7 +1,7 @@
 use std::future::Future;
 
 use iced::Task;
-use nive_ui::widgets::{ErrorPresentation, ResourceStatusPresentation};
+use nive_core::{ErrorPresentation, ResourceStatusPresentation};
 
 use crate::UserFacingError;
 
@@ -227,7 +227,7 @@ impl<T> ResourceStatusPresentation for Resource<T> {
 mod resource_tests {
     use super::*;
     use crate::UserFacingError;
-    use nive_ui::widgets::ResourceStatusPresentation;
+    use nive_core::ResourceStatusPresentation;
 
     fn error(msg: &str) -> UserFacingError {
         UserFacingError::custom("test", msg)
@@ -345,7 +345,7 @@ mod resource_tests {
 
     #[test]
     fn presentation_exposes_error() {
-        use nive_ui::widgets::ErrorPresentation;
+        use nive_core::ErrorPresentation;
         let mut r = Resource::<u32>::idle();
         let t = r.begin();
         r.settle(Settled::new(t, Err(error("load failed"))));
