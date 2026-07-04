@@ -9,15 +9,20 @@
 //! - `tokens` — color, spacing, radius, shadow, and typography constants.
 //! - `theme` — semantic role enums, framework theme data (`Nive Light` / `Nive
 //!   Dark`), active-theme accessors, and iced `Catalog` implementations.
-//! - `widgets` — reusable primitive widgets (buttons, cards, fields, dialogs,
-//!   toasts, feedback, metadata, animation, and more).
+//! - `widgets` — reusable widgets grouped by taxonomy
+//!   (`primitives`, `controls`, `display`, `containers`, `navigation`,
+//!   `overlays`, `feedback`, and `composite`), plus the flat widget facade.
+//! - `layout`, `graphics`, and `accessibility` — focused facades for layout
+//!   surfaces, visual assets, and keyboard/focus affordances.
 //! - `focus_trap` — Tab/Shift+Tab focus cycling helpers for overlays.
 //! - `BootstrapView` — generic startup loading/failure template.
 //! - `DialogHost` and `ToastHost` — modal and toast overlay composition.
 //!
 //! `nive-ui` does not depend on `nive-runtime` or any application crate; it is
-//! a lower layer. Presentation contracts such as `ToastPresentation` keep
-//! runtime types out of the UI crate.
+//! a lower layer. Presentation contracts such as `ToastPresentation` are
+//! defined in `nive-core` (zero dependencies) and re-exported here, which
+//! keeps runtime types out of the UI crate while letting feedback widgets
+//! render any type that implements them.
 //!
 //! # Public API
 //!
@@ -35,10 +40,13 @@
 //! Part of Nive **v0.1.0**, a beta release. Public APIs may change before 1.0.
 //! See `docs/components.md` for contract details.
 
+pub mod accessibility;
 pub mod bootstrap;
 mod dialog_host;
 pub mod focus_trap;
+pub mod graphics;
 pub mod interaction;
+pub mod layout;
 pub mod prelude;
 pub mod theme;
 mod toast_host;
