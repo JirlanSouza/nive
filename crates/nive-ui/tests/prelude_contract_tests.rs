@@ -22,6 +22,31 @@ fn prelude_exposes_common_widget_contracts() {
 }
 
 #[test]
+fn widget_taxonomy_exposes_category_facades() {
+    use nive_ui::widgets::{
+        composite, containers, controls, display, navigation, overlays, primitives,
+    };
+
+    let _: controls::ButtonVariant = controls::ButtonVariant::Primary;
+    let _: Element<'_, ()> = controls::Checkbox::new("Enabled", true).into();
+    let _: Element<'_, ()> = composite::Field::new(text_input("Name", "")).into();
+    let _: Element<'_, ()> = containers::Panel::new(text("Panel")).into();
+    let _: Element<'_, ()> = display::Badge::success("Ready").into();
+    let _: Element<'_, ()> = navigation::Toolbar::new().into();
+    let _: Element<'_, ()> = overlays::Dialog::new(text("Dialog")).into();
+    let _: Element<'_, ()> = primitives::Separator::horizontal().into();
+}
+
+#[test]
+fn top_level_ui_facades_expose_layout_graphics_and_accessibility() {
+    let _: Element<'_, ()> = nive_ui::layout::Panel::new(text("Panel")).into();
+    let _: Element<'_, ()> =
+        nive_ui::graphics::Icon::new(nive_ui::graphics::IconName::Search).into();
+    let _: fn(&iced::Event) -> Option<nive_ui::accessibility::FocusDirection> =
+        nive_ui::accessibility::direction_from_event;
+}
+
+#[test]
 fn command_palette_exposes_filter_view_and_row_types() {
     let save = CommandPaletteRow::new("file.save", "Save", ()).description("Persist the buffer");
     let open = CommandPaletteRow::new("file.open", "Open", ());
@@ -32,6 +57,89 @@ fn command_palette_exposes_filter_view_and_row_types() {
 
     let _: Element<'_, ()> =
         command_palette_view("Type a command", "", &rows, Some(0), |_| (), None);
+}
+
+#[test]
+fn feedback_presentation_contracts_are_reexported_from_nive_core() {
+    use nive_ui::widgets::{
+        ErrorPresentation, OperationStatusPresentation, ResourceStatusPresentation,
+    };
+    use nive_ui::{ToastPresentation, ToastTone};
+
+    struct NoError;
+
+    impl nive_core::ErrorPresentation for NoError {
+        fn summary(&self) -> &str {
+            "summary"
+        }
+
+        fn detail(&self) -> &str {
+            "detail"
+        }
+    }
+
+    struct NoResource;
+
+    impl nive_core::ResourceStatusPresentation for NoResource {
+        fn is_refreshing(&self) -> bool {
+            false
+        }
+
+        fn has_value(&self) -> bool {
+            false
+        }
+
+        fn error(&self) -> Option<&dyn nive_core::ErrorPresentation> {
+            None
+        }
+    }
+
+    struct NoOperation;
+
+    impl nive_core::OperationStatusPresentation for NoOperation {
+        fn is_running(&self) -> bool {
+            false
+        }
+
+        fn error(&self) -> Option<&dyn nive_core::ErrorPresentation> {
+            None
+        }
+    }
+
+    struct NoToast;
+
+    impl nive_core::ToastPresentation for NoToast {
+        type Id = u64;
+
+        fn id(&self) -> u64 {
+            0
+        }
+
+        fn title(&self) -> &str {
+            "title"
+        }
+
+        fn body(&self) -> Option<&str> {
+            None
+        }
+
+        fn tone(&self) -> nive_core::ToastTone {
+            nive_core::ToastTone::Info
+        }
+    }
+
+    // Each assertion only compiles if `nive_ui`'s facade name is the exact
+    // same trait/type as `nive_core`'s, not a duplicate local definition.
+    fn assert_error<T: ErrorPresentation>() {}
+    fn assert_resource_status<T: ResourceStatusPresentation>() {}
+    fn assert_operation_status<T: OperationStatusPresentation>() {}
+    fn assert_toast<T: ToastPresentation>() {}
+
+    assert_error::<NoError>();
+    assert_resource_status::<NoResource>();
+    assert_operation_status::<NoOperation>();
+    assert_toast::<NoToast>();
+    let _: ToastTone = nive_core::ToastTone::Success;
 }
 
 #[test]

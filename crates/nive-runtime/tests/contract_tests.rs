@@ -113,6 +113,28 @@ fn prelude_exposes_app_facing_runtime_contracts() {
 }
 
 #[test]
+fn runtime_area_modules_expose_consolidated_contracts() {
+    let config = TestApp::config();
+    let _: &[nive_runtime::application::WindowRegistration<TestWindow>] = config.windows();
+    let _: nive_runtime::application::AppUpdate<TestMessage, TestWindow> =
+        nive_runtime::application::AppUpdate::none();
+    let _: nive_runtime::application::RuntimeCommand<TestWindow> =
+        nive_runtime::application::RuntimeCommand::Exit;
+    let _: nive_runtime::actions::ActionId = nive_runtime::actions::ActionId::new("test.action");
+    let _: nive_runtime::input::ShortcutMap<TestMessage> = nive_runtime::input::ShortcutMap::new();
+    let _: nive_runtime::lifecycle::WindowCommand<TestWindow> =
+        nive_runtime::lifecycle::WindowCommand::Open(TestWindow::Workspace);
+    let _: nive_runtime::state::Resource<()> = nive_runtime::state::Resource::idle();
+    let _: nive_runtime::state::Operation<()> = nive_runtime::state::Operation::idle();
+    let _: nive_runtime::feedback::Toast = nive_runtime::feedback::Toast::info("Ready");
+    let _: nive_runtime::feedback::UserFacingError =
+        nive_runtime::feedback::UserFacingError::custom("test", "Failed");
+    let _: nive_runtime::screen::ScreenUpdate<TestMessage, (), nive_runtime::feedback::Toast> =
+        nive_runtime::screen::ScreenUpdate::none();
+    let _: nive_runtime::settings::RuntimeSession = nive_runtime::settings::RuntimeSession::new();
+}
+
+#[test]
 fn update_composes_outcome_and_runtime_commands_in_order() {
     let update = Update::<TestMessage, &'static str, TestWindow>::none()
         .toast(Toast::success("Saved"))
@@ -155,6 +177,29 @@ fn request_ids_start_at_one_and_skip_zero() {
     let id2 = r.begin();
     assert_eq!(id1.get(), 1);
     assert_eq!(id2.get(), 2);
+}
+
+#[test]
+fn toast_tone_and_position_are_unified_with_nive_core_and_nive_ui() {
+    use nive_runtime::{ToastItem, ToastPosition, ToastState, ToastTone};
+
+    // Only compiles if `nive_runtime::ToastTone` is the exact same type as
+    // `nive_core::ToastTone`, not a duplicate local enum.
+    let tone: ToastTone = nive_core::ToastTone::Success;
+    assert_eq!(tone, ToastTone::Success);
+
+    // Only compiles if `nive_runtime::ToastPosition` is the exact same type
+    // as `nive_ui::ToastPosition`.
+    let position: ToastPosition = nive_ui::ToastPosition::TopLeft;
+    assert_eq!(position, ToastPosition::TopLeft);
+
+    fn assert_toast_presentation<T: nive_core::ToastPresentation>() {}
+    assert_toast_presentation::<ToastItem>();
+
+    let mut state = ToastState::default();
+    state.push(Toast::success("Ready"), std::time::Instant::now());
+    let item = state.visible().next().expect("toast is visible");
+    assert_eq!(nive_core::ToastPresentation::tone(item), ToastTone::Success);
 }
 
 #[cfg(feature = "devtools")]
