@@ -38,6 +38,7 @@
 pub mod bootstrap;
 mod dialog_host;
 pub mod focus_trap;
+pub mod interaction;
 pub mod prelude;
 pub mod theme;
 mod toast_host;
@@ -46,6 +47,13 @@ pub mod widgets;
 
 pub use bootstrap::{BootstrapError, BootstrapView};
 pub use dialog_host::DialogHost;
+pub use interaction::{
+    ActivationBehavior, ActivationTrigger, CollectionTransferPayload, ContextInvocation,
+    ContextPosition, ContextRequest, ContextSelectionBehavior, ContextTarget, Drag, DropCommit,
+    DropContext, DropDecision, PointerButton, PointerGesture, PointerGestureKind, RenameBehavior,
+    Selection, SelectionMode, SelectionSnapshot, Transfer, TransferData, TransferOperation,
+    TransferOperations,
+};
 pub use theme::{Theme, ThemeBuilder, ThemeCatalog, ThemeData, ThemeId};
 pub use toast_host::{ToastHost, ToastPosition, ToastPresentation, ToastTone};
 pub use tokens::color;
