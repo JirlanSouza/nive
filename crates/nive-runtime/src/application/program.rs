@@ -420,7 +420,7 @@ where
         }
 
         nive_ui::ToastHost::new(content)
-            .position(self.core.toast_position().into())
+            .position(self.core.toast_position())
             .on_hover(
                 NiveMessage::Core(CoreMessage::ToastHoverEntered),
                 NiveMessage::Core(CoreMessage::ToastHoverLeft),

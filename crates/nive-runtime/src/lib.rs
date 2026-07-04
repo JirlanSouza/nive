@@ -3,7 +3,10 @@
 //! `nive-runtime` owns the application/update contracts, window lifecycle,
 //! reusable state machines, user-facing feedback, and an optional devtools
 //! layer that are reused by Rust/Iced apps without depending on app-domain
-//! services. It sits above `nive-ui` and re-exports stable helper APIs from it.
+//! services. It sits above `nive-ui` and re-exports stable helper APIs from
+//! it. It also depends on `nive-core` directly, implementing its neutral
+//! presentation contracts for `UserFacingError`, `Resource`, `Operation`, and
+//! `ToastItem`.
 //!
 //! # Scope
 //!
@@ -30,16 +33,15 @@
 //!
 //! # Public API
 //!
-//! Application crates should treat the crate root and `nive_runtime::prelude`
-//! as the app-facing API. The root exports the stable runtime contract,
-//! action catalog types, lifecycle/window types, feedback/state helpers,
-//! task/subscription aliases, theme configuration reexports, and feature-gated
-//! platform/devtools entry points.
+//! Application crates should treat `nive_runtime::prelude` as the default
+//! app-facing API. The crate root preserves the broad beta convenience export
+//! surface, while public area modules (`application`, `actions`, `feedback`,
+//! `input`, `lifecycle`, `screen`, `settings`, `state`, and `support`) provide
+//! predictable direct imports for larger apps and layer-specific consumers.
 //!
-//! Modules that remain private (`application`, `feedback`, `input`,
-//! `lifecycle`, `screen`, and `state`) are implementation boundaries. App code
-//! should not depend on runner internals. Public modules such as `platform` and
-//! feature-gated `devtools` are explicit extension surfaces.
+//! Runner internals remain hidden in private submodules. App code should not
+//! depend on runner plumbing such as window-opening helpers; use
+//! [`WindowCommand`] through [`Update`] instead.
 //!
 //! # Feature flags
 //!
@@ -57,18 +59,18 @@
 //! devtools layers.
 
 pub mod actions;
-mod application;
+pub mod application;
 #[cfg(feature = "devtools")]
 pub mod devtools;
-mod feedback;
-mod input;
+pub mod feedback;
+pub mod input;
 #[cfg(feature = "devtools")]
 pub mod inspect;
-mod lifecycle;
+pub mod lifecycle;
 pub mod platform;
-mod screen;
+pub mod screen;
 pub mod settings;
-mod state;
+pub mod state;
 pub mod support;
 
 pub use actions::{command_palette_rows, Action, ActionId, ActionMap, DuplicateActionId};
@@ -77,7 +79,7 @@ pub use application::run_with_devtools;
 pub use application::{
     perform, run, AppUpdate, Application, ApplicationConfig, Context, CoreEvent, Error, Never,
     Result, RuntimeCommand, SimpleApplication, ThemeController, ThemeEvent, Update, WindowContext,
-    WindowQuery, WindowRegistration,
+    WindowQuery,
 };
 #[cfg(feature = "devtools")]
 pub use devtools::{
@@ -86,8 +88,6 @@ pub use devtools::{
     DevtoolsPanelTab, DevtoolsWindowSpec, RegistryEntry, RegistryStatus, SimulateAction,
     SimulateResult, SimulatorCapabilities, SimulatorEntry, SimulatorKind,
 };
-#[allow(deprecated)]
-pub use feedback::ToastRequest;
 pub use feedback::{
     ErrorCode, InvalidErrorCode, Toast, ToastDuration, ToastId, ToastItem, ToastMessage,
     ToastPosition, ToastState, ToastTone, UserFacingError, UserFacingErrorKind, UserFacingResult,
@@ -96,7 +96,7 @@ pub use input::{
     keyboard_navigation_subscription, KeyboardNavigation, ShortcutBinding, ShortcutKey, ShortcutMap,
 };
 pub use lifecycle::{
-    open_window, BackgroundFit, BootstrapSpec, BrandContent, CloseDecision, CommandRejected,
+    BackgroundFit, BootstrapSpec, BrandContent, CloseDecision, CommandRejected,
     CommandRejectionReason, ExitDecision, PlatformError, SplashBackground, WindowCardinality,
     WindowChrome, WindowCommand, WindowHandle, WindowMode, WindowRegistry, WindowRole, WindowSpec,
 };
@@ -164,10 +164,6 @@ pub mod prelude {
     /// or splash-related types. Use `nive::prelude::ui::*`.
     pub mod ui {
         pub use super::*;
-        /// Deprecated `ToastRequest` alias. Kept for one release cycle
-        /// (v0.1) so external apps gradually migrate to `Toast`.
-        #[allow(deprecated)]
-        pub use crate::ToastRequest;
         pub use crate::{
             BackgroundFit, BootstrapSpec, BrandContent, DialogDismiss, DialogRequest, ErrorCode,
             InvalidErrorCode, Operation, OperationDescriptor, OperationEntry, OperationId,
