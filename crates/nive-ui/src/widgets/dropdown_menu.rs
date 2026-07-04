@@ -246,6 +246,17 @@ impl<'a, Message: Clone + 'a> DropdownMenuItem<'a, Message> {
     }
 }
 
+fn separator<'a, Message>(metrics: theme_menu::MenuMetrics) -> Element<'a, Message>
+where
+    Message: Clone + 'a,
+{
+    container(Space::new().height(Length::Fixed(metrics.separator_height)))
+        .style(theme_menu::separator_style())
+        .height(Length::Fixed(metrics.separator_height))
+        .width(Length::Fill)
+        .into()
+}
+
 #[cfg(test)]
 mod dropdown_menu_tests {
     use iced::Length;
@@ -262,15 +273,4 @@ mod dropdown_menu_tests {
 
         assert_eq!(content.as_widget().size().height, Length::Fill);
     }
-}
-
-fn separator<'a, Message>(metrics: theme_menu::MenuMetrics) -> Element<'a, Message>
-where
-    Message: Clone + 'a,
-{
-    container(Space::new().height(Length::Fixed(metrics.separator_height)))
-        .style(theme_menu::separator_style())
-        .height(Length::Fixed(metrics.separator_height))
-        .width(Length::Fill)
-        .into()
 }
