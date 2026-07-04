@@ -1,7 +1,7 @@
 # L3 — Componentes de `nive-ui`
 
 Módulos internos do design system. Fluxo de baixo para cima: **tokens → theme → widgets →
-hosts**. Tudo depende apenas de `iced`.
+hosts**. Depende de `iced` e de `nive-core` (contratos de apresentação de erro/toast/status).
 
 ```mermaid
 flowchart BT
@@ -9,18 +9,27 @@ flowchart BT
         direction BT
         tokens["tokens<br/>módulo<br/>Constantes primitivas: color (hex/RGB), spacing (base-4 compacto), radius, shadow, typography"]
         theme["theme<br/>módulo<br/>Roles semânticos, palette, Theme/ThemeData/ThemeId, ThemeBuilder, catalog (Catalog do Iced), active() global"]
-        widgets["widgets<br/>módulo<br/>40+ widgets primitivos type-safe (inputs, botões, overlays, feedback, dados, motion)"]
+        widgets["widgets<br/>módulo<br/>40+ widgets type-safe organizados por primitives, controls, display, containers, navigation, overlays, feedback e composite"]
+        layoutfacade["layout<br/>facade<br/>Surfaces e contêineres para imports focados"]
+        graphicsfacade["graphics<br/>facade<br/>Ícones, swatches e SVG"]
+        a11yfacade["accessibility<br/>facade<br/>FocusDirection e helpers de foco/teclado"]
         dialoghost["dialog_host<br/>módulo<br/>DialogHost: composição de overlay modal"]
-        toasthost["toast_host<br/>módulo<br/>ToastHost + ToastPresentation: overlay de toasts"]
+        toasthost["toast_host<br/>módulo<br/>ToastHost: overlay de toasts, reexporta ToastPresentation de nive-core"]
         bootstrapview["bootstrap<br/>módulo<br/>BootstrapView: template genérico de splash/loading/falha"]
         focustrap["focus_trap<br/>módulo<br/>Ciclo de foco Tab/Shift+Tab para overlays"]
     end
 
     iced["Iced<br/>Element, Widget, advanced, Catalog, canvas, svg"]
+    core["nive-core<br/>ErrorPresentation, ResourceStatusPresentation,<br/>OperationStatusPresentation, ToastPresentation, ToastTone"]
 
     theme -->|deriva valores de| tokens
     widgets -->|estiliza via roles/catalog de| theme
     widgets -->|usa spacing/radius de| tokens
+    widgets -->|reexporta contratos de| core
+    toasthost -->|reexporta ToastPresentation/ToastTone de| core
+    layoutfacade -->|reexporta| widgets
+    graphicsfacade -->|reexporta| widgets
+    a11yfacade -->|reexporta| focustrap
     dialoghost -->|compõe| widgets
     toasthost -->|compõe| widgets
     bootstrapview -->|compõe| widgets
@@ -30,8 +39,8 @@ flowchart BT
 
     classDef component fill:#e8f1ff,stroke:#4b77be,color:#111;
     classDef external fill:#eee,stroke:#999,color:#333;
-    class tokens,theme,widgets,dialoghost,toasthost,bootstrapview,focustrap component;
-    class iced external;
+    class tokens,theme,widgets,layoutfacade,graphicsfacade,a11yfacade,dialoghost,toasthost,bootstrapview,focustrap component;
+    class iced,core external;
 ```
 
 ## Pilha do design system
@@ -41,7 +50,7 @@ flowchart BT
     iced["iced (Widget · Catalog · canvas · svg)"]
     tokens["tokens<br/>color · spacing · radius · shadow · typography"]
     theme["theme<br/>roles · palette · Theme · ThemeBuilder · catalog · active()"]
-    widgets["widgets (40+)"]
+    widgets["widgets (40+)<br/>primitives · controls · display · containers · navigation · overlays · feedback · composite"]
     hosts["hosts & templates<br/>DialogHost · ToastHost · BootstrapView · focus_trap"]
 
     tokens --> theme --> widgets --> hosts
@@ -56,9 +65,10 @@ flowchart BT
 ## Notas
 
 - **`nive-ui` é a camada base e não conhece `nive-runtime`.** Contratos de apresentação
-  (ex.: `ResourceStatusPresentation`, `ToastPresentation`, `ErrorPresentation`) são traits
-  *no `nive-ui`* que o runtime implementa — invertendo a dependência para manter o design
-  system reutilizável de forma isolada.
+  (ex.: `ResourceStatusPresentation`, `ToastPresentation`, `ErrorPresentation`, `ToastTone`)
+  vivem em `nive-core` (zero dependências) e são reexportados por `nive-ui`; o runtime os
+  implementa. Isso mantém o design system reutilizável de forma isolada sem inverter a
+  fronteira de ownership de um contrato headless para dentro da camada de UI.
 - **`active()` expõe um tema global** (estado em thread-local) para que widgets leiam o tema
   ativo sem prop-drilling — útil em densidade alta onde passar `&Theme` em todo lugar
   seria ruído.

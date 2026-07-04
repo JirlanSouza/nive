@@ -16,12 +16,13 @@ Mermaid.
 | Arquivo | Nível | O que mostra |
 |---------|-------|--------------|
 | [`context.md`](context.md) | L1 — Contexto | Nive no mundo: devs, usuário final, Iced, SO, crates.io |
-| [`containers.md`](containers.md) | L2 — Contêineres | Os 5 crates do workspace e suas dependências |
+| [`containers.md`](containers.md) | L2 — Contêineres | Os 6 crates do workspace e suas dependências |
 | [`runtime-components.md`](runtime-components.md) | L3 — Componentes | Módulos internos de `nive-runtime` |
 | [`ui-components.md`](ui-components.md) | L3 — Componentes | Módulos internos de `nive-ui` |
 | [`runtime-flows.md`](runtime-flows.md) | Comportamento | Loop Elm, bootstrap/splash, ciclo de janela, máquinas de estado async |
 | [`design-system.md`](design-system.md) | Design | Tokens → theme → widgets; catálogo de 40+ widgets |
 | [`api-surface.md`](api-surface.md) | API | Prelude tiers, contrato `Application`, `Update`, feature flags |
+| [`api-target.md`](api-target.md) | API | Contrato público alvo pré-publicação, renomeações, remoções e decisão sobre `nive-core` |
 
 ## Mapa mental (resumo de 1 diagrama)
 
@@ -34,12 +35,15 @@ flowchart TD
         umbrella["nive<br/>(umbrella + prelude)"]
         ui["nive-ui<br/>design system"]
         rt["nive-runtime<br/>app lifecycle + estado"]
+        core["nive-core<br/>contratos de apresentação"]
         derive["nive-runtime-derive<br/>#[derive(Inspect)]"]
         cli["nive-cli<br/>nive new / nive icons"]
 
         umbrella --> ui
         umbrella --> rt
         rt --> ui
+        ui --> core
+        rt --> core
         rt -. usa macro .-> derive
     end
 

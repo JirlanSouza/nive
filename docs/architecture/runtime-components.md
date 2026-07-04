@@ -1,7 +1,8 @@
 # L3 — Componentes de `nive-runtime`
 
-Módulos internos do crate de runtime e como se relacionam. O módulo `application` é o
-orquestrador; o *program runner* é a única ponte com o loop do Iced.
+Facades públicos do crate de runtime e como se relacionam. O módulo `application` é o
+orquestrador; seus submódulos internos mantêm o *program runner* como única ponte com
+o loop do Iced.
 
 ```mermaid
 flowchart LR
@@ -22,6 +23,7 @@ flowchart LR
     end
 
     ui["nive-ui<br/>Design system + widgets"]
+    core["nive-core<br/>Contratos de apresentação"]
     derive["nive-runtime-derive<br/>#[derive(Inspect)]"]
     iced["Iced<br/>Task, Subscription, window, Element"]
 
@@ -35,7 +37,8 @@ flowchart LR
 
     state -->|usa UserFacingError| feedback
     screen -->|compõe widgets de| ui
-    feedback -->|implementa contratos de apresentação de| ui
+    state -->|implementa contratos de apresentação de| core
+    feedback -->|implementa contratos de apresentação de| core
     app -->|tema, hosts de overlay| ui
 
     devtools -->|coleta snapshot via| inspect
@@ -46,7 +49,7 @@ flowchart LR
     classDef component fill:#e8f1ff,stroke:#4b77be,color:#111;
     classDef external fill:#eee,stroke:#999,color:#333;
     class app,actions,lifecycle,state,feedback,screen,input,settings,platform,support,devtools,inspect component;
-    class ui,derive,iced external;
+    class ui,core,derive,iced external;
 ```
 
 ## Mapa de responsabilidades
@@ -79,9 +82,11 @@ flowchart LR
 ## Notas
 
 - **`application` é o orquestrador**; tudo o mais é biblioteca que ele compõe. O *program
-  runner* (`application/program.rs`) é privado — apps nunca falam com o Iced diretamente.
+  runner* (`application/program.rs`) permanece privado — apps emitem `Update` e
+  `WindowCommand`, não chamam helpers diretos de janela Iced.
 - **`state` e `feedback` são headless:** máquinas de estado (`Resource`, `Operation`) e
-  `UserFacingError` não desenham pixels; implementam *contratos de apresentação*
-  (`ResourceStatusPresentation`, etc.) que os widgets de `nive-ui` consomem. Isso mantém
-  `nive-ui` ignorante do runtime.
+  `UserFacingError` não desenham pixels; implementam os *contratos de apresentação*
+  definidos em `nive-core` (`ResourceStatusPresentation`, etc.) que os widgets de `nive-ui`
+  consomem via reexport. Isso mantém `nive-ui` ignorante do runtime e evita que a UI seja a
+  dona de um contrato headless.
 - **`devtools` + `inspect` são totalmente feature-gated** — zero peso em release.
