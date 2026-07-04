@@ -3,13 +3,18 @@ use std::{borrow::Cow, collections::BTreeSet};
 use nive::prelude::ui::DialogRequest;
 use nive::prelude::*;
 use nive::ui::theme::{ControlSize, SurfaceRole};
-use nive::ui::widgets::text as ntext;
+use nive::ui::widgets::{text as ntext, TreeEvent, TreeState};
+use nive::ui::SelectionMode;
 use nive::widget::{column, row};
 
 use crate::catalog::{entry_for, matches, PageId, CATALOG};
 #[cfg(feature = "devtools")]
 use crate::fixtures::DevState;
 use crate::{layout, pages};
+
+mod tree_helpers;
+
+use tree_helpers::{handle_tree_event, load_deferred_tree_branch};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DemoTab {
@@ -48,8 +53,35 @@ pub enum PopoverKind {
 pub enum DemoTreeNode {
     Examples,
     WidgetGallery,
+    CargoToml,
+    Target,
     Src,
+    AppRs,
     Pages,
+    LayoutNavRs,
+    InputsRs,
+    RemotePackages,
+    RemoteSchema,
+    RemoteCache,
+}
+
+impl DemoTreeNode {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Examples => "examples",
+            Self::WidgetGallery => "widget-gallery",
+            Self::CargoToml => "Cargo.toml",
+            Self::Target => "target",
+            Self::Src => "src",
+            Self::AppRs => "app.rs",
+            Self::Pages => "pages",
+            Self::LayoutNavRs => "layout_nav.rs",
+            Self::InputsRs => "inputs.rs",
+            Self::RemotePackages => "remote-packages",
+            Self::RemoteSchema => "schema.json",
+            Self::RemoteCache => "cache.bin",
+        }
+    }
 }
 
 pub struct FormState {
@@ -80,6 +112,14 @@ pub struct LayoutState {
     pub selected_item: usize,
     pub split_ratio: f32,
     pub expanded_tree_nodes: BTreeSet<DemoTreeNode>,
+    pub tree_state: TreeState<DemoTreeNode>,
+    pub tree_selection_mode: SelectionMode,
+    pub tree_deferred_loaded: bool,
+    pub tree_deferred_loading: bool,
+    pub tree_event_feedback: String,
+    pub tree_context_feedback: String,
+    pub tree_clipboard_feedback: String,
+    pub tree_drop_feedback: String,
 }
 
 pub struct WidgetGallery {
@@ -117,6 +157,9 @@ pub enum Message {
     SelectCard(usize),
     SelectItem(usize),
     ToggleTree(DemoTreeNode),
+    TreeEvent(TreeEvent<DemoTreeNode>),
+    TreeSelectionModeChanged(SelectionMode),
+    TreeDeferredLoaded(DemoTreeNode),
     SplitRatioChanged(f32),
     ShowDialog(DialogKind),
     CloseDialog,
@@ -147,6 +190,16 @@ impl Default for FormState {
 
 impl Default for LayoutState {
     fn default() -> Self {
+        let mut tree_state = TreeState::default();
+        tree_state.expand(DemoTreeNode::Examples);
+        tree_state.expand(DemoTreeNode::WidgetGallery);
+        tree_state.expand(DemoTreeNode::Src);
+        tree_state.expand(DemoTreeNode::Pages);
+        tree_state.select_only(DemoTreeNode::AppRs);
+        tree_state.select_many([DemoTreeNode::AppRs, DemoTreeNode::LayoutNavRs]);
+        tree_state.selection.focused = Some(DemoTreeNode::LayoutNavRs);
+        tree_state.selection.anchor = Some(DemoTreeNode::AppRs);
+
         Self {
             tab: DemoTab::Overview,
             dirty_tab: true,
@@ -161,6 +214,14 @@ impl Default for LayoutState {
             ]
             .into_iter()
             .collect(),
+            tree_state,
+            tree_selection_mode: SelectionMode::Multiple,
+            tree_deferred_loaded: false,
+            tree_deferred_loading: false,
+            tree_event_feedback: "Deferred branch: remote-packages pending".to_owned(),
+            tree_context_feedback: "Context: none".to_owned(),
+            tree_clipboard_feedback: "Clipboard: none".to_owned(),
+            tree_drop_feedback: "Transfer: idle".to_owned(),
         }
     }
 }
@@ -201,6 +262,8 @@ impl Application for WidgetGallery {
         _window: Option<WindowContext<Self::Window>>,
         message: Self::Message,
     ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
+        let mut update = AppUpdate::none();
+
         match message {
             Message::Navigate(route) => self.route = route,
             Message::SearchChanged(value) => self.search = value,
@@ -228,6 +291,37 @@ impl Application for WidgetGallery {
                     self.layout.expanded_tree_nodes.insert(node);
                 }
             }
+            Message::TreeEvent(event) => {
+                if let Some(task) = handle_tree_event(&mut self.layout, event) {
+                    update = update.task(task);
+                }
+            }
+            Message::TreeSelectionModeChanged(mode) => {
+                self.layout.tree_selection_mode = mode;
+                if mode == SelectionMode::Single {
+                    let focused = self
+                        .layout
+                        .tree_state
+                        .focused()
+                        .copied()
+                        .or_else(|| self.layout.tree_state.selection.selected.iter().next().copied());
+                    if let Some(id) = focused {
+                        self.layout.tree_state.select_only(id);
+                    } else {
+                        self.layout.tree_state.clear_selection();
+                    }
+                }
+                self.layout.tree_event_feedback =
+                    format!("Selection mode: {mode:?}");
+            }
+            Message::TreeDeferredLoaded(id) => {
+                if id == DemoTreeNode::RemotePackages {
+                    self.layout.tree_deferred_loading = false;
+                    self.layout.tree_deferred_loaded = true;
+                    self.layout.tree_event_feedback =
+                        "Loaded remote-packages with 2 children".to_owned();
+                }
+            }
             Message::SplitRatioChanged(ratio) => self.layout.split_ratio = ratio,
             Message::ShowDialog(dialog) => self.overlays.active_dialog = Some(dialog),
             Message::CloseDialog => self.overlays.active_dialog = None,
@@ -242,7 +336,7 @@ impl Application for WidgetGallery {
             Message::Noop => {}
         }
 
-        AppUpdate::none().theme(self.theme)
+        update.theme(self.theme)
     }
 
     fn view(
