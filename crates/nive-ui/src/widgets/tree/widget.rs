@@ -44,7 +44,7 @@ pub enum TreeExpandBehavior {
 ///
 /// `Tree` is controlled: it reads app-owned [`TreeState`] and emits
 /// [`TreeEvent`] values instead of mutating domain data. Apps normally call
-/// [`TreeState::apply`] first, then match [`TreeEventKind`] with a wildcard arm
+/// [`TreeState::apply`] first, then match [`TreeEventKind`](super::event::TreeEventKind) with a wildcard arm
 /// for app-specific side effects such as deferred loading, context menus,
 /// clipboard adapters, or drop commits.
 ///

@@ -14,7 +14,7 @@ use crate::{layout, pages};
 
 mod tree_helpers;
 
-use tree_helpers::{handle_tree_event, load_deferred_tree_branch};
+use tree_helpers::handle_tree_event;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DemoTab {

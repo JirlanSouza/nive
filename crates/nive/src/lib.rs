@@ -83,12 +83,8 @@ pub mod prelude {
     /// toasts, async state, dialogs, file picker, theming, shortcuts, etc.
     pub mod ui {
         pub use super::*;
-        // Extended runtime tier; `ToastTone` is omitted (already in
-        // `super::*` via `nive_ui::prelude::*`) to avoid an ambiguous-glob
-        // warning. Similarly, `Application`, `ApplicationConfig`, etc. come
-        // in through `super::*`.
-        #[allow(deprecated)]
-        pub use crate::ToastRequest;
+        // Extended runtime tier. `Application`, `ApplicationConfig`, etc.
+        // come in through `super::*`.
         pub use crate::{
             BackgroundFit, BootstrapSpec, BrandContent, DialogDismiss, DialogRequest, ErrorCode,
             InvalidErrorCode, Operation, OperationDescriptor, OperationEntry, OperationId,
@@ -103,8 +99,6 @@ pub mod prelude {
 
 pub use nive_runtime::*;
 pub use nive_ui::*;
-
-pub use nive_runtime::{ToastPosition, ToastTone};
 
 #[cfg(feature = "devtools")]
 #[doc(hidden)]
