@@ -1,7 +1,7 @@
 use std::future::Future;
 
 use iced::Task;
-use nive_ui::widgets::{ErrorPresentation, OperationStatusPresentation};
+use nive_core::{ErrorPresentation, OperationStatusPresentation};
 
 use crate::UserFacingError;
 
@@ -179,7 +179,7 @@ impl<C> OperationStatusPresentation for Operation<C> {
 mod operation_tests {
     use super::*;
     use crate::UserFacingError;
-    use nive_ui::widgets::OperationStatusPresentation;
+    use nive_core::OperationStatusPresentation;
 
     fn error(msg: &str) -> UserFacingError {
         UserFacingError::custom("test", msg)
@@ -259,7 +259,7 @@ mod operation_tests {
 
     #[test]
     fn presentation_exposes_error() {
-        use nive_ui::widgets::ErrorPresentation;
+        use nive_core::ErrorPresentation;
         let mut op = Operation::idle();
         let t = op.begin("ctx".to_string());
         op.settle(Settled::new(t, Err(error("op failed"))));

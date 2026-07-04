@@ -5,7 +5,11 @@ Reusable runtime foundation for Rust/Iced desktop applications.
 `nive-runtime` owns the application/update contracts, window lifecycle, reusable
 state machines, user-facing feedback, and an optional devtools layer that are
 reused by Rust/Iced apps without depending on app-domain services. It sits above
-[`nive-ui`](../nive-ui) and re-exports stable helper APIs from it.
+[`nive-ui`](../nive-ui) and re-exports stable helper APIs from it. It also
+depends on [`nive-core`](../nive-core) directly, implementing its neutral
+presentation contracts (`ErrorPresentation`, `ResourceStatusPresentation`,
+`OperationStatusPresentation`, `ToastPresentation`) for `UserFacingError`,
+`Resource<T>`, `Operation<C>`, and `ToastItem`.
 
 ## What's inside
 
@@ -58,8 +62,11 @@ devtools layers.
 
 ## Public API
 
-Use `nive_runtime::prelude::*` for application integration. The app-facing
-surface is the crate root/prelude and includes:
+Use `nive_runtime::prelude::*` for application integration. Larger apps can
+import directly from the public area modules (`application`, `actions`,
+`feedback`, `input`, `lifecycle`, `screen`, `settings`, `state`, and
+`support`) when a narrower layer-specific path is clearer. The app-facing
+surface includes:
 
 - `Application`, `ApplicationConfig`, `Context`, `WindowContext`, and `run`.
 - `Action`, `ActionId`, `ActionMap`, and duplicate-ID validation.
@@ -74,9 +81,9 @@ surface is the crate root/prelude and includes:
 - Runtime task/subscription aliases and theme configuration reexports.
 - Feature-gated platform/devtools APIs.
 
-Implementation modules under `application`, `lifecycle`, `feedback`, `screen`,
-`input`, and `state` are private runner boundaries. App code should not depend
-on runner internals.
+Runner internals remain private behind those modules. App code emits
+`WindowCommand` through `Update`; it should not call lower-level window-opening
+helpers directly.
 
 ## Status
 

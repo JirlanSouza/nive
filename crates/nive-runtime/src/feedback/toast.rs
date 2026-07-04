@@ -1,31 +1,16 @@
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
-use nive_ui::ToastPresentation;
+use nive_core::ToastPresentation;
+pub use nive_core::ToastTone;
+pub use nive_ui::ToastPosition;
 
 use crate::UserFacingError;
 
 const MAX_VISIBLE_TOASTS: usize = 3;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ToastPosition {
-    TopLeft,
-    TopRight,
-    BottomLeft,
-    #[default]
-    BottomRight,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ToastId(pub(crate) u64);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ToastTone {
-    Info,
-    Success,
-    Warning,
-    Danger,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToastDuration {
@@ -166,30 +151,8 @@ impl ToastPresentation for ToastItem {
         self.request().body()
     }
 
-    fn tone(&self) -> nive_ui::ToastTone {
-        self.request().tone().into()
-    }
-}
-
-impl From<ToastTone> for nive_ui::ToastTone {
-    fn from(tone: ToastTone) -> Self {
-        match tone {
-            ToastTone::Info => Self::Info,
-            ToastTone::Success => Self::Success,
-            ToastTone::Warning => Self::Warning,
-            ToastTone::Danger => Self::Danger,
-        }
-    }
-}
-
-impl From<ToastPosition> for nive_ui::ToastPosition {
-    fn from(position: ToastPosition) -> Self {
-        match position {
-            ToastPosition::TopLeft => Self::TopLeft,
-            ToastPosition::TopRight => Self::TopRight,
-            ToastPosition::BottomLeft => Self::BottomLeft,
-            ToastPosition::BottomRight => Self::BottomRight,
-        }
+    fn tone(&self) -> ToastTone {
+        self.request().tone()
     }
 }
 
@@ -464,6 +427,6 @@ mod toast_tests {
         assert_eq!(ToastPresentation::id(item), id);
         assert_eq!(item.title(), "Project created");
         assert_eq!(item.body(), Some("details"));
-        assert_eq!(item.tone(), nive_ui::ToastTone::Success);
+        assert_eq!(item.tone(), ToastTone::Success);
     }
 }

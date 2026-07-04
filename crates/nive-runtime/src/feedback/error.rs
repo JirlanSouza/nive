@@ -1,6 +1,6 @@
 use std::fmt;
 
-use nive_ui::widgets::ErrorPresentation;
+use nive_core::ErrorPresentation;
 
 /// A stable, human-facing error code derived from an error kind.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
