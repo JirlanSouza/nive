@@ -38,6 +38,10 @@ semantic palette plus optional typography, shape, spacing and control metric
 overrides. `ThemeCatalog` stores the light/dark pair the runtime should resolve
 from `ThemePreference`.
 
+`ThemeDensity` controls global UI compactness (spacing, paddings, gaps, control
+heights, icon sizes). Apps configure density through `ThemeBuilder::density()`.
+The default is `ThemeDensity::Standard`, which preserves current visual metrics.
+
 `theme::active()` provides the current snapshot used by view helpers. The
 active-theme storage is private to `nive-ui`; runtime synchronization is exposed
 only through the framework integration module.
@@ -46,9 +50,11 @@ only through the framework integration module.
 use nive_ui::prelude::*;
 
 let light = Theme::builder("Acme Light", theme::ThemeMode::Light)
+    .density(ThemeDensity::Compact)
     .primary(color::hex(0x0EA5E9))
     .build();
 let dark = Theme::builder("Acme Dark", theme::ThemeMode::Dark)
+    .density(ThemeDensity::Compact)
     .primary(color::hex(0x38BDF8))
     .build();
 let catalog = ThemeCatalog::new(light, dark);

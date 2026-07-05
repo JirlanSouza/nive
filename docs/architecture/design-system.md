@@ -35,6 +35,7 @@ classDiagram
     class ThemeData {
         +name: str
         +mode: ThemeMode
+        +density: ThemeDensity
         +color_scheme: ColorScheme
         +typography: TypographyScale
         +shapes: ShapeScale
@@ -115,7 +116,36 @@ no widget.
 
 ---
 
-## 3. Catálogo de Widgets (40+)
+## 3. Density (`ThemeDensity`)
+
+`ThemeDensity` é um eixo global de compactness que afeta spacing, paddings, gaps,
+alturas de controle, tamanhos de ícone e chrome de widgets. Existem três variantes:
+
+- **`Comfortable`** — métricas mais espaçosas
+- **`Standard`** — baseline de compatibilidade (métricas atuais)
+- **`Compact`** — métricas mais densas
+
+### `ThemeDensity` vs `ControlSize`
+
+| Conceito | Escopo | Semântica |
+| --- | --- | --- |
+| `ThemeDensity` | Global (tema) | Compactness global da UI: spacing, paddings, gaps, alturas de controle, ícones |
+| `ControlSize` | Local (widget) | Tamanho do componente individual: Xs, Sm, Md, Lg |
+
+Exemplo: um botão `ControlSize::Sm` em um tema `Compact` terá métricas menores
+do que um botão `ControlSize::Sm` em um tema `Comfortable`, porque a densidade
+global afeta o spacing e as métricas derivadas.
+
+### Resolução
+
+A densidade é resolvida durante a construção do tema:
+- `spacing::scale_for_density(density)` retorna a escala de spacing para a densidade
+- `component::scale_for_density(density, shapes, typography, spacing)` retorna métricas de controle
+- Widgets continuam chamando `theme::spacing()` e `theme::control_metrics(size)` normalmente
+
+---
+
+## 4. Catálogo de Widgets (40+)
 
 Todos são `nive-ui` puros (dependem só de `iced`), type-safe e estilizados por role.
 O contrato público é duplo: `nive_ui::widgets::*` continua sendo o facade plano
