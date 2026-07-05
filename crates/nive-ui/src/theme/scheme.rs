@@ -6,6 +6,7 @@ use crate::icons::{self, IconCatalog, IconGlyph, IconRole};
 
 use super::color_scheme::{BorderSpec, ColorScheme, ControlSpec, SurfaceSpec, TextSpec, ToneSpec};
 use super::component::{self, ControlMetrics, ControlMetricsScale, ControlSize};
+use super::density::ThemeDensity;
 use super::shape::{self, ShapeRole, ShapeScale, ShapeSpec};
 use super::spacing::{self, GapRole, PaddingRole, SpaceStep, SpacingScale};
 use super::typography::{self, TextStyle, TypographyRole, TypographyScale};
@@ -78,6 +79,7 @@ impl Default for ThemeCatalog {
 pub struct ThemeData {
     pub name: &'static str,
     pub mode: ThemeMode,
+    pub density: ThemeDensity,
     pub color_scheme: ColorScheme,
     pub typography: TypographyScale,
     pub shapes: ShapeScale,
@@ -185,6 +187,10 @@ impl Theme {
         self.data().icons
     }
 
+    pub fn density(self) -> ThemeDensity {
+        self.data().density
+    }
+
     pub fn icon(self, role: IconRole) -> IconGlyph {
         self.icons()
             .glyph(role)
@@ -218,6 +224,7 @@ impl ThemeData {
         Self {
             name: mode.name(),
             mode,
+            density: ThemeDensity::Standard,
             color_scheme: ColorScheme::from_mode(mode),
             typography,
             shapes,
@@ -411,5 +418,45 @@ mod theme_tests {
             warning: theme.tone(ToneRole::Warning).color,
             danger: theme.tone(ToneRole::Danger).color,
         }
+    }
+
+    #[test]
+    fn built_in_themes_use_standard_density() {
+        assert_eq!(Theme::Light.density(), ThemeDensity::Standard);
+        assert_eq!(Theme::Dark.density(), ThemeDensity::Standard);
+    }
+
+    #[test]
+    fn default_custom_theme_uses_standard_density() {
+        let theme = Theme::builder("Custom", ThemeMode::Light).build();
+        assert_eq!(theme.density(), ThemeDensity::Standard);
+    }
+
+    #[test]
+    fn standard_density_preserves_pre_change_spacing() {
+        let spacing = Theme::Light.spacing();
+        assert_eq!(spacing.none, 0.0);
+        assert_eq!(spacing.xxs, 2.0);
+        assert_eq!(spacing.xs, 4.0);
+        assert_eq!(spacing.sm, 6.0);
+        assert_eq!(spacing.md, 8.0);
+        assert_eq!(spacing.lg, 12.0);
+        assert_eq!(spacing.xl, 16.0);
+        assert_eq!(spacing.xxl, 24.0);
+        assert_eq!(spacing.xxxl, 32.0);
+        assert_eq!(spacing.page, 48.0);
+    }
+
+    #[test]
+    fn standard_density_preserves_pre_change_control_metrics() {
+        let controls = Theme::Light.controls();
+        assert_eq!(controls.xs.height, 24.0);
+        assert_eq!(controls.sm.height, 28.0);
+        assert_eq!(controls.md.height, 32.0);
+        assert_eq!(controls.lg.height, 36.0);
+        assert_eq!(controls.xs.icon_size, 12.0);
+        assert_eq!(controls.sm.icon_size, 14.0);
+        assert_eq!(controls.md.icon_size, 14.0);
+        assert_eq!(controls.lg.icon_size, 16.0);
     }
 }

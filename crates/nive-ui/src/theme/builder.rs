@@ -4,6 +4,7 @@ use crate::icons::{self, IconCatalog};
 
 use super::color_scheme::ColorScheme;
 use super::component::{self, ControlMetricsScale};
+use super::density::ThemeDensity;
 use super::shape::{self, ShapeScale};
 use super::spacing::{self, SpacingScale};
 use super::typography::{self, TypographyScale};
@@ -17,6 +18,8 @@ pub struct ThemeBuilder {
     typography: TypographyScale,
     shapes: ShapeScale,
     spacing: SpacingScale,
+    density: ThemeDensity,
+    explicit_spacing: bool,
     controls: Option<ControlMetricsScale>,
     icons: IconCatalog,
 }
@@ -30,6 +33,8 @@ impl ThemeBuilder {
             typography: typography::scale(),
             shapes: shape::scale(),
             spacing: spacing::scale(),
+            density: ThemeDensity::default(),
+            explicit_spacing: false,
             controls: None,
             icons: icons::lucide::default_catalog(),
         }
@@ -47,6 +52,8 @@ impl ThemeBuilder {
             typography: data.typography,
             shapes: data.shapes,
             spacing: data.spacing,
+            density: data.density,
+            explicit_spacing: true,
             controls: Some(data.controls),
             icons: data.icons,
         }
@@ -111,7 +118,15 @@ impl ThemeBuilder {
 
     pub fn spacing(mut self, spacing: SpacingScale) -> Self {
         self.spacing = spacing;
+        self.explicit_spacing = true;
         self.controls = None;
+        self
+    }
+
+    pub fn density(mut self, density: ThemeDensity) -> Self {
+        self.density = density;
+        self.controls = None;
+        self.explicit_spacing = false;
         self
     }
 
@@ -126,20 +141,27 @@ impl ThemeBuilder {
     }
 
     pub fn build_data(self) -> ThemeData {
-        let controls = self
-            .controls
-            .unwrap_or_else(|| component::scale(self.shapes, self.typography, self.spacing));
+        let spacing = if self.explicit_spacing {
+            self.spacing
+        } else {
+            spacing::scale_for_density(self.density)
+        };
+
+        let controls = self.controls.unwrap_or_else(|| {
+            component::scale_for_density(self.density, self.shapes, self.typography, spacing)
+        });
 
         ThemeData {
             name: self.name,
             mode: self.mode,
+            density: self.density,
             color_scheme: ColorScheme::from_palette(
                 self.palette,
                 matches!(self.mode, ThemeMode::Dark),
             ),
             typography: self.typography,
             shapes: self.shapes,
-            spacing: self.spacing,
+            spacing,
             controls,
             icons: self.icons,
         }
@@ -185,6 +207,92 @@ mod tests {
         assert_eq!(
             theme.control_metrics(super::super::ControlSize::Md).gap,
             spacing.sm
+        );
+    }
+
+    #[test]
+    fn builder_new_preserves_standard_density() {
+        let theme = ThemeBuilder::new("Default", ThemeMode::Light).build();
+        assert_eq!(theme.density(), ThemeDensity::Standard);
+    }
+
+    #[test]
+    fn builder_density_sets_density_on_theme() {
+        let theme = ThemeBuilder::new("Compact", ThemeMode::Light)
+            .density(ThemeDensity::Compact)
+            .build();
+        assert_eq!(theme.density(), ThemeDensity::Compact);
+    }
+
+    #[test]
+    fn builder_density_resolves_compact_spacing() {
+        let theme = ThemeBuilder::new("Compact", ThemeMode::Light)
+            .density(ThemeDensity::Compact)
+            .build();
+
+        let compact_spacing = spacing::scale_for_density(ThemeDensity::Compact);
+        assert_eq!(theme.spacing().xxs, compact_spacing.xxs);
+        assert_eq!(theme.spacing().lg, compact_spacing.lg);
+    }
+
+    #[test]
+    fn builder_density_resolves_compact_control_metrics() {
+        let theme = ThemeBuilder::new("Compact", ThemeMode::Light)
+            .density(ThemeDensity::Compact)
+            .build();
+
+        assert_eq!(
+            theme.control_metrics(super::super::ControlSize::Sm).height,
+            24.0
+        );
+        assert_eq!(
+            theme.control_metrics(super::super::ControlSize::Md).height,
+            28.0
+        );
+    }
+
+    #[test]
+    fn builder_from_theme_preserves_density() {
+        let original = ThemeBuilder::new("Original", ThemeMode::Light)
+            .density(ThemeDensity::Comfortable)
+            .build();
+
+        let rebuilt = ThemeBuilder::from_theme(original).build();
+
+        assert_eq!(rebuilt.density(), ThemeDensity::Comfortable);
+        assert_eq!(rebuilt.spacing().lg, original.spacing().lg);
+    }
+
+    #[test]
+    fn builder_explicit_spacing_overrides_density_spacing() {
+        let mut custom_spacing = spacing::scale();
+        custom_spacing.lg = 99.0;
+
+        let theme = ThemeBuilder::new("Custom", ThemeMode::Light)
+            .density(ThemeDensity::Compact)
+            .spacing(custom_spacing)
+            .build();
+
+        assert_eq!(theme.spacing().lg, 99.0);
+        assert_eq!(theme.density(), ThemeDensity::Compact);
+    }
+
+    #[test]
+    fn builder_explicit_controls_override_density_derived_controls() {
+        let custom_controls = super::super::component::scale(
+            super::super::shape::scale(),
+            super::super::typography::scale(),
+            spacing::scale(),
+        );
+
+        let theme = ThemeBuilder::new("Custom", ThemeMode::Light)
+            .density(ThemeDensity::Compact)
+            .controls(custom_controls)
+            .build();
+
+        assert_eq!(
+            theme.control_metrics(super::super::ControlSize::Sm).height,
+            custom_controls.sm.height
         );
     }
 }
