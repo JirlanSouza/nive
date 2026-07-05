@@ -38,7 +38,7 @@ enum Commands {
         branch: Option<String>,
     },
 
-    /// Manage Lucide icons in the current app
+    /// Manage app icon manifests, generated modules, and provider discovery
     Icons {
         #[command(subcommand)]
         command: commands::icons::IconsCommands,

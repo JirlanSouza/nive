@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::{theme::ToneRole, widgets::IconName};
+use crate::{theme::ToneRole, widgets::IconRole};
 
 use super::{TreeChildren, TreeNode, TreeState};
 
@@ -19,7 +19,7 @@ pub(crate) struct VisibleTreeRow<'a, Id> {
     pub(crate) expanded: Option<bool>,
     pub(crate) disabled: bool,
     pub(crate) label: Cow<'a, str>,
-    pub(crate) leading_icon: Option<IconName>,
+    pub(crate) leading_icon: Option<IconRole>,
     pub(crate) tone: Option<ToneRole>,
     pub(crate) trailing_text: Option<Cow<'a, str>>,
 }
@@ -95,7 +95,7 @@ fn push_visible_nodes<'a, Id>(
 #[cfg(test)]
 mod visible_tree_tests {
     use super::*;
-    use crate::{theme::ToneRole, widgets::IconName};
+    use crate::{theme::ToneRole, widgets::IconRole};
 
     type TestNode = TreeNode<'static, &'static str>;
 
@@ -251,7 +251,7 @@ mod visible_tree_tests {
     #[test]
     fn disabled_rows_and_display_metadata_remain_visible() {
         let nodes = vec![TreeNode::leaf("readme", "README.md")
-            .leading_icon(IconName::Folder)
+            .leading_icon(IconRole::Folder)
             .tone(ToneRole::Warning)
             .trailing_text("4 KB")
             .disabled(true)];
@@ -270,7 +270,7 @@ mod visible_tree_tests {
         assert_eq!(row.visible_index, 0);
         assert_eq!(row.expanded, None);
         assert!(row.disabled);
-        assert_eq!(row.leading_icon, Some(IconName::Folder));
+        assert_eq!(row.leading_icon, Some(IconRole::Folder));
         assert_eq!(row.tone, Some(ToneRole::Warning));
         assert_eq!(row.trailing_text.as_deref(), Some("4 KB"));
     }

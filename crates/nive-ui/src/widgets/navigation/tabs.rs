@@ -11,7 +11,7 @@ use self::style::{self as theme_tabs, TabPart};
 mod style;
 use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec};
 use crate::widgets::overlays::tooltip as tooltip_widget;
-use crate::widgets::primitives::{icon as icon_widget, IconName};
+use crate::widgets::primitives::{icon as icon_widget, IconRole};
 
 pub struct TabBar<'a, Message> {
     tabs: Vec<TabItem<'a, Message>>,
@@ -22,7 +22,7 @@ pub struct TabBar<'a, Message> {
 
 pub struct TabItem<'a, Message> {
     label: &'a str,
-    icon: Option<IconName>,
+    icon: Option<IconRole>,
     selected: bool,
     dirty: bool,
     disabled: bool,
@@ -148,7 +148,7 @@ impl<'a, Message: Clone + 'a> TabItem<'a, Message> {
         }
     }
 
-    pub fn icon(mut self, icon: IconName) -> Self {
+    pub fn icon(mut self, icon: IconRole) -> Self {
         self.icon = Some(icon);
         self
     }
@@ -202,7 +202,7 @@ impl<'a, Message: Clone + 'a> TabItem<'a, Message> {
         };
         let main = self.main_button(metrics, main_part);
         let content: Element<'a, Message> = if let Some(close_message) = self.on_close {
-            let close = button::icon(IconName::Close)
+            let close = button::icon(IconRole::WindowClose)
                 .disabled(self.disabled)
                 .on_press(close_message)
                 .into_grouped_item(GroupedItemSpec {
@@ -241,7 +241,7 @@ impl<'a, Message: Clone + 'a> TabItem<'a, Message> {
             .height(Length::Shrink);
 
         if let Some(icon) = self.icon {
-            content = content.push(icon_widget::new(icon).size(metrics.icon_size));
+            content = content.push(icon_widget::role(icon).size(metrics.icon_size));
         }
 
         content = content.push(label);

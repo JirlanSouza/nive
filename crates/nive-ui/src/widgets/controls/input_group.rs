@@ -14,7 +14,7 @@ use self::style as theme_input_group;
 use crate::advanced::control_group::{position_for_index, radius_for_position, SlotPosition};
 use crate::widgets::controls::button::{Button, GroupedItemKind, GroupedItemSpec};
 use crate::widgets::controls::input::Input;
-use crate::widgets::primitives::{icon as icon_widget, IconName};
+use crate::widgets::primitives::{icon as icon_widget, IconRole};
 
 pub use style::InputGroupVariant;
 
@@ -29,7 +29,7 @@ pub struct InputGroup<'a, Message> {
 
 enum InputGroupSlot<'a, Message> {
     Text(&'a str),
-    Icon(IconName),
+    Icon(IconRole),
     Action(Button<'a, Message>),
     Visual(Element<'a, Message>),
 }
@@ -59,7 +59,7 @@ where
         self.push_slot(InputGroupSlotSide::Leading, InputGroupSlot::Text(leading))
     }
 
-    pub fn leading_icon(self, leading: IconName) -> Self {
+    pub fn leading_icon(self, leading: IconRole) -> Self {
         self.push_slot(InputGroupSlotSide::Leading, InputGroupSlot::Icon(leading))
     }
 
@@ -78,7 +78,7 @@ where
         self.push_slot(InputGroupSlotSide::Trailing, InputGroupSlot::Text(trailing))
     }
 
-    pub fn trailing_icon(self, trailing: IconName) -> Self {
+    pub fn trailing_icon(self, trailing: IconRole) -> Self {
         self.push_slot(InputGroupSlotSide::Trailing, InputGroupSlot::Icon(trailing))
     }
 
@@ -235,12 +235,14 @@ where
             .height(Length::Fill)
             .align_y(Alignment::Center)
             .into(),
-            InputGroupSlot::Icon(icon) => container(icon_widget::new(icon).size(metrics.icon_size))
-                .style(theme_input_group::slot_style(radius, disabled))
-                .padding(Padding::ZERO.horizontal(metrics.slot_padding_h))
-                .height(Length::Fill)
-                .align_y(Alignment::Center)
-                .into(),
+            InputGroupSlot::Icon(icon) => {
+                container(icon_widget::role(icon).size(metrics.icon_size))
+                    .style(theme_input_group::slot_style(radius, disabled))
+                    .padding(Padding::ZERO.horizontal(metrics.slot_padding_h))
+                    .height(Length::Fill)
+                    .align_y(Alignment::Center)
+                    .into()
+            }
             InputGroupSlot::Action(action) => action.into_grouped_item(GroupedItemSpec {
                 size,
                 radius,

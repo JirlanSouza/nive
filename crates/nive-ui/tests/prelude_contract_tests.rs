@@ -40,7 +40,9 @@ fn widget_taxonomy_exposes_category_facades() {
 fn top_level_ui_facades_expose_layout_graphics_and_accessibility() {
     let _: Element<'_, ()> = nive_ui::layout::Panel::new(text("Panel")).into();
     let _: Element<'_, ()> =
-        nive_ui::graphics::Icon::new(nive_ui::graphics::IconName::Search).into();
+        nive_ui::graphics::Icon::role(nive_ui::graphics::IconRole::EditFind).into();
+    let _: nive_ui::graphics::IconGlyph =
+        Theme::Light.icon(nive_ui::graphics::IconRole::WindowClose);
     let _: fn(&iced::Event) -> Option<nive_ui::accessibility::FocusDirection> =
         nive_ui::accessibility::direction_from_event;
 }

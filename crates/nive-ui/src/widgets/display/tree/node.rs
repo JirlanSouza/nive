@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::{theme::ToneRole, widgets::primitives::icon::IconName};
+use crate::{theme::ToneRole, widgets::IconRole};
 
 /// Declarative tree node data consumed by the high-level `Tree` widget.
 ///
@@ -12,7 +12,7 @@ pub struct TreeNode<'a, Id> {
     id: Id,
     label: Cow<'a, str>,
     children: Option<TreeChildren<'a, Id>>,
-    leading_icon: Option<IconName>,
+    leading_icon: Option<IconRole>,
     tone: Option<ToneRole>,
     trailing_text: Option<Cow<'a, str>>,
     disabled: bool,
@@ -54,7 +54,7 @@ impl<'a, Id> TreeNode<'a, Id> {
     }
 
     /// Adds a leading icon to the row rendered for this node.
-    pub fn leading_icon(mut self, icon: IconName) -> Self {
+    pub fn leading_icon(mut self, icon: IconRole) -> Self {
         self.leading_icon = Some(icon);
         self
     }
@@ -103,7 +103,7 @@ impl<'a, Id> TreeNode<'a, Id> {
     }
 
     /// Returns this node's leading icon metadata.
-    pub fn leading_icon_name(&self) -> Option<IconName> {
+    pub fn leading_icon_name(&self) -> Option<IconRole> {
         self.leading_icon
     }
 
@@ -171,12 +171,12 @@ mod tree_node_tests {
     #[test]
     fn builders_store_row_metadata() {
         let node = TreeNode::leaf(1, "README.md")
-            .leading_icon(IconName::Folder)
+            .leading_icon(IconRole::Folder)
             .tone(ToneRole::Info)
             .trailing_text("4 KB")
             .disabled(true);
 
-        assert_eq!(node.leading_icon_name(), Some(IconName::Folder));
+        assert_eq!(node.leading_icon_name(), Some(IconRole::Folder));
         assert_eq!(node.tone_role(), Some(ToneRole::Info));
         assert_eq!(node.trailing_text_value(), Some("4 KB"));
         assert!(node.is_disabled());

@@ -8,7 +8,7 @@ use crate::Element;
 
 use super::style as theme_button;
 use crate::widgets::feedback::Spinner;
-use crate::widgets::primitives::{icon as icon_widget, IconName};
+use crate::widgets::primitives::{icon as icon_widget, IconRole};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum TextAlign {
@@ -18,14 +18,14 @@ pub(super) enum TextAlign {
 
 pub(super) enum Content<'a, Message> {
     Label(&'a str),
-    Icon(IconName),
+    Icon(IconRole),
     Custom(Element<'a, Message>),
 }
 
 pub(super) struct ContentSpec<'a, Message> {
     pub(super) content: Content<'a, Message>,
-    pub(super) leading_icon: Option<IconName>,
-    pub(super) trailing_icon: Option<IconName>,
+    pub(super) leading_icon: Option<IconRole>,
+    pub(super) trailing_icon: Option<IconRole>,
     pub(super) size: ControlSize,
     pub(super) text_align: TextAlign,
     pub(super) loading: bool,
@@ -94,7 +94,7 @@ where
                 if spec.loading {
                     row = row.push(loading_indicator_slot(icon_size));
                 } else if let Some(icon) = spec.leading_icon {
-                    row = row.push(icon_widget::new(icon).size(icon_size));
+                    row = row.push(icon_widget::role(icon).size(icon_size));
                 } else if spec.reserve_loading_indicator {
                     row = row.push(Space::new().width(Length::Fixed(icon_size)));
                 }
@@ -102,7 +102,7 @@ where
                 row = row.push(label);
 
                 if let Some(icon) = spec.trailing_icon {
-                    row = row.push(icon_widget::new(icon).size(icon_size));
+                    row = row.push(icon_widget::role(icon).size(icon_size));
                 }
 
                 container(row).into()
@@ -114,7 +114,7 @@ where
             if spec.loading {
                 loading_indicator_slot(icon_size)
             } else {
-                icon_widget::new(app_icon).size(icon_size).into()
+                icon_widget::role(app_icon).size(icon_size).into()
             }
         }
         Content::Custom(content) => content,

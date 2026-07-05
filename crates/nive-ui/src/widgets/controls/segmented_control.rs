@@ -14,7 +14,7 @@ use self::style as theme_segmented_control;
 use super::button::{self, GroupedItemKind, GroupedItemSpec};
 use crate::advanced::control_group::radius_for_position;
 use crate::advanced::control_group::{position_for_index, SlotPosition};
-use crate::widgets::primitives::IconName;
+use crate::widgets::primitives::IconRole;
 
 /// A single-selection control rendered as a track with a rounded selected thumb.
 ///
@@ -28,7 +28,7 @@ pub struct SegmentedControl<'a, Message> {
 
 pub struct SegmentedItem<'a, Message> {
     label: &'a str,
-    icon: Option<IconName>,
+    icon: Option<IconRole>,
     selected: bool,
     disabled: bool,
     on_press: Option<Message>,
@@ -165,7 +165,7 @@ impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
         }
     }
 
-    pub fn icon(mut self, icon: IconName) -> Self {
+    pub fn icon(mut self, icon: IconRole) -> Self {
         self.icon = Some(icon);
         self
     }

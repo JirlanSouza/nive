@@ -10,7 +10,7 @@ use crate::Element;
 
 use super::button::ButtonFocusRing;
 use crate::advanced::pressable::Pressable;
-use crate::widgets::primitives::{icon, IconName};
+use crate::widgets::primitives::{icon, IconRole};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SelectableItemVariant {
@@ -33,7 +33,7 @@ struct SelectableItemMetrics {
 pub struct SelectableItem<'a, Message> {
     label: &'a str,
     selected: bool,
-    leading_icon: Option<IconName>,
+    leading_icon: Option<IconRole>,
     leading_color: Option<Color>,
     trailing_text: Option<&'a str>,
     trailing: Option<Element<'a, Message>>,
@@ -69,7 +69,7 @@ where
         self
     }
 
-    pub fn leading_icon(mut self, icon: IconName) -> Self {
+    pub fn leading_icon(mut self, icon: IconRole) -> Self {
         self.leading_icon = Some(icon);
         self
     }
@@ -194,7 +194,7 @@ where
         }
 
         if let Some(icon) = self.leading_icon {
-            content = content.push(icon::new(icon).size(metrics.icon_size));
+            content = content.push(icon::role(icon).size(metrics.icon_size));
         }
 
         content = content.push(label);

@@ -86,15 +86,19 @@ icons-list:
 
 # Sync framework icons
 icons-sync:
-    cd crates/nive-ui && cargo run -p nive-cli -- icons sync
+    cd crates/nive-ui && cargo run -p nive-cli -- icons sync --framework
 
 # Check framework icons are up to date
 icons-check:
-    cd crates/nive-ui && cargo run -p nive-cli -- icons check
+    cd crates/nive-ui && cargo run -p nive-cli -- icons check --framework
 
-# Add icon to framework. Usage: just icons-add Search search
-icons-add variant lucide_name:
-    cd crates/nive-ui && cargo run -p nive-cli -- icons add {{ variant }} {{ lucide_name }}
+# Add framework icon symbol. Usage: just icons-add-symbol User user
+icons-add-symbol variant provider_ref:
+    cd crates/nive-ui && cargo run -p nive-cli -- icons add-symbol {{ variant }} {{ provider_ref }}
+
+# Set framework icon role. Usage: just icons-set-role window-close lucide:x
+icons-set-role role provider_ref:
+    cd crates/nive-ui && cargo run -p nive-cli -- icons set-role {{ role }} {{ provider_ref }}
 
 # Create new app using Nive. Usage: just create-app my-app
 create-app name:
