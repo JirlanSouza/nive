@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use nive_core::ToastPresentation;
 pub use nive_core::ToastTone;
-pub use nive_ui::ToastPosition;
+pub use nive_ui::widgets::overlays::ToastPosition;
 
 use crate::UserFacingError;
 

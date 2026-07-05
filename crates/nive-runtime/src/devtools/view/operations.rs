@@ -5,7 +5,9 @@ use iced::{
 };
 
 use nive_ui::theme::{self, GapRole};
-use nive_ui::widgets::{button, Badge, Separator};
+use nive_ui::widgets::controls::button;
+use nive_ui::widgets::display::Badge;
+use nive_ui::widgets::primitives::Separator;
 use nive_ui::Element;
 
 use crate::devtools::types::INPUT_CAPABILITY_HINT;
@@ -39,11 +41,12 @@ where
 
     if !entries.is_empty() {
         let header = row![
-            container(nive_ui::widgets::text::caption("Operation"))
+            container(nive_ui::widgets::primitives::text::caption("Operation"))
                 .width(Length::Fixed(STATE_TITLE_WIDTH)),
-            container(nive_ui::widgets::text::caption("Status")).width(Length::Fixed(STATUS_WIDTH)),
-            container(nive_ui::widgets::text::caption("Controls")).width(Length::Fill),
-            container(nive_ui::widgets::text::caption("Actions"))
+            container(nive_ui::widgets::primitives::text::caption("Status"))
+                .width(Length::Fixed(STATUS_WIDTH)),
+            container(nive_ui::widgets::primitives::text::caption("Controls")).width(Length::Fill),
+            container(nive_ui::widgets::primitives::text::caption("Actions"))
                 .width(Length::Fixed(ROW_ACTION_WIDTH)),
         ]
         .spacing(theme::gap(GapRole::Related))
@@ -57,7 +60,7 @@ where
             list = list.push(operation_row(state, entry, map));
         }
     } else {
-        list = list.push(nive_ui::widgets::text::caption(empty_message(
+        list = list.push(nive_ui::widgets::primitives::text::caption(empty_message(
             state.query(),
             "No Operation fields for this screen",
             "No operations match the current search",
@@ -66,11 +69,11 @@ where
 
     // Read-only operation registry section (task 9.3)
     if !registry.is_empty() {
-        list = list
-            .push(Separator::horizontal())
-            .push(nive_ui::widgets::text::caption(
-                "Active operations (read-only)",
-            ));
+        list =
+            list.push(Separator::horizontal())
+                .push(nive_ui::widgets::primitives::text::caption(
+                    "Active operations (read-only)",
+                ));
         for entry in registry {
             list = list.push(registry_row(entry));
         }
@@ -187,7 +190,7 @@ where
         RegistryStatus::Completed => Badge::success("Completed").xs().into(),
         RegistryStatus::Failed(msg) => iced::widget::column![
             Badge::danger("Failed").xs(),
-            nive_ui::widgets::text::caption(msg.clone()),
+            nive_ui::widgets::primitives::text::caption(msg.clone()),
         ]
         .spacing(theme::gap(GapRole::Tight))
         .into(),
@@ -195,8 +198,10 @@ where
     };
 
     row![
-        container(nive_ui::widgets::text::caption(entry.label.clone()))
-            .width(Length::Fixed(STATE_TITLE_WIDTH)),
+        container(nive_ui::widgets::primitives::text::caption(
+            entry.label.clone()
+        ))
+        .width(Length::Fixed(STATE_TITLE_WIDTH)),
         container(status_badge).width(Length::Fixed(STATUS_WIDTH)),
         Space::new().width(Length::Fill),
     ]
