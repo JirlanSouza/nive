@@ -9,7 +9,7 @@
 - `just test`: run workspace tests with all features.
 - `just doc-check`: build workspace docs with all features and warnings denied.
 - `just examples-check`: run `cargo check` for every standalone example under `examples/*/Cargo.toml`.
-- `just scaffold-smoke`: scaffold basic and dashboard apps outside the workspace with a temporary local `nive` patch and run `cargo check`.
+- `just scaffold-smoke`: scaffold basic and dashboard apps outside the workspace with a temporary local `nive` patch, then run `nive icons check` and `cargo check`.
 - `just package-check`: run package-readiness checks for publishable crates in dependency order.
 - `just readiness`: run the local CI-like readiness suite.
 

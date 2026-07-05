@@ -2,8 +2,9 @@
 
 ## Lucide Icons
 
-The SVG icons bundled under `assets/icons/lucide/` and embedded via
-`src/widgets/icon.generated.rs` are sourced from the
+The SVG icons bundled under `assets/icons/lucide/` and
+`assets/icons/generated/lucide/`, and embedded via the `src/icons/` catalog
+modules, are sourced from the
 [Lucide](https://lucide.dev) icon project, distributed under the ISC License.
 
 ```

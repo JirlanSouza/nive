@@ -108,7 +108,7 @@ real está em [§4](#4-plano-de-execução-milestones).
     `plotters`/`plotters-iced` antes de escrever do zero.*
   - ⬜ Subamostragem (*downsampling*) em runtime conforme a resolução horizontal.
 - **Ecossistema de Ícones Tipado e Eficiente** (`feature = "icons"`)
-  - ✅ Enum estrito (`IconName`), cor mapeada por token, escala e rotação — `widgets/icon.rs`.
+  - ✅ Roles semânticas (`IconRole`), símbolos gerados (`IconSymbol`), cor por token, escala e rotação — `Icon`.
   - ✅ Empacotamento build-time (CLI `nive icons`) embarcando só os glifos usados.
   - ✂️ Controle de espessura de linha **em runtime** — adiado. O `stroke_width` build-time
     no manifesto já cobre o caso comum; runtime tem baixo valor/custo alto.

@@ -39,7 +39,8 @@ Icon management commands:
 - `just icons-list`
 - `just icons-sync`
 - `just icons-check`
-- `just icons-add <variant> <lucide-name>`
+- `just icons-add-symbol <variant> <provider-ref>`
+- `just icons-set-role <role-name> <provider-ref>`
 
 App scaffolding:
 
@@ -60,4 +61,4 @@ Run package-specific `cargo` commands only for focused verification while iterat
 - `nive-runtime`: shared app runtime foundation for application/update contracts, `Resource`/`Operation` async state, request IDs, user-facing errors, lifecycle contracts, and optional devtools simulator (feature `devtools`). The `Inspect` trait + derive walk app state to discover simulatable fields; `SimulableState` exposes snapshots, explicit capabilities, and simulator actions.
 - `nive-runtime-derive`: proc macro `#[derive(Inspect)]` that generates recursive `Inspect::inspect` implementations for app state structs.
 - `nive`: umbrella crate that re-exports `nive-ui` and `nive-runtime` for convenient app development.
-- `nive-cli`: CLI binary (`nive`) for scaffolding new apps and managing Lucide icons.
+- `nive-cli`: CLI binary (`nive`) for scaffolding new apps and managing provider-neutral icon manifests/generated modules.
