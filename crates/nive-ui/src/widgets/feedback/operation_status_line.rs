@@ -3,7 +3,7 @@ use iced::{
     Length,
 };
 
-use crate::{widgets::LoadingIndicator, Element};
+use crate::{widgets::Spinner, Element};
 
 use super::{ErrorFeedbackAction, ErrorStatusLine, OperationStatusPresentation};
 
@@ -75,7 +75,7 @@ where
         match self.state {
             OperationStatusLineState::Idle => Space::new().width(Length::Fill).into(),
             OperationStatusLineState::Running { label } => {
-                container(LoadingIndicator::new().neutral().xs().label(label))
+                container(Spinner::new().neutral().xs().label(label))
                     .width(Length::Fill)
                     .into()
             }
