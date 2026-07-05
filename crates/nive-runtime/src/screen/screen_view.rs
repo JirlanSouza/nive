@@ -66,11 +66,11 @@ where
                 let on_backdrop = dialog.dismiss.on_backdrop();
                 let on_escape = dialog.dismiss.on_escape();
 
-                nive_ui::DialogHost::new(self.content)
+                nive_ui::widgets::overlays::DialogHost::new(self.content)
                     .dialog(dialog.content, on_backdrop, on_escape)
                     .into()
             }
-            None => nive_ui::DialogHost::new(self.content).into(),
+            None => nive_ui::widgets::overlays::DialogHost::new(self.content).into(),
         }
     }
 }

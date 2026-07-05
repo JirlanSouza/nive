@@ -419,7 +419,7 @@ where
             return content;
         }
 
-        nive_ui::ToastHost::new(content)
+        nive_ui::widgets::overlays::ToastHost::new(content)
             .position(self.core.toast_position())
             .on_hover(
                 NiveMessage::Core(CoreMessage::ToastHoverEntered),

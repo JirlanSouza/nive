@@ -5,7 +5,8 @@ use iced::{
 };
 
 use nive_ui::theme::{self, GapRole};
-use nive_ui::widgets::{button, Separator};
+use nive_ui::widgets::controls::button;
+use nive_ui::widgets::primitives::Separator;
 use nive_ui::Element;
 
 use crate::devtools::types::{
@@ -39,7 +40,7 @@ where
 
     if entries.is_empty() {
         return list
-            .push(nive_ui::widgets::text::caption(empty_message(
+            .push(nive_ui::widgets::primitives::text::caption(empty_message(
                 state.query(),
                 "No Resource fields for this screen",
                 "No resources match the current search",
@@ -48,11 +49,12 @@ where
     }
 
     let header = row![
-        container(nive_ui::widgets::text::caption("Resource"))
+        container(nive_ui::widgets::primitives::text::caption("Resource"))
             .width(Length::Fixed(STATE_TITLE_WIDTH)),
-        container(nive_ui::widgets::text::caption("Status")).width(Length::Fixed(STATUS_WIDTH)),
-        container(nive_ui::widgets::text::caption("Controls")).width(Length::Fill),
-        container(nive_ui::widgets::text::caption("Actions"))
+        container(nive_ui::widgets::primitives::text::caption("Status"))
+            .width(Length::Fixed(STATUS_WIDTH)),
+        container(nive_ui::widgets::primitives::text::caption("Controls")).width(Length::Fill),
+        container(nive_ui::widgets::primitives::text::caption("Actions"))
             .width(Length::Fixed(ROW_ACTION_WIDTH)),
     ]
     .spacing(theme::gap(GapRole::Related))

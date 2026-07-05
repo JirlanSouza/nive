@@ -5,7 +5,10 @@ use iced::{
 };
 
 use nive_ui::theme::{self, GapRole};
-use nive_ui::widgets::{button, input, Badge, InputGroup, Separator};
+use nive_ui::widgets::controls::InputGroup;
+use nive_ui::widgets::controls::{button, input};
+use nive_ui::widgets::display::Badge;
+use nive_ui::widgets::primitives::Separator;
 use nive_ui::{Element, Renderer, Theme};
 
 use crate::devtools::{DevtoolsPanelMessage, DevtoolsPanelState, DevtoolsRowId};
@@ -36,7 +39,7 @@ where
 
     if let Some(error) = state.last_error() {
         let alert = row![
-            nive_ui::widgets::text::caption(error.to_string()),
+            nive_ui::widgets::primitives::text::caption(error.to_string()),
             Space::new().width(Length::Fill),
             button::ghost("Dismiss")
                 .xs()
@@ -99,7 +102,7 @@ where
     row![
         Space::new().width(Length::Fixed(state_control_indent())),
         Badge::danger("Command failed").xs(),
-        nive_ui::widgets::text::caption(error),
+        nive_ui::widgets::primitives::text::caption(error),
         Space::new().width(Length::Fill),
         button::ghost("Dismiss")
             .xs()
@@ -131,7 +134,7 @@ pub(super) fn clamped_label_strong<'a>(
     content: impl Into<String>,
     max_chars: usize,
 ) -> iced::widget::text::Text<'a, Theme> {
-    nive_ui::widgets::text::label_strong(ellipsize_end(content.into(), max_chars))
+    nive_ui::widgets::primitives::text::label_strong(ellipsize_end(content.into(), max_chars))
         .width(Length::Fill)
         .wrapping(text::Wrapping::None)
 }
@@ -140,7 +143,7 @@ fn clamped_code_small<'a>(
     content: impl Into<String>,
     max_chars: usize,
 ) -> iced::widget::text::Text<'a, Theme> {
-    nive_ui::widgets::text::code_small(ellipsize_end(content.into(), max_chars))
+    nive_ui::widgets::primitives::text::code_small(ellipsize_end(content.into(), max_chars))
         .width(Length::Fill)
         .wrapping(text::Wrapping::None)
 }
@@ -204,7 +207,7 @@ where
             if *has_value {
                 column![
                     badge,
-                    nive_ui::widgets::text::caption("preserving cached value")
+                    nive_ui::widgets::primitives::text::caption("preserving cached value")
                 ]
                 .spacing(theme::gap(GapRole::Tight))
                 .into()
@@ -215,7 +218,7 @@ where
         SimulableSnapshot::Loaded => Badge::success("Loaded").xs().into(),
         SimulableSnapshot::Failed { has_value, summary } => column![
             Badge::danger("Failed").xs(),
-            nive_ui::widgets::text::caption(if *has_value {
+            nive_ui::widgets::primitives::text::caption(if *has_value {
                 format!("{summary} · cached")
             } else {
                 summary.clone()
@@ -226,7 +229,7 @@ where
         SimulableSnapshot::Running => Badge::info("Running").xs().into(),
         SimulableSnapshot::OperationFailed { summary } => column![
             Badge::danger("Failed").xs(),
-            nive_ui::widgets::text::caption(summary.clone()),
+            nive_ui::widgets::primitives::text::caption(summary.clone()),
         ]
         .spacing(theme::gap(GapRole::Tight))
         .into(),

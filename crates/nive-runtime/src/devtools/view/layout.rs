@@ -4,7 +4,8 @@ use iced::{
 };
 
 use nive_ui::theme::{self, GapRole, PaddingRole, SurfaceRole};
-use nive_ui::widgets::{input, Panel, SegmentedControl, SegmentedItem};
+use nive_ui::widgets::containers::Panel;
+use nive_ui::widgets::controls::{input, SegmentedControl, SegmentedItem};
 use nive_ui::Element;
 
 use crate::devtools::{
@@ -49,8 +50,8 @@ where
     .width(Length::Fixed(SEARCH_FIELD_WIDTH));
 
     let header = row![
-        nive_ui::widgets::text::label_strong("Devtools"),
-        nive_ui::widgets::text::caption(format!(
+        nive_ui::widgets::primitives::text::label_strong("Devtools"),
+        nive_ui::widgets::primitives::text::caption(format!(
             "{resource_count} resources · {operation_count} operations"
         )),
         Space::new().width(Length::Fill),
@@ -73,11 +74,12 @@ where
     let body = scrollable(body).height(Length::Fill).width(Length::Fill);
 
     Panel::new(
-        column![header, tabs, toolbar, body]
+        column![tabs, toolbar, body]
             .spacing(theme::gap(GapRole::Content))
             .width(Length::Fill)
             .height(Length::Fill),
     )
+    .header(header)
     .role(SurfaceRole::App)
     .padding(devtools_window_padding())
     .width(Length::Fill)
@@ -120,7 +122,7 @@ where
     Message: Clone + 'a + 'static,
 {
     let toolbar = row![
-        nive_ui::widgets::text::caption(match state.active_tab {
+        nive_ui::widgets::primitives::text::caption(match state.active_tab {
             DevtoolsPanelTab::Resources => "Inspect and simulate Resource state",
             DevtoolsPanelTab::Operations => "Drive Operation transitions",
         }),
