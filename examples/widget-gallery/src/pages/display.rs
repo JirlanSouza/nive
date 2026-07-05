@@ -1,6 +1,6 @@
 use nive::prelude::*;
 use nive::ui::theme::ToneRole;
-use nive::ui::widgets::text as ntext;
+use nive::ui::widgets::primitives::text as ntext;
 use nive::widget::{column, row};
 
 use crate::app::{Message, WidgetGallery};

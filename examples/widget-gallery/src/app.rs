@@ -3,8 +3,9 @@ use std::{borrow::Cow, collections::BTreeSet};
 use nive::prelude::ui::DialogRequest;
 use nive::prelude::*;
 use nive::ui::theme::{ControlSize, SurfaceRole};
-use nive::ui::widgets::{text as ntext, TreeEvent, TreeState};
-use nive::ui::SelectionMode;
+use nive::ui::widgets::primitives::text as ntext;
+use nive::ui::interaction::SelectionMode;
+use nive::ui::widgets::{TreeEvent, TreeState};
 use nive::widget::{column, row};
 
 use crate::catalog::{entry_for, matches, PageId, CATALOG};

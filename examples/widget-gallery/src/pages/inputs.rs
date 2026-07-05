@@ -1,7 +1,8 @@
 use nive::prelude::*;
 use nive::ui::{
     theme::{ControlSize, SurfaceRole},
-    widgets::{button as nbutton, text as ntext},
+    widgets::controls::button as nbutton,
+    widgets::primitives::text as ntext,
 };
 use nive::widget::column;
 

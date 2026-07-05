@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use nive::prelude::*;
 use nive::ui::theme::{SurfaceRole, ToneRole};
-use nive::ui::widgets::text as ntext;
+use nive::ui::widgets::primitives::text as ntext;
 use nive::widget::column;
 
 use crate::app::{Message, WidgetGallery};

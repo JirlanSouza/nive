@@ -2,7 +2,8 @@ use std::borrow::Cow;
 
 use nive::prelude::*;
 use nive::ui::theme::SurfaceRole;
-use nive::ui::widgets::{button as nbutton, text as ntext};
+use nive::ui::widgets::controls::button as nbutton;
+use nive::ui::widgets::primitives::text as ntext;
 use nive::widget::column;
 
 use crate::app::{DialogKind, Message, PopoverKind, WidgetGallery};

@@ -1,7 +1,8 @@
 use nive::prelude::*;
 use nive::ui::theme::{SurfaceRole, ToneRole};
-use nive::ui::widgets::{button as nbutton, text as ntext};
-use nive::ui::{SelectionMode, TransferOperation};
+use nive::ui::interaction::{SelectionMode, TransferOperation};
+use nive::ui::widgets::controls::button as nbutton;
+use nive::ui::widgets::primitives::text as ntext;
 use nive::widget::{column, row};
 
 use crate::app::{DemoTab, DemoTreeNode, Message, WidgetGallery};
