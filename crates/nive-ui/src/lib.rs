@@ -62,7 +62,7 @@ pub mod widgets;
 
 pub use bootstrap::{BootstrapError, BootstrapView};
 pub use icons::{IconCatalog, IconCatalogEntry, IconGlyph, IconRole, IconSource};
-pub use theme::{Theme, ThemeBuilder, ThemeCatalog, ThemeData, ThemeId};
+pub use theme::{Theme, ThemeBuilder, ThemeCatalog, ThemeData, ThemeDensity, ThemeId};
 pub use tokens::color;
 pub use tokens::radius;
 pub use tokens::shadow;

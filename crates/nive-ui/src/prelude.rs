@@ -12,5 +12,5 @@ pub use crate::theme::{self, ThemePreference};
 pub use crate::widgets::*;
 pub use crate::{
     BootstrapError, BootstrapView, Element, Renderer, Theme, ThemeBuilder, ThemeCatalog, ThemeData,
-    ThemeId,
+    ThemeDensity, ThemeId,
 };
