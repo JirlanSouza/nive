@@ -23,14 +23,13 @@ fn prelude_exposes_common_widget_contracts() {
 
 #[test]
 fn widget_taxonomy_exposes_category_facades() {
-    use nive_ui::widgets::{
-        composite, containers, controls, display, navigation, overlays, primitives,
-    };
+    use nive_ui::widgets::{containers, controls, display, navigation, overlays, primitives};
 
     let _: controls::ButtonVariant = controls::ButtonVariant::Primary;
     let _: Element<'_, ()> = controls::Checkbox::new("Enabled", true).into();
-    let _: Element<'_, ()> = composite::Field::new(text_input("Name", "")).into();
+    let _: Element<'_, ()> = controls::Field::new(text_input("Name", "")).into();
     let _: Element<'_, ()> = containers::Panel::new(text("Panel")).into();
+    let _: Element<'_, ()> = containers::SectionHeader::new("Title").into();
     let _: Element<'_, ()> = display::Badge::success("Ready").into();
     let _: Element<'_, ()> = navigation::Toolbar::new().into();
     let _: Element<'_, ()> = overlays::Dialog::new(text("Dialog")).into();
@@ -61,10 +60,10 @@ fn command_palette_exposes_filter_view_and_row_types() {
 
 #[test]
 fn feedback_presentation_contracts_are_reexported_from_nive_core() {
+    use nive_ui::widgets::overlays::{ToastPresentation, ToastTone};
     use nive_ui::widgets::{
         ErrorPresentation, OperationStatusPresentation, ResourceStatusPresentation,
     };
-    use nive_ui::{ToastPresentation, ToastTone};
 
     struct NoError;
 
