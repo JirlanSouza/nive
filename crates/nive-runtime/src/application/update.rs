@@ -5,28 +5,28 @@ use nive_ui::theme::ThemePreference;
 
 use crate::{Toast, WindowCommand};
 
-/// Alias for an outcome type that can never occur.
+/// Alias for a window-kind type parameter that is never used.
 pub type Never = Infallible;
-/// The [`Update`] returned by [`Application`](super::Application) hooks, which
-/// never produces a non-runtime outcome.
-pub type AppUpdate<M, K> = Update<M, Never, K>;
 
-/// Composes an Iced [`Task`], an optional operation outcome, and ordered
-/// runtime commands (toasts, window commands, theme changes, exit).
+/// Composes an Iced [`Task`] and ordered runtime commands (toasts, window
+/// commands, theme changes, exit) produced by an
+/// [`Application`](super::Application) hook.
 ///
-/// Built fluently by application hooks via [`Update::task`], [`Update::toast`],
-/// [`Update::window`], [`Update::theme`], and [`Update::exit`]. The runtime
-/// drains the commands after each update.
+/// Built via direct constructors ([`Effect::task`], [`Effect::window`],
+/// [`Effect::toast`], [`Effect::theme`], [`Effect::exit`]) and composed with
+/// `with_*` methods. The runtime drains the commands after each update.
 #[derive(Debug)]
-pub struct Update<M, O = Never, K = Never> {
+pub struct Effect<M, K = Never> {
     task: Task<M>,
-    outcome: Option<O>,
     runtime: Vec<RuntimeCommand<K>>,
 }
 
-/// A runtime-level command emitted by an [`Update`].
+/// A runtime-level command emitted by an [`Effect`], drained by the runner.
+///
+/// Kept internal to the crate: app authors build these indirectly through
+/// [`Effect`] constructors and `with_*` methods rather than naming this type.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RuntimeCommand<K> {
+pub(crate) enum RuntimeCommand<K> {
     /// Show a toast.
     Toast(Toast),
     /// Apply a window command (open, focus, close, etc.).
@@ -37,32 +37,50 @@ pub enum RuntimeCommand<K> {
     Exit,
 }
 
-impl<M, O, K> Update<M, O, K> {
+impl<M, K> Effect<M, K> {
     pub fn none() -> Self {
         Self {
             task: Task::none(),
-            outcome: None,
             runtime: Vec::new(),
         }
     }
 
-    pub fn from_task(task: Task<M>) -> Self {
+    pub fn task(task: Task<M>) -> Self {
         Self {
             task,
-            outcome: None,
             runtime: Vec::new(),
         }
     }
 
-    pub fn from_outcome(outcome: O) -> Self {
+    pub fn window(command: WindowCommand<K>) -> Self {
         Self {
             task: Task::none(),
-            outcome: Some(outcome),
-            runtime: Vec::new(),
+            runtime: vec![RuntimeCommand::Window(command)],
         }
     }
 
-    pub fn task(mut self, task: Task<M>) -> Self
+    pub fn toast(toast: Toast) -> Self {
+        Self {
+            task: Task::none(),
+            runtime: vec![RuntimeCommand::Toast(toast)],
+        }
+    }
+
+    pub fn theme(preference: ThemePreference) -> Self {
+        Self {
+            task: Task::none(),
+            runtime: vec![RuntimeCommand::Theme(preference)],
+        }
+    }
+
+    pub fn exit() -> Self {
+        Self {
+            task: Task::none(),
+            runtime: vec![RuntimeCommand::Exit],
+        }
+    }
+
+    pub fn with_task(mut self, task: Task<M>) -> Self
     where
         M: 'static,
     {
@@ -70,67 +88,37 @@ impl<M, O, K> Update<M, O, K> {
         self
     }
 
-    pub fn outcome(mut self, outcome: O) -> Self {
-        if self.outcome.is_none() {
-            self.outcome = Some(outcome);
-        } else {
-            duplicate_outcome("Update::outcome");
-        }
-        self
-    }
-
-    pub fn toast(mut self, toast: Toast) -> Self {
-        self.runtime.push(RuntimeCommand::Toast(toast));
-        self
-    }
-
-    pub fn window(mut self, command: WindowCommand<K>) -> Self {
+    pub fn with_window(mut self, command: WindowCommand<K>) -> Self {
         self.runtime.push(RuntimeCommand::Window(command));
         self
     }
 
-    pub fn theme(mut self, preference: ThemePreference) -> Self {
+    pub fn with_toast(mut self, toast: Toast) -> Self {
+        self.runtime.push(RuntimeCommand::Toast(toast));
+        self
+    }
+
+    pub fn with_theme(mut self, preference: ThemePreference) -> Self {
         self.runtime.push(RuntimeCommand::Theme(preference));
         self
     }
 
-    pub fn exit(mut self) -> Self {
+    pub fn with_exit(mut self) -> Self {
         self.runtime.push(RuntimeCommand::Exit);
         self
     }
 
-    pub fn outcome_ref(&self) -> Option<&O> {
-        self.outcome.as_ref()
+    pub(crate) fn into_parts(self) -> (Task<M>, Vec<RuntimeCommand<K>>) {
+        (self.task, self.runtime)
     }
 
-    pub fn take_outcome(&mut self) -> Option<O> {
-        self.outcome.take()
-    }
-
-    pub fn runtime_commands(&self) -> &[RuntimeCommand<K>] {
-        self.runtime.as_slice()
-    }
-
-    pub(crate) fn into_parts(self) -> (Task<M>, Option<O>, Vec<RuntimeCommand<K>>) {
-        (self.task, self.outcome, self.runtime)
-    }
-
-    pub fn map_message<N>(self, map: impl FnMut(M) -> N + Send + 'static) -> Update<N, O, K>
+    pub fn map_message<N>(self, map: impl FnMut(M) -> N + Send + 'static) -> Effect<N, K>
     where
         M: Send + 'static,
         N: Send + 'static,
     {
-        Update {
+        Effect {
             task: self.task.map(map),
-            outcome: self.outcome,
-            runtime: self.runtime,
-        }
-    }
-
-    pub fn map_outcome<P>(self, map: impl FnOnce(O) -> P) -> Update<M, P, K> {
-        Update {
-            task: self.task,
-            outcome: self.outcome.map(map),
             runtime: self.runtime,
         }
     }
@@ -142,42 +130,29 @@ impl<M, O, K> Update<M, O, K> {
         let mut runtime = self.runtime;
         runtime.extend(other.runtime);
 
-        if self.outcome.is_some() && other.outcome.is_some() {
-            duplicate_outcome("Update::merge");
-        }
-
         Self {
             task: Task::batch([self.task, other.task]),
-            outcome: self.outcome.or(other.outcome),
             runtime,
         }
     }
 }
 
-fn duplicate_outcome(operation: &'static str) {
-    #[cfg(debug_assertions)]
-    log::warn!(
-        target: "nive_runtime::update",
-        "duplicate update outcome ignored: operation={operation}"
-    );
-}
-
-impl<M, O, K> Default for Update<M, O, K> {
+impl<M, K> Default for Effect<M, K> {
     fn default() -> Self {
         Self::none()
     }
 }
 
-/// Converts `()` into [`AppUpdate::none()`] so that `Application::init` and
+/// Converts `()` into [`Effect::none()`] so that `Application::init` and
 /// `Application::update` can return `()` when they have no side effects.
-impl<M, K> From<()> for AppUpdate<M, K> {
+impl<M, K> From<()> for Effect<M, K> {
     fn from(_: ()) -> Self {
         Self::none()
     }
 }
 
 #[cfg(test)]
-mod update_tests {
+mod effect_tests {
     use super::*;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -186,16 +161,14 @@ mod update_tests {
     }
 
     #[test]
-    fn merge_preserves_first_outcome_and_command_order() {
-        let first = Update::<(), _, Window>::from_outcome("first")
-            .window(WindowCommand::Open(Window::Main));
-        let second = Update::from_outcome("second").exit();
+    fn merge_preserves_command_order() {
+        let first = Effect::<(), Window>::window(WindowCommand::Open(Window::Main));
+        let second = Effect::exit();
 
         let merged = first.merge(second);
 
-        assert_eq!(merged.outcome_ref(), Some(&"first"));
         assert!(matches!(
-            merged.runtime_commands(),
+            merged.into_parts().1.as_slice(),
             [
                 RuntimeCommand::Window(WindowCommand::Open(Window::Main)),
                 RuntimeCommand::Exit
@@ -204,11 +177,28 @@ mod update_tests {
     }
 
     #[test]
-    fn maps_outcome_without_changing_runtime_commands() {
-        let update = Update::<(), _, Window>::from_outcome(2_u8).exit();
-        let mapped = update.map_outcome(|value| value.to_string());
+    fn with_combinators_compose_in_declared_order() {
+        let effect = Effect::<(), Window>::task(Task::none())
+            .with_toast(Toast::info("hi"))
+            .with_window(WindowCommand::Open(Window::Main))
+            .with_theme(ThemePreference::Dark)
+            .with_exit();
 
-        assert_eq!(mapped.outcome_ref(), Some(&String::from("2")));
-        assert!(matches!(mapped.runtime_commands(), [RuntimeCommand::Exit]));
+        assert!(matches!(
+            effect.into_parts().1.as_slice(),
+            [
+                RuntimeCommand::Toast(_),
+                RuntimeCommand::Window(WindowCommand::Open(Window::Main)),
+                RuntimeCommand::Theme(ThemePreference::Dark),
+                RuntimeCommand::Exit,
+            ]
+        ));
+    }
+
+    #[test]
+    fn unit_converts_to_none() {
+        let effect: Effect<(), Window> = ().into();
+
+        assert!(effect.into_parts().1.is_empty());
     }
 }

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -6,10 +6,11 @@ use std::time::{Duration, Instant};
 use iced::keyboard;
 use iced::{window, ContentFit, Point, Size, Subscription, Task};
 
+use super::update::RuntimeCommand;
 use super::{
     Application, ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason,
-    Context, CoreEvent, Error, ExitDecision, Result, WindowCommand, WindowContext, WindowQuery,
-    WindowRegistration,
+    Context, Effect, Error, ExitDecision, MessageContext, MessageSource, Result, RuntimeEvent,
+    WindowCommand, WindowContext, WindowQuery, WindowRegistration,
 };
 #[cfg(feature = "devtools")]
 use crate::devtools::probe::{NoProbe, ProbeCatalogEntry};
@@ -20,12 +21,12 @@ use crate::devtools::{DevtoolsPanelEffect, DevtoolsPanelMessage};
 use crate::lifecycle::bootstrap::{
     minimum_duration_task, BootstrapController, BootstrapTransition,
 };
+use crate::lifecycle::WindowLifecycle;
 use crate::{
-    ActionMap, AppUpdate, BootstrapSpec, DialogRequest, KeyboardNavigation, RuntimeCommand,
-    RuntimeSession, ScreenView, SettingsConfig, SettingsError, SettingsErrorKind, ShortcutMap,
-    ThemeController, ThemeEvent, ToastId, ToastPosition, ToastState, UserFacingResult,
-    WindowCardinality, WindowChrome, WindowHandle, WindowMode, WindowRegistry, WindowRole,
-    WindowSpec,
+    ActionMap, BootstrapSpec, DialogRequest, KeyboardNavigation, RuntimeSession, ScreenView,
+    SettingsConfig, SettingsError, SettingsErrorKind, ShortcutMap, ThemeController, ThemeEvent,
+    ToastId, ToastPosition, ToastState, UserFacingResult, WindowCardinality, WindowChrome,
+    WindowHandle, WindowMode, WindowRegistry, WindowRole, WindowSpec,
 };
 
 #[cfg(not(feature = "devtools"))]
@@ -204,6 +205,7 @@ enum NiveMessage<K, M, B, P> {
     Bootstrap(BootstrapMessage<B>),
     App {
         window_id: Option<window::Id>,
+        source: MessageSource,
         message: M,
     },
     #[cfg(feature = "devtools")]
@@ -272,8 +274,13 @@ where
         match self {
             Self::Core(message) => Self::Core(message.clone()),
             Self::Bootstrap(message) => Self::Bootstrap(message.clone()),
-            Self::App { window_id, message } => Self::App {
+            Self::App {
+                window_id,
+                source,
+                message,
+            } => Self::App {
                 window_id: *window_id,
+                source: *source,
                 message: message.clone(),
             },
             #[cfg(feature = "devtools")]
@@ -311,6 +318,10 @@ struct NiveCore<K> {
     toasts: ToastState,
     toasts_hovered: bool,
     pending_app_closes: HashSet<window::Id>,
+    /// Pending `WindowCommand::Replace` handoffs, keyed by the opening
+    /// replacement target's window id and mapping to the `current` window id
+    /// that should close once the target finishes opening (or is rejected).
+    pending_replacements: HashMap<window::Id, window::Id>,
     settings: Option<SettingsRuntime>,
 }
 
@@ -369,16 +380,21 @@ where
         match message {
             NiveMessage::Core(message) => self.update_core(message),
             NiveMessage::Bootstrap(message) => self.update_bootstrap(message),
-            NiveMessage::App { window_id, message } => {
-                let update: AppUpdate<A::Message, A::Window> = {
+            NiveMessage::App {
+                window_id,
+                source,
+                message,
+            } => {
+                let effect: Effect<A::Message, A::Window> = {
                     let Some(app) = self.app.as_mut() else {
                         return Task::none();
                     };
                     let window = window_id.and_then(|id| self.core.window_context(id));
+                    let message_context = MessageContext { window, source };
                     let context = self.core.context();
-                    app.update(context, window, message).into()
+                    app.update(context, message_context, message).into()
                 };
-                self.apply_update(update)
+                self.apply_update(effect)
             }
             #[cfg(feature = "devtools")]
             NiveMessage::Devtools(message) => self.update_devtools(message),
@@ -411,6 +427,7 @@ where
             .view(self.core.context(), window)
             .map(move |message| NiveMessage::App {
                 window_id: Some(window_id),
+                source: MessageSource::View,
                 message,
             })
             .into_element();
@@ -490,6 +507,7 @@ where
                 app.subscription(self.core.context())
                     .map(|message| NiveMessage::App {
                         window_id: None,
+                        source: MessageSource::Subscription,
                         message,
                     })
             })
@@ -629,7 +647,7 @@ where
     }
 
     fn initialize_app(&mut self, bootstrap: A::Bootstrap) -> Task<RuntimeMessage<A, P>> {
-        // Compute `init`'s `(app, impl Into<AppUpdate>)` return inside a block
+        // Compute `init`'s `(app, impl Into<Effect>)` return inside a block
         // and eagerly `.into()` it so the RPIT hidden borrows (against
         // `context`, which borrows `self.core`) are discharged before we
         // mutate `self.app` / `self.core.theme` below.
@@ -642,7 +660,7 @@ where
 
         // Consult `Application::theme` once the app exists so that an
         // app-driven preference (e.g. always `Dark`) takes effect before any
-        // `AppUpdate::theme` is emitted.
+        // `Effect::theme` is emitted.
         let resolved = self.resolve_theme_preference(None);
         self.core.theme.set_preference(resolved);
 
@@ -842,10 +860,18 @@ where
                     return Task::none();
                 };
 
-                self.emit_core_event(CoreEvent::WindowOpened(handle.into()))
+                let opened = self.emit_runtime_event(RuntimeEvent::WindowOpened(handle.into()));
+                let Some(current_id) = self.core.pending_replacements.remove(&window_id) else {
+                    return opened;
+                };
+
+                opened.chain(self.request_close(current_id))
             }
             CoreMessage::WindowClosed(window_id) => {
                 self.core.pending_app_closes.remove(&window_id);
+                // Clears a pending `Replace` handoff if its target closes
+                // before ever finishing opening.
+                self.core.pending_replacements.remove(&window_id);
                 if self.is_bootstrap_window(window_id) {
                     if let Some(mut bootstrap) = self.bootstrap.take() {
                         bootstrap.controller.cancel();
@@ -867,9 +893,9 @@ where
                 };
                 self.core.registry.set_closed(window_id);
 
-                let closed = self.emit_core_event(CoreEvent::WindowClosed(handle.into()));
+                let closed = self.emit_runtime_event(RuntimeEvent::WindowClosed(handle.into()));
                 if handle.role == WindowRole::App && self.core.registry.app_window_count() == 0 {
-                    let last_closed = self.emit_core_event(CoreEvent::LastAppWindowClosed);
+                    let last_closed = self.emit_runtime_event(RuntimeEvent::LastAppWindowClosed);
                     let exit = if self.core.exiting {
                         Task::none()
                     } else {
@@ -892,7 +918,7 @@ where
                     return Task::none();
                 };
 
-                self.emit_core_event(CoreEvent::WindowFocused(handle.into()))
+                self.emit_runtime_event(RuntimeEvent::WindowFocused(handle.into()))
             }
             CoreMessage::WindowMoved(window_id, position) => {
                 self.save_window_position(window_id, position)
@@ -919,14 +945,16 @@ where
                     let resolved = self.resolve_theme_preference(None);
                     let effective_changed = self.core.theme.set_preference(resolved);
                     let event_task = if effective_changed {
-                        self.emit_core_event(CoreEvent::ThemeChanged(self.core.theme.effective()))
+                        self.emit_runtime_event(RuntimeEvent::ThemeChanged(
+                            self.core.theme.effective(),
+                        ))
                     } else {
                         Task::none()
                     };
                     return event_task;
                 }
                 if system_changed {
-                    self.emit_core_event(CoreEvent::ThemeChanged(self.core.theme.effective()))
+                    self.emit_runtime_event(RuntimeEvent::ThemeChanged(self.core.theme.effective()))
                 } else {
                     Task::none()
                 }
@@ -934,7 +962,7 @@ where
             CoreMessage::ConfirmClose(window_id) => window::close(window_id),
             CoreMessage::ConfirmExit => self.accept_exit(),
             CoreMessage::Rejected(rejection) => {
-                self.emit_core_event(CoreEvent::CommandRejected(rejection))
+                self.emit_runtime_event(RuntimeEvent::CommandRejected(rejection))
             }
             CoreMessage::ToastDismiss(id) => {
                 self.core.toasts.dismiss(id, Instant::now());
@@ -981,11 +1009,12 @@ where
 
     fn apply_initial_update(
         &mut self,
-        update: impl Into<AppUpdate<A::Message, A::Window>>,
+        update: impl Into<Effect<A::Message, A::Window>>,
     ) -> (RuntimeTask<A, P>, RuntimeTask<A, P>) {
-        let (task, _, commands) = update.into().into_parts();
+        let (task, commands) = update.into().into_parts();
         let app_task = task.map(|message| NiveMessage::App {
             window_id: None,
+            source: MessageSource::Task,
             message,
         });
         let runtime_task = commands.into_iter().fold(Task::none(), |task, command| {
@@ -997,11 +1026,12 @@ where
 
     fn apply_update(
         &mut self,
-        update: impl Into<AppUpdate<A::Message, A::Window>>,
+        update: impl Into<Effect<A::Message, A::Window>>,
     ) -> Task<RuntimeMessage<A, P>> {
-        let (task, _, commands) = update.into().into_parts();
+        let (task, commands) = update.into().into_parts();
         let app_task = task.map(|message| NiveMessage::App {
             window_id: None,
+            source: MessageSource::Task,
             message,
         });
         let runtime_task = commands.into_iter().fold(Task::none(), |task, command| {
@@ -1034,7 +1064,7 @@ where
                 let resolved = self.resolve_theme_preference(Some(preference));
                 let effective_changed = self.core.theme.set_preference(resolved);
                 let event_task = if effective_changed {
-                    self.emit_core_event(CoreEvent::ThemeChanged(self.core.theme.effective()))
+                    self.emit_runtime_event(RuntimeEvent::ThemeChanged(self.core.theme.effective()))
                 } else {
                     Task::none()
                 };
@@ -1154,7 +1184,7 @@ where
                     self.reject(command, CommandRejectionReason::MissingWindow)
                 }
             }
-            WindowCommand::CloseKind(kind) => {
+            WindowCommand::CloseAllKind(kind) => {
                 let window_ids = self
                     .core
                     .registry
@@ -1179,14 +1209,7 @@ where
                     self.reject(command, CommandRejectionReason::MissingWindow)
                 }
             }
-            WindowCommand::FocusKind(kind) => {
-                if let Some(handle) = self.core.registry.first(kind) {
-                    self.core.registry.set_focused(handle.id);
-                    window::gain_focus(handle.id)
-                } else {
-                    self.reject(command, CommandRejectionReason::MissingWindow)
-                }
-            }
+            WindowCommand::Replace { current, next } => self.replace_window(current, next),
         }
     }
 
@@ -1201,9 +1224,12 @@ where
         };
 
         if spec.cardinality == WindowCardinality::Single {
-            if let Some(existing) = self.core.registry.first(kind) {
+            if let Some(existing) = self.core.registry.latest(kind) {
                 self.core.registry.set_focused(existing.id);
                 return window::gain_focus(existing.id);
+            }
+            if self.core.registry.contains(kind) {
+                return Task::none();
             }
         }
 
@@ -1213,6 +1239,61 @@ where
             id: window_id,
             role: spec.role,
         });
+
+        task.map(|window_id| NiveMessage::Core(CoreMessage::WindowOpened(window_id)))
+    }
+
+    /// Opens `next` and closes `current` only once `next` has actually
+    /// become available (opened, or an existing single-cardinality instance
+    /// focused). `current` stays open and registered for the entire duration
+    /// of a pending open, so a rejected or still-opening `next` never leaves
+    /// the app without a window.
+    fn replace_window(
+        &mut self,
+        current: window::Id,
+        next: A::Window,
+    ) -> Task<RuntimeMessage<A, P>> {
+        let command = WindowCommand::Replace { current, next };
+
+        if self.core.exiting {
+            return self.reject(command, CommandRejectionReason::Exiting);
+        }
+        let Some(current_handle) = self.core.registry.get(current) else {
+            return self.reject(command, CommandRejectionReason::MissingWindow);
+        };
+        if current_handle.role != WindowRole::App
+            || self.core.registry.lifecycle(current) != Some(WindowLifecycle::Open)
+        {
+            return self.reject(command, CommandRejectionReason::InvalidState);
+        }
+        let Some(spec) = self.core.window_spec(next) else {
+            return self.reject(command, CommandRejectionReason::MissingWindowSpec);
+        };
+        if spec.role != WindowRole::App {
+            return self.reject(command, CommandRejectionReason::InvalidState);
+        }
+
+        if spec.cardinality == WindowCardinality::Single {
+            if let Some(existing) = self.core.registry.latest(next) {
+                if existing.id == current {
+                    return self.reject(command, CommandRejectionReason::InvalidState);
+                }
+                self.core.registry.set_focused(existing.id);
+                return window::gain_focus(existing.id).chain(self.request_close(current));
+            }
+            if let Some(opening) = self.core.registry.opening(next) {
+                self.core.pending_replacements.insert(opening.id, current);
+                return Task::none();
+            }
+        }
+
+        let (next_id, task) = window::open(spec.settings(self.core.window_icon.clone()));
+        self.core.registry.set_opening(WindowHandle {
+            kind: next,
+            id: next_id,
+            role: spec.role,
+        });
+        self.core.pending_replacements.insert(next_id, current);
 
         task.map(|window_id| NiveMessage::Core(CoreMessage::WindowOpened(window_id)))
     }
@@ -1248,6 +1329,7 @@ where
                 self.core.pending_app_closes.insert(window_id);
                 task.map(|message| NiveMessage::App {
                     window_id: None,
+                    source: MessageSource::Task,
                     message,
                 })
                 .chain(Task::done(NiveMessage::Core(CoreMessage::ConfirmClose(
@@ -1271,12 +1353,13 @@ where
         };
         let context = self.core.context();
         match app.on_exit_requested(context) {
-            ExitDecision::Accept => self.accept_exit(),
+            ExitDecision::Exit => self.accept_exit(),
             ExitDecision::Cancel => Task::none(),
             ExitDecision::Defer(task) => {
                 self.core.exiting = true;
                 task.map(|message| NiveMessage::App {
                     window_id: None,
+                    source: MessageSource::Task,
                     message,
                 })
                 .chain(Task::done(NiveMessage::Core(CoreMessage::ConfirmExit)))
@@ -1318,13 +1401,13 @@ where
         })))
     }
 
-    fn emit_core_event(&mut self, event: CoreEvent<A::Window>) -> Task<RuntimeMessage<A, P>> {
-        let update: AppUpdate<A::Message, A::Window> = {
+    fn emit_runtime_event(&mut self, event: RuntimeEvent<A::Window>) -> Task<RuntimeMessage<A, P>> {
+        let update: Effect<A::Message, A::Window> = {
             let Some(app) = self.app.as_mut() else {
                 return Task::none();
             };
             let context = self.core.context();
-            app.on_core_event(context, event)
+            app.on_runtime_event(context, event).into()
         };
         self.apply_update(update)
     }
@@ -1395,6 +1478,7 @@ where
         .or_else(|| shortcuts.message_for_event(&event))
         .map(|message| NiveMessage::App {
             window_id: None,
+            source: MessageSource::Action,
             message,
         })
 }
@@ -1501,6 +1585,7 @@ where
             toasts: ToastState::default(),
             toasts_hovered: false,
             pending_app_closes: HashSet::new(),
+            pending_replacements: HashMap::new(),
             settings,
         };
         core.report_duplicate_window_session_keys();
@@ -1656,6 +1741,7 @@ mod tests {
         Main,
         Secondary,
         Multiple,
+        Auxiliary,
         Missing,
     }
 
@@ -1672,6 +1758,7 @@ mod tests {
         close_requests: usize,
         rejections: usize,
         show_dialog: bool,
+        last_message_context: Option<MessageContext<TestWindow>>,
     }
 
     #[derive(Debug)]
@@ -1692,31 +1779,34 @@ mod tests {
                 .window(TestWindow::Main, WindowSpec::app())
                 .window(TestWindow::Secondary, WindowSpec::app())
                 .window(TestWindow::Multiple, WindowSpec::app().multiple())
+                .window(TestWindow::Auxiliary, WindowSpec::auxiliary())
                 .initial_window(TestWindow::Main)
         }
 
         fn init(
             _context: Context<'_, Self::Window>,
             _bootstrap: Self::Bootstrap,
-        ) -> (Self, AppUpdate<Self::Message, Self::Window>) {
+        ) -> (Self, Effect<Self::Message, Self::Window>) {
             (
                 Self {
                     cancel_exit: false,
                     close_requests: 0,
                     rejections: 0,
                     show_dialog: false,
+                    last_message_context: None,
                 },
-                AppUpdate::none(),
+                Effect::none(),
             )
         }
 
         fn update(
             &mut self,
             _context: Context<'_, Self::Window>,
-            _window: Option<WindowContext<Self::Window>>,
+            message_context: MessageContext<Self::Window>,
             _message: Self::Message,
-        ) -> AppUpdate<Self::Message, Self::Window> {
-            AppUpdate::none()
+        ) -> Effect<Self::Message, Self::Window> {
+            self.last_message_context = Some(message_context);
+            Effect::none()
         }
 
         fn view(
@@ -1755,16 +1845,16 @@ mod tests {
                 )
         }
 
-        fn on_core_event(
+        fn on_runtime_event(
             &mut self,
             _context: Context<'_, Self::Window>,
-            event: CoreEvent<Self::Window>,
-        ) -> AppUpdate<Self::Message, Self::Window> {
-            if matches!(event, CoreEvent::CommandRejected(_)) {
+            event: RuntimeEvent<Self::Window>,
+        ) -> Effect<Self::Message, Self::Window> {
+            if matches!(event, RuntimeEvent::CommandRejected(_)) {
                 self.rejections += 1;
             }
 
-            AppUpdate::none()
+            Effect::none()
         }
 
         fn on_window_close_requested(
@@ -1783,7 +1873,7 @@ mod tests {
             if self.cancel_exit {
                 ExitDecision::Cancel
             } else {
-                ExitDecision::Accept
+                ExitDecision::Exit
             }
         }
     }
@@ -1806,17 +1896,17 @@ mod tests {
         fn init(
             _context: Context<'_, Self::Window>,
             bootstrap: Self::Bootstrap,
-        ) -> (Self, AppUpdate<Self::Message, Self::Window>) {
-            (Self { bootstrap }, AppUpdate::none())
+        ) -> (Self, Effect<Self::Message, Self::Window>) {
+            (Self { bootstrap }, Effect::none())
         }
 
         fn update(
             &mut self,
             _context: Context<'_, Self::Window>,
-            _window: Option<WindowContext<Self::Window>>,
+            _message_context: MessageContext<Self::Window>,
             _message: Self::Message,
-        ) -> AppUpdate<Self::Message, Self::Window> {
-            AppUpdate::none()
+        ) -> Effect<Self::Message, Self::Window> {
+            Effect::none()
         }
 
         fn view(
@@ -1842,10 +1932,10 @@ mod tests {
         fn init(
             _context: Context<'_, Self::Window>,
             _bootstrap: Self::Bootstrap,
-        ) -> (Self, AppUpdate<Self::Message, Self::Window>) {
+        ) -> (Self, Effect<Self::Message, Self::Window>) {
             (
                 Self,
-                AppUpdate::from_task(Task::perform(std::future::pending::<()>(), |_| {
+                Effect::task(Task::perform(std::future::pending::<()>(), |_| {
                     TestMessage::Shortcut
                 })),
             )
@@ -1854,10 +1944,10 @@ mod tests {
         fn update(
             &mut self,
             _context: Context<'_, Self::Window>,
-            _window: Option<WindowContext<Self::Window>>,
+            _message_context: MessageContext<Self::Window>,
             _message: Self::Message,
-        ) -> AppUpdate<Self::Message, Self::Window> {
-            AppUpdate::none()
+        ) -> Effect<Self::Message, Self::Window> {
+            Effect::none()
         }
 
         fn view(
@@ -2338,6 +2428,7 @@ mod tests {
             shortcut_message_from_event::<TestApp, NoProbe>(&actions, &shortcuts, event),
             Some(NiveMessage::App {
                 window_id: None,
+                source: MessageSource::Action,
                 message: TestMessage::Shortcut
             })
         ));
@@ -2381,6 +2472,7 @@ mod tests {
             shortcut_message_from_event::<TestApp, NoProbe>(&actions, &shortcuts, event),
             Some(NiveMessage::App {
                 window_id: None,
+                source: MessageSource::Action,
                 message: TestMessage::Action
             })
         ));
@@ -2470,16 +2562,11 @@ mod tests {
     #[test]
     fn non_final_app_window_uses_close_hook() {
         let mut program = program();
+        let main_id = open_main_window(&mut program);
         program.core.registry.set_opened(WindowHandle::new(
             TestWindow::Secondary,
             window::Id::unique(),
         ));
-        let main_id = program
-            .core
-            .registry
-            .first(TestWindow::Main)
-            .map(|handle| handle.id)
-            .unwrap_or_else(window::Id::unique);
 
         let _task = program.request_close(main_id);
 
@@ -2490,12 +2577,7 @@ mod tests {
     #[test]
     fn last_app_window_uses_exit_hook() {
         let mut program = program();
-        let main_id = program
-            .core
-            .registry
-            .first(TestWindow::Main)
-            .map(|handle| handle.id)
-            .unwrap_or_else(window::Id::unique);
+        let main_id = open_main_window(&mut program);
 
         let _task = program.request_close(main_id);
 
@@ -2506,6 +2588,7 @@ mod tests {
     #[test]
     fn simultaneous_closes_treat_second_app_window_as_exit_request() {
         let mut program = program();
+        let main_id = open_main_window(&mut program);
         program.core.registry.set_opened(WindowHandle::new(
             TestWindow::Secondary,
             window::Id::unique(),
@@ -2513,11 +2596,10 @@ mod tests {
         if let Some(app) = program.app.as_mut() {
             app.cancel_exit = true;
         }
-        let main_id = main_window_id(&program);
         let secondary_id = program
             .core
             .registry
-            .first(TestWindow::Secondary)
+            .latest(TestWindow::Secondary)
             .map(|handle| handle.id)
             .unwrap_or_else(window::Id::unique);
 
@@ -2531,7 +2613,7 @@ mod tests {
     }
 
     #[test]
-    fn close_kind_all_windows_respects_cancelled_final_exit() {
+    fn close_all_kind_respects_cancelled_final_exit() {
         let mut program = program();
         program
             .core
@@ -2541,11 +2623,352 @@ mod tests {
             app.cancel_exit = true;
         }
 
-        let _task = program.handle_window_command(WindowCommand::CloseKind(TestWindow::Main));
+        let _task = program.handle_window_command(WindowCommand::CloseAllKind(TestWindow::Main));
 
         assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(1));
         assert_eq!(program.core.effective_app_window_count(), 1);
         assert!(!program.core.exiting);
+    }
+
+    #[test]
+    fn close_all_kind_requests_close_for_every_matching_window() {
+        let mut program = program();
+        program.core.registry.set_opened(WindowHandle::new(
+            TestWindow::Multiple,
+            window::Id::unique(),
+        ));
+        program.core.registry.set_opened(WindowHandle::new(
+            TestWindow::Multiple,
+            window::Id::unique(),
+        ));
+
+        let _task =
+            program.handle_window_command(WindowCommand::CloseAllKind(TestWindow::Multiple));
+
+        assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(2));
+    }
+
+    #[test]
+    fn close_all_kind_rejects_without_side_effects_when_no_matching_windows() {
+        let mut program = program();
+
+        let _task =
+            program.handle_window_command(WindowCommand::CloseAllKind(TestWindow::Multiple));
+
+        assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(0));
+        assert_eq!(program.core.registry.all(TestWindow::Multiple).count(), 0);
+    }
+
+    #[test]
+    fn window_query_latest_returns_most_recently_active_matching_window() {
+        let mut program = program();
+        program.core.registry.set_opened(WindowHandle::new(
+            TestWindow::Multiple,
+            window::Id::unique(),
+        ));
+        let recent_id = window::Id::unique();
+        program
+            .core
+            .registry
+            .set_opened(WindowHandle::new(TestWindow::Multiple, recent_id));
+
+        let windows = program.core.context().windows();
+
+        assert_eq!(
+            windows
+                .latest(TestWindow::Multiple)
+                .map(|context| context.id),
+            Some(recent_id)
+        );
+        assert_eq!(windows.latest_id(TestWindow::Multiple), Some(recent_id));
+    }
+
+    #[test]
+    fn window_query_latest_returns_none_when_kind_absent() {
+        let program = program();
+
+        let windows = program.core.context().windows();
+
+        assert_eq!(windows.latest(TestWindow::Multiple), None);
+        assert_eq!(windows.latest_id(TestWindow::Multiple), None);
+    }
+
+    #[test]
+    fn window_query_latest_ignores_opening_windows() {
+        let mut program = program();
+        program.core.registry.set_opening(WindowHandle::new(
+            TestWindow::Multiple,
+            window::Id::unique(),
+        ));
+
+        let windows = program.core.context().windows();
+
+        assert_eq!(windows.latest(TestWindow::Multiple), None);
+        assert_eq!(windows.latest_id(TestWindow::Multiple), None);
+    }
+
+    #[test]
+    fn replace_rejects_missing_current() {
+        let mut program = program();
+        let missing_current = window::Id::unique();
+
+        let _task = program.handle_window_command(WindowCommand::Replace {
+            current: missing_current,
+            next: TestWindow::Secondary,
+        });
+
+        assert!(!program.core.registry.contains(TestWindow::Secondary));
+    }
+
+    #[test]
+    fn replace_rejects_missing_next_spec() {
+        let mut program = program();
+        let main_id = open_main_window(&mut program);
+
+        let _task = program.handle_window_command(WindowCommand::Replace {
+            current: main_id,
+            next: TestWindow::Missing,
+        });
+
+        assert!(program.core.registry.contains(TestWindow::Main));
+        assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(0));
+    }
+
+    #[test]
+    fn replace_rejects_self_target() {
+        let mut program = program();
+        let main_id = open_main_window(&mut program);
+
+        let _task = program.handle_window_command(WindowCommand::Replace {
+            current: main_id,
+            next: TestWindow::Main,
+        });
+
+        assert_eq!(program.core.registry.all(TestWindow::Main).count(), 1);
+        assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(0));
+    }
+
+    #[test]
+    fn replace_rejects_opening_current() {
+        let mut program = program();
+        let opening_current = window::Id::unique();
+        program
+            .core
+            .registry
+            .set_opening(WindowHandle::new(TestWindow::Multiple, opening_current));
+
+        let _task = program.handle_window_command(WindowCommand::Replace {
+            current: opening_current,
+            next: TestWindow::Secondary,
+        });
+
+        assert!(!program.core.registry.contains(TestWindow::Secondary));
+        assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(0));
+    }
+
+    #[test]
+    fn replace_rejects_auxiliary_current() {
+        let mut program = program();
+        let auxiliary_id = window::Id::unique();
+        program
+            .core
+            .registry
+            .set_opened(WindowHandle::auxiliary(TestWindow::Auxiliary, auxiliary_id));
+
+        let _task = program.handle_window_command(WindowCommand::Replace {
+            current: auxiliary_id,
+            next: TestWindow::Secondary,
+        });
+
+        assert!(!program.core.registry.contains(TestWindow::Secondary));
+        assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(0));
+    }
+
+    #[test]
+    fn replace_rejects_auxiliary_next() {
+        let mut program = program();
+        let main_id = open_main_window(&mut program);
+
+        let _task = program.handle_window_command(WindowCommand::Replace {
+            current: main_id,
+            next: TestWindow::Auxiliary,
+        });
+
+        assert!(!program.core.registry.contains(TestWindow::Auxiliary));
+        assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(0));
+    }
+
+    #[test]
+    fn replace_attaches_to_existing_opening_single_cardinality_target() {
+        let mut program = program();
+        let main_id = open_main_window(&mut program);
+        let opening_secondary = window::Id::unique();
+        program
+            .core
+            .registry
+            .set_opening(WindowHandle::new(TestWindow::Secondary, opening_secondary));
+
+        let _task = program.handle_window_command(WindowCommand::Replace {
+            current: main_id,
+            next: TestWindow::Secondary,
+        });
+
+        assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(0));
+        assert_eq!(program.core.registry.all(TestWindow::Secondary).count(), 1);
+        assert_eq!(program.core.pending_replacements.len(), 1);
+        assert_eq!(
+            program.core.pending_replacements.get(&opening_secondary),
+            Some(&main_id)
+        );
+    }
+
+    #[test]
+    fn replace_closes_current_after_existing_opening_single_target_opens() {
+        let mut program = program();
+        let main_id = open_main_window(&mut program);
+        let opening_secondary = window::Id::unique();
+        program
+            .core
+            .registry
+            .set_opening(WindowHandle::new(TestWindow::Secondary, opening_secondary));
+
+        let _task = program.handle_window_command(WindowCommand::Replace {
+            current: main_id,
+            next: TestWindow::Secondary,
+        });
+        let _task = program.update_core(CoreMessage::WindowOpened(opening_secondary));
+
+        assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(1));
+        assert!(program.core.pending_app_closes.contains(&main_id));
+        assert_eq!(program.core.registry.all(TestWindow::Secondary).count(), 1);
+    }
+
+    #[test]
+    fn replace_keeps_current_open_while_next_is_opening() {
+        let mut program = program();
+        let main_id = open_main_window(&mut program);
+
+        let _task = program.handle_window_command(WindowCommand::Replace {
+            current: main_id,
+            next: TestWindow::Secondary,
+        });
+
+        assert!(program.core.registry.contains(TestWindow::Main));
+        assert!(program.core.registry.contains(TestWindow::Secondary));
+        assert_eq!(program.core.effective_app_window_count(), 2);
+        assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(0));
+    }
+
+    #[test]
+    fn replace_does_not_exit_during_last_app_window_handoff() {
+        let mut program = program();
+        let main_id = open_main_window(&mut program);
+
+        let _task = program.handle_window_command(WindowCommand::Replace {
+            current: main_id,
+            next: TestWindow::Secondary,
+        });
+
+        assert!(!program.core.exiting);
+    }
+
+    #[test]
+    fn replace_closes_current_after_next_opens() {
+        let mut program = program();
+        let main_id = open_main_window(&mut program);
+
+        let _task = program.handle_window_command(WindowCommand::Replace {
+            current: main_id,
+            next: TestWindow::Secondary,
+        });
+        let next_id = program
+            .core
+            .registry
+            .all(TestWindow::Secondary)
+            .find(|handle| handle.id != main_id)
+            .map(|handle| handle.id)
+            .expect("next window registered as opening");
+
+        let _task = program.update_core(CoreMessage::WindowOpened(next_id));
+
+        assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(1));
+        assert!(program.core.pending_app_closes.contains(&main_id));
+    }
+
+    #[test]
+    fn replace_uses_existing_single_cardinality_target() {
+        let mut program = program();
+        let main_id = open_main_window(&mut program);
+        let secondary_id = window::Id::unique();
+        program
+            .core
+            .registry
+            .set_opened(WindowHandle::new(TestWindow::Secondary, secondary_id));
+
+        let _task = program.handle_window_command(WindowCommand::Replace {
+            current: main_id,
+            next: TestWindow::Secondary,
+        });
+
+        assert_eq!(program.app.as_ref().map(|app| app.close_requests), Some(1));
+        assert!(program.core.pending_app_closes.contains(&main_id));
+    }
+
+    #[test]
+    fn view_message_carries_view_source_and_window() {
+        let mut program = program();
+        let main_id = main_window_id(&program);
+
+        let _task = program.update(NiveMessage::App {
+            window_id: Some(main_id),
+            source: MessageSource::View,
+            message: TestMessage::Shortcut,
+        });
+
+        let context = program
+            .app
+            .as_ref()
+            .and_then(|app| app.last_message_context)
+            .expect("message context recorded");
+        assert_eq!(context.source, MessageSource::View);
+        assert_eq!(context.window.map(|window| window.id), Some(main_id));
+    }
+
+    #[test]
+    fn task_message_carries_task_source_without_window() {
+        let mut program = program();
+
+        let _task = program.update(NiveMessage::App {
+            window_id: None,
+            source: MessageSource::Task,
+            message: TestMessage::Shortcut,
+        });
+
+        let context = program
+            .app
+            .as_ref()
+            .and_then(|app| app.last_message_context)
+            .expect("message context recorded");
+        assert_eq!(context.source, MessageSource::Task);
+        assert!(context.window.is_none());
+    }
+
+    #[test]
+    fn subscription_message_carries_subscription_source() {
+        let mut program = program();
+
+        let _task = program.update(NiveMessage::App {
+            window_id: None,
+            source: MessageSource::Subscription,
+            message: TestMessage::Shortcut,
+        });
+
+        let context = program
+            .app
+            .as_ref()
+            .and_then(|app| app.last_message_context)
+            .expect("message context recorded");
+        assert_eq!(context.source, MessageSource::Subscription);
     }
 
     #[test]
@@ -2561,7 +2984,7 @@ mod tests {
     }
 
     #[test]
-    fn command_rejection_is_forwarded_as_core_event() {
+    fn command_rejection_is_forwarded_as_runtime_event() {
         let mut program = program();
         let rejection = CommandRejected {
             command: WindowCommand::Open(TestWindow::Missing),
@@ -2619,9 +3042,16 @@ mod tests {
         program
             .core
             .registry
-            .first(TestWindow::Main)
+            .all(TestWindow::Main)
             .map(|handle| handle.id)
+            .next()
             .unwrap_or_else(window::Id::unique)
+    }
+
+    fn open_main_window(program: &mut Program<TestApp>) -> window::Id {
+        let main_id = main_window_id(program);
+        let _handle = program.core.registry.mark_opened(main_id);
+        main_id
     }
 
     #[test]
@@ -2718,7 +3148,7 @@ mod tests {
         let auxiliary_id = program
             .core
             .registry
-            .first(TestWindow::Secondary)
+            .latest(TestWindow::Secondary)
             .map(|handle| handle.id)
             .unwrap_or_else(window::Id::unique);
 

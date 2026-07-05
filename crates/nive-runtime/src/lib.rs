@@ -14,8 +14,8 @@
 //!   product contract and the private Iced program runner.
 //! - `Action`, `ActionId`, and `ActionMap` — product action catalogs that can
 //!   power shortcuts and future command surfaces.
-//! - `Update`, `AppUpdate`, and `RuntimeCommand` — ordered task and
-//!   runtime-effect composition.
+//! - `Effect` — ordered task and runtime-effect composition for application
+//!   hooks.
 //! - `BootstrapSpec` — repeatable startup task attempts, stale-result
 //!   rejection, minimum splash duration, retry, and cancellation.
 //! - `WindowSpec`, `WindowCommand`, `WindowRegistry` — generic window
@@ -24,7 +24,7 @@
 //!   state machines.
 //! - `UserFacingError` and toast state (`ToastState`, `ToastItem`) —
 //!   user-facing feedback.
-//! - `ScreenView` and `ScreenUpdate` — screen composition contracts.
+//! - `ScreenView` and `ScreenEffect` — screen composition contracts.
 //! - `platform` — cross-platform app icon installer and optional file picker.
 //! - `SettingsConfig` and `RuntimeSession` — opt-in runtime settings/session
 //!   persistence.
@@ -41,7 +41,7 @@
 //!
 //! Runner internals remain hidden in private submodules. App code should not
 //! depend on runner plumbing such as window-opening helpers; use
-//! [`WindowCommand`] through [`Update`] instead.
+//! [`WindowCommand`] through [`Effect`] instead.
 //!
 //! # Feature flags
 //!
@@ -77,9 +77,9 @@ pub use actions::{command_palette_rows, Action, ActionId, ActionMap, DuplicateAc
 #[cfg(feature = "devtools")]
 pub use application::run_with_devtools;
 pub use application::{
-    perform, run, AppUpdate, Application, ApplicationConfig, Context, CoreEvent, Error, Never,
-    Result, RuntimeCommand, SimpleApplication, ThemeController, ThemeEvent, Update, WindowContext,
-    WindowQuery,
+    perform, run, Application, ApplicationConfig, Context, Effect, Error, MessageContext,
+    MessageSource, Never, Result, RuntimeEvent, SimpleApplication, ThemeController, ThemeEvent,
+    WindowContext, WindowQuery,
 };
 #[cfg(feature = "devtools")]
 pub use devtools::{
@@ -105,7 +105,7 @@ pub use nive_ui::focus_trap::{
 };
 #[cfg(feature = "file-picker")]
 pub use platform::file_picker::{FileFilter, PickFileParams, SaveFileParams};
-pub use screen::{is_escape_key_press, DialogDismiss, DialogRequest, ScreenUpdate, ScreenView};
+pub use screen::{is_escape_key_press, DialogDismiss, DialogRequest, ScreenEffect, ScreenView};
 pub use settings::{
     RuntimeSession, SettingsConfig, SettingsError, SettingsErrorKind, WindowSession,
     WindowSessionPosition, WindowSessionSize,
@@ -115,8 +115,8 @@ pub use state::{
     OperationProgress, OperationRegistry, OperationStatus, RequestId, Resource, Settled,
 };
 pub use support::{
-    install_diagnostic_panic_hook, DiagnosticSnapshot, RuntimeEvent, RuntimeEventKind,
-    RuntimeEventLog,
+    install_diagnostic_panic_hook, DiagnosticEvent, DiagnosticEventKind, DiagnosticEventLog,
+    DiagnosticSnapshot,
 };
 
 pub use iced::{time, window, Point, Size, Subscription, Task};
@@ -147,15 +147,15 @@ pub mod prelude {
     /// [`crate::prelude::ui`] instead.
     pub use crate::{
         command_palette_rows, install_diagnostic_panic_hook, keyboard_navigation_subscription,
-        relative_time_label, run, time, unix_now, window, Action, ActionId, ActionMap, AppUpdate,
-        Application, ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason,
-        Context, CoreEvent, DiagnosticSnapshot, DuplicateActionId, Error, ExitDecision,
-        KeyboardNavigation, Never, PlatformError, Point, RequestId, Result, RuntimeCommand,
-        RuntimeEvent, RuntimeEventKind, RuntimeEventLog, RuntimeSession, ScreenView,
-        SettingsConfig, SettingsError, SettingsErrorKind, ShortcutBinding, ShortcutKey,
-        ShortcutMap, SimpleApplication, Size, Subscription, Task, Theme, ThemeBuilder,
-        ThemeCatalog, ThemeController, ThemeEvent, ThemeMode, ThemePreference, Toast,
-        ToastPosition, Update, WindowCardinality, WindowCommand, WindowContext, WindowQuery,
+        relative_time_label, run, time, unix_now, window, Action, ActionId, ActionMap, Application,
+        ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason, Context,
+        DiagnosticEvent, DiagnosticEventKind, DiagnosticEventLog, DiagnosticSnapshot,
+        DuplicateActionId, Effect, Error, ExitDecision, KeyboardNavigation, MessageContext,
+        MessageSource, Never, PlatformError, Point, RequestId, Result, RuntimeEvent,
+        RuntimeSession, ScreenView, SettingsConfig, SettingsError, SettingsErrorKind,
+        ShortcutBinding, ShortcutKey, ShortcutMap, SimpleApplication, Size, Subscription, Task,
+        Theme, ThemeBuilder, ThemeCatalog, ThemeController, ThemeEvent, ThemeMode, ThemePreference,
+        Toast, ToastPosition, WindowCardinality, WindowCommand, WindowContext, WindowQuery,
         WindowRole, WindowSession, WindowSessionPosition, WindowSessionSize, WindowSpec,
     };
 
@@ -167,7 +167,7 @@ pub mod prelude {
         pub use crate::{
             BackgroundFit, BootstrapSpec, BrandContent, DialogDismiss, DialogRequest, ErrorCode,
             InvalidErrorCode, Operation, OperationDescriptor, OperationEntry, OperationId,
-            OperationProgress, OperationRegistry, OperationStatus, Resource, ScreenUpdate, Settled,
+            OperationProgress, OperationRegistry, OperationStatus, Resource, ScreenEffect, Settled,
             ShortcutBinding, ShortcutKey, ShortcutMap, SplashBackground, ThemeBuilder,
             ThemeCatalog, ThemeMode, ToastDuration, ToastTone, UserFacingError,
             UserFacingErrorKind, UserFacingResult, WindowChrome, WindowHandle, WindowMode,

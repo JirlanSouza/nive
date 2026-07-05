@@ -3,18 +3,18 @@ use std::sync::Arc;
 
 use log::error;
 
-use super::event_log::RuntimeEventLog;
-use super::runtime_event::RuntimeEvent;
+use super::event_log::DiagnosticEventLog;
+use super::runtime_event::DiagnosticEvent;
 
 /// Installs a panic hook that records every panic into the provided
-/// [`RuntimeEventLog`] before delegating to the previously installed hook.
+/// [`DiagnosticEventLog`] before delegating to the previously installed hook.
 ///
 /// The runtime does not own the global panic hook. Apps call this helper
 /// once during startup after creating the log they want diagnostics to
 /// use, and the helper preserves the existing hook (default printer in
 /// tests, custom logger in production) so behaviour outside the log
 /// does not change.
-pub fn install_diagnostic_panic_hook(log: Arc<RuntimeEventLog>) {
+pub fn install_diagnostic_panic_hook(log: Arc<DiagnosticEventLog>) {
     let previous = panic::take_hook();
     panic::set_hook(Box::new(move |info: &PanicHookInfo<'_>| {
         let message = panic_message(info);
@@ -22,7 +22,7 @@ pub fn install_diagnostic_panic_hook(log: Arc<RuntimeEventLog>) {
             .location()
             .map(|loc| format!("{}:{}", loc.file(), loc.line()))
             .unwrap_or_default();
-        log.record(RuntimeEvent::panic(
+        log.record(DiagnosticEvent::panic(
             "panic",
             if location.is_empty() {
                 message.clone()
@@ -57,7 +57,7 @@ mod panic_hook_tests {
     #[test]
     fn panic_hook_records_message_and_delegates_to_previous() {
         PREVIOUS_HOOK_CALLED.store(false, Ordering::SeqCst);
-        let log = Arc::new(RuntimeEventLog::new());
+        let log = Arc::new(DiagnosticEventLog::new());
         let log_for_hook = Arc::clone(&log);
 
         let previous = panic::take_hook();

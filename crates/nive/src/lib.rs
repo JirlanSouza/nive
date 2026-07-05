@@ -25,7 +25,7 @@
 //! `nive::prelude::*` exposes the minimal template-stable surface: it
 //! compiles the scaffolded counter template out of the box, and already
 //! includes basic toasts, theming, icon roles/catalogs, shortcuts, actions,
-//! core events, and the window *declaration* types (`WindowSpec`/`WindowRole`). Apps switch to
+//! runtime events, and the window *declaration* types (`WindowSpec`/`WindowRole`). Apps switch to
 //! `nive::prelude::ui::*` for the extended surface: async state
 //! (`Resource`/`Operation`), dialogs, `UserFacingError`, bootstrap/splash,
 //! runtime window handles (`WindowHandle`/`WindowRegistry`/`WindowMode`),
@@ -58,15 +58,15 @@ pub mod prelude {
     // in `nive::prelude::ui::*`.
     pub use nive_runtime::prelude::{
         command_palette_rows, install_diagnostic_panic_hook, keyboard_navigation_subscription,
-        relative_time_label, run, time, unix_now, window, Action, ActionId, ActionMap, AppUpdate,
-        Application, ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason,
-        Context, CoreEvent, DiagnosticSnapshot, DuplicateActionId, Error, ExitDecision,
-        KeyboardNavigation, Never, PlatformError, Point, RequestId, Result, RuntimeCommand,
-        RuntimeEvent, RuntimeEventKind, RuntimeEventLog, RuntimeSession, ScreenView,
-        SettingsConfig, SettingsError, SettingsErrorKind, ShortcutBinding, ShortcutKey,
-        ShortcutMap, SimpleApplication, Size, Subscription, Task, Theme, ThemeBuilder,
-        ThemeCatalog, ThemeController, ThemeEvent, ThemeMode, ThemePreference, Toast,
-        ToastPosition, Update, WindowCardinality, WindowCommand, WindowContext, WindowQuery,
+        relative_time_label, run, time, unix_now, window, Action, ActionId, ActionMap, Application,
+        ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason, Context,
+        DiagnosticEvent, DiagnosticEventKind, DiagnosticEventLog, DiagnosticSnapshot,
+        DuplicateActionId, Effect, Error, ExitDecision, KeyboardNavigation, MessageContext,
+        MessageSource, Never, PlatformError, Point, RequestId, Result, RuntimeEvent,
+        RuntimeSession, ScreenView, SettingsConfig, SettingsError, SettingsErrorKind,
+        ShortcutBinding, ShortcutKey, ShortcutMap, SimpleApplication, Size, Subscription, Task,
+        Theme, ThemeBuilder, ThemeCatalog, ThemeController, ThemeEvent, ThemeMode, ThemePreference,
+        Toast, ToastPosition, WindowCardinality, WindowCommand, WindowContext, WindowQuery,
         WindowRole, WindowSession, WindowSessionPosition, WindowSessionSize, WindowSpec,
     };
     pub use nive_ui::prelude::*;
@@ -89,7 +89,7 @@ pub mod prelude {
             BackgroundFit, BootstrapSpec, BrandContent, DialogDismiss, DialogRequest, ErrorCode,
             InvalidErrorCode, Operation, OperationDescriptor, OperationEntry, OperationId,
             OperationProgress, OperationRegistry, OperationStatus, RequestId, Resource,
-            ScreenUpdate, Settled, Toast, ToastDuration, UserFacingError, UserFacingErrorKind,
+            ScreenEffect, Settled, Toast, ToastDuration, UserFacingError, UserFacingErrorKind,
             UserFacingResult, WindowChrome, WindowHandle, WindowMode, WindowRegistry,
         };
         #[cfg(feature = "file-picker")]

@@ -1,17 +1,17 @@
 use std::collections::VecDeque;
 use std::sync::Mutex;
 
-use super::runtime_event::{RuntimeEvent, RuntimeEventKind};
+use super::runtime_event::{DiagnosticEvent, DiagnosticEventKind};
 
 const DEFAULT_CAPACITY: usize = 256;
 
 #[derive(Debug)]
-pub struct RuntimeEventLog {
-    events: Mutex<VecDeque<RuntimeEvent>>,
+pub struct DiagnosticEventLog {
+    events: Mutex<VecDeque<DiagnosticEvent>>,
     capacity: usize,
 }
 
-impl RuntimeEventLog {
+impl DiagnosticEventLog {
     pub fn new() -> Self {
         Self::with_capacity(DEFAULT_CAPACITY)
     }
@@ -27,7 +27,7 @@ impl RuntimeEventLog {
         self.capacity
     }
 
-    pub fn record(&self, event: RuntimeEvent) {
+    pub fn record(&self, event: DiagnosticEvent) {
         let mut events = self.events.lock().expect("event log poisoned");
         if events.len() == self.capacity {
             events.pop_front();
@@ -37,11 +37,11 @@ impl RuntimeEventLog {
 
     pub fn record_kind(
         &self,
-        kind: RuntimeEventKind,
+        kind: DiagnosticEventKind,
         category: impl Into<std::borrow::Cow<'static, str>>,
         message: impl Into<std::borrow::Cow<'static, str>>,
     ) {
-        self.record(RuntimeEvent::new(kind, category, message));
+        self.record(DiagnosticEvent::new(kind, category, message));
     }
 
     pub fn len(&self) -> usize {
@@ -56,7 +56,7 @@ impl RuntimeEventLog {
         self.events.lock().expect("event log poisoned").clear();
     }
 
-    pub fn snapshot(&self) -> Vec<RuntimeEvent> {
+    pub fn snapshot(&self) -> Vec<DiagnosticEvent> {
         self.events
             .lock()
             .expect("event log poisoned")
@@ -65,14 +65,14 @@ impl RuntimeEventLog {
             .collect()
     }
 
-    pub fn recent(&self, limit: usize) -> Vec<RuntimeEvent> {
+    pub fn recent(&self, limit: usize) -> Vec<DiagnosticEvent> {
         let events = self.events.lock().expect("event log poisoned");
         let start = events.len().saturating_sub(limit);
         events.iter().skip(start).cloned().collect()
     }
 }
 
-impl Default for RuntimeEventLog {
+impl Default for DiagnosticEventLog {
     fn default() -> Self {
         Self::new()
     }
@@ -84,9 +84,9 @@ mod event_log_tests {
 
     #[test]
     fn record_stores_event_in_order() {
-        let log = RuntimeEventLog::new();
-        log.record(RuntimeEvent::info("settings", "loaded"));
-        log.record(RuntimeEvent::warning("settings", "missing key"));
+        let log = DiagnosticEventLog::new();
+        log.record(DiagnosticEvent::info("settings", "loaded"));
+        log.record(DiagnosticEvent::warning("settings", "missing key"));
 
         let snapshot = log.snapshot();
         assert_eq!(snapshot.len(), 2);
@@ -96,10 +96,10 @@ mod event_log_tests {
 
     #[test]
     fn ring_buffer_drops_oldest_when_full() {
-        let log = RuntimeEventLog::with_capacity(2);
-        log.record(RuntimeEvent::info("test", "first"));
-        log.record(RuntimeEvent::info("test", "second"));
-        log.record(RuntimeEvent::info("test", "third"));
+        let log = DiagnosticEventLog::with_capacity(2);
+        log.record(DiagnosticEvent::info("test", "first"));
+        log.record(DiagnosticEvent::info("test", "second"));
+        log.record(DiagnosticEvent::info("test", "third"));
 
         let snapshot = log.snapshot();
         assert_eq!(snapshot.len(), 2);
@@ -109,9 +109,9 @@ mod event_log_tests {
 
     #[test]
     fn recent_returns_last_n_events() {
-        let log = RuntimeEventLog::new();
+        let log = DiagnosticEventLog::new();
         for index in 0..5 {
-            log.record(RuntimeEvent::info("test", format!("event-{index}")));
+            log.record(DiagnosticEvent::info("test", format!("event-{index}")));
         }
 
         let recent = log.recent(3);
@@ -124,8 +124,8 @@ mod event_log_tests {
 
     #[test]
     fn clear_empties_log() {
-        let log = RuntimeEventLog::new();
-        log.record(RuntimeEvent::info("test", "kept"));
+        let log = DiagnosticEventLog::new();
+        log.record(DiagnosticEvent::info("test", "kept"));
         assert!(!log.is_empty());
 
         log.clear();
@@ -135,12 +135,12 @@ mod event_log_tests {
 
     #[test]
     fn record_kind_helper_constructs_event() {
-        let log = RuntimeEventLog::new();
-        log.record_kind(RuntimeEventKind::Error, "ingest", "disk full");
+        let log = DiagnosticEventLog::new();
+        log.record_kind(DiagnosticEventKind::Error, "ingest", "disk full");
 
         let snapshot = log.snapshot();
         assert_eq!(snapshot.len(), 1);
-        assert_eq!(snapshot[0].kind, RuntimeEventKind::Error);
+        assert_eq!(snapshot[0].kind, DiagnosticEventKind::Error);
         assert_eq!(snapshot[0].category, "ingest");
         assert_eq!(snapshot[0].message, "disk full");
     }

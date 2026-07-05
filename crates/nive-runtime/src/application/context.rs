@@ -60,6 +60,31 @@ pub struct WindowContext<K> {
     pub role: WindowRole,
 }
 
+/// Identifies why a message reached
+/// [`Application::update`](super::Application::update).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MessageSource {
+    /// A widget or dialog view produced the message.
+    View,
+    /// An [`Effect`](super::Effect) task resolved to the message.
+    Task,
+    /// An application subscription emitted the message.
+    Subscription,
+    /// An [`ActionMap`](crate::ActionMap) or [`ShortcutMap`](crate::ShortcutMap)
+    /// dispatched the message.
+    Action,
+}
+
+/// The context passed to [`Application::update`](super::Application::update):
+/// the source window, if any, and why the message was dispatched.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MessageContext<K> {
+    /// The window this message is associated with, if any.
+    pub window: Option<WindowContext<K>>,
+    /// Why the message reached `update`.
+    pub source: MessageSource,
+}
+
 /// A read-only query over the runtime's open-window registry.
 #[derive(Clone, Copy)]
 pub struct WindowQuery<'a, K> {
@@ -82,12 +107,19 @@ where
         self.registry.contains(kind)
     }
 
-    pub fn first(self, kind: K) -> Option<WindowContext<K>> {
-        self.registry.first(kind).map(|handle| WindowContext {
+    /// Returns the most recently active/opened window matching `kind`.
+    pub fn latest(self, kind: K) -> Option<WindowContext<K>> {
+        self.registry.latest(kind).map(|handle| WindowContext {
             id: handle.id,
             kind: handle.kind,
             role: handle.role,
         })
+    }
+
+    /// Returns the id of the most recently active/opened window matching
+    /// `kind`.
+    pub fn latest_id(self, kind: K) -> Option<window::Id> {
+        self.latest(kind).map(|context| context.id)
     }
 
     pub fn all(self, kind: K) -> impl Iterator<Item = WindowContext<K>> + 'a {

@@ -9,6 +9,7 @@ pub use command::{
 };
 #[cfg(feature = "devtools")]
 pub(crate) use window::open_window;
+pub(crate) use window::WindowLifecycle;
 pub use window::{
     WindowCardinality, WindowChrome, WindowHandle, WindowMode, WindowRegistry, WindowRole,
     WindowSpec,
