@@ -219,6 +219,9 @@ mod app_icon_contract {
         let _theme = ThemeBuilder::new("contract", ThemeMode::Light)
             .icons(APP_ICON_CATALOG)
             .build();
+        let _density_theme = ThemeBuilder::new("density", ThemeMode::Dark)
+            .density(ThemeDensity::Compact)
+            .build();
     }
 }
 
