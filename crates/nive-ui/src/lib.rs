@@ -13,6 +13,9 @@
 //!   `controls`, `display`, `containers`, `navigation`, `overlays`, and
 //!   `feedback`), plus the flat widget facade. `DialogHost` and `ToastHost`
 //!   live under `widgets::overlays`.
+//! - `icons` — semantic `IconRole` values, resolved `IconGlyph` bytes,
+//!   theme-owned `IconCatalog` values, and the `IconSource` contract used by
+//!   generated app `IconSymbol` enums.
 //! - `advanced` — internals for authoring custom widgets (layout math,
 //!   border/style helpers, `Shell` propagation), mirroring `iced::advanced`.
 //!   Not needed to assemble screens from `widgets`.
@@ -32,7 +35,7 @@
 //! Application and screen code should prefer `nive_ui::prelude`, the crate
 //! root, `nive_ui::theme`, and `nive_ui::widgets`. These facades expose the
 //! shared `Element`/`Renderer` aliases, theme builders/catalogs, common Iced
-//! layout primitives, and reusable widget contracts.
+//! layout primitives, icon roles/catalogs, and reusable widget contracts.
 //!
 //! Lower-level widget and theme submodules remain public for advanced
 //! composition, styling, and focused tests. Generic app code should avoid
@@ -49,6 +52,7 @@ pub mod animation;
 pub mod bootstrap;
 pub mod focus_trap;
 pub mod graphics;
+pub mod icons;
 pub mod interaction;
 pub mod layout;
 pub mod prelude;
@@ -57,6 +61,7 @@ pub mod tokens;
 pub mod widgets;
 
 pub use bootstrap::{BootstrapError, BootstrapView};
+pub use icons::{IconCatalog, IconCatalogEntry, IconGlyph, IconRole, IconSource};
 pub use theme::{Theme, ThemeBuilder, ThemeCatalog, ThemeData, ThemeId};
 pub use tokens::color;
 pub use tokens::radius;
