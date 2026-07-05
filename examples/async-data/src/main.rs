@@ -30,24 +30,24 @@ impl Application for AsyncDataApp {
     fn init(
         _context: Context<'_, Self::Window>,
         _bootstrap: Self::Bootstrap,
-    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
+    ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
         (Self { projects: Resource::idle() }, ())
     }
 
     fn update(
         &mut self,
         _context: Context<'_, Self::Window>,
-        _window: Option<WindowContext<Self::Window>>,
+        _message_context: MessageContext<Self::Window>,
         message: Self::Message,
-    ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
+    ) -> impl Into<Effect<Self::Message, Self::Window>> {
         match message {
             Message::Load => {
                 let task = self.projects.load(fetch_projects(), Message::ProjectsSettled);
-                AppUpdate::none().task(task)
+                Effect::task(task)
             }
             Message::ProjectsSettled(settled) => {
                 self.projects.settle(settled);
-                AppUpdate::none()
+                Effect::none()
             }
         }
     }

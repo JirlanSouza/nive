@@ -20,8 +20,8 @@ flowchart TD
     appui(["use nive::prelude::ui::*"]) --> extended
 
     subgraph tiers["nive::prelude"]
-        minimal["**tier mínimo** (template-stable)<br/>Application · AppUpdate · Update · Context · run · ScreenView<br/>Toast · ToastPosition · Theme · ThemeBuilder · ThemeController · ThemePreference · ThemeMode<br/>ShortcutMap · Action · ActionMap · CoreEvent · RuntimeCommand · RuntimeEventLog<br/>WindowSpec · WindowRole · WindowCardinality · WindowCommand · CloseDecision · ExitDecision · Size/Point"]
-        extended["**tier estendido (ui)** = mínimo +<br/>Resource · Operation · OperationRegistry<br/>DialogRequest · WindowHandle · WindowRegistry · WindowMode<br/>UserFacingError · BootstrapSpec · BrandContent<br/>ToastDuration · ScreenUpdate"]
+        minimal["**tier mínimo** (template-stable)<br/>Application · Effect · MessageContext · MessageSource · Context · run · ScreenView<br/>Toast · ToastPosition · Theme · ThemeBuilder · ThemeController · ThemePreference · ThemeMode<br/>ShortcutMap · Action · ActionMap · RuntimeEvent · DiagnosticEventLog<br/>WindowSpec · WindowRole · WindowCardinality · WindowCommand · CloseDecision · ExitDecision · Size/Point"]
+        extended["**tier estendido (ui)** = mínimo +<br/>Resource · Operation · OperationRegistry<br/>DialogRequest · WindowHandle · WindowRegistry · WindowMode<br/>UserFacingError · BootstrapSpec · BrandContent<br/>ToastDuration · ScreenEffect"]
         extended --> minimal
     end
 
@@ -31,7 +31,7 @@ flowchart TD
 
 **Regra:** o template do `nive new` (counter) compila só com o tier mínimo — que já inclui
 toasts básicos (`Toast`), theming (`Theme`/`ThemeBuilder`/`ThemeController`), atalhos
-(`ShortcutMap`), ações, eventos de runtime (`CoreEvent`) e a *declaração* de janelas
+(`ShortcutMap`), ações, eventos de runtime (`RuntimeEvent`) e a *declaração* de janelas
 (`WindowSpec`/`WindowRole`). Troque para `nive::prelude::ui::*` ao usar **estado async**
 (`Resource`/`Operation`), **dialogs**, **`UserFacingError`**, **bootstrap/splash**
 (`BootstrapSpec`/`BrandContent`), **handles de janela em runtime**
@@ -46,20 +46,20 @@ diretos da camada runtime:
 
 | Módulo | Papel |
 |--------|-------|
-| `nive_runtime::application` | Contrato `Application`, `ApplicationConfig`, `Context`, `Update`, `RuntimeCommand`, eventos core e runner público. |
+| `nive_runtime::application` | Contrato `Application`, `ApplicationConfig`, `Context`, `Effect`, `MessageContext`, eventos de runtime e runner público. |
 | `nive_runtime::actions` | `Action`, `ActionId`, `ActionMap` e helpers de command palette. |
 | `nive_runtime::input` | Atalhos e navegação por teclado. |
 | `nive_runtime::lifecycle` | Bootstrap, decisões de close/exit, `WindowCommand`, specs e registry de janelas. |
 | `nive_runtime::state` | `Resource`, `Operation`, `OperationRegistry`, `RequestId`, `Settled` e helpers de tempo. |
 | `nive_runtime::feedback` | `Toast`, `ToastState`, `UserFacingError` e tipos relacionados. |
-| `nive_runtime::screen` | `ScreenView`, `ScreenUpdate` e contratos de dialog. |
+| `nive_runtime::screen` | `ScreenView`, `ScreenEffect` e contratos de dialog. |
 | `nive_runtime::settings` | `SettingsConfig`, `RuntimeSession` e sessão de janelas. |
 | `nive_runtime::support` | Diagnósticos, panic hook e runtime event log. |
 
 O crate root continua como conveniência beta. Apps devem preferir `nive::prelude::*`,
 `nive::prelude::ui::*` ou os módulos por área acima quando quiserem imports mais
 explícitos. Helpers de runner, como abertura direta de janela Iced, permanecem internos;
-apps emitem `WindowCommand` por `Update`.
+apps emitem `WindowCommand` por `Effect`.
 
 ---
 
@@ -77,14 +77,14 @@ classDiagram
         +Bootstrap
         +config() ApplicationConfig
         +init(ctx, bootstrap)
-        +update(ctx, window, message) AppUpdate
+        +update(ctx, message_context, message) Effect
         +view(ctx, window) ScreenView
         +subscription(ctx) Subscription
         +actions(ctx) ActionMap
         +shortcuts(ctx) ShortcutMap
         +window_title(ctx, window) Cow
         +theme(ctx, window) ThemePreference
-        +on_core_event(ctx, event) AppUpdate
+        +on_runtime_event(ctx, event) Effect
         +on_window_close_requested(ctx, window) CloseDecision
         +on_exit_requested(ctx) ExitDecision
     }
@@ -102,44 +102,46 @@ classDiagram
 
 ---
 
-## 4. `Update` — composição de efeitos
+## 4. `Effect` — composição de efeitos
 
-O valor de retorno dos hooks. Combina um `Task` async, um `outcome` opcional e comandos de
-runtime ordenados, construídos fluentemente.
+O valor de retorno dos hooks. Combina um `Task` async e comandos de runtime ordenados,
+construídos com construtores diretos (`Effect::task`, `Effect::toast`, ...) e combinadores
+`with_*` para compor múltiplos efeitos.
 
 ```mermaid
 classDiagram
-    class Update {
+    class Effect {
         -task : Task
-        -outcome : Option
-        -runtime : Vec
+        -runtime : Vec~RuntimeCommand~
         +none()
-        +from_task(task)
         +task(task)
-        +outcome(o)
         +toast(Toast)
         +window(WindowCommand)
         +theme(ThemePreference)
         +exit()
+        +with_task(task)
+        +with_toast(Toast)
+        +with_window(WindowCommand)
+        +with_theme(ThemePreference)
+        +with_exit()
     }
     class RuntimeCommand {
-        <<enumeration>>
+        <<enumeration, interno>>
         Toast
         Window
         Theme
         Exit
     }
-    Update o-- RuntimeCommand : runtime[]
-    note for Update "Generico Update[M,O,K]; AppUpdate[M,K] = Update[M, Never, K]. Hooks de Application nunca produzem outcome."
+    Effect o-- RuntimeCommand : runtime[]
+    note for Effect "Effect[M, K = Never]; sem eixo de outcome (outcome tipado de tela/componente vive em ScreenEffect). RuntimeCommand nao e reexportado — apps constroem efeitos via Effect."
 ```
 
-Exemplo de uso fluente:
+Exemplo de uso direto:
 
 ```rust
-AppUpdate::none()
-    .task(self.users.load(fetch_users(), Msg::UsersSettled))
-    .toast(Toast::success("Salvo"))
-    .window(WindowCommand::Open(Window::Details));
+Effect::task(self.users.load(fetch_users(), Msg::UsersSettled))
+    .with_toast(Toast::success("Salvo"))
+    .with_window(WindowCommand::Open(Window::Details));
 ```
 
 ---

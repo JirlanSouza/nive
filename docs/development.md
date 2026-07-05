@@ -105,17 +105,26 @@ scaffolded via `nive new my-app` already use the new defaults.
   `SimpleApplication` marker; the runtime auto-registers one
   `WindowSpec::app()` when the config has zero `.window(...)` calls and the
   app's `Window = ()`.
-- `Application::init` and `Application::update` now return
-  `impl Into<AppUpdate<...>>`, so `()` is a valid return ("no side effects").
-  `impl From<()> for AppUpdate<M, K>` produces `AppUpdate::none()`.
+- `Application::init` and `Application::update` return
+  `impl Into<Effect<...>>`, so `()` is a valid return ("no side effects").
+  `impl From<()> for Effect<M, K>` produces `Effect::none()`. `Effect` has no
+  outcome type parameter — it carries only a task and ordered runtime
+  commands, built via direct constructors (`Effect::task`, `Effect::toast`,
+  `Effect::window`, `Effect::theme`, `Effect::exit`) and `with_*` combinators.
+- `Application::update` receives a `MessageContext<Self::Window>` (window +
+  `MessageSource::{View, Task, Subscription, Action}`) instead of
+  `Option<WindowContext<Self::Window>>`.
 - `Application::window_title` returns `impl Into<Cow<'a, str>> + 'a`, so
   apps no longer need to `use std::borrow::Cow;` to return a `&'static str`.
 - `Application::theme(ctx, Option<WindowContext>) -> ThemePreference`
   (default `ThemePreference::System`) lets the app influence the global
   theme singleton. The runtime consults it on startup, on
-  `AppUpdate::theme(pref)` emissions, and on OS theme changes; the
+  `Effect::theme(pref)` emissions, and on OS theme changes; the
   method's return value wins over the emitted preference except when it
   returns `System` (then the OS / persisted preference wins).
+- `Application::on_core_event`/`CoreEvent` are renamed
+  `Application::on_runtime_event`/`RuntimeEvent`. `ExitDecision::Accept` is
+  renamed `ExitDecision::Exit`.
 
 ### `Toast` ≠ `ToastRequest`
 
@@ -138,7 +147,7 @@ switch to `.clone()` (Cow is not `Copy`).
 `OperationRegistry` is app-owned state. Apps hold it as a field, drive it from
 `update`, and render it in product UI as needed. Devtools discover the same
 field read-only through `#[derive(Inspect)]`; there is no runtime-managed mirror
-and no `AppUpdate::op_*` API.
+and no `Effect::op_*` API.
 
 ### `Resource` stale-request guarding
 

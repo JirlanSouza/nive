@@ -29,7 +29,7 @@ impl Application for FormsApp {
     fn init(
         _context: Context<'_, Self::Window>,
         _bootstrap: Self::Bootstrap,
-    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
+    ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
         (
             Self {
                 name: String::new(),
@@ -43,20 +43,22 @@ impl Application for FormsApp {
     fn update(
         &mut self,
         _context: Context<'_, Self::Window>,
-        _window: Option<WindowContext<Self::Window>>,
+        _message_context: MessageContext<Self::Window>,
         message: Self::Message,
-    ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
+    ) -> impl Into<Effect<Self::Message, Self::Window>> {
         match message {
             Message::NameChanged(value) => self.name = value,
             Message::EmailChanged(value) => self.email = value,
             Message::Submit => {
-                return AppUpdate::none()
-                    .toast(Toast::success(format!("Submitted: {} <{}>", self.name, self.email)));
+                return Effect::toast(Toast::success(format!(
+                    "Submitted: {} <{}>",
+                    self.name, self.email
+                )));
             }
             Message::OpenDialog => self.show_dialog = true,
             Message::CloseDialog => self.show_dialog = false,
         }
-        AppUpdate::none()
+        Effect::none()
     }
 
     fn view(

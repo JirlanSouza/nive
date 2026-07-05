@@ -34,23 +34,23 @@ impl Application for MultiWindowApp {
     fn init(
         _context: Context<'_, Self::Window>,
         _bootstrap: Self::Bootstrap,
-    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
+    ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
         (Self { count: 0 }, ())
     }
 
     fn update(
         &mut self,
         _context: Context<'_, Self::Window>,
-        _window: Option<WindowContext<Self::Window>>,
+        _message_context: MessageContext<Self::Window>,
         message: Self::Message,
-    ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
+    ) -> impl Into<Effect<Self::Message, Self::Window>> {
         match message {
             Message::Increment => self.count += 1,
             Message::OpenDetail => {
-                return AppUpdate::none().window(WindowCommand::Open(Window::Detail));
+                return Effect::window(WindowCommand::Open(Window::Detail));
             }
         }
-        AppUpdate::none()
+        Effect::none()
     }
 
     fn view(

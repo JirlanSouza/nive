@@ -19,8 +19,8 @@ exemplos e docs devem tratar os preludes como o contrato principal.
 
 | Caminho | Papel | Deve conter |
 |---------|-------|-------------|
-| `nive::prelude::*` | Tier padrao de app e scaffold simples | `Application`, `ApplicationConfig`, `run`, `AppUpdate`, `Update`, `Context`, `ScreenView`, `Task`, `Subscription`, theme basico, `Toast`, `Action`, `ActionId`, `ActionMap`, `ShortcutMap`, `CoreEvent`, `RuntimeCommand`, tipos de declaracao de janela (`WindowSpec`, `WindowRole`, `WindowCardinality`, `WindowCommand`), settings/session basicos, erros de runtime, geometria Iced e `nive_ui::prelude::*`. |
-| `nive::prelude::ui::*` | Tier estendido de app | Tudo do tier padrao mais `Resource`, `Operation`, `OperationRegistry`, `DialogRequest`, `DialogDismiss`, `ScreenUpdate`, `UserFacingError`, `BootstrapSpec`, `BrandContent`, `ToastDuration`, `ToastTone`, `WindowHandle`, `WindowRegistry`, `WindowMode`, `WindowChrome` e params de file picker quando a feature estiver ativa. |
+| `nive::prelude::*` | Tier padrao de app e scaffold simples | `Application`, `ApplicationConfig`, `run`, `Effect`, `MessageContext`, `MessageSource`, `Context`, `ScreenView`, `Task`, `Subscription`, theme basico, `Toast`, `Action`, `ActionId`, `ActionMap`, `RuntimeEvent`, tipos de declaracao de janela (`WindowSpec`, `WindowRole`, `WindowCardinality`, `WindowCommand`), settings/session basicos, erros de runtime, geometria Iced e `nive_ui::prelude::*`. |
+| `nive::prelude::ui::*` | Tier estendido de app | Tudo do tier padrao mais `Resource`, `Operation`, `OperationRegistry`, `DialogRequest`, `DialogDismiss`, `ScreenEffect`, `UserFacingError`, `BootstrapSpec`, `BrandContent`, `ToastDuration`, `ToastTone`, `WindowHandle`, `WindowRegistry`, `WindowMode`, `WindowChrome` e params de file picker quando a feature estiver ativa. |
 | `nive::runtime::prelude::*` | Consumidor direto de runtime | Mesmo recorte de runtime dos tiers acima, sem depender da facade umbrella. Deve continuar util para crates que nao querem importar widgets. |
 | `nive::ui::prelude::*` | Consumidor direto do design system | `Element`, `Renderer`, layout Iced comum, theme, hosts, contratos de apresentacao e widgets publicos da facade de UI. |
 
@@ -48,17 +48,27 @@ como `RuntimeCommand` e `WindowCommand`. Um `CommandRegistry` nao deve ser criad
 antes do primeiro app real provar que `ActionMap` e insuficiente para menus,
 toolbars, atalhos e command palette.
 
-## RuntimeCommand e Update
+## Effect e RuntimeCommand
 
-Decisao: manter os nomes `Update`, `AppUpdate` e `RuntimeCommand`.
+Decisao original da Fase 1: manter os nomes `Update`, `AppUpdate` e
+`RuntimeCommand`.
 
-`Update<M, O, K>` e o envelope de efeitos de uma transicao: combina `Task<M>`,
-um outcome opcional e uma lista ordenada de comandos de runtime. `AppUpdate<M,
-K>` permanece o alias para hooks de `Application`, onde o outcome e
-`Never`.
+Decisao revisada (mudanca `refine-runtime-effect-window-commands`): unificar
+`Update`/`AppUpdate` num unico tipo publico `Effect<M, K = Never>` e remover o
+eixo de outcome generico, que os hooks de `Application` nunca produziam (o
+runtime descartava esse outcome). Outcome tipado de tela/componente continua
+existindo, mas em `ScreenEffect` (child-to-parent `Output`), nao no contrato de
+efeito da aplicacao.
 
-`RuntimeCommand<K>` representa apenas efeitos que o runtime executa depois do
-`update` do app:
+`RuntimeCommand<K>` deixou de ser reexportado no prelude/crate-root: passou a
+ser um tipo interno ao crate, drenado pelo runner. App authors constroem
+efeitos por construtores diretos (`Effect::task`, `Effect::toast`,
+`Effect::window`, `Effect::theme`, `Effect::exit`) e compoem com `with_task`,
+`with_toast`, `with_window`, `with_theme`, `with_exit` — sem nunca nomear
+`RuntimeCommand`.
+
+`RuntimeCommand<K>` continua representando apenas efeitos que o runtime executa
+depois do `update` do app:
 
 - `Toast(Toast)`
 - `Window(WindowCommand<K>)`
@@ -67,7 +77,7 @@ K>` permanece o alias para hooks de `Application`, onde o outcome e
 
 Nao renomear `RuntimeCommand` para `Action` ou `Command`. A separacao alvo e:
 `Action` descreve algo que o usuario pode ativar; `RuntimeCommand` descreve um
-efeito que o runtime deve drenar.
+efeito que o runtime deve drenar — mas o tipo em si permanece interno ao crate.
 
 ## Context
 
@@ -80,7 +90,7 @@ e servicos externos entram pelo `Bootstrap` e vivem no estado do app.
 Novas capacidades de runtime so devem entrar em `Context` quando forem:
 
 - globais ao runtime;
-- somente leitura ou representadas por comando explicito em `Update`;
+- somente leitura ou representadas por comando explicito em `Effect`;
 - necessarias em mais de uma area do contrato de app.
 
 ## Resource e Operation
@@ -105,7 +115,7 @@ progresso e cancelamento sem trocar o vocabulario central.
 
 Decisao: manter separacao headless/runtime versus apresentacao/UI.
 
-- `Toast` e evento user-facing temporario emitido por `Update::toast`.
+- `Toast` e evento user-facing temporario emitido por `Effect::toast`.
 - `ToastState` e fila/estado de runtime; pode continuar publico para testes,
   hosts customizados e integracao avancada, mas nao entra no caminho feliz do
   scaffold.
@@ -130,7 +140,7 @@ Decisao: manter o modelo atual de janelas como contrato alvo.
   estar no tier minimo.
 
 Fase 3: `open_window` virou helper interno do runtime/devtools. Apps devem emitir
-`WindowCommand` via `Update`. `WindowRegistration` permanece fora dos preludes e
+`WindowCommand` via `Effect`. `WindowRegistration` permanece fora dos preludes e
 fica acessivel pelo modulo `nive_runtime::application` apenas como tipo retornado
 pelos introspectores de `ApplicationConfig`.
 
@@ -191,7 +201,7 @@ Fora do escopo inicial (permanece nas camadas atuais):
 |-------|---------|
 | `ToastRequest` | Removido na Fase 3; usar `Toast`. |
 | `Action` | Manter; nao renomear para `Command`. |
-| `RuntimeCommand` | Manter; nao colidir com `Action`. |
+| `RuntimeCommand` | Manter o nome; deixou de ser reexportado no prelude/crate-root (interno ao crate). |
 | `WindowCommand` | Manter como efeito especifico de janela. |
 | `Resource` / `Operation` | Manter como nomes finais de async state. |
 

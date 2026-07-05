@@ -46,17 +46,17 @@ impl Application for IconsApp {
     fn init(
         _context: Context<'_, Self::Window>,
         _bootstrap: Self::Bootstrap,
-    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
+    ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
         (Self, ())
     }
 
     fn update(
         &mut self,
         _context: Context<'_, Self::Window>,
-        _window: Option<WindowContext<Self::Window>>,
+        _message_context: MessageContext<Self::Window>,
         _message: Self::Message,
-    ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
-        AppUpdate::none()
+    ) -> impl Into<Effect<Self::Message, Self::Window>> {
+        Effect::none()
     }
 
     fn view(

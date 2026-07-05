@@ -8,16 +8,16 @@ o loop do Iced.
 flowchart LR
     subgraph rt["nive-runtime"]
         direction TB
-        app["application<br/>módulo<br/>Trait Application, run(), program runner (ponte Iced), Update, Context, Config, ThemeController"]
+        app["application<br/>módulo<br/>Trait Application, run(), program runner (ponte Iced), Effect, Context, Config, ThemeController"]
         actions["actions<br/>módulo<br/>ActionMap / Action: catálogo de comandos (alimenta atalhos e command palette)"]
         lifecycle["lifecycle<br/>módulo<br/>BootstrapSpec (splash), WindowSpec/Registry/Command (multi-janela), handshakes close/exit"]
         state["state<br/>módulo<br/>Resource&lt;T&gt;, Operation&lt;C&gt;, OperationRegistry, RequestId, clock"]
         feedback["feedback<br/>módulo<br/>ToastState (fila), Toast/ToastTone, UserFacingError"]
-        screen["screen<br/>módulo<br/>ScreenView, ScreenUpdate, DialogRequest/Dismiss"]
+        screen["screen<br/>módulo<br/>ScreenView, ScreenEffect, DialogRequest/Dismiss"]
         input["input<br/>módulo<br/>ShortcutMap, keyboard_navigation_subscription, KeyboardNavigation"]
         settings["settings<br/>módulo<br/>SettingsConfig, RuntimeSession, store (persistência serde)"]
         platform["platform<br/>módulo<br/>app_icon (objc2/winres), file_picker (rfd, feature-gated)"]
-        support["support<br/>módulo<br/>RuntimeEventLog, DiagnosticSnapshot, panic hook diagnóstico"]
+        support["support<br/>módulo<br/>DiagnosticEventLog, DiagnosticSnapshot, panic hook diagnóstico"]
         devtools["devtools<br/>módulo (feature)<br/>Painel: host, view, probe, simuladores de estado"]
         inspect["inspect<br/>módulo (feature)<br/>Trait Inspect, ResourceSimulator, OperationSimulator"]
     end
@@ -31,7 +31,7 @@ flowchart LR
     app -->|renderiza via| screen
     app -->|resolve atalhos/foco| input
     app -->|lê catálogo| actions
-    app -->|drena toasts do Update| feedback
+    app -->|drena toasts do Effect| feedback
     app -->|carrega/salva preferências| settings
     app -->|program runner traduz para<br/>Iced Program| iced
 
@@ -82,7 +82,7 @@ flowchart LR
 ## Notas
 
 - **`application` é o orquestrador**; tudo o mais é biblioteca que ele compõe. O *program
-  runner* (`application/program.rs`) permanece privado — apps emitem `Update` e
+  runner* (`application/program.rs`) permanece privado — apps emitem `Effect` e
   `WindowCommand`, não chamam helpers diretos de janela Iced.
 - **`state` e `feedback` são headless:** máquinas de estado (`Resource`, `Operation`) e
   `UserFacingError` não desenham pixels; implementam os *contratos de apresentação*

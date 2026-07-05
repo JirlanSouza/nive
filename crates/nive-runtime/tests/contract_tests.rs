@@ -34,17 +34,17 @@ impl Application for TestApp {
     fn init(
         _context: Context<'_, Self::Window>,
         _bootstrap: Self::Bootstrap,
-    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
-        (Self, AppUpdate::none())
+    ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
+        (Self, Effect::none())
     }
 
     fn update(
         &mut self,
         _context: Context<'_, Self::Window>,
-        _window: Option<WindowContext<Self::Window>>,
+        _message_context: MessageContext<Self::Window>,
         _message: Self::Message,
-    ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
-        AppUpdate::none()
+    ) -> impl Into<Effect<Self::Message, Self::Window>> {
+        Effect::none()
     }
 
     fn view(
@@ -90,12 +90,10 @@ fn prelude_exposes_app_facing_runtime_contracts() {
     let _: WindowSessionSize = WindowSessionSize::new(1280.0, 820.0);
     let _: WindowSessionPosition = WindowSessionPosition::new(120.0, 80.0);
     let _: Point = Point::new(120.0, 80.0);
-    let _: AppUpdate<TestMessage, TestWindow> = AppUpdate::none();
-    let _: Update<TestMessage, &'static str, TestWindow> = Update::none();
-    let _: RuntimeCommand<TestWindow> = RuntimeCommand::Exit;
+    let _: Effect<TestMessage, TestWindow> = Effect::none();
     let _: WindowCommand<TestWindow> = WindowCommand::Open(TestWindow::Workspace);
     let _: CloseDecision<TestMessage> = CloseDecision::Cancel;
-    let _: ExitDecision<TestMessage> = ExitDecision::Accept;
+    let _: ExitDecision<TestMessage> = ExitDecision::Exit;
     let _: ThemePreference = ThemePreference::System;
     let _: Toast = Toast::info("Ready");
     let _: WindowSpec = WindowSpec::app().session_key("welcome");
@@ -105,21 +103,51 @@ fn prelude_exposes_app_facing_runtime_contracts() {
         .progress(OperationProgress::fraction(1, 4))
         .cancellable(true);
     let _: OperationRegistry = OperationRegistry::new();
-    let _: RuntimeEventLog = RuntimeEventLog::new();
-    let _: RuntimeEvent = RuntimeEvent::info("test", "ok");
-    let _: RuntimeEventKind = RuntimeEventKind::Info;
+    let _: DiagnosticEventLog = DiagnosticEventLog::new();
+    let _: DiagnosticEvent = DiagnosticEvent::info("test", "ok");
+    let _: DiagnosticEventKind = DiagnosticEventKind::Info;
     let snapshot: DiagnosticSnapshot = DiagnosticSnapshot::default();
     let _: std::result::Result<String, serde_json::Error> = snapshot.to_json();
+}
+
+#[test]
+fn prelude_exposes_message_context_and_runtime_event() {
+    let _: MessageSource = MessageSource::View;
+    let context: MessageContext<TestWindow> = MessageContext {
+        window: None,
+        source: MessageSource::Task,
+    };
+    assert_eq!(context.source, MessageSource::Task);
+    assert!(context.window.is_none());
+
+    let event: RuntimeEvent<TestWindow> = RuntimeEvent::LastAppWindowClosed;
+    assert!(matches!(event, RuntimeEvent::LastAppWindowClosed));
+}
+
+#[test]
+fn window_command_exposes_close_all_kind_and_replace() {
+    let _: WindowCommand<TestWindow> = WindowCommand::CloseAllKind(TestWindow::Workspace);
+    let _: WindowCommand<TestWindow> = WindowCommand::Replace {
+        current: window::Id::unique(),
+        next: TestWindow::Workspace,
+    };
+}
+
+#[test]
+fn screen_effect_carries_output_without_naming_window_command() {
+    let effect: ScreenEffect<TestMessage, &'static str> =
+        ScreenEffect::output("done").with_toast(Toast::info("ok"));
+
+    assert_eq!(effect.output, Some("done"));
+    assert_eq!(effect.toasts.len(), 1);
 }
 
 #[test]
 fn runtime_area_modules_expose_consolidated_contracts() {
     let config = TestApp::config();
     let _: &[nive_runtime::application::WindowRegistration<TestWindow>] = config.windows();
-    let _: nive_runtime::application::AppUpdate<TestMessage, TestWindow> =
-        nive_runtime::application::AppUpdate::none();
-    let _: nive_runtime::application::RuntimeCommand<TestWindow> =
-        nive_runtime::application::RuntimeCommand::Exit;
+    let _: nive_runtime::application::Effect<TestMessage, TestWindow> =
+        nive_runtime::application::Effect::none();
     let _: nive_runtime::actions::ActionId = nive_runtime::actions::ActionId::new("test.action");
     let _: nive_runtime::input::ShortcutMap<TestMessage> = nive_runtime::input::ShortcutMap::new();
     let _: nive_runtime::lifecycle::WindowCommand<TestWindow> =
@@ -129,30 +157,20 @@ fn runtime_area_modules_expose_consolidated_contracts() {
     let _: nive_runtime::feedback::Toast = nive_runtime::feedback::Toast::info("Ready");
     let _: nive_runtime::feedback::UserFacingError =
         nive_runtime::feedback::UserFacingError::custom("test", "Failed");
-    let _: nive_runtime::screen::ScreenUpdate<TestMessage, (), nive_runtime::feedback::Toast> =
-        nive_runtime::screen::ScreenUpdate::none();
+    let _: nive_runtime::screen::ScreenEffect<TestMessage, (), nive_runtime::feedback::Toast> =
+        nive_runtime::screen::ScreenEffect::none();
     let _: nive_runtime::settings::RuntimeSession = nive_runtime::settings::RuntimeSession::new();
 }
 
 #[test]
-fn update_composes_outcome_and_runtime_commands_in_order() {
-    let update = Update::<TestMessage, &'static str, TestWindow>::none()
-        .toast(Toast::success("Saved"))
-        .window(WindowCommand::Open(TestWindow::Workspace))
-        .theme(ThemePreference::Dark)
-        .exit()
-        .outcome("completed");
-
-    assert_eq!(update.outcome_ref(), Some(&"completed"));
-    assert!(matches!(
-        update.runtime_commands(),
-        [
-            RuntimeCommand::Toast(_),
-            RuntimeCommand::Window(WindowCommand::Open(TestWindow::Workspace)),
-            RuntimeCommand::Theme(ThemePreference::Dark),
-            RuntimeCommand::Exit,
-        ]
-    ));
+fn effect_composes_runtime_commands_via_with_methods() {
+    // Compiles without naming `RuntimeCommand`: the runtime's internal
+    // ordered-command representation is not part of the app-author contract.
+    let _effect = Effect::<TestMessage, TestWindow>::none()
+        .with_toast(Toast::success("Saved"))
+        .with_window(WindowCommand::Open(TestWindow::Workspace))
+        .with_theme(ThemePreference::Dark)
+        .with_exit();
 }
 
 #[test]
@@ -301,21 +319,21 @@ impl Application for SingleWindowApp {
     fn init(
         _context: Context<'_, Self::Window>,
         _bootstrap: Self::Bootstrap,
-    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
-        (Self { counter: 0 }, AppUpdate::none())
+    ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
+        (Self { counter: 0 }, Effect::none())
     }
 
     fn update(
         &mut self,
         _context: Context<'_, Self::Window>,
-        _window: Option<WindowContext<Self::Window>>,
+        _message_context: MessageContext<Self::Window>,
         message: Self::Message,
-    ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
+    ) -> impl Into<Effect<Self::Message, Self::Window>> {
         match message {
             SingleWindowMessage::Increment => self.counter += 1,
             SingleWindowMessage::Reset => self.counter = 0,
         }
-        // Returning `()` exercises `impl From<()> for AppUpdate`.
+        // Returning `()` exercises `impl From<()> for Effect`.
     }
 
     fn view(
@@ -342,6 +360,13 @@ impl Application for SingleWindowApp {
         _window: Option<WindowContext<Self::Window>>,
     ) -> ThemePreference {
         ThemePreference::Dark
+    }
+
+    fn on_runtime_event(
+        &mut self,
+        _context: Context<'_, Self::Window>,
+        _event: RuntimeEvent<Self::Window>,
+    ) -> impl Into<Effect<Self::Message, Self::Window>> {
     }
 }
 
@@ -373,8 +398,8 @@ fn single_window_app_window_title_signature_returns_into_cow() {
 }
 
 #[test]
-fn unit_return_compiles_as_appupdate_via_from_impl() {
-    fn returns_unit() -> impl Into<AppUpdate<SingleWindowMessage, ()>> {}
+fn unit_return_compiles_as_effect_via_from_impl() {
+    fn returns_unit() -> impl Into<Effect<SingleWindowMessage, ()>> {}
 
-    let _: AppUpdate<SingleWindowMessage, ()> = returns_unit().into();
+    let _: Effect<SingleWindowMessage, ()> = returns_unit().into();
 }

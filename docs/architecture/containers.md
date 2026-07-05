@@ -11,7 +11,7 @@ flowchart LR
         direction TB
         umbrella["nive<br/>crate (umbrella)<br/>Re-exporta ui+runtime; define os prelude tiers estáveis; forwarda features devtools/file-picker"]
         ui["nive-ui<br/>crate<br/>Design system: tokens, theme semântico por roles, 40+ widgets, hosts de overlay. Depende de iced e nive-core."]
-        rt["nive-runtime<br/>crate<br/>Application/Update, lifecycle, multi-janela, máquinas de estado async, feedback, settings, devtools"]
+        rt["nive-runtime<br/>crate<br/>Application/Effect, lifecycle, multi-janela, máquinas de estado async, feedback, settings, devtools"]
         core["nive-core<br/>crate<br/>Contratos de apresentação neutros (erro, toast, status). Zero dependências."]
         derive["nive-runtime-derive<br/>proc-macro crate<br/>#[derive(Inspect)] para travessia de estado nos devtools"]
         cli["nive-cli<br/>binary crate<br/>nive new (scaffold, com --dashboard) e nive icons (manifest provider-neutral)"]

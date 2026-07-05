@@ -25,7 +25,7 @@ impl Application for ThemingApp {
     fn init(
         _context: Context<'_, Self::Window>,
         _bootstrap: Self::Bootstrap,
-    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
+    ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
         (
             Self {
                 preference: ThemePreference::System,
@@ -37,15 +37,15 @@ impl Application for ThemingApp {
     fn update(
         &mut self,
         _context: Context<'_, Self::Window>,
-        _window: Option<WindowContext<Self::Window>>,
+        _message_context: MessageContext<Self::Window>,
         message: Self::Message,
-    ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
+    ) -> impl Into<Effect<Self::Message, Self::Window>> {
         match message {
             Message::System => self.preference = ThemePreference::System,
             Message::Light => self.preference = ThemePreference::Light,
             Message::Dark => self.preference = ThemePreference::Dark,
         }
-        AppUpdate::none().theme(self.preference)
+        Effect::theme(self.preference)
     }
 
     fn view(

@@ -17,8 +17,8 @@ presentation contracts (`ErrorPresentation`, `ResourceStatusPresentation`,
   contract and the private Iced program runner.
 - `Action`, `ActionId`, `ActionMap` — product action catalogs for shortcuts and
   future command surfaces.
-- `Update`, `AppUpdate`, `RuntimeCommand` — ordered task and runtime-effect
-  composition.
+- `Effect` — ordered task and runtime-effect composition for application
+  hooks, plus `MessageContext`/`MessageSource` for message-origin routing.
 - `BootstrapSpec` — repeatable startup task attempts, stale-result rejection,
   minimum splash duration, retry, and cancellation.
 - `WindowSpec`, `WindowCommand`, `WindowRegistry` — generic window contracts,
@@ -27,7 +27,7 @@ presentation contracts (`ErrorPresentation`, `ResourceStatusPresentation`,
   machines.
 - `UserFacingError` and toast state (`ToastState`, `ToastItem`) — user-facing
   feedback.
-- `ScreenView` and `ScreenUpdate` — screen composition contracts.
+- `ScreenView` and `ScreenEffect` — screen composition contracts.
 - `platform` — cross-platform app icon installer and optional file picker.
 - `SettingsConfig`, `RuntimeSession`, `WindowSession` — opt-in runtime
   settings/session persistence for framework-owned preferences and keyed window
@@ -70,9 +70,9 @@ surface includes:
 
 - `Application`, `ApplicationConfig`, `Context`, `WindowContext`, and `run`.
 - `Action`, `ActionId`, `ActionMap`, and duplicate-ID validation.
-- `Update`, `AppUpdate`, `RuntimeCommand`, and `perform`.
+- `Effect`, `MessageContext`, `MessageSource`, and `perform`.
 - Lifecycle/window contracts such as `WindowSpec`, `WindowCommand`,
-  `CloseDecision`, `ExitDecision`, `BootstrapSpec`, and `CoreEvent`.
+  `CloseDecision`, `ExitDecision`, `BootstrapSpec`, and `RuntimeEvent`.
 - Opt-in settings/session contracts such as `SettingsConfig`,
   `RuntimeSession`, `WindowSession`, `WindowSessionSize`, and
   `WindowSessionPosition`.
@@ -82,7 +82,7 @@ surface includes:
 - Feature-gated platform/devtools APIs.
 
 Runner internals remain private behind those modules. App code emits
-`WindowCommand` through `Update`; it should not call lower-level window-opening
+`WindowCommand` through `Effect`; it should not call lower-level window-opening
 helpers directly.
 
 ## Status

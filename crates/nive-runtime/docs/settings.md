@@ -118,9 +118,9 @@ fail app startup because of settings corruption.
 
 ## Save Timing
 
-The implementation persists theme preference changes after
-`RuntimeCommand::Theme` changes the configured preference, even if the effective
-theme does not change because of the current system mode.
+The implementation persists theme preference changes after `Effect::theme`
+changes the configured preference, even if the effective theme does not change
+because of the current system mode.
 
 Window geometry persistence updates the in-memory runtime session from reliable
 Iced window move/resize events and writes the same session file. Saving runs as
