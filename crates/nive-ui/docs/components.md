@@ -28,8 +28,6 @@ taxonomy of category facades:
   `ToastHost`.
 - `widgets::feedback` — alerts, callouts, loading indicators, progress,
   skeletons, error/resource/operation status surfaces.
-- `widgets::composite` — fields, field groups, input groups, path inputs and
-  section headers.
 
 The crate root also exposes focused `layout`, `graphics` and `accessibility`
 facades for code that wants narrower imports than the full widget catalog.

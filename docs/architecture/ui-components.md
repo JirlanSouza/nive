@@ -9,12 +9,10 @@ flowchart BT
         direction BT
         tokens["tokens<br/>módulo<br/>Constantes primitivas: color (hex/RGB), spacing (base-4 compacto), radius, shadow, typography"]
         theme["theme<br/>módulo<br/>Roles semânticos, palette, Theme/ThemeData/ThemeId, ThemeBuilder, catalog (Catalog do Iced), active() global"]
-        widgets["widgets<br/>módulo<br/>40+ widgets type-safe organizados por primitives, controls, display, containers, navigation, overlays, feedback e composite"]
+        widgets["widgets<br/>módulo<br/>40+ widgets type-safe organizados por primitives, controls, display, containers, navigation, overlays (inclui DialogHost/ToastHost) e feedback"]
         layoutfacade["layout<br/>facade<br/>Surfaces e contêineres para imports focados"]
         graphicsfacade["graphics<br/>facade<br/>Ícones, swatches e SVG"]
         a11yfacade["accessibility<br/>facade<br/>FocusDirection e helpers de foco/teclado"]
-        dialoghost["dialog_host<br/>módulo<br/>DialogHost: composição de overlay modal"]
-        toasthost["toast_host<br/>módulo<br/>ToastHost: overlay de toasts, reexporta ToastPresentation de nive-core"]
         bootstrapview["bootstrap<br/>módulo<br/>BootstrapView: template genérico de splash/loading/falha"]
         focustrap["focus_trap<br/>módulo<br/>Ciclo de foco Tab/Shift+Tab para overlays"]
     end
@@ -26,12 +24,9 @@ flowchart BT
     widgets -->|estiliza via roles/catalog de| theme
     widgets -->|usa spacing/radius de| tokens
     widgets -->|reexporta contratos de| core
-    toasthost -->|reexporta ToastPresentation/ToastTone de| core
     layoutfacade -->|reexporta| widgets
     graphicsfacade -->|reexporta| widgets
     a11yfacade -->|reexporta| focustrap
-    dialoghost -->|compõe| widgets
-    toasthost -->|compõe| widgets
     bootstrapview -->|compõe| widgets
     focustrap -->|lê eventos de teclado de| iced
     theme -->|implementa Catalog de| iced
@@ -39,7 +34,7 @@ flowchart BT
 
     classDef component fill:#e8f1ff,stroke:#4b77be,color:#111;
     classDef external fill:#eee,stroke:#999,color:#333;
-    class tokens,theme,widgets,layoutfacade,graphicsfacade,a11yfacade,dialoghost,toasthost,bootstrapview,focustrap component;
+    class tokens,theme,widgets,layoutfacade,graphicsfacade,a11yfacade,bootstrapview,focustrap component;
     class iced,core external;
 ```
 
@@ -50,7 +45,7 @@ flowchart BT
     iced["iced (Widget · Catalog · canvas · svg)"]
     tokens["tokens<br/>color · spacing · radius · shadow · typography"]
     theme["theme<br/>roles · palette · Theme · ThemeBuilder · catalog · active()"]
-    widgets["widgets (40+)<br/>primitives · controls · display · containers · navigation · overlays · feedback · composite"]
+    widgets["widgets (40+)<br/>primitives · controls · display · containers · navigation · overlays · feedback"]
     hosts["hosts & templates<br/>DialogHost · ToastHost · BootstrapView · focus_trap"]
 
     tokens --> theme --> widgets --> hosts
