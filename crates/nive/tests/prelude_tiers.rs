@@ -33,16 +33,16 @@ mod minimal_tier_counter {
         fn init(
             _context: Context<'_, Self::Window>,
             _bootstrap: Self::Bootstrap,
-        ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
-            (Self { counter: 0 }, AppUpdate::none())
+        ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
+            (Self { counter: 0 }, Effect::none())
         }
 
         fn update(
             &mut self,
             _context: Context<'_, Self::Window>,
-            _window: Option<WindowContext<Self::Window>>,
+            _message_context: MessageContext<Self::Window>,
             message: Self::Message,
-        ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
+        ) -> impl Into<Effect<Self::Message, Self::Window>> {
             match message {
                 CounterMessage::Increment => self.counter += 1,
                 CounterMessage::Decrement => self.counter -= 1,
@@ -104,28 +104,28 @@ mod extended_tier_dashboard {
         fn init(
             _context: Context<'_, Self::Window>,
             _bootstrap: Self::Bootstrap,
-        ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
+        ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
             (
                 Self {
                     projects: Resource::idle(),
                     registry: OperationRegistry::new(),
                 },
-                AppUpdate::none(),
+                Effect::none(),
             )
         }
 
         fn update(
             &mut self,
             _context: Context<'_, Self::Window>,
-            _window: Option<WindowContext<Self::Window>>,
+            _message_context: MessageContext<Self::Window>,
             message: Self::Message,
-        ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
+        ) -> impl Into<Effect<Self::Message, Self::Window>> {
             match message {
                 DashboardMessage::Refresh => {
                     self.projects.begin();
-                    AppUpdate::none().toast(Toast::info("Refreshing"))
+                    Effect::none().with_toast(Toast::info("Refreshing"))
                 }
-                DashboardMessage::DismissDialog => AppUpdate::none(),
+                DashboardMessage::DismissDialog => Effect::none(),
             }
         }
 
@@ -149,6 +149,17 @@ mod extended_tier_dashboard {
         let _theme = ThemeBuilder::new("contract", ThemeMode::Light).build();
         let _shortcuts = ShortcutMap::<DashboardMessage>::new();
         let _windows = WindowRegistry::<()>::default();
+        let _source = MessageSource::Action;
+        let _event: RuntimeEvent<()> = RuntimeEvent::LastAppWindowClosed;
+        let _effect: Effect<DashboardMessage, ()> = Effect::toast(Toast::info("Dashboard ready"));
+        let _screen_effect: ScreenEffect<DashboardMessage, &'static str> =
+            ScreenEffect::output("done").with_toast(Toast::success("Saved"));
+        let _close_all: WindowCommand<()> = WindowCommand::CloseAllKind(());
+        let _replace: WindowCommand<()> = WindowCommand::Replace {
+            current: window::Id::unique(),
+            next: (),
+        };
+        let _query_acceptor: for<'a> fn(WindowQuery<'a, ()>) = |_| {};
 
         #[cfg(feature = "file-picker")]
         {

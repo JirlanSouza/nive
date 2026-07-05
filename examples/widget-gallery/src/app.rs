@@ -241,7 +241,7 @@ impl Application for WidgetGallery {
     fn init(
         _context: Context<'_, Self::Window>,
         _bootstrap: Self::Bootstrap,
-    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
+    ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
         (
             Self {
                 route: PageId::Actions,
@@ -262,10 +262,10 @@ impl Application for WidgetGallery {
     fn update(
         &mut self,
         _context: Context<'_, Self::Window>,
-        _window: Option<WindowContext<Self::Window>>,
+        _message_context: MessageContext<Self::Window>,
         message: Self::Message,
-    ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
-        let mut update = AppUpdate::none();
+    ) -> impl Into<Effect<Self::Message, Self::Window>> {
+        let mut effect = Effect::none();
 
         match message {
             Message::Navigate(route) => self.route = route,
@@ -296,7 +296,7 @@ impl Application for WidgetGallery {
             }
             Message::TreeEvent(event) => {
                 if let Some(task) = handle_tree_event(&mut self.layout, event) {
-                    update = update.task(task);
+                    effect = effect.with_task(task);
                 }
             }
             Message::TreeSelectionModeChanged(mode) => {
@@ -339,7 +339,7 @@ impl Application for WidgetGallery {
             Message::Noop => {}
         }
 
-        update.theme(self.theme)
+        effect.with_theme(self.theme)
     }
 
     fn view(

@@ -21,7 +21,7 @@ Mermaid.
 | [`ui-components.md`](ui-components.md) | L3 — Componentes | Módulos internos de `nive-ui` |
 | [`runtime-flows.md`](runtime-flows.md) | Comportamento | Loop Elm, bootstrap/splash, ciclo de janela, máquinas de estado async |
 | [`design-system.md`](design-system.md) | Design | Tokens → theme → widgets; catálogo de 40+ widgets |
-| [`api-surface.md`](api-surface.md) | API | Prelude tiers, contrato `Application`, `Update`, feature flags |
+| [`api-surface.md`](api-surface.md) | API | Prelude tiers, contrato `Application`, `Effect`, feature flags |
 | [`api-target.md`](api-target.md) | API | Contrato público alvo pré-publicação, renomeações, remoções e decisão sobre `nive-core` |
 
 ## Mapa mental (resumo de 1 diagrama)

@@ -41,7 +41,7 @@ impl Application for DevtoolsExample {
     fn init(
         _context: Context<'_, Self::Window>,
         _bootstrap: Self::Bootstrap,
-    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
+    ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
         (
             Self {
                 state: AppState {
@@ -56,20 +56,20 @@ impl Application for DevtoolsExample {
     fn update(
         &mut self,
         _context: Context<'_, Self::Window>,
-        _window: Option<WindowContext<Self::Window>>,
+        _message_context: MessageContext<Self::Window>,
         message: Self::Message,
-    ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
+    ) -> impl Into<Effect<Self::Message, Self::Window>> {
         match message {
             Message::Load => {
                 let task = self
                     .state
                     .projects
                     .load(fetch_projects(), Message::ProjectsSettled);
-                AppUpdate::none().task(task)
+                Effect::task(task)
             }
             Message::ProjectsSettled(settled) => {
                 self.state.projects.settle(settled);
-                AppUpdate::none()
+                Effect::none()
             }
         }
     }

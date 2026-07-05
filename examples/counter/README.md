@@ -11,7 +11,7 @@ A simple counter app that exercises the minimal surface of the `Application` tra
 - `Application` trait with `type Window = ()` and `type Bootstrap = ()` defaults
 - `ApplicationConfig::new` with `.name()`
 - `init`, `update`, `view` lifecycle methods
-- `AppUpdate` builder (returning `()` for no-op)
+- `Effect` return contract (returning `()` for no-op)
 - `ScreenView` with `column!`, `row!`, `button`, `text` widgets
 - `nive::Result` entry point
 

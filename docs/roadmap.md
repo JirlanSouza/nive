@@ -56,7 +56,7 @@ Resumo honesto do que já existe (crates `nive-ui`, `nive-runtime`, `nive-runtim
 * **Design system:** tokens (cor, spacing compacto base-4, radius, shadow, tipografia),
   theming semântico por *roles* (`SurfaceRole`, `TextRole`, `BorderRole`, `ToneRole`),
   catálogos Light/Dark, 40+ widgets primitivos.
-* **Runtime:** `Application`/`Update`/`Context`, lifecycle, bootstrap/splash, **multi-janela
+* **Runtime:** `Application`/`Effect`/`Context`, lifecycle, bootstrap/splash, **multi-janela
   completo** (`WindowSpec`/`WindowRegistry`/handshakes), máquinas de estado assíncrono
   (`Resource`, `Operation`, `OperationRegistry`), feedback (toasts em fila com severidade,
   `UserFacingError`), settings/session persistidos (serde).
@@ -122,7 +122,7 @@ real está em [§4](#4-plano-de-execução-milestones).
   - ✅ Tabs, painéis colapsáveis e split panes — `tabs.rs`, `panel.rs`, `split_pane.rs`.
   - 🟡 Garantir preservação/memória de estado da visualização anterior em todos os casos.
 - **Arquitetura de Estado Modular**
-  - 🟡 Composição de telas via `ScreenView`/`ScreenUpdate`.
+  - 🟡 Composição de telas via `ScreenView`/`ScreenEffect`.
   - ⬜ Trait/macro utilitária para aninhar sub-módulos (State, Message, Update) reduzindo
     boilerplate e isolando efeitos colaterais. *A peça que falta para apps grandes.*
 

@@ -8,8 +8,8 @@ janelas e as máquinas de estado assíncrono.
 ## 1. Loop de atualização (arquitetura Elm)
 
 O *program runner* (privado) media entre o Iced e o seu `Application`. Cada `update`
-devolve um `AppUpdate` que combina um `Task`, um `outcome` opcional e uma lista ordenada de
-`RuntimeCommand`s que o runtime **drena** após o update.
+devolve um `Effect` que combina um `Task` e uma lista ordenada de `RuntimeCommand`s
+(interno) que o runtime **drena** após o update.
 
 ```mermaid
 sequenceDiagram
@@ -20,8 +20,8 @@ sequenceDiagram
 
     User->>Iced: input (click, tecla, ...)
     Iced->>Runner: evento
-    Runner->>App: update(ctx, window, Message)
-    App-->>Runner: AppUpdate { task, outcome, runtime[] }
+    Runner->>App: update(ctx, message_context, Message)
+    App-->>Runner: Effect { task, runtime[] }
     Runner->>Runner: drena RuntimeCommand[]
     Note right of Runner: Toast → ToastState<br/>Window → WindowRegistry<br/>Theme → ThemeController<br/>Exit → encerra
     Runner->>Iced: Task<Message> (efeitos async)
@@ -32,9 +32,8 @@ sequenceDiagram
     Note over Iced,App: subscription(), shortcuts() e actions()<br/>também emitem Message no mesmo loop
 ```
 
-**Tipos-chave:** `Update<M, O, K>` (genérico) · `AppUpdate<M, K> = Update<M, Never, K>` (o
-que os hooks de `Application` retornam) · `RuntimeCommand<K>` = `Toast | Window | Theme |
-Exit`.
+**Tipos-chave:** `Effect<M, K = Never>` (o que os hooks de `Application` retornam; sem eixo
+de outcome) · `RuntimeCommand<K>` (interno ao crate) = `Toast | Window | Theme | Exit`.
 
 ---
 
@@ -59,7 +58,7 @@ sequenceDiagram
         Runner->>Task: attempt() → Task<UserFacingResult<B>>
         alt sucesso
             Task-->>Runner: Ok(B)  (respeita duração mínima)
-            Runner->>App: init(ctx, B) → (estado, AppUpdate)
+            Runner->>App: init(ctx, B) → (estado, Effect)
             Runner->>App: abre 1ª janela → view()
         else falha
             Task-->>Runner: Err(UserFacingError)
@@ -86,16 +85,16 @@ flowchart TD
     decision -->|Keep| keep["mantém aberta (cancela)"]
     decision -->|com Tasks| tasks["roda tasks e então fecha"]
     doClose --> last{era a última<br/>janela de app?}
-    last -->|sim| lastEvt["CoreEvent::LastAppWindowClosed"]
+    last -->|sim| lastEvt["RuntimeEvent::LastAppWindowClosed"]
     last -->|não| idle["continua"]
 
     exitReq["Pedido de sair do app"] --> onExit["on_exit_requested(ctx)"]
     onExit --> exitDec{ExitDecision}
-    exitDec -->|Accept| quit["encerra o processo"]
+    exitDec -->|Exit| quit["encerra o processo"]
     exitDec -->|Defer| defer["adia (ex.: confirmar 'salvar?')"]
 ```
 
-**Eventos de runtime** entregues via `on_core_event`: `WindowOpened`, `WindowClosed`,
+**Eventos de runtime** entregues via `on_runtime_event`: `WindowOpened`, `WindowClosed`,
 `WindowFocused`, `LastAppWindowClosed`, `ThemeChanged`, `CommandRejected`, `PlatformError`.
 **Atributos de janela:** `WindowRole` (App | Auxiliary), `WindowCardinality` (Single |
 Multiple), `WindowMode` (Windowed | Maximized | Fullscreen), `WindowChrome`.

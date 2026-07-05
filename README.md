@@ -69,7 +69,7 @@ On first launch, Nive installs a `.desktop` entry and icon PNG to `~/.local/shar
 
 ## Examples
 
-- [Counter](examples/counter/README.md) — Minimal app with `Application`, `AppUpdate` builder, and `ScreenView`
+- [Counter](examples/counter/README.md) — Minimal app with `Application`, `Effect`, and `ScreenView`
 - [Forms](examples/forms/README.md) — Form inputs with `Field`, `InputGroup`, validation, and dialogs
 - [Async Data](examples/async-data/README.md) — `Resource` with guarded `begin`/`settle` loading and app-owned operations
 - [Multi Window](examples/multi-window/README.md) — Multiple windows with explicit `Window` enum

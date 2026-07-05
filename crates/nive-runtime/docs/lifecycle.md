@@ -4,7 +4,7 @@ The contract checkpoint defines:
 
 - `WindowSpec`, `WindowRole` and `WindowCardinality`
 - `WindowCommand` and typed command rejection
-- `CoreEvent`
+- `RuntimeEvent`
 - `CloseDecision` and `ExitDecision`
 - read-only `WindowQuery`
 - declarative `BootstrapSpec`
@@ -24,8 +24,8 @@ instance. Removing an interrupted opening also removes its handle, preventing
 ghost windows from affecting cardinality and lifecycle decisions.
 
 The application runner enforces `WindowCommand` against the registry and emits
-typed `CommandRejected` events for missing specs, missing windows and opens
-requested during exit. Single-cardinality opens focus the current
+typed `CommandRejected` runtime events for missing specs, missing windows and
+opens requested during exit. Single-cardinality opens focus the current
 representative; multiple-cardinality specs create distinct instances.
 
 Close requests for non-final app windows use `CloseDecision`. The runtime tracks

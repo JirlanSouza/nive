@@ -46,7 +46,7 @@ the unit marker types (`type Window = ()` and `type Bootstrap = ()`), which
 opts into the `SimpleApplication` marker: the runtime auto-registers one
 default `WindowSpec::app()` for `Window = ()` and skips the splash flow when
 `Bootstrap = ()`. Update hooks can return `()`, which the runtime treats as
-`AppUpdate::none()` when there are no side effects.
+`Effect::none()` when there are no side effects.
 
 ```rust
 use nive::prelude::*;
@@ -72,17 +72,17 @@ impl Application for MyApp {
     fn init(
         _context: Context<'_, Self::Window>,
         _bootstrap: Self::Bootstrap,
-    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
-        (Self, AppUpdate::none())
+    ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
+        (Self, Effect::none())
     }
 
     fn update(
         &mut self,
         _context: Context<'_, Self::Window>,
-        _window: Option<WindowContext<Self::Window>>,
+        _message_context: MessageContext<Self::Window>,
         _message: Self::Message,
-    ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
-        // Returning `()` is `AppUpdate::none()`.
+    ) -> impl Into<Effect<Self::Message, Self::Window>> {
+        // Returning `()` is `Effect::none()`.
     }
 
     fn view(

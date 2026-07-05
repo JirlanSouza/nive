@@ -30,16 +30,16 @@ impl Application for FilePickerApp {
     fn init(
         _context: Context<'_, Self::Window>,
         _bootstrap: Self::Bootstrap,
-    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>) {
+    ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
         (Self, ())
     }
 
     fn update(
         &mut self,
         _context: Context<'_, Self::Window>,
-        _window: Option<WindowContext<Self::Window>>,
+        _message_context: MessageContext<Self::Window>,
         message: Self::Message,
-    ) -> impl Into<AppUpdate<Self::Message, Self::Window>> {
+    ) -> impl Into<Effect<Self::Message, Self::Window>> {
         match message {
             Message::PickFile => {
                 let params = PickFileParams {
@@ -49,7 +49,7 @@ impl Application for FilePickerApp {
                     }],
                     start_dir: None,
                 };
-                return AppUpdate::none().task(nive::pick_file(params).map(Message::FilePicked));
+                return Effect::task(nive::pick_file(params).map(Message::FilePicked));
             }
             Message::PickFiles => {
                 let params = PickFileParams {
@@ -59,12 +59,10 @@ impl Application for FilePickerApp {
                     }],
                     start_dir: None,
                 };
-                return AppUpdate::none()
-                    .task(nive::pick_files(params).map(Message::FilesPicked));
+                return Effect::task(nive::pick_files(params).map(Message::FilesPicked));
             }
             Message::PickFolder => {
-                return AppUpdate::none()
-                    .task(nive::pick_folder(None).map(Message::FolderPicked));
+                return Effect::task(nive::pick_folder(None).map(Message::FolderPicked));
             }
             Message::SaveFile => {
                 let params = SaveFileParams {
@@ -75,27 +73,26 @@ impl Application for FilePickerApp {
                     start_dir: None,
                     default_name: Some("document.txt".to_string()),
                 };
-                return AppUpdate::none().task(nive::save_file(params).map(Message::FileSaved));
+                return Effect::task(nive::save_file(params).map(Message::FileSaved));
             }
             Message::FilePicked(Some(path)) => {
-                return AppUpdate::none()
-                    .toast(Toast::success(format!("Picked file: {}", path.display())));
+                return Effect::toast(Toast::success(format!("Picked file: {}", path.display())));
             }
             Message::FilesPicked(Some(paths)) => {
-                return AppUpdate::none()
-                    .toast(Toast::success(format!("Picked {} files", paths.len())));
+                return Effect::toast(Toast::success(format!("Picked {} files", paths.len())));
             }
             Message::FolderPicked(Some(path)) => {
-                return AppUpdate::none()
-                    .toast(Toast::success(format!("Picked folder: {}", path.display())));
+                return Effect::toast(Toast::success(format!(
+                    "Picked folder: {}",
+                    path.display()
+                )));
             }
             Message::FileSaved(Some(path)) => {
-                return AppUpdate::none()
-                    .toast(Toast::success(format!("Saved to: {}", path.display())));
+                return Effect::toast(Toast::success(format!("Saved to: {}", path.display())));
             }
             _ => {}
         }
-        AppUpdate::none()
+        Effect::none()
     }
 
     fn view(
