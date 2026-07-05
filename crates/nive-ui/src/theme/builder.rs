@@ -1,5 +1,7 @@
 use iced::theme::{Base as _, Palette};
 
+use crate::icons::{self, IconCatalog};
+
 use super::color_scheme::ColorScheme;
 use super::component::{self, ControlMetricsScale};
 use super::shape::{self, ShapeScale};
@@ -16,6 +18,7 @@ pub struct ThemeBuilder {
     shapes: ShapeScale,
     spacing: SpacingScale,
     controls: Option<ControlMetricsScale>,
+    icons: IconCatalog,
 }
 
 impl ThemeBuilder {
@@ -28,6 +31,7 @@ impl ThemeBuilder {
             shapes: shape::scale(),
             spacing: spacing::scale(),
             controls: None,
+            icons: icons::lucide::default_catalog(),
         }
     }
 
@@ -44,6 +48,7 @@ impl ThemeBuilder {
             shapes: data.shapes,
             spacing: data.spacing,
             controls: Some(data.controls),
+            icons: data.icons,
         }
     }
 
@@ -115,6 +120,11 @@ impl ThemeBuilder {
         self
     }
 
+    pub fn icons(mut self, icons: IconCatalog) -> Self {
+        self.icons = icons;
+        self
+    }
+
     pub fn build_data(self) -> ThemeData {
         let controls = self
             .controls
@@ -131,6 +141,7 @@ impl ThemeBuilder {
             shapes: self.shapes,
             spacing: self.spacing,
             controls,
+            icons: self.icons,
         }
     }
 

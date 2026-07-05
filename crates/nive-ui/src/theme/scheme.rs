@@ -2,6 +2,8 @@ use std::sync::LazyLock;
 
 use iced::Padding;
 
+use crate::icons::{self, IconCatalog, IconGlyph, IconRole};
+
 use super::color_scheme::{BorderSpec, ColorScheme, ControlSpec, SurfaceSpec, TextSpec, ToneSpec};
 use super::component::{self, ControlMetrics, ControlMetricsScale, ControlSize};
 use super::shape::{self, ShapeRole, ShapeScale, ShapeSpec};
@@ -81,6 +83,7 @@ pub struct ThemeData {
     pub shapes: ShapeScale,
     pub spacing: SpacingScale,
     pub controls: ControlMetricsScale,
+    pub icons: IconCatalog,
 }
 
 static LIGHT_THEME_DATA: LazyLock<ThemeData> = LazyLock::new(|| ThemeData::new(ThemeMode::Light));
@@ -178,6 +181,16 @@ impl Theme {
         self.data().controls
     }
 
+    pub fn icons(self) -> IconCatalog {
+        self.data().icons
+    }
+
+    pub fn icon(self, role: IconRole) -> IconGlyph {
+        self.icons()
+            .glyph(role)
+            .unwrap_or_else(|| icons::lucide::glyph_for(role))
+    }
+
     pub fn control_metrics(self, size: ControlSize) -> ControlMetrics {
         self.controls().get(size)
     }
@@ -210,6 +223,7 @@ impl ThemeData {
             shapes,
             spacing,
             controls,
+            icons: icons::lucide::default_catalog(),
         }
     }
 }
@@ -325,6 +339,36 @@ mod theme_tests {
         assert_eq!(
             Theme::Dark.control_metrics(ControlSize::Md),
             Theme::Dark.data().controls.get(ControlSize::Md)
+        );
+    }
+
+    #[test]
+    fn built_in_themes_expose_default_icon_catalog() {
+        for role in IconRole::ALL {
+            assert_eq!(Theme::Light.icon(*role), icons::lucide::glyph_for(*role));
+            assert_eq!(Theme::Dark.icon(*role), icons::lucide::glyph_for(*role));
+        }
+    }
+
+    #[test]
+    fn custom_theme_icon_catalog_overrides_framework_role() {
+        const GLYPH: IconGlyph = IconGlyph::new(
+            br#"<svg xmlns="http://www.w3.org/2000/svg"></svg>"#,
+            "custom:close",
+        );
+        const CATALOG: IconCatalog = IconCatalog::new(&[crate::icons::IconCatalogEntry::new(
+            IconRole::WindowClose,
+            GLYPH,
+        )]);
+
+        let theme = Theme::builder("Acme", ThemeMode::Light)
+            .icons(CATALOG)
+            .build();
+
+        assert_eq!(theme.icon(IconRole::WindowClose), GLYPH);
+        assert_ne!(
+            theme.icon(IconRole::WindowClose),
+            icons::lucide::glyph_for(IconRole::WindowClose)
         );
     }
 
