@@ -3,6 +3,7 @@ use std::sync::{Mutex, MutexGuard};
 use iced::Padding;
 
 use super::component::{ControlMetrics, ControlMetricsScale, ControlSize};
+use super::density::ThemeDensity;
 use super::scheme::Theme;
 use super::spacing::{GapRole, PaddingRole, SpaceStep, SpacingScale};
 
@@ -27,6 +28,10 @@ pub fn spacing() -> SpacingScale {
 
 pub fn controls() -> ControlMetricsScale {
     active().controls()
+}
+
+pub fn density() -> ThemeDensity {
+    active().density()
 }
 
 pub fn control_metrics(size: ControlSize) -> ControlMetrics {

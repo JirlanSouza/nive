@@ -229,7 +229,7 @@ where
         self
     }
 
-    /// Sets the row density.
+    /// Sets the row size.
     pub fn size(mut self, size: ControlSize) -> Self {
         self.size = size;
         self
