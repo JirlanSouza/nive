@@ -7,6 +7,7 @@ pub use iced::{
 pub use crate::animation::{
     AnimatedLayout, AnimatedVisual, Animation, AnimationFrame, Easing, StaggeredPulse,
 };
+pub use crate::icons::{IconCatalog, IconCatalogEntry, IconGlyph, IconRole, IconSource};
 pub use crate::theme::{self, ThemePreference};
 pub use crate::widgets::*;
 pub use crate::{
