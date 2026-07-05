@@ -5,11 +5,14 @@ use iced::{
 
 use crate::{
     theme::{self, GapRole, ToneRole},
-    widgets::{text, LoadingIndicator},
+    widgets::{primitives::text, Spinner},
     Element,
 };
 
-use super::{ErrorFeedbackAction, ErrorFeedbackActionRow, ResourceStatusPresentation};
+use super::{
+    presentation::{resource_status_phase, ResourceStatusPhase},
+    ErrorFeedbackAction, ErrorFeedbackActionRow, ResourceStatusPresentation,
+};
 
 pub struct ResourceStatusLine<'a, Message> {
     state: ResourceStatusLineState<'a>,
@@ -53,12 +56,10 @@ where
         refreshing_label: &'a str,
         error_message: &'a str,
     ) -> Self {
-        if presentation.is_refreshing() && presentation.has_value() {
-            Self::refreshing(refreshing_label)
-        } else if presentation.error().is_some() && presentation.has_value() {
-            Self::stale_error(error_message)
-        } else {
-            Self::idle()
+        match resource_status_phase(presentation) {
+            ResourceStatusPhase::Idle => Self::idle(),
+            ResourceStatusPhase::Refreshing => Self::refreshing(refreshing_label),
+            ResourceStatusPhase::StaleError => Self::stale_error(error_message),
         }
     }
 
@@ -79,7 +80,7 @@ where
         match self.state {
             ResourceStatusLineState::Idle => Space::new().width(Length::Shrink).into(),
             ResourceStatusLineState::Refreshing { label } => {
-                LoadingIndicator::new().neutral().xs().label(label).into()
+                Spinner::new().neutral().xs().label(label).into()
             }
             ResourceStatusLineState::StaleError { message } => {
                 let mut content =

@@ -1,8 +1,11 @@
-pub use iced::widget::{space, svg};
+pub mod color_swatch;
+pub mod icon;
+pub mod separator;
+pub mod text;
+pub(crate) mod tone_dot;
 
-pub use super::{
-    color_swatch::ColorSwatch,
-    icon::{Icon, IconName, IconSource},
-    separator::Separator,
-    text,
-};
+pub use color_swatch::ColorSwatch;
+pub use icon::{Icon, IconName, IconSource};
+pub use separator::Separator;
+
+pub use iced::widget::{space, svg};
