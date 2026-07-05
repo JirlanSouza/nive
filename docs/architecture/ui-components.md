@@ -8,7 +8,7 @@ flowchart BT
     subgraph ui["nive-ui"]
         direction BT
         tokens["tokens<br/>módulo<br/>Constantes primitivas: color (hex/RGB), spacing (base-4 compacto), radius, shadow, typography"]
-        theme["theme<br/>módulo<br/>Roles semânticos, palette, Theme/ThemeData/ThemeId, ThemeBuilder, catalog (Catalog do Iced), active() global"]
+        theme["theme<br/>módulo<br/>Roles semânticos, palette, Theme/ThemeData/ThemeId, ThemeBuilder, catalog (Catalog do Iced), active() global, density (ThemeDensity)"]
         widgets["widgets<br/>módulo<br/>40+ widgets type-safe organizados por primitives, controls, display, containers, navigation, overlays (inclui DialogHost/ToastHost) e feedback"]
         layoutfacade["layout<br/>facade<br/>Surfaces e contêineres para imports focados"]
         graphicsfacade["graphics<br/>facade<br/>Ícones, swatches e SVG"]
