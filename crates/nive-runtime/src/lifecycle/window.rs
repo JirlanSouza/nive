@@ -303,8 +303,7 @@ where
         Some(self.windows.remove(index).handle.kind)
     }
 
-    #[cfg(test)]
-    fn lifecycle(&self, window_id: window::Id) -> Option<WindowLifecycle> {
+    pub(crate) fn lifecycle(&self, window_id: window::Id) -> Option<WindowLifecycle> {
         self.windows
             .iter()
             .find(|entry| entry.handle.id == window_id)
@@ -350,10 +349,21 @@ where
         self.windows.iter().any(|entry| entry.handle.kind == kind)
     }
 
-    pub(crate) fn first(&self, kind: K) -> Option<WindowHandle<K>> {
+    /// Returns the most recently active/opened open window matching `kind`.
+    pub(crate) fn latest(&self, kind: K) -> Option<WindowHandle<K>> {
         self.windows
             .iter()
-            .filter(|entry| entry.handle.kind == kind)
+            .filter(|entry| entry.handle.kind == kind && entry.lifecycle == WindowLifecycle::Open)
+            .max_by_key(|entry| entry.activity_sequence)
+            .map(|entry| entry.handle)
+    }
+
+    pub(crate) fn opening(&self, kind: K) -> Option<WindowHandle<K>> {
+        self.windows
+            .iter()
+            .filter(|entry| {
+                entry.handle.kind == kind && entry.lifecycle == WindowLifecycle::Opening
+            })
             .max_by_key(|entry| entry.activity_sequence)
             .map(|entry| entry.handle)
     }
@@ -374,7 +384,9 @@ where
     pub(crate) fn most_recent_app_window(&self) -> Option<WindowHandle<K>> {
         self.windows
             .iter()
-            .filter(|entry| entry.handle.role == WindowRole::App)
+            .filter(|entry| {
+                entry.handle.role == WindowRole::App && entry.lifecycle == WindowLifecycle::Open
+            })
             .max_by_key(|entry| entry.activity_sequence)
             .map(|entry| entry.handle)
     }
@@ -680,9 +692,32 @@ mod tests {
         registry.set_focused(first_id);
 
         assert_eq!(
-            registry.first(TestWindow::Workspace),
+            registry.latest(TestWindow::Workspace),
             Some(WindowHandle::new(TestWindow::Workspace, first_id))
         );
         assert_eq!(registry.id(TestWindow::Workspace), Some(first_id));
+    }
+
+    #[test]
+    fn registry_latest_ignores_opening_windows() {
+        let opening_id = window::Id::unique();
+        let mut registry = WindowRegistry::new();
+
+        registry.set_opening(WindowHandle::new(TestWindow::Workspace, opening_id));
+
+        assert_eq!(registry.latest(TestWindow::Workspace), None);
+    }
+
+    #[test]
+    fn registry_opening_returns_opening_window_by_kind() {
+        let opening_id = window::Id::unique();
+        let mut registry = WindowRegistry::new();
+
+        registry.set_opening(WindowHandle::new(TestWindow::Workspace, opening_id));
+
+        assert_eq!(
+            registry.opening(TestWindow::Workspace),
+            Some(WindowHandle::new(TestWindow::Workspace, opening_id))
+        );
     }
 }

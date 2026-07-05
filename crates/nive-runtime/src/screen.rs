@@ -5,5 +5,5 @@ mod screen_view;
 
 pub use dialog_dismiss::{is_escape_key_press, DialogDismiss};
 pub use dialog_request::DialogRequest;
-pub use screen_update::ScreenUpdate;
+pub use screen_update::ScreenEffect;
 pub use screen_view::ScreenView;

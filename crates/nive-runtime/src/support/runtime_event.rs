@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::unix_now;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum RuntimeEventKind {
+pub enum DiagnosticEventKind {
     Info,
     Warning,
     Error,
@@ -13,16 +13,16 @@ pub enum RuntimeEventKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RuntimeEvent {
+pub struct DiagnosticEvent {
     pub timestamp: i64,
-    pub kind: RuntimeEventKind,
+    pub kind: DiagnosticEventKind,
     pub category: Cow<'static, str>,
     pub message: Cow<'static, str>,
 }
 
-impl RuntimeEvent {
+impl DiagnosticEvent {
     pub fn new(
-        kind: RuntimeEventKind,
+        kind: DiagnosticEventKind,
         category: impl Into<Cow<'static, str>>,
         message: impl Into<Cow<'static, str>>,
     ) -> Self {
@@ -38,27 +38,27 @@ impl RuntimeEvent {
         category: impl Into<Cow<'static, str>>,
         message: impl Into<Cow<'static, str>>,
     ) -> Self {
-        Self::new(RuntimeEventKind::Info, category, message)
+        Self::new(DiagnosticEventKind::Info, category, message)
     }
 
     pub fn warning(
         category: impl Into<Cow<'static, str>>,
         message: impl Into<Cow<'static, str>>,
     ) -> Self {
-        Self::new(RuntimeEventKind::Warning, category, message)
+        Self::new(DiagnosticEventKind::Warning, category, message)
     }
 
     pub fn error(
         category: impl Into<Cow<'static, str>>,
         message: impl Into<Cow<'static, str>>,
     ) -> Self {
-        Self::new(RuntimeEventKind::Error, category, message)
+        Self::new(DiagnosticEventKind::Error, category, message)
     }
 
     pub fn panic(
         category: impl Into<Cow<'static, str>>,
         message: impl Into<Cow<'static, str>>,
     ) -> Self {
-        Self::new(RuntimeEventKind::Panic, category, message)
+        Self::new(DiagnosticEventKind::Panic, category, message)
     }
 }

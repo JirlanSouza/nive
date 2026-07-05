@@ -7,20 +7,20 @@ mod event_log;
 mod panic_hook;
 mod runtime_event;
 
-pub use event_log::RuntimeEventLog;
+pub use event_log::DiagnosticEventLog;
 pub use panic_hook::install_diagnostic_panic_hook;
-pub use runtime_event::{RuntimeEvent, RuntimeEventKind};
+pub use runtime_event::{DiagnosticEvent, DiagnosticEventKind};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DiagnosticSnapshot {
     pub generated_at: i64,
-    pub events: Vec<RuntimeEvent>,
+    pub events: Vec<DiagnosticEvent>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub app_metadata: Vec<(String, String)>,
 }
 
 impl DiagnosticSnapshot {
-    pub fn capture(log: &RuntimeEventLog) -> Self {
+    pub fn capture(log: &DiagnosticEventLog) -> Self {
         Self {
             generated_at: crate::unix_now(),
             events: log.snapshot(),
@@ -28,7 +28,7 @@ impl DiagnosticSnapshot {
         }
     }
 
-    pub fn capture_arc(log: &Arc<RuntimeEventLog>) -> Self {
+    pub fn capture_arc(log: &Arc<DiagnosticEventLog>) -> Self {
         Self::capture(log.as_ref())
     }
 
@@ -86,9 +86,9 @@ mod snapshot_tests {
 
     #[test]
     fn capture_collects_log_events() {
-        let log = RuntimeEventLog::new();
-        log.record(RuntimeEvent::info("settings", "loaded"));
-        log.record(RuntimeEvent::warning("ingest", "retry"));
+        let log = DiagnosticEventLog::new();
+        log.record(DiagnosticEvent::info("settings", "loaded"));
+        log.record(DiagnosticEvent::warning("ingest", "retry"));
 
         let snapshot = DiagnosticSnapshot::capture(&log);
 
@@ -99,7 +99,7 @@ mod snapshot_tests {
 
     #[test]
     fn metadata_builder_appends_entries() {
-        let log = RuntimeEventLog::new();
+        let log = DiagnosticEventLog::new();
         let snapshot = DiagnosticSnapshot::capture(&log)
             .with_metadata([("app_name", "acme"), ("version", "0.1.0")])
             .add_metadata("channel", "dev");
@@ -111,8 +111,8 @@ mod snapshot_tests {
 
     #[test]
     fn json_round_trip_preserves_events() {
-        let log = RuntimeEventLog::new();
-        log.record(RuntimeEvent::error("ingest", "disk full"));
+        let log = DiagnosticEventLog::new();
+        log.record(DiagnosticEvent::error("ingest", "disk full"));
         let snapshot = DiagnosticSnapshot::capture(&log).add_metadata("app", "acme");
 
         let json = snapshot.to_json().expect("serialize");
@@ -126,9 +126,9 @@ mod snapshot_tests {
 
     #[test]
     fn pretty_summary_includes_event_count() {
-        let log = RuntimeEventLog::new();
-        log.record(RuntimeEvent::info("test", "a"));
-        log.record(RuntimeEvent::info("test", "b"));
+        let log = DiagnosticEventLog::new();
+        log.record(DiagnosticEvent::info("test", "a"));
+        log.record(DiagnosticEvent::info("test", "b"));
         let snapshot = DiagnosticSnapshot::capture(&log).add_metadata("app", "acme");
 
         let summary = snapshot.pretty();

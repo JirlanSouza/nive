@@ -19,11 +19,11 @@ pub use crate::lifecycle::{
     CloseDecision, CommandRejected, CommandRejectionReason, ExitDecision, WindowCommand,
 };
 pub use config::{ApplicationConfig, WindowRegistration};
-pub use context::{Context, WindowContext, WindowQuery};
-pub use event::CoreEvent;
+pub use context::{Context, MessageContext, MessageSource, WindowContext, WindowQuery};
+pub use event::RuntimeEvent;
 pub use task::perform;
 pub use theme::{ThemeController, ThemeEvent};
-pub use update::{AppUpdate, Never, RuntimeCommand, Update};
+pub use update::{Effect, Never};
 
 /// Convenience [`Result`] for runtime entry points.
 pub type Result<T = ()> = std::result::Result<T, Error>;
@@ -105,24 +105,29 @@ pub trait Application: Sized + 'static {
     /// Constructs the initial application state from a successful bootstrap.
     ///
     /// Receives the runtime [`Context`] and the bootstrap result, and returns
-    /// the initial state together with the first [`AppUpdate`]. Returning `()`
-    /// is equivalent to [`AppUpdate::none()`] when no side effects are needed.
+    /// the initial state together with the first [`Effect`]. Returning `()`
+    /// is equivalent to [`Effect::none()`] when no side effects are needed.
     fn init(
         context: Context<'_, Self::Window>,
         bootstrap: Self::Bootstrap,
-    ) -> (Self, impl Into<AppUpdate<Self::Message, Self::Window>>);
+    ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>);
 
     /// Applies a message, mutating application state and returning the
-    /// [`AppUpdate`] describing follow-up tasks and runtime effects.
+    /// [`Effect`] describing follow-up tasks and runtime effects.
     ///
-    /// Returning `()` is equivalent to [`AppUpdate::none()`] when no side
+    /// `message_context` carries the source window (if any) and a
+    /// [`MessageSource`] describing why the message reached `update`:
+    /// view/dialog, an [`Effect::task`], a subscription, or an action/shortcut
+    /// dispatch.
+    ///
+    /// Returning `()` is equivalent to [`Effect::none()`] when no side
     /// effects are needed.
     fn update(
         &mut self,
         context: Context<'_, Self::Window>,
-        window: Option<WindowContext<Self::Window>>,
+        message_context: MessageContext<Self::Window>,
         message: Self::Message,
-    ) -> impl Into<AppUpdate<Self::Message, Self::Window>>;
+    ) -> impl Into<Effect<Self::Message, Self::Window>>;
 
     /// Renders the content of a window as a [`ScreenView`].
     fn view(
@@ -165,9 +170,9 @@ pub trait Application: Sized + 'static {
     /// from settings) resolve the active [`crate::Theme`].
     ///
     /// The runtime consults this method at app initialization, on
-    /// [`AppUpdate::theme`] emissions, and on OS theme changes. The runtime
+    /// [`Effect::theme`] emissions, and on OS theme changes. The runtime
     /// applies the following tie-break rule when both this method returns and
-    /// `AppUpdate::theme(pref)` is emitted:
+    /// `Effect::theme(pref)` is emitted:
     ///
     /// - `Light` or `Dark` returned from this method **wins**; the emitted
     ///   preference is recorded to settings only (for restarts) but does not
@@ -189,14 +194,14 @@ pub trait Application: Sized + 'static {
         ThemePreference::System
     }
 
-    /// Reacts to a runtime [`CoreEvent`] (window focus, theme change, etc.).
-    /// Defaults to no update.
-    fn on_core_event(
+    /// Reacts to a runtime [`RuntimeEvent`] (window focus, theme change,
+    /// etc.). Defaults to no effect.
+    fn on_runtime_event(
         &mut self,
         _context: Context<'_, Self::Window>,
-        _event: CoreEvent<Self::Window>,
-    ) -> AppUpdate<Self::Message, Self::Window> {
-        AppUpdate::none()
+        _event: RuntimeEvent<Self::Window>,
+    ) -> impl Into<Effect<Self::Message, Self::Window>> {
+        Effect::none()
     }
 
     /// Decides whether a window's close request is accepted, deferred, or
@@ -210,12 +215,12 @@ pub trait Application: Sized + 'static {
     }
 
     /// Decides whether an application exit request is accepted or deferred.
-    /// Defaults to accepting the exit.
+    /// Defaults to exiting.
     fn on_exit_requested(
         &mut self,
         _context: Context<'_, Self::Window>,
     ) -> ExitDecision<Self::Message> {
-        ExitDecision::Accept
+        ExitDecision::Exit
     }
 }
 
