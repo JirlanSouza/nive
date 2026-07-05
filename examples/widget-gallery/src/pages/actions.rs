@@ -76,11 +76,11 @@ fn button_states() -> Element<'static, Message> {
             "Icon placement",
             variant_row([
                 nbutton::primary("Back")
-                    .leading_icon(IconName::ArrowLeft)
+                    .leading_icon(IconRole::GoPrevious)
                     .on_press(Message::Noop)
                     .into(),
                 nbutton::secondary("Next")
-                    .trailing_icon(IconName::ArrowRight)
+                    .trailing_icon(IconRole::GoNext)
                     .on_press(Message::Noop)
                     .into(),
             ]),
@@ -88,11 +88,11 @@ fn button_states() -> Element<'static, Message> {
         example_cell(
             "Icon-only",
             variant_row([
-                nbutton::icon(IconName::Search)
+                nbutton::icon(IconRole::EditFind)
                     .tooltip("Search")
                     .on_press(Message::Noop)
                     .into(),
-                nbutton::icon(IconName::Settings)
+                nbutton::icon(IconRole::PreferencesSystem)
                     .tooltip("Settings")
                     .on_press(Message::Noop)
                     .into(),
@@ -138,7 +138,7 @@ fn segmented_controls(size: ControlSize, selected: &'static str) -> Element<'sta
                 .size(size)
                 .item(segment("Preview", selected))
                 .item(segment("Code", selected))
-                .item(segment("Tests", selected).icon(IconName::Check))
+                .item(segment("Tests", selected).icon(IconRole::ActionConfirm))
                 .fill(),
         ),
         example_cell(
@@ -148,7 +148,7 @@ fn segmented_controls(size: ControlSize, selected: &'static str) -> Element<'sta
                 .size(size)
                 .item(segment("Preview", selected))
                 .item(segment("Code", selected))
-                .item(segment("Tests", selected).icon(IconName::Check))
+                .item(segment("Tests", selected).icon(IconRole::ActionConfirm))
                 .fill(),
         ),
         example_cell(
@@ -164,7 +164,7 @@ fn segmented_controls(size: ControlSize, selected: &'static str) -> Element<'sta
                     .item(segment("Code", selected))
                     .item(segment("Tests", selected))
                     .into(),
-                nbutton::icon(IconName::Settings)
+                nbutton::icon(IconRole::PreferencesSystem)
                     .size(size)
                     .tooltip("Settings")
                     .on_press(Message::Noop)
@@ -181,17 +181,17 @@ fn action_groups(size: ControlSize) -> Element<'static, Message> {
             ActionGroup::new()
                 .size(size)
                 .action(
-                    ToolbarAction::icon(IconName::ArrowLeft)
+                    ToolbarAction::icon(IconRole::GoPrevious)
                         .tooltip("Back")
                         .on_press(Message::Noop),
                 )
                 .action(
-                    ToolbarAction::icon(IconName::ArrowRight)
+                    ToolbarAction::icon(IconRole::GoNext)
                         .tooltip("Forward")
                         .on_press(Message::Noop),
                 )
                 .separator()
-                .action(ToolbarAction::icon_label(IconName::RefreshCw, "Refresh").loading(true)),
+                .action(ToolbarAction::icon_label(IconRole::ViewRefresh, "Refresh").loading(true)),
         ),
         example_cell(
             "Selectable actions",
@@ -204,7 +204,7 @@ fn action_groups(size: ControlSize) -> Element<'static, Message> {
                 )
                 .action(ToolbarAction::label("Code").on_press(Message::Noop))
                 .action(
-                    ToolbarAction::icon(IconName::Trash)
+                    ToolbarAction::icon(IconRole::EditDelete)
                         .disabled(true)
                         .tooltip("Delete"),
                 ),
@@ -219,17 +219,17 @@ fn action_groups(size: ControlSize) -> Element<'static, Message> {
                 ActionGroup::new()
                     .size(size)
                     .action(
-                        ToolbarAction::icon(IconName::ArrowLeft)
+                        ToolbarAction::icon(IconRole::GoPrevious)
                             .tooltip("Back")
                             .on_press(Message::Noop),
                     )
                     .action(
-                        ToolbarAction::icon(IconName::ArrowRight)
+                        ToolbarAction::icon(IconRole::GoNext)
                             .tooltip("Forward")
                             .on_press(Message::Noop),
                     )
                     .into(),
-                nbutton::icon(IconName::Settings)
+                nbutton::icon(IconRole::PreferencesSystem)
                     .size(size)
                     .tooltip("Settings")
                     .on_press(Message::Noop)
@@ -247,18 +247,18 @@ fn toolbar(size: ControlSize) -> Element<'static, Message> {
                 .group(
                     ToolbarGroup::new()
                         .action(
-                            ToolbarAction::icon(IconName::ArrowLeft)
+                            ToolbarAction::icon(IconRole::GoPrevious)
                                 .tooltip("Back")
                                 .on_press(Message::Noop),
                         )
                         .action(
-                            ToolbarAction::icon(IconName::ArrowRight)
+                            ToolbarAction::icon(IconRole::GoNext)
                                 .tooltip("Forward")
                                 .on_press(Message::Noop),
                         )
                         .separator()
                         .action(
-                            ToolbarAction::icon_label(IconName::RefreshCw, "Refresh").loading(true)
+                            ToolbarAction::icon_label(IconRole::ViewRefresh, "Refresh").loading(true)
                         ),
                 )
                 .group(
@@ -269,7 +269,7 @@ fn toolbar(size: ControlSize) -> Element<'static, Message> {
                                 .on_press(Message::Noop),
                         )
                         .action(
-                            ToolbarAction::icon(IconName::Trash)
+                            ToolbarAction::icon(IconRole::EditDelete)
                                 .disabled(true)
                                 .tooltip("Delete"),
                         ),
@@ -298,13 +298,13 @@ pub fn view_menu_only() -> Element<'static, Message> {
     DropdownMenu::new()
         .item(
             DropdownMenuItem::new("Rename")
-                .icon(IconName::Edit)
+                .icon(IconRole::EditModify)
                 .trailing("Enter")
                 .on_press(Message::Noop),
         )
         .item(
             DropdownMenuItem::new("Copy link")
-                .icon(IconName::Copy)
+                .icon(IconRole::EditCopy)
                 .trailing("Cmd+C")
                 .selected(true)
                 .on_press(Message::Noop),
@@ -313,7 +313,7 @@ pub fn view_menu_only() -> Element<'static, Message> {
         .item(DropdownMenuItem::new("Disabled command").disabled(true))
         .item(
             DropdownMenuItem::new("Delete")
-                .icon(IconName::Trash)
+                .icon(IconRole::EditDelete)
                 .destructive(true)
                 .on_press(Message::Noop),
         )
@@ -338,7 +338,7 @@ fn action_cards() -> Element<'static, Message> {
             "Elevated",
             ActionCard::new(
                 column![
-                    Icon::new(IconName::Plus).lg(),
+                    Icon::role(IconRole::ListAdd).lg(),
                     ntext::label_strong("New project")
                 ]
                 .spacing(8),

@@ -151,7 +151,7 @@ fn popovers(app: &WidgetGallery) -> Element<'_, Message> {
         ),
         example_cell(
             "Tooltip",
-            nbutton::icon(IconName::Info)
+            nbutton::icon(IconRole::DialogInformation)
                 .tooltip("Tooltip rendered by the current widget helper")
                 .on_press(Message::Noop),
         ),

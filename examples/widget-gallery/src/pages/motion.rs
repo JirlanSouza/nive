@@ -26,7 +26,7 @@ fn animated_visual() -> Element<'static, Message> {
         example_cell(
             "Rotation",
             AnimatedVisual::new(|frame| {
-                Icon::new(IconName::RefreshCw)
+                Icon::role(IconRole::ViewRefresh)
                     .size(28.0)
                     .rotation(Radians(frame.turns() * std::f32::consts::TAU))
                     .into()
@@ -37,7 +37,7 @@ fn animated_visual() -> Element<'static, Message> {
             "Pulse",
             AnimatedVisual::new(|frame| {
                 let alpha = 0.35 + frame.progress() * 0.65;
-                Icon::new(IconName::Info)
+                Icon::role(IconRole::DialogInformation)
                     .size(28.0)
                     .color(
                         theme::active()
@@ -80,7 +80,7 @@ fn animated_layout() -> Element<'static, Message> {
                         .overlap(0.65)
                         .rest(0.2)
                         .activity(frame, index);
-                    Icon::new(IconName::CheckCircle)
+                    Icon::role(IconRole::DialogSuccess)
                         .size(18.0)
                         .color(
                             theme::active()

@@ -1,17 +1,13 @@
 # Icons Example
 
-Demonstrates Nive's icon system with Lucide icons.
+Demonstrates Nive's provider-neutral icon model.
 
 ## What it demonstrates
 
-Displaying icons at various sizes and with custom colors using the built-in `IconName` variants.
-
-## Concepts exercised
-
-- `Icon::new(IconName::Search)` to create icons
-- `.xs()`, `.lg()`, `.size(f32)` for size customization
-- `.color(Color)` for color customization
-- `IconName` variants: `Search`, `Settings`, `Check`, `Info`, `AlertCircle`
+- Semantic `IconRole` rendering through the active theme catalog.
+- App-owned `IconSymbol` rendering through the same `Icon` widget.
+- A custom SVG registered in `icons.toml`.
+- A theme catalog override for the `window-close` framework role.
 
 ## How to run
 
@@ -19,3 +15,6 @@ Displaying icons at various sizes and with custom colors using the built-in `Ico
 cd examples/icons
 cargo run
 ```
+
+Use `nive icons add-symbol Shield lucide:shield-check` to add another app
+symbol to this example manifest.

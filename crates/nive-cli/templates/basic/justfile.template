@@ -28,6 +28,10 @@ icons-sync:
 icons-check:
     nive icons check
 
-# Add icon. Usage: just icons-add Search search
-icons-add variant lucide_name:
-    nive icons add {{ variant }} {{ lucide_name }}
+# Add app symbol. Usage: just icons-add-symbol User user
+icons-add-symbol variant provider_ref:
+    nive icons add-symbol {{ variant }} {{ provider_ref }}
+
+# Set framework role. Usage: just icons-set-role window-close lucide:x
+icons-set-role role provider_ref:
+    nive icons set-role {{ role }} {{ provider_ref }}

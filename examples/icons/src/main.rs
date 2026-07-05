@@ -1,24 +1,30 @@
 use nive::prelude::*;
 use nive::widget::{column, row};
 
-fn icon(name: IconName) -> Element<'static, Message> {
-    Icon::new(name).into()
+mod icons;
+
+fn role_icon(role: IconRole) -> Element<'static, Message> {
+    Icon::role(role).into()
 }
 
-fn icon_sm(name: IconName) -> Element<'static, Message> {
-    Icon::new(name).xs().into()
+fn role_icon_sm(role: IconRole) -> Element<'static, Message> {
+    Icon::role(role).xs().into()
 }
 
-fn icon_lg(name: IconName) -> Element<'static, Message> {
-    Icon::new(name).lg().into()
+fn role_icon_lg(role: IconRole) -> Element<'static, Message> {
+    Icon::role(role).lg().into()
 }
 
-fn icon_32(name: IconName) -> Element<'static, Message> {
-    Icon::new(name).size(32.0).into()
+fn role_icon_32(role: IconRole) -> Element<'static, Message> {
+    Icon::role(role).size(32.0).into()
 }
 
-fn icon_color(name: IconName, color: Color) -> Element<'static, Message> {
-    Icon::new(name).color(color).into()
+fn role_icon_color(role: IconRole, color: Color) -> Element<'static, Message> {
+    Icon::role(role).color(color).into()
+}
+
+fn symbol_icon(symbol: icons::IconSymbol) -> Element<'static, Message> {
+    Icon::symbol(symbol).lg().into()
 }
 
 struct IconsApp;
@@ -32,7 +38,9 @@ impl Application for IconsApp {
     type Bootstrap = ();
 
     fn config() -> ApplicationConfig<Self::Window, Self::Bootstrap> {
-        ApplicationConfig::new("nive-example-icons").name("Icons")
+        ApplicationConfig::new("nive-example-icons")
+            .name("Icons")
+            .theme_catalog(app_theme_catalog())
     }
 
     fn init(
@@ -58,41 +66,47 @@ impl Application for IconsApp {
     ) -> ScreenView<'_, Self::Message> {
         let content = column![
             text("Icons Example").size(24),
-            text("Default size (16px):"),
+            text("Semantic roles:"),
             row![
-                icon(IconName::Search),
-                icon(IconName::Settings),
-                icon(IconName::Check),
-                icon(IconName::Info),
-                icon(IconName::AlertCircle),
+                role_tile(IconRole::EditFind),
+                role_tile(IconRole::PreferencesSystem),
+                role_tile(IconRole::ActionConfirm),
+                role_tile(IconRole::DialogInformation),
+                role_tile(IconRole::DialogError),
             ]
             .spacing(12),
-            text("Small (12px):"),
+            text("Small role icons:"),
             row![
-                icon_sm(IconName::Search),
-                icon_sm(IconName::Settings),
-                icon_sm(IconName::Check),
+                role_icon_sm(IconRole::EditFind),
+                role_icon_sm(IconRole::PreferencesSystem),
+                role_icon_sm(IconRole::ActionConfirm),
             ]
             .spacing(12),
-            text("Large (20px):"),
+            text("Large role icons:"),
             row![
-                icon_lg(IconName::Search),
-                icon_lg(IconName::Settings),
-                icon_lg(IconName::Check),
+                role_icon_lg(IconRole::EditFind),
+                role_icon_lg(IconRole::PreferencesSystem),
+                role_icon_lg(IconRole::ActionConfirm),
             ]
             .spacing(12),
-            text("Custom size (32px):"),
+            text("Custom size:"),
             row![
-                icon_32(IconName::Search),
-                icon_32(IconName::Settings),
-                icon_32(IconName::Check),
+                role_icon_32(IconRole::EditFind),
+                role_icon_32(IconRole::PreferencesSystem),
+                role_icon_32(IconRole::ActionConfirm),
             ]
             .spacing(12),
-            text("With color:"),
+            text("Color overrides:"),
             row![
-                icon_color(IconName::Check, Color::from_rgb(0.0, 0.8, 0.0)),
-                icon_color(IconName::AlertCircle, Color::from_rgb(0.9, 0.2, 0.2)),
-                icon_color(IconName::Info, Color::from_rgb(0.2, 0.5, 0.9)),
+                role_icon_color(IconRole::ActionConfirm, Color::from_rgb(0.0, 0.8, 0.0)),
+                role_icon_color(IconRole::DialogError, Color::from_rgb(0.9, 0.2, 0.2)),
+                role_icon_color(IconRole::DialogInformation, Color::from_rgb(0.2, 0.5, 0.9)),
+            ]
+            .spacing(12),
+            text("Generated custom symbol and theme role override:"),
+            row![
+                symbol_icon(icons::IconSymbol::BrandMark),
+                role_tile(IconRole::WindowClose),
             ]
             .spacing(12),
         ]
@@ -101,6 +115,23 @@ impl Application for IconsApp {
 
         ScreenView::new(content)
     }
+}
+
+fn role_tile(role: IconRole) -> Element<'static, Message> {
+    column![role_icon(role), text(role.canonical_name()).size(12)]
+        .spacing(4)
+        .into()
+}
+
+fn app_theme_catalog() -> ThemeCatalog {
+    ThemeCatalog::new(
+        Theme::builder("Icons Light", ThemeMode::Light)
+            .icons(icons::APP_ICON_CATALOG)
+            .build(),
+        Theme::builder("Icons Dark", ThemeMode::Dark)
+            .icons(icons::APP_ICON_CATALOG)
+            .build(),
+    )
 }
 
 fn main() -> nive::Result {

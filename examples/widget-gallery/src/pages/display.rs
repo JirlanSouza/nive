@@ -38,10 +38,10 @@ fn text_and_icon() -> Element<'static, Message> {
         example_cell(
             "Icons",
             variant_row([
-                Icon::new(IconName::Search).xs().into(),
-                Icon::new(IconName::Settings).sm().into(),
-                Icon::new(IconName::RefreshCw).md().into(),
-                Icon::new(IconName::AlertTriangle)
+                Icon::role(IconRole::EditFind).xs().into(),
+                Icon::role(IconRole::PreferencesSystem).sm().into(),
+                Icon::role(IconRole::ViewRefresh).md().into(),
+                Icon::role(IconRole::DialogWarning)
                     .lg()
                     .color(Color::from_rgb8(196, 112, 0))
                     .into(),
