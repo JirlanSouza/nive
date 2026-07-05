@@ -82,19 +82,19 @@ readiness: fmt-check check test lint doc-check examples-check scaffold-smoke sca
 
 # List framework icons
 icons-list:
-    nive icons list
+    cd crates/nive-ui && cargo run -p nive-cli -- icons list
 
 # Sync framework icons
 icons-sync:
-    nive icons sync
+    cd crates/nive-ui && cargo run -p nive-cli -- icons sync
 
 # Check framework icons are up to date
 icons-check:
-    nive icons check
+    cd crates/nive-ui && cargo run -p nive-cli -- icons check
 
 # Add icon to framework. Usage: just icons-add Search search
 icons-add variant lucide_name:
-    nive icons add {{ variant }} {{ lucide_name }}
+    cd crates/nive-ui && cargo run -p nive-cli -- icons add {{ variant }} {{ lucide_name }}
 
 # Create new app using Nive. Usage: just create-app my-app
 create-app name:

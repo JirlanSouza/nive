@@ -39,11 +39,10 @@ pub const CATALOG: &[CatalogEntry] = &[
     },
     CatalogEntry {
         id: PageId::Inputs,
-        family: "Composite",
-        title: "Composite Inputs",
-        summary: "Fields, input groups, path inputs, and composed control rows.",
+        family: "Inputs",
+        title: "Inputs & Fields",
+        summary: "Fields, input groups, path inputs, and control rows.",
         terms: &[
-            "composite",
             "input",
             "field",
             "field group",

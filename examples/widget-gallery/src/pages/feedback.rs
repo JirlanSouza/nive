@@ -1,5 +1,6 @@
 use nive::prelude::*;
-use nive::ui::widgets::{button as nbutton, text as ntext};
+use nive::ui::widgets::controls::button as nbutton;
+use nive::ui::widgets::primitives::text as ntext;
 use nive::widget::{column, row};
 
 use crate::app::{FeedbackMode, Message, WidgetGallery};
@@ -30,9 +31,9 @@ fn alerts() -> Element<'static, Message> {
                 .action(nbutton::secondary("View").shrink().on_press(Message::Noop)),
         ),
         example_cell(
-            "Callout alias",
-            Callout::new("Configuration warning")
-                .body("The callout type aliases InlineAlert and shares behavior.")
+            "Warning",
+            InlineAlert::new("Configuration warning")
+                .body("Review pending settings before deploying.")
                 .warning(),
         ),
         example_cell(
@@ -61,25 +62,21 @@ fn loading() -> Element<'static, Message> {
             .spacing(10),
         ),
         example_cell(
-            "LoadingIndicator / Spinner",
+            "Spinner",
             variant_row([
-                LoadingIndicator::new().xs().label("Fetching").into(),
+                Spinner::new().xs().label("Fetching").into(),
                 Spinner::new().md().label("Saving").into(),
-                LoadingIndicator::new()
-                    .danger()
-                    .lg()
-                    .label("Retrying")
-                    .into(),
+                Spinner::new().danger().lg().label("Retrying").into(),
             ]),
         ),
         example_cell(
             "Skeleton",
             column![
-                nive::ui::widgets::skeleton::text_row().width(Length::Fill),
-                nive::ui::widgets::skeleton::block().height(Length::Fixed(42.0)),
-                nive::ui::widgets::skeleton::control(row![
-                    nive::ui::widgets::skeleton::rounded(),
-                    nive::ui::widgets::skeleton::text_row().width(Length::Fill),
+                nive::ui::widgets::feedback::skeleton::text_row().width(Length::Fill),
+                nive::ui::widgets::feedback::skeleton::block().height(Length::Fixed(42.0)),
+                nive::ui::widgets::feedback::skeleton::control(row![
+                    nive::ui::widgets::feedback::skeleton::rounded(),
+                    nive::ui::widgets::feedback::skeleton::text_row().width(Length::Fill),
                 ]),
             ]
             .spacing(10),

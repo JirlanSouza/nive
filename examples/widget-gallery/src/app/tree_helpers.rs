@@ -1,11 +1,11 @@
 use std::time::Duration;
 
 use nive::prelude::*;
-use nive::ui::widgets::{TreeDropTarget, TreeEvent, TreeEventKind, TreePasteTarget};
-use nive::ui::{
+use nive::ui::interaction::{
     CollectionTransferPayload, ContextInvocation, ContextRequest, ContextTarget, Transfer,
     TransferOperation,
 };
+use nive::ui::widgets::{TreeDropTarget, TreeEvent, TreeEventKind, TreePasteTarget};
 
 use crate::app::{DemoTreeNode, LayoutState, Message};
 
