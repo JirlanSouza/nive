@@ -120,7 +120,9 @@ pub use support::{
 };
 
 pub use iced::{time, window, Point, Size, Subscription, Task};
-pub use nive_ui::theme::{Theme, ThemeBuilder, ThemeCatalog, ThemeMode, ThemePreference};
+pub use nive_ui::theme::{
+    Theme, ThemeBuilder, ThemeCatalog, ThemeDensity, ThemeMode, ThemePreference,
+};
 
 #[cfg(feature = "devtools")]
 pub use inspect::{
@@ -154,9 +156,10 @@ pub mod prelude {
         MessageSource, Never, PlatformError, Point, RequestId, Result, RuntimeEvent,
         RuntimeSession, ScreenView, SettingsConfig, SettingsError, SettingsErrorKind,
         ShortcutBinding, ShortcutKey, ShortcutMap, SimpleApplication, Size, Subscription, Task,
-        Theme, ThemeBuilder, ThemeCatalog, ThemeController, ThemeEvent, ThemeMode, ThemePreference,
-        Toast, ToastPosition, WindowCardinality, WindowCommand, WindowContext, WindowQuery,
-        WindowRole, WindowSession, WindowSessionPosition, WindowSessionSize, WindowSpec,
+        Theme, ThemeBuilder, ThemeCatalog, ThemeController, ThemeDensity, ThemeEvent, ThemeMode,
+        ThemePreference, Toast, ToastPosition, WindowCardinality, WindowCommand, WindowContext,
+        WindowQuery, WindowRole, WindowSession, WindowSessionPosition, WindowSessionSize,
+        WindowSpec,
     };
 
     /// Extended surface for app code that uses toasts, async state,
