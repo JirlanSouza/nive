@@ -14,12 +14,12 @@ flowchart LR
         rt["nive-runtime<br/>crate<br/>Application/Update, lifecycle, multi-janela, máquinas de estado async, feedback, settings, devtools"]
         core["nive-core<br/>crate<br/>Contratos de apresentação neutros (erro, toast, status). Zero dependências."]
         derive["nive-runtime-derive<br/>proc-macro crate<br/>#[derive(Inspect)] para travessia de estado nos devtools"]
-        cli["nive-cli<br/>binary crate<br/>nive new (scaffold, com --dashboard) e nive icons (sync Lucide)"]
+        cli["nive-cli<br/>binary crate<br/>nive new (scaffold, com --dashboard) e nive icons (manifest provider-neutral)"]
     end
 
     iced["Iced 0.14<br/>Runtime GUI / wgpu"]
     rfd["rfd / objc2 / winres<br/>FFI de plataforma (feature-gated)"]
-    lucide_cdn["Lucide (rede)<br/>SVGs baixados via ureq"]
+    icon_providers["Icon providers<br/>Lucide via ureq/cache e SVGs custom locais"]
 
     dev -->|use nive::prelude::*| umbrella
     umbrella -->|re-exporta| ui
@@ -32,7 +32,7 @@ flowchart LR
     rt -->|depende| iced
     rt -->|platform/ (file-picker, app_icon)| rfd
     dev -->|cargo install nive-cli| cli
-    cli -->|nive icons baixa de| lucide_cdn
+    cli -->|nive icons compila refs de| icon_providers
     cli -->|gera projetos que dependem de<br/>templates| umbrella
 
     classDef person fill:#f7f7f7,stroke:#666,color:#222;
@@ -40,7 +40,7 @@ flowchart LR
     classDef external fill:#eee,stroke:#999,color:#333;
     class dev person;
     class umbrella,ui,rt,core,derive,cli container;
-    class iced,rfd,lucide_cdn external;
+    class iced,rfd,icon_providers external;
 ```
 
 ## Grafo de dependências (compilação)
@@ -82,6 +82,7 @@ flowchart BT
 | `nive-cli` | Ferramenta de DX | — | **Não** depende dos crates do framework; gera/baixa via templates e rede |
 
 - **`nive-cli` é desacoplado:** scaffolda projetos por templates embutidos (`include_dir`) e
-  baixa ícones via `ureq`. Não linka contra `nive`/`nive-ui`/`nive-runtime`.
+  compila `icons.toml` em módulos/assets checados. Não linka contra
+  `nive`/`nive-ui`/`nive-runtime`.
 - O flag **`nive new --dashboard`** já existe na CLI — gera uma variante de app voltada a
   dashboard (ponto de partida natural para os exemplos densos do roadmap).

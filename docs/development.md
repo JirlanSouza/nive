@@ -59,8 +59,9 @@ just release
 
 ## Icon Management
 
-The framework maintains a set of essential icons in `nive-ui`. For external
-apps, use `nive icons` (see [adding-icons.md](guides/adding-icons.md)).
+The framework maintains semantic icon role defaults in `nive-ui`. For external
+apps, use the provider-neutral `nive icons` workflow (see
+[adding-icons.md](guides/adding-icons.md)).
 
 ```bash
 # List framework icons
@@ -72,8 +73,11 @@ just icons-sync
 # Check icons are up to date
 just icons-check
 
-# Add icon to framework
-just icons-add <Variant> <lucide-name>
+# Add framework icon symbol
+just icons-add-symbol <Variant> <provider-ref>
+
+# Set framework icon role
+just icons-set-role <role-name> <provider-ref>
 ```
 
 ## Creating Test Apps
@@ -244,14 +248,19 @@ just package-check
 just icons-check
 ```
 
+`just icons-check` must remain offline: it validates checked-in `icons.toml`,
+generated Rust modules, generated SVG assets, custom SVG references, stale
+assets, and required role coverage without fetching Lucide data.
+
 `just scaffold-smoke` creates temporary apps outside the workspace, patches the
 generated app to the local `nive` checkout via `[patch.crates-io]`, and runs
-`cargo check` for both the basic and dashboard templates.
+`nive icons check` plus `cargo check` for both the basic and dashboard
+templates.
 
 `just scaffold-smoke-github` creates temporary apps outside the workspace using
-a Git dependency (`file://<repo> + HEAD rev`). This validates the exact
-dependency shape that real apps use with GitHub alpha tags, without requiring a
-pushed tag.
+a temporary Git snapshot of the current working tree. This validates the exact
+dependency shape that real apps use with GitHub alpha tags without requiring a
+pushed tag or a pre-existing commit for local changes.
 
 `just package-check` verifies package readiness only. It runs `cargo package`
 for `nive-core`, `nive-ui`, `nive-runtime-derive`, `nive-runtime`, `nive`, and
