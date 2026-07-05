@@ -5,6 +5,7 @@ fn prelude_exposes_common_ui_contracts() {
     let _: Element<'_, ()> = text("Nive").into();
     let _: Theme = theme::active();
     let _: ThemePreference = ThemePreference::System;
+    let _: ThemeDensity = ThemeDensity::Standard;
     let _: Color = Color::TRANSPARENT;
     let _: Background = Background::Color(Color::TRANSPARENT);
     let _: Border = Border::default();
@@ -161,4 +162,13 @@ fn theme_facade_builds_product_catalogs() {
         catalog.resolve(theme::ThemeMode::Dark).name(),
         "Contract Dark"
     );
+}
+
+#[test]
+fn density_aware_theme_builder_compiles() {
+    let theme = ThemeBuilder::new("Density Contract", theme::ThemeMode::Light)
+        .density(ThemeDensity::Compact)
+        .build();
+
+    assert_eq!(theme.density(), ThemeDensity::Compact);
 }
