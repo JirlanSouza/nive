@@ -6,13 +6,11 @@ use iced::{
 };
 
 use crate::{
+    animation::{AnimatedVisual, Animation, AnimationFrame, StaggeredPulse},
     theme::{
         self, surface as theme_surface, GapRole, SurfaceRole, TextRole, ToneRole, TypographyRole,
     },
-    widgets::{
-        text, AnimatedVisual, Animation, AnimationFrame, ErrorDetailsDialog, ErrorFeedbackAction,
-        ErrorFeedbackActionRow, StaggeredPulse,
-    },
+    widgets::{primitives::text, ErrorDetailsDialog, ErrorFeedbackAction, ErrorFeedbackActionRow},
     Element,
 };
 

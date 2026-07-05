@@ -132,27 +132,6 @@ pub fn progress_style(
     }
 }
 
-pub fn indicator_style(
-    tone: ToneRole,
-    size: f32,
-) -> impl Fn(&crate::theme::Theme) -> container::Style {
-    move |theme| {
-        let tone = theme.tone(tone);
-
-        container::Style {
-            text_color: None,
-            background: Some(Background::Color(tone.color)),
-            border: Border {
-                color: tone.border.color,
-                width: 0.0,
-                radius: (size / 2.0).into(),
-            },
-            shadow: Shadow::default(),
-            ..container::Style::default()
-        }
-    }
-}
-
 pub fn loading_label_style() -> impl Fn(&crate::theme::Theme) -> text::Style {
     move |theme| text::Style {
         color: Some(theme.text(TextRole::Secondary).color),

@@ -4,9 +4,12 @@ pub use iced::{
     Vector,
 };
 
+pub use crate::animation::{
+    AnimatedLayout, AnimatedVisual, Animation, AnimationFrame, Easing, StaggeredPulse,
+};
 pub use crate::theme::{self, ThemePreference};
 pub use crate::widgets::*;
 pub use crate::{
-    BootstrapError, BootstrapView, DialogHost, Element, Renderer, Theme, ThemeBuilder,
-    ThemeCatalog, ThemeData, ThemeId, ToastHost, ToastPosition, ToastPresentation, ToastTone,
+    BootstrapError, BootstrapView, Element, Renderer, Theme, ThemeBuilder, ThemeCatalog, ThemeData,
+    ThemeId,
 };

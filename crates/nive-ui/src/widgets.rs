@@ -1,103 +1,45 @@
-pub mod action_card;
-pub mod animation;
-pub mod autocomplete;
-pub mod badge;
-pub mod button;
-pub mod card;
-pub mod checkbox;
-pub mod color_input;
-pub mod color_picker;
-pub mod color_swatch;
-pub mod command_palette;
-pub mod composite;
 pub mod containers;
-pub mod control_group;
-pub mod control_style;
 pub mod controls;
-pub mod dialog;
 pub mod display;
-pub mod dropdown_menu;
-pub mod empty_state;
 pub mod feedback;
-pub mod field;
-pub mod icon;
-pub mod initial_avatar;
-pub mod input;
-pub mod input_group;
-pub mod metadata;
-pub mod metric_card;
 pub mod navigation;
 pub mod overlays;
-pub mod panel;
-pub mod path_input;
-pub mod popover;
-pub mod pressable;
 pub mod primitives;
-pub mod section_header;
-pub mod segmented_control;
-pub mod select;
-pub mod selectable_card;
-pub mod selectable_item;
-pub mod separator;
-pub mod shell_relay;
-pub mod skeleton;
-pub mod split_pane;
-pub mod switch;
-pub mod tabs;
-pub mod text;
-pub mod toolbar;
-pub mod tooltip;
-pub mod tree;
-pub mod tree_item;
-pub mod version_badge;
 
-pub use action_card::ActionCard;
-pub use animation::{
-    AnimatedLayout, AnimatedVisual, Animation, AnimationFrame, Easing, StaggeredPulse,
+// Namespace modules for the iced-style `button::primary(...)` call idiom.
+pub use controls::{button, input};
+pub use overlays::tooltip;
+pub use primitives::{icon, text};
+
+pub use containers::{
+    ActionCard, Card, Panel, SectionHeader, SectionHeaderAction, SectionHeaderStatus,
+    SelectableCard, SplitPane, SplitPaneConstraints, SplitPaneDirection,
 };
-pub use autocomplete::{Autocomplete, AutocompleteMessage};
-pub use badge::Badge;
-pub use button::{Button, ButtonVariant};
-pub use card::Card;
-pub use checkbox::Checkbox;
-pub use color_input::ColorInput;
-pub use color_picker::{ColorPicker, RgbHexColor};
-pub use color_swatch::ColorSwatch;
-pub use command_palette::{command_palette_filter, command_palette_view, CommandPaletteRow};
-pub use dialog::{Dialog, DialogActionFooter, DialogFooter, DialogHeader};
-pub use dropdown_menu::{DropdownMenu, DropdownMenuItem};
-pub use empty_state::EmptyState;
+pub use controls::{
+    Autocomplete, AutocompleteMessage, Button, ButtonVariant, Checkbox, ColorInput, ColorPicker,
+    Field, FieldError, FieldGroup, FieldHint, FieldLabel, FieldValidation, Input, InputGroup,
+    InputGroupVariant, PathInput, RgbHexColor, SegmentedControl, SegmentedItem, Select,
+    SelectableItem, Switch, TextInputAppearance,
+};
+pub use display::{
+    reveal, row_height, scroll_offset_to, visible_index_of, AvatarClass, AvatarSize, Badge,
+    DataRow, EmptyState, InitialAvatar, KeyValueList, MetadataItem, MetricCard, Tree, TreeChildren,
+    TreeDrag, TreeDrop, TreeDropTarget, TreeEvent, TreeEventKind, TreeExpandBehavior, TreeItem,
+    TreeNode, TreePasteTarget, TreeState, TreeStateChange, VersionBadge,
+};
 pub use feedback::{
-    Callout, ErrorDetailsDialog, ErrorEmptyState, ErrorFeedback, ErrorFeedbackAction,
+    ErrorDetailsDialog, ErrorEmptyState, ErrorFeedback, ErrorFeedbackAction,
     ErrorFeedbackActionRow, ErrorFeedbackCommandRole, ErrorPresentation, ErrorStatusLine,
-    InlineAlert, LoadingIndicator, OperationActionGroup, OperationStatusLine,
-    OperationStatusPresentation, ProgressBar, ResourceStatusLine, ResourceStatusPresentation,
-    Spinner,
+    InlineAlert, OperationActionGroup, OperationStatusLine, OperationStatusPresentation,
+    ProgressBar, ResourceStatusLine, ResourceStatusPresentation, Skeleton, SkeletonCard,
+    SkeletonControl, Spinner,
 };
-pub use field::{Field, FieldError, FieldGroup, FieldHint, FieldLabel};
-pub use icon::{Icon, IconName, IconSource};
-pub use initial_avatar::{AvatarClass, AvatarSize, InitialAvatar};
-pub use input::{FieldValidation, Input, TextInputAppearance};
-pub use input_group::{InputGroup, InputGroupVariant};
-pub use metadata::{DataRow, KeyValueList, MetadataItem};
-pub use metric_card::MetricCard;
-pub use panel::Panel;
-pub use path_input::PathInput;
-pub use popover::{Popover, PopoverCollision, PopoverPlacement, PopoverWidth};
-pub use section_header::{SectionHeader, SectionHeaderAction, SectionHeaderStatus};
-pub use segmented_control::{SegmentedControl, SegmentedItem};
-pub use select::Select;
-pub use selectable_card::SelectableCard;
-pub use selectable_item::SelectableItem;
-pub use separator::Separator;
-pub use split_pane::{SplitPane, SplitPaneConstraints, SplitPaneDirection};
-pub use switch::Switch;
-pub use tabs::{TabBar, TabItem};
-pub use toolbar::{ActionGroup, Toolbar, ToolbarAction, ToolbarGroup};
-pub use tree::{
-    reveal, row_height, scroll_offset_to, visible_index_of, Tree, TreeChildren, TreeDrag, TreeDrop,
-    TreeDropTarget, TreeEvent, TreeEventKind, TreeExpandBehavior, TreeNode, TreePasteTarget,
-    TreeState, TreeStateChange,
+pub use navigation::{
+    command_palette_filter, command_palette_view, ActionGroup, CommandPaletteRow, DropdownMenu,
+    DropdownMenuItem, TabBar, TabItem, Toolbar, ToolbarAction, ToolbarGroup,
 };
-pub use tree_item::TreeItem;
-pub use version_badge::VersionBadge;
+pub use overlays::{
+    Dialog, DialogActionFooter, DialogFooter, DialogHeader, DialogHost, Popover, PopoverCollision,
+    PopoverPlacement, PopoverWidth, ToastHost, ToastPosition, ToastPresentation, ToastTone,
+};
+pub use primitives::{space, svg, ColorSwatch, Icon, IconName, IconSource, Separator};
