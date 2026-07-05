@@ -118,28 +118,28 @@ where
         self
     }
 
-    /// Sets row density.
+    /// Sets row size.
     pub fn size(mut self, size: ControlSize) -> Self {
         self.size = size;
         self
     }
 
-    /// Uses extra-small row density.
+    /// Uses extra-small row size.
     pub fn xs(self) -> Self {
         self.size(ControlSize::Xs)
     }
 
-    /// Uses small row density.
+    /// Uses small row size.
     pub fn sm(self) -> Self {
         self.size(ControlSize::Sm)
     }
 
-    /// Uses medium row density.
+    /// Uses medium row size.
     pub fn md(self) -> Self {
         self.size(ControlSize::Md)
     }
 
-    /// Uses large row density.
+    /// Uses large row size.
     pub fn lg(self) -> Self {
         self.size(ControlSize::Lg)
     }

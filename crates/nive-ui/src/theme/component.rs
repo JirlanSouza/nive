@@ -1,5 +1,6 @@
 use iced::Padding;
 
+use super::density::ThemeDensity;
 use super::shape::{ShapeRole, ShapeScale, ShapeSpec};
 use super::spacing::{SpaceStep, SpacingScale};
 use super::typography::{TextStyle, TypographyRole, TypographyScale};
@@ -46,45 +47,66 @@ pub fn scale(
     typography: TypographyScale,
     spacing: SpacingScale,
 ) -> ControlMetricsScale {
+    scale_for_density(ThemeDensity::Standard, shapes, typography, spacing)
+}
+
+pub fn scale_for_density(
+    density: ThemeDensity,
+    shapes: ShapeScale,
+    typography: TypographyScale,
+    spacing: SpacingScale,
+) -> ControlMetricsScale {
+    let (xs_height, sm_height, md_height, lg_height) = match density {
+        ThemeDensity::Comfortable => (28.0, 32.0, 36.0, 40.0),
+        ThemeDensity::Standard => (24.0, 28.0, 32.0, 36.0),
+        ThemeDensity::Compact => (20.0, 24.0, 28.0, 32.0),
+    };
+
+    let (xs_icon, sm_icon, md_icon, lg_icon) = match density {
+        ThemeDensity::Comfortable => (14.0, 16.0, 16.0, 18.0),
+        ThemeDensity::Standard => (12.0, 14.0, 14.0, 16.0),
+        ThemeDensity::Compact => (10.0, 12.0, 14.0, 14.0),
+    };
+
     ControlMetricsScale {
         xs: metrics(
-            24.0,
+            xs_height,
             shapes.get(ShapeRole::Small),
             typography.get(TypographyRole::BodySmall),
             Padding::ZERO
                 .vertical(spacing.step(SpaceStep::Xxs))
                 .horizontal(spacing.step(SpaceStep::Sm)),
-            12.0,
+            xs_icon,
             spacing.step(SpaceStep::Xs),
         ),
         sm: metrics(
-            28.0,
+            sm_height,
             shapes.get(ShapeRole::Medium),
             typography.get(TypographyRole::Body),
             Padding::ZERO
                 .vertical(spacing.step(SpaceStep::Xs))
                 .horizontal(spacing.step(SpaceStep::Md)),
-            14.0,
+            sm_icon,
             spacing.step(SpaceStep::Xs),
         ),
         md: metrics(
-            32.0,
+            md_height,
             shapes.get(ShapeRole::Large),
             typography.get(TypographyRole::Body),
             Padding::ZERO
                 .vertical(spacing.step(SpaceStep::Sm))
                 .horizontal(spacing.step(SpaceStep::Lg)),
-            14.0,
+            md_icon,
             spacing.step(SpaceStep::Sm),
         ),
         lg: metrics(
-            36.0,
+            lg_height,
             shapes.get(ShapeRole::Large),
             typography.get(TypographyRole::Heading),
             Padding::ZERO
                 .vertical(spacing.step(SpaceStep::Md))
                 .horizontal(spacing.step(SpaceStep::Xl)),
-            16.0,
+            lg_icon,
             spacing.step(SpaceStep::Sm),
         ),
     }
@@ -160,6 +182,74 @@ mod component_tests {
             assert_eq!(padding.left, padding.right);
             assert_eq!(padding.top, padding.bottom);
             assert!(padding.left > padding.top);
+        }
+    }
+
+    #[test]
+    fn control_size_sm_remains_small_across_densities() {
+        let shapes = super::super::shape::scale();
+        let typography = super::super::typography::scale();
+
+        for density in ThemeDensity::ALL {
+            let spacing = super::super::spacing::scale_for_density(density);
+            let controls = scale_for_density(density, shapes, typography, spacing);
+            let sm_height = controls.get(ControlSize::Sm).height;
+
+            assert!(
+                sm_height < controls.get(ControlSize::Md).height,
+                "Sm height {} not less than Md height for density {:?}",
+                sm_height,
+                density
+            );
+            assert!(
+                sm_height > controls.get(ControlSize::Xs).height,
+                "Sm height {} not greater than Xs height for density {:?}",
+                sm_height,
+                density
+            );
+        }
+    }
+
+    #[test]
+    fn density_control_heights_are_ordered_compact_lt_standard_lt_comfortable() {
+        let shapes = super::super::shape::scale();
+        let typography = super::super::typography::scale();
+
+        let compact_spacing = super::super::spacing::scale_for_density(ThemeDensity::Compact);
+        let standard_spacing = super::super::spacing::scale_for_density(ThemeDensity::Standard);
+        let comfortable_spacing =
+            super::super::spacing::scale_for_density(ThemeDensity::Comfortable);
+
+        let compact = scale_for_density(ThemeDensity::Compact, shapes, typography, compact_spacing);
+        let standard =
+            scale_for_density(ThemeDensity::Standard, shapes, typography, standard_spacing);
+        let comfortable = scale_for_density(
+            ThemeDensity::Comfortable,
+            shapes,
+            typography,
+            comfortable_spacing,
+        );
+
+        for size in [
+            ControlSize::Xs,
+            ControlSize::Sm,
+            ControlSize::Md,
+            ControlSize::Lg,
+        ] {
+            assert!(
+                compact.get(size).height <= standard.get(size).height,
+                "compact {:?} height {} > standard {}",
+                size,
+                compact.get(size).height,
+                standard.get(size).height
+            );
+            assert!(
+                standard.get(size).height <= comfortable.get(size).height,
+                "standard {} height > comfortable {:?} {}",
+                standard.get(size).height,
+                size,
+                comfortable.get(size).height
+            );
         }
     }
 }

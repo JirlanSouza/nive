@@ -21,18 +21,19 @@ pub struct SectionHeaderMetrics {
 
 pub fn metrics(size: ControlSize) -> SectionHeaderMetrics {
     let spacing = spacing();
+    let control = control_metrics(size);
     let title = typography(TypographyRole::SectionLabel);
     let status = typography(TypographyRole::Caption);
 
     SectionHeaderMetrics {
-        height: control_metrics(size).height,
+        height: control.height,
         title_size: title.size,
         title_line_height: text::LineHeight::Relative(1.0),
         status_size: status.size,
         status_line_height: text::LineHeight::Relative(1.0),
         status_height: status_height(size),
         icon_button_side: icon_button_side(size),
-        icon_size: icon_size(size),
+        icon_size: control.icon_size,
         gap: spacing.gap(theme::GapRole::Tight),
         status_gap: spacing.step(SpaceStep::Xs),
         action_gap: spacing.step(SpaceStep::Xxs),
@@ -40,29 +41,22 @@ pub fn metrics(size: ControlSize) -> SectionHeaderMetrics {
 }
 
 fn status_height(size: ControlSize) -> f32 {
+    let control = control_metrics(size);
     match size {
-        ControlSize::Xs => 16.0,
-        ControlSize::Sm => 18.0,
-        ControlSize::Md => 20.0,
-        ControlSize::Lg => 22.0,
+        ControlSize::Xs => control.height - 8.0,
+        ControlSize::Sm => control.height - 10.0,
+        ControlSize::Md => control.height - 12.0,
+        ControlSize::Lg => control.height - 14.0,
     }
 }
 
 fn icon_button_side(size: ControlSize) -> f32 {
+    let control = control_metrics(size);
     match size {
-        ControlSize::Xs => 20.0,
-        ControlSize::Sm => 22.0,
-        ControlSize::Md => 24.0,
-        ControlSize::Lg => 28.0,
-    }
-}
-
-fn icon_size(size: ControlSize) -> f32 {
-    match size {
-        ControlSize::Xs => 12.0,
-        ControlSize::Sm => 14.0,
-        ControlSize::Md => 14.0,
-        ControlSize::Lg => 16.0,
+        ControlSize::Xs => control.height - 4.0,
+        ControlSize::Sm => control.height - 6.0,
+        ControlSize::Md => control.height - 8.0,
+        ControlSize::Lg => control.height - 8.0,
     }
 }
 
