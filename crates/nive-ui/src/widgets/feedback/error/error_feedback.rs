@@ -7,7 +7,7 @@ use crate::{
     theme::{self, ControlSize, GapRole},
     widgets::{
         controls::button,
-        primitives::{text, IconName},
+        primitives::{text, IconRole},
     },
     Element,
 };
@@ -117,7 +117,7 @@ impl<'a, Message> ErrorFeedbackAction<'a, Message> {
                 .shrink()
                 .on_press(on_press)
                 .into(),
-            Self::Dismiss { on_press } => button::icon(IconName::Close)
+            Self::Dismiss { on_press } => button::icon(IconRole::WindowClose)
                 .xs()
                 .tooltip("Dismiss")
                 .on_press(on_press)

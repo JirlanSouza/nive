@@ -172,14 +172,21 @@ mod extended_tier_dashboard {
 mod app_icon_contract {
     use nive::prelude::*;
 
+    const SHIELD_GLYPH: IconGlyph = IconGlyph::new(
+        br#"<svg xmlns="http://www.w3.org/2000/svg"></svg>"#,
+        "custom:shield",
+    );
+    const APP_ICON_CATALOG: IconCatalog =
+        IconCatalog::new(&[IconCatalogEntry::new(IconRole::WindowClose, SHIELD_GLYPH)]);
+
     #[derive(Debug, Clone, Copy)]
-    enum AppIconName {
+    enum IconSymbol {
         Shield,
     }
 
-    impl IconSource for AppIconName {
+    impl IconSource for IconSymbol {
         fn svg_bytes(self) -> &'static [u8] {
-            br#"<svg xmlns="http://www.w3.org/2000/svg"></svg>"#
+            SHIELD_GLYPH.svg_bytes()
         }
 
         fn provider_slug(self) -> &'static str {
@@ -190,7 +197,17 @@ mod app_icon_contract {
     }
 
     pub(super) fn _assert_app_icon_source_compiles_with_icon_widget() {
-        let _element: Element<'static, ()> = Icon::new(AppIconName::Shield).md().into();
+        let _role: IconRole = IconRole::WindowClose;
+        let _role_element: Element<'static, ()> = Icon::role(_role).md().into();
+        let _symbol_element: Element<'static, ()> = Icon::symbol(IconSymbol::Shield).md().into();
+        let _glyph_element: Element<'static, ()> =
+            Icon::glyph(IconGlyph::from_source(IconSymbol::Shield))
+                .md()
+                .into();
+
+        let _theme = ThemeBuilder::new("contract", ThemeMode::Light)
+            .icons(APP_ICON_CATALOG)
+            .build();
     }
 }
 

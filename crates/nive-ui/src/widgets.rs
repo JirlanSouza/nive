@@ -42,4 +42,4 @@ pub use overlays::{
     Dialog, DialogActionFooter, DialogFooter, DialogHeader, DialogHost, Popover, PopoverCollision,
     PopoverPlacement, PopoverWidth, ToastHost, ToastPosition, ToastPresentation, ToastTone,
 };
-pub use primitives::{space, svg, ColorSwatch, Icon, IconName, IconSource, Separator};
+pub use primitives::{space, svg, ColorSwatch, Icon, IconGlyph, IconRole, IconSource, Separator};

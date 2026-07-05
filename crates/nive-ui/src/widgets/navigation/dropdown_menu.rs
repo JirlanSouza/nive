@@ -12,7 +12,7 @@ use crate::widgets::controls::button::ButtonFocusRing;
 mod style;
 use crate::advanced::pressable::Pressable;
 use crate::widgets::overlays::tooltip as tooltip_widget;
-use crate::widgets::primitives::{icon as icon_widget, IconName};
+use crate::widgets::primitives::{icon as icon_widget, IconRole};
 
 pub struct DropdownMenu<'a, Message> {
     items: Vec<MenuEntry<'a, Message>>,
@@ -22,7 +22,7 @@ pub struct DropdownMenu<'a, Message> {
 
 pub struct DropdownMenuItem<'a, Message> {
     label: &'a str,
-    icon: Option<IconName>,
+    icon: Option<IconRole>,
     trailing: Option<&'a str>,
     selected: bool,
     destructive: bool,
@@ -148,7 +148,7 @@ impl<'a, Message: Clone + 'a> DropdownMenuItem<'a, Message> {
         }
     }
 
-    pub fn icon(mut self, icon: IconName) -> Self {
+    pub fn icon(mut self, icon: IconRole) -> Self {
         self.icon = Some(icon);
         self
     }
@@ -224,7 +224,7 @@ impl<'a, Message: Clone + 'a> DropdownMenuItem<'a, Message> {
             .height(Length::Shrink);
 
         if let Some(icon) = self.icon {
-            left = left.push(icon_widget::new(icon).size(metrics.icon_size));
+            left = left.push(icon_widget::role(icon).size(metrics.icon_size));
         }
 
         left = left.push(

@@ -24,8 +24,8 @@
 //!
 //! `nive::prelude::*` exposes the minimal template-stable surface: it
 //! compiles the scaffolded counter template out of the box, and already
-//! includes basic toasts, theming, shortcuts, actions, core events, and the
-//! window *declaration* types (`WindowSpec`/`WindowRole`). Apps switch to
+//! includes basic toasts, theming, icon roles/catalogs, shortcuts, actions,
+//! core events, and the window *declaration* types (`WindowSpec`/`WindowRole`). Apps switch to
 //! `nive::prelude::ui::*` for the extended surface: async state
 //! (`Resource`/`Operation`), dialogs, `UserFacingError`, bootstrap/splash,
 //! runtime window handles (`WindowHandle`/`WindowRegistry`/`WindowMode`),

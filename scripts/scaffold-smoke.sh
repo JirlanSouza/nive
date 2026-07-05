@@ -49,4 +49,5 @@ cat >> "$app_dir/Cargo.toml" <<EOF
 nive = { path = "$root/crates/nive" }
 EOF
 
+(cd "$app_dir" && "$cli" icons check)
 cargo check --manifest-path "$app_dir/Cargo.toml"

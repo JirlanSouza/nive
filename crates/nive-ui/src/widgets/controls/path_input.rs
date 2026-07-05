@@ -1,13 +1,13 @@
 use crate::theme::ControlSize;
 use crate::widgets::controls::{button, input};
-use crate::widgets::{IconName, InputGroup};
+use crate::widgets::{IconRole, InputGroup};
 use crate::Element;
 
 pub struct PathInput<'a, Message> {
     placeholder: &'a str,
     value: &'a str,
     browse_label: &'a str,
-    leading_icon: Option<IconName>,
+    leading_icon: Option<IconRole>,
     size: ControlSize,
     disabled: bool,
     on_input: Option<Box<dyn Fn(String) -> Message + 'a>>,
@@ -36,7 +36,7 @@ where
         self
     }
 
-    pub fn leading_icon(mut self, icon: IconName) -> Self {
+    pub fn leading_icon(mut self, icon: IconRole) -> Self {
         self.leading_icon = Some(icon);
         self
     }
@@ -86,7 +86,7 @@ where
             .disabled(self.disabled)
             .on_input_maybe(self.on_input);
 
-        let browse = button::icon(self.leading_icon.unwrap_or(IconName::Folder))
+        let browse = button::icon(self.leading_icon.unwrap_or(IconRole::Folder))
             .disabled(self.disabled)
             .on_press_maybe(self.on_browse)
             .tooltip(self.browse_label);

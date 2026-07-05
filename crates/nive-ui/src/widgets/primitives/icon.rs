@@ -9,15 +9,9 @@ use iced::{
     Color, Length, Radians, Rectangle, Size,
 };
 
+use crate::icons::{IconGlyph, IconRole, IconSource};
 use crate::Element;
-
-include!("icon.generated.rs");
-
-pub trait IconSource: Copy + 'static {
-    fn svg_bytes(self) -> &'static [u8];
-
-    fn provider_slug(self) -> &'static str;
-}
+use crate::Theme;
 
 pub fn new<S>(icon: S) -> Icon<S>
 where
@@ -26,15 +20,34 @@ where
     Icon::new(icon)
 }
 
-pub(crate) fn handle<S>(icon: S) -> Handle
+pub fn role(role: IconRole) -> Icon {
+    Icon::role(role)
+}
+
+pub fn symbol<S>(symbol: S) -> Icon<S>
 where
     S: IconSource,
 {
-    Handle::from_memory(icon.svg_bytes())
+    Icon::symbol(symbol)
 }
 
-pub struct Icon<S = IconName> {
-    icon: S,
+pub fn glyph(glyph: IconGlyph) -> Icon {
+    Icon::glyph(glyph)
+}
+
+pub(crate) fn handle(glyph: IconGlyph) -> Handle {
+    Handle::from_memory(glyph.svg_bytes())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IconKind<S> {
+    Role(IconRole),
+    Source(S),
+    Glyph(IconGlyph),
+}
+
+pub struct Icon<S = IconGlyph> {
+    icon: IconKind<S>,
     size: f32,
     color: Option<Color>,
     rotation: Radians,
@@ -44,9 +57,29 @@ impl<S> Icon<S>
 where
     S: IconSource,
 {
+    pub fn new(icon: S) -> Self {
+        Self::from_kind(IconKind::Source(icon))
+    }
+
+    pub fn symbol(symbol: S) -> Self {
+        Self::new(symbol)
+    }
+}
+
+impl Icon {
+    pub fn role(role: IconRole) -> Self {
+        Self::from_kind(IconKind::Role(role))
+    }
+
+    pub fn glyph(glyph: IconGlyph) -> Self {
+        Self::from_kind(IconKind::Glyph(glyph))
+    }
+}
+
+impl<S> Icon<S> {
     const DEFAULT_SIZE: f32 = 16.0;
 
-    pub fn new(icon: S) -> Self {
+    fn from_kind(icon: IconKind<S>) -> Self {
         Self {
             icon,
             size: Self::DEFAULT_SIZE,
@@ -91,12 +124,26 @@ where
         self
     }
 
-    fn handle(&self) -> Handle {
-        handle(self.icon)
+    fn resolved_glyph(&self, theme: Theme) -> IconGlyph
+    where
+        S: IconSource,
+    {
+        match self.icon {
+            IconKind::Role(role) => theme.icon(role),
+            IconKind::Source(source) => IconGlyph::from_source(source),
+            IconKind::Glyph(glyph) => glyph,
+        }
+    }
+
+    fn handle(&self, theme: Theme) -> Handle
+    where
+        S: IconSource,
+    {
+        handle(self.resolved_glyph(theme))
     }
 }
 
-impl<Message, Theme, S> Widget<Message, Theme, iced::Renderer> for Icon<S>
+impl<Message, S> Widget<Message, Theme, iced::Renderer> for Icon<S>
 where
     S: IconSource,
 {
@@ -124,7 +171,7 @@ where
         &self,
         _tree: &Tree,
         renderer: &mut iced::Renderer,
-        _theme: &Theme,
+        theme: &Theme,
         inherited_style: &renderer::Style,
         layout: Layout<'_>,
         _cursor: mouse::Cursor,
@@ -132,7 +179,7 @@ where
     ) {
         renderer.draw_svg(
             svg::Svg {
-                handle: self.handle(),
+                handle: self.handle(*theme),
                 color: Some(self.color.unwrap_or(inherited_style.text_color)),
                 rotation: self.rotation,
                 opacity: 1.0,

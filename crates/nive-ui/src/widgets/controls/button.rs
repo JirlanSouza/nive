@@ -13,15 +13,15 @@ use self::{
 };
 use crate::advanced::pressable::Pressable;
 use crate::widgets::overlays::tooltip as tooltip_widget;
-use crate::widgets::primitives::IconName;
+use crate::widgets::primitives::IconRole;
 
 pub use style::ButtonVariant;
 pub use style::{button_control_state, focus_ring, ButtonFocusRing};
 
 pub struct Button<'a, Message> {
     content: Content<'a, Message>,
-    leading_icon: Option<IconName>,
-    trailing_icon: Option<IconName>,
+    leading_icon: Option<IconRole>,
+    trailing_icon: Option<IconRole>,
     variant: ButtonVariant,
     size: ControlSize,
     text_align: TextAlign,
@@ -95,7 +95,7 @@ where
     Button::new(Content::Label(label), ButtonVariant::Link)
 }
 
-pub fn icon<'a, Message>(app_icon: IconName) -> Button<'a, Message>
+pub fn icon<'a, Message>(app_icon: IconRole) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
@@ -215,12 +215,12 @@ where
         self
     }
 
-    pub fn leading_icon(mut self, icon: IconName) -> Self {
+    pub fn leading_icon(mut self, icon: IconRole) -> Self {
         self.leading_icon = Some(icon);
         self
     }
 
-    pub fn trailing_icon(mut self, icon: IconName) -> Self {
+    pub fn trailing_icon(mut self, icon: IconRole) -> Self {
         self.trailing_icon = Some(icon);
         self
     }

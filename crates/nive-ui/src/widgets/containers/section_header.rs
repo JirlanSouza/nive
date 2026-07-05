@@ -11,7 +11,7 @@ use crate::theme::{self, ControlSize, TextRole, ToneRole};
 use crate::widgets::controls::button;
 use crate::widgets::feedback::presentation::{resource_status_phase, ResourceStatusPhase};
 use crate::widgets::feedback::ResourceStatusPresentation;
-use crate::widgets::primitives::{icon, IconName};
+use crate::widgets::primitives::{icon, IconRole};
 use crate::Element;
 
 use self::style as theme_section_header;
@@ -24,7 +24,7 @@ pub struct SectionHeader<'a, Message> {
 }
 
 pub struct SectionHeaderAction<'a, Message> {
-    icon: IconName,
+    icon: IconRole,
     tooltip: Option<&'a str>,
     disabled: bool,
     on_press: Option<Message>,
@@ -40,7 +40,7 @@ enum SectionHeaderStatusKind<'a> {
         tone: ToneRole,
     },
     IconLabel {
-        icon: IconName,
+        icon: IconRole,
         label: &'a str,
         tone: ToneRole,
     },
@@ -148,7 +148,7 @@ impl<'a, Message> SectionHeaderAction<'a, Message>
 where
     Message: Clone + 'a,
 {
-    pub fn icon(icon: IconName) -> Self {
+    pub fn icon(icon: IconRole) -> Self {
         Self {
             icon,
             tooltip: None,
@@ -199,7 +199,7 @@ impl<'a> SectionHeaderStatus<'a> {
         }
     }
 
-    pub fn icon_label(icon: IconName, label: &'a str, tone: ToneRole) -> Self {
+    pub fn icon_label(icon: IconRole, label: &'a str, tone: ToneRole) -> Self {
         Self {
             kind: SectionHeaderStatusKind::IconLabel { icon, label, tone },
         }
@@ -214,7 +214,7 @@ impl<'a> SectionHeaderStatus<'a> {
             ResourceStatusPhase::Idle => None,
             ResourceStatusPhase::Refreshing => Some(Self::refreshing(refreshing_label)),
             ResourceStatusPhase::StaleError => Some(Self::icon_label(
-                IconName::AlertCircle,
+                IconRole::DialogError,
                 error_label,
                 ToneRole::Danger,
             )),
@@ -250,7 +250,7 @@ impl<'a> SectionHeaderStatus<'a> {
 
                 row![
                     AnimatedVisual::new(move |frame| -> Element<'a, Message> {
-                        icon::new(IconName::RefreshCw)
+                        icon::role(IconRole::ViewRefresh)
                             .size(icon_size)
                             .color(color)
                             .rotation(Radians(frame.turns() * std::f32::consts::TAU))
@@ -271,7 +271,7 @@ impl<'a> SectionHeaderStatus<'a> {
                 let color = theme::active().tone(tone).color;
 
                 row![
-                    icon::new(icon).size(metrics.icon_size).color(color),
+                    icon::role(icon).size(metrics.icon_size).color(color),
                     text(label)
                         .size(metrics.status_size)
                         .line_height(metrics.status_line_height)

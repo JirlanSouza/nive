@@ -17,8 +17,28 @@ if [[ ! -x "$cli" && -x "$cli.exe" ]]; then
     cli="$cli.exe"
 fi
 
-git_url="file://$root"
-rev="$(git -C "$root" rev-parse HEAD)"
+snapshot="$tmpdir/nive-git-snapshot"
+file_list="$tmpdir/nive-files.list"
+mkdir -p "$snapshot"
+(
+    cd "$root"
+    while IFS= read -r -d '' path; do
+        if [[ -e "$path" ]]; then
+            printf '%s\0' "$path"
+        fi
+    done < <(git ls-files -co --exclude-standard -z) > "$file_list"
+    tar --null -T "$file_list" -cf -
+) | tar -C "$snapshot" -xf -
+
+git -C "$snapshot" init --quiet
+git -C "$snapshot" add .
+git -C "$snapshot" \
+    -c user.name="Nive Scaffold Smoke" \
+    -c user.email="nive-smoke@example.invalid" \
+    commit --quiet -m "snapshot"
+
+git_url="file://$snapshot"
+rev="$(git -C "$snapshot" rev-parse HEAD)"
 
 cd "$tmpdir"
 
@@ -37,4 +57,7 @@ case "$template" in
         ;;
 esac
 
-cargo check --manifest-path "$tmpdir/$app_name/Cargo.toml"
+app_dir="$tmpdir/$app_name"
+
+(cd "$app_dir" && "$cli" icons check)
+cargo check --manifest-path "$app_dir/Cargo.toml"

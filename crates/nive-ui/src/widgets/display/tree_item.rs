@@ -14,7 +14,7 @@ use crate::widgets::controls::button::ButtonFocusRing;
 mod style;
 use crate::advanced::pressable::Pressable;
 use crate::widgets::primitives::tone_dot::tone_dot;
-use crate::widgets::primitives::{icon as icon_widget, IconName};
+use crate::widgets::primitives::{icon as icon_widget, IconRole};
 
 /// Primitive row widget for rendering one tree-like item.
 ///
@@ -29,7 +29,7 @@ pub struct TreeItem<'a, Message> {
     expanded: Option<bool>,
     selected: bool,
     disabled: bool,
-    leading_icon: Option<IconName>,
+    leading_icon: Option<IconRole>,
     tone: Option<ToneRole>,
     trailing_text: Option<Cow<'a, str>>,
     trailing: Option<Element<'a, Message>>,
@@ -95,7 +95,7 @@ where
     }
 
     /// Adds a leading icon before the label.
-    pub fn leading_icon(mut self, icon: IconName) -> Self {
+    pub fn leading_icon(mut self, icon: IconRole) -> Self {
         self.leading_icon = Some(icon);
         self
     }
@@ -226,9 +226,9 @@ where
         match self.expanded {
             Some(expanded) => {
                 let icon = if expanded {
-                    IconName::ChevronDown
+                    IconRole::NiveDisclosureDown
                 } else {
-                    IconName::ChevronRight
+                    IconRole::NiveDisclosureRight
                 };
                 let activation = if self.disabled {
                     None
@@ -299,7 +299,7 @@ where
         }
 
         if let Some(icon) = self.leading_icon {
-            content = content.push(icon_widget::new(icon).size(metrics.icon_size));
+            content = content.push(icon_widget::role(icon).size(metrics.icon_size));
         }
 
         content = content.push(
@@ -326,11 +326,11 @@ where
     }
 }
 
-fn expander_content<'a, Message>(icon: IconName, icon_size: f32) -> Element<'a, Message>
+fn expander_content<'a, Message>(icon: IconRole, icon_size: f32) -> Element<'a, Message>
 where
     Message: 'a,
 {
-    container(icon_widget::new(icon).size(icon_size))
+    container(icon_widget::role(icon).size(icon_size))
         .align_x(Alignment::Center)
         .align_y(Alignment::Center)
         .width(Length::Fill)
@@ -379,7 +379,8 @@ mod tree_item_tests {
     #[test]
     fn expander_content_fills_fixed_button_height() {
         let metrics = theme_tree_item::metrics(ControlSize::Sm);
-        let content = expander_content::<TestMessage>(IconName::ChevronRight, metrics.icon_size);
+        let content =
+            expander_content::<TestMessage>(IconRole::NiveDisclosureRight, metrics.icon_size);
 
         assert_eq!(content.as_widget().size().height, Length::Fill);
     }

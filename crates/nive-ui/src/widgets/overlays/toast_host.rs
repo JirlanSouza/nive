@@ -7,7 +7,7 @@ use iced::{
 pub use nive_core::{ToastPresentation, ToastTone};
 
 use crate::theme::{self, GapRole, ToneRole};
-use crate::widgets::{controls::button, IconName, InlineAlert};
+use crate::widgets::{controls::button, IconRole, InlineAlert};
 use crate::Element;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -114,7 +114,7 @@ where
     Message: Clone + 'a,
     T: ToastPresentation + 'a,
 {
-    let dismiss = button::icon(IconName::Close)
+    let dismiss = button::icon(IconRole::WindowClose)
         .xs()
         .tooltip("Dismiss")
         .on_press(on_dismiss(toast.id()));

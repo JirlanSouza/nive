@@ -2,11 +2,11 @@ use crate::Element;
 
 use super::style as theme_toolbar;
 use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec};
-use crate::widgets::primitives::IconName;
+use crate::widgets::primitives::IconRole;
 
 pub struct ToolbarAction<'a, Message> {
     label: Option<&'a str>,
-    icon: Option<IconName>,
+    icon: Option<IconRole>,
     selected: bool,
     disabled: bool,
     loading: bool,
@@ -16,7 +16,7 @@ pub struct ToolbarAction<'a, Message> {
 }
 
 impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
-    pub fn icon(icon: IconName) -> Self {
+    pub fn icon(icon: IconRole) -> Self {
         Self {
             label: None,
             icon: Some(icon),
@@ -42,7 +42,7 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
         }
     }
 
-    pub fn icon_label(icon: IconName, label: &'a str) -> Self {
+    pub fn icon_label(icon: IconRole, label: &'a str) -> Self {
         Self {
             label: Some(label),
             icon: Some(icon),
