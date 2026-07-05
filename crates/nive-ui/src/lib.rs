@@ -9,14 +9,17 @@
 //! - `tokens` — color, spacing, radius, shadow, and typography constants.
 //! - `theme` — semantic role enums, framework theme data (`Nive Light` / `Nive
 //!   Dark`), active-theme accessors, and iced `Catalog` implementations.
-//! - `widgets` — reusable widgets grouped by taxonomy
-//!   (`primitives`, `controls`, `display`, `containers`, `navigation`,
-//!   `overlays`, `feedback`, and `composite`), plus the flat widget facade.
+//! - `widgets` — reusable widgets grouped by taxonomy (`primitives`,
+//!   `controls`, `display`, `containers`, `navigation`, `overlays`, and
+//!   `feedback`), plus the flat widget facade. `DialogHost` and `ToastHost`
+//!   live under `widgets::overlays`.
+//! - `advanced` — internals for authoring custom widgets (layout math,
+//!   border/style helpers, `Shell` propagation), mirroring `iced::advanced`.
+//!   Not needed to assemble screens from `widgets`.
 //! - `layout`, `graphics`, and `accessibility` — focused facades for layout
 //!   surfaces, visual assets, and keyboard/focus affordances.
 //! - `focus_trap` — Tab/Shift+Tab focus cycling helpers for overlays.
 //! - `BootstrapView` — generic startup loading/failure template.
-//! - `DialogHost` and `ToastHost` — modal and toast overlay composition.
 //!
 //! `nive-ui` does not depend on `nive-runtime` or any application crate; it is
 //! a lower layer. Presentation contracts such as `ToastPresentation` are
@@ -41,39 +44,29 @@
 //! See `docs/components.md` for contract details.
 
 pub mod accessibility;
+pub mod advanced;
+pub mod animation;
 pub mod bootstrap;
-mod dialog_host;
 pub mod focus_trap;
 pub mod graphics;
 pub mod interaction;
 pub mod layout;
 pub mod prelude;
 pub mod theme;
-mod toast_host;
 pub mod tokens;
 pub mod widgets;
 
 pub use bootstrap::{BootstrapError, BootstrapView};
-pub use dialog_host::DialogHost;
-pub use interaction::{
-    ActivationBehavior, ActivationTrigger, CollectionTransferPayload, ContextInvocation,
-    ContextPosition, ContextRequest, ContextSelectionBehavior, ContextTarget, Drag, DropCommit,
-    DropContext, DropDecision, PointerButton, PointerGesture, PointerGestureKind, RenameBehavior,
-    Selection, SelectionMode, SelectionSnapshot, Transfer, TransferData, TransferOperation,
-    TransferOperations,
-};
 pub use theme::{Theme, ThemeBuilder, ThemeCatalog, ThemeData, ThemeId};
-pub use toast_host::{ToastHost, ToastPosition, ToastPresentation, ToastTone};
 pub use tokens::color;
 pub use tokens::radius;
 pub use tokens::shadow;
 pub use tokens::spacing;
 pub use tokens::typography;
-pub use widgets::Separator;
 
 pub type Renderer = iced::Renderer;
 pub type Element<'a, Message> = iced::Element<'a, Message, Theme, Renderer>;
-pub use iced::{advanced, border, widget};
+pub use iced::{border, widget};
 pub use iced::{
     Alignment, Background, Border, Color, Length, Padding, Point, Radians, Rectangle, Shadow, Size,
     Vector,
