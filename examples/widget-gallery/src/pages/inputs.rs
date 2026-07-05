@@ -93,7 +93,7 @@ fn grouped_inputs(app: &WidgetGallery) -> Element<'_, Message> {
             InputGroup::new(
                 Input::new("Search", &app.form.search).on_input(Message::InputSearchChanged),
             )
-            .leading_icon(IconName::Search)
+            .leading_icon(IconRole::EditFind)
             .trailing_text("⌘K"),
         ),
         example_cell(
@@ -103,7 +103,7 @@ fn grouped_inputs(app: &WidgetGallery) -> Element<'_, Message> {
             )
             .leading_text("repo:")
             .trailing_action(
-                nbutton::icon(IconName::Close).on_press(Message::InputSearchChanged(String::new())),
+                nbutton::icon(IconRole::WindowClose).on_press(Message::InputSearchChanged(String::new())),
             )
             .ghost(),
         ),
@@ -134,9 +134,9 @@ fn suggestions(highlighted: Option<usize>) -> Element<'static, Message> {
             SelectableItem::new(label)
                 .selected(highlighted == Some(index))
                 .leading_icon(if index == 2 {
-                    IconName::Trash
+                    IconRole::EditDelete
                 } else {
-                    IconName::Search
+                    IconRole::EditFind
                 })
                 .on_press(Message::InputSearchChanged((*label).to_owned())),
         );
@@ -174,7 +174,7 @@ fn choices(app: &WidgetGallery) -> Element<'_, Message> {
             SegmentedControl::new()
                 .item(segment("Preview", app.form.segment))
                 .item(segment("Code", app.form.segment))
-                .item(segment("Tests", app.form.segment).icon(IconName::Check))
+                .item(segment("Tests", app.form.segment).icon(IconRole::ActionConfirm))
                 .fill(),
         ),
         example_cell(
@@ -183,7 +183,7 @@ fn choices(app: &WidgetGallery) -> Element<'_, Message> {
                 .flat()
                 .item(segment("Preview", app.form.segment))
                 .item(segment("Code", app.form.segment))
-                .item(segment("Tests", app.form.segment).icon(IconName::Check))
+                .item(segment("Tests", app.form.segment).icon(IconRole::ActionConfirm))
                 .fill(),
         ),
     ])
@@ -211,7 +211,7 @@ fn color_path(app: &WidgetGallery) -> Element<'_, Message> {
         example_cell(
             "PathInput",
             PathInput::new("Project path", &app.form.path)
-                .leading_icon(IconName::Folder)
+                .leading_icon(IconRole::Folder)
                 .on_input(Message::PathChanged)
                 .on_browse(Message::PickPath),
         ),

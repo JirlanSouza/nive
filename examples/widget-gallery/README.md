@@ -13,6 +13,8 @@ The gallery exercises:
   states
 - app-owned state for inputs, selections, overlays, feedback controls, and
   theme preference
+- semantic icon roles, a fixture app symbol, and a theme catalog override on
+  the icons page
 - real overlay behavior for popovers, dialogs, autocomplete, and command
   palette content
 - opt-in devtools inspection for sample `Resource` and `Operation` fields

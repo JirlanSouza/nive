@@ -11,7 +11,7 @@ use nive::widget::{column, row};
 use crate::catalog::{entry_for, matches, PageId, CATALOG};
 #[cfg(feature = "devtools")]
 use crate::fixtures::DevState;
-use crate::{layout, pages};
+use crate::{icons, layout, pages};
 
 mod tree_helpers;
 
@@ -233,7 +233,9 @@ impl Application for WidgetGallery {
     type Bootstrap = ();
 
     fn config() -> ApplicationConfig<Self::Window, Self::Bootstrap> {
-        ApplicationConfig::new("nive-example-widget-gallery").name("Widget Gallery")
+        ApplicationConfig::new("nive-example-widget-gallery")
+            .name("Widget Gallery")
+            .theme_catalog(app_theme_catalog())
     }
 
     fn init(
@@ -377,6 +379,17 @@ impl Application for WidgetGallery {
     ) -> impl Into<Cow<'a, str>> + 'a {
         Cow::Borrowed("Widget Gallery")
     }
+}
+
+fn app_theme_catalog() -> ThemeCatalog {
+    ThemeCatalog::new(
+        Theme::builder("Widget Gallery Light", ThemeMode::Light)
+            .icons(icons::APP_ICON_CATALOG)
+            .build(),
+        Theme::builder("Widget Gallery Dark", ThemeMode::Dark)
+            .icons(icons::APP_ICON_CATALOG)
+            .build(),
+    )
 }
 
 impl WidgetGallery {

@@ -2,6 +2,7 @@ mod app;
 mod catalog;
 #[cfg(feature = "devtools")]
 mod fixtures;
+mod icons;
 mod layout;
 mod pages;
 

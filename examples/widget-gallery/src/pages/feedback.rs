@@ -91,7 +91,7 @@ fn states() -> Element<'static, Message> {
             container(
                 EmptyState::new("No projects")
                     .description("Create a project to populate this list.")
-                    .icon(IconName::Inbox)
+                    .icon(IconRole::MailInbox)
                     .action(nbutton::primary("Create").on_press(Message::Noop)),
             )
             .height(180),
@@ -111,7 +111,7 @@ fn states() -> Element<'static, Message> {
             container(
                 ErrorEmptyState::new("Import failed")
                     .description("The selected file could not be parsed.")
-                    .icon(IconName::AlertTriangle)
+                    .icon(IconRole::DialogWarning)
                     .action(ErrorFeedbackAction::retry("Try again", Message::Noop)),
             )
             .height(180),

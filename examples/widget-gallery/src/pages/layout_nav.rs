@@ -32,11 +32,11 @@ fn tabs(app: &WidgetGallery) -> Element<'_, Message> {
                         "Overview",
                         DemoTab::Overview,
                         app.layout.tab,
-                        IconName::Inbox
+                        IconRole::MailInbox
                     ))
                     .tab(
                         TabItem::new("Details")
-                            .icon(IconName::Info)
+                            .icon(IconRole::DialogInformation)
                             .selected(app.layout.tab == DemoTab::Details)
                             .dirty(app.layout.dirty_tab)
                             .on_press(Message::SelectTab(DemoTab::Details))
@@ -60,12 +60,12 @@ fn tabs(app: &WidgetGallery) -> Element<'_, Message> {
             SectionHeader::new("Resources")
                 .status(SectionHeaderStatus::refreshing("Refreshing").tone(ToneRole::Info))
                 .action(
-                    SectionHeaderAction::icon(IconName::RefreshCw)
+                    SectionHeaderAction::icon(IconRole::ViewRefresh)
                         .tooltip("Refresh")
                         .on_press(Message::Noop),
                 )
                 .action(
-                    SectionHeaderAction::icon(IconName::Plus)
+                    SectionHeaderAction::icon(IconRole::ListAdd)
                         .tooltip("Add")
                         .on_press(Message::Noop),
                 ),
@@ -74,7 +74,7 @@ fn tabs(app: &WidgetGallery) -> Element<'_, Message> {
             "Status header",
             SectionHeader::new("Validation")
                 .status(SectionHeaderStatus::icon_label(
-                    IconName::CheckCircle,
+                    IconRole::DialogSuccess,
                     "Healthy",
                     ToneRole::Success,
                 ))
@@ -140,14 +140,14 @@ fn trees(app: &WidgetGallery) -> Element<'_, Message> {
     let tree_item_rows = column![
         TreeItem::new("examples")
             .expanded(examples_expanded)
-            .leading_icon(IconName::Folder)
+            .leading_icon(IconRole::Folder)
             .selected(true)
             .size(app.control_size)
             .on_toggle(Message::ToggleTree(DemoTreeNode::Examples)),
         TreeItem::new("widget-gallery")
             .depth(1)
             .expanded(widget_gallery_expanded)
-            .leading_icon(IconName::Folder)
+            .leading_icon(IconRole::Folder)
             .trailing_text("primitive")
             .size(app.control_size)
             .on_toggle(Message::ToggleTree(DemoTreeNode::WidgetGallery)),
@@ -155,7 +155,7 @@ fn trees(app: &WidgetGallery) -> Element<'_, Message> {
             .depth(1)
             .leaf()
             .disabled(true)
-            .leading_icon(IconName::Folder)
+            .leading_icon(IconRole::Folder)
             .trailing_text("ignored")
             .size(app.control_size),
     ]
@@ -208,19 +208,19 @@ fn tree_nodes(deferred_loaded: bool, deferred_loading: bool) -> Vec<TreeNode<'st
             "remote-packages",
             [
                 TreeNode::leaf(DemoTreeNode::RemoteSchema, "schema.json")
-                    .leading_icon(IconName::Edit)
+                    .leading_icon(IconRole::EditModify)
                     .trailing_text("loaded"),
                 TreeNode::leaf(DemoTreeNode::RemoteCache, "cache.bin")
-                    .leading_icon(IconName::Copy)
+                    .leading_icon(IconRole::EditCopy)
                     .trailing_text("2 MB"),
             ],
         )
-        .leading_icon(IconName::Folder)
+        .leading_icon(IconRole::Folder)
         .tone(ToneRole::Success)
         .trailing_text("loaded")
     } else {
         TreeNode::branch_deferred(DemoTreeNode::RemotePackages, "remote-packages")
-            .leading_icon(IconName::Inbox)
+            .leading_icon(IconRole::MailInbox)
             .tone(ToneRole::Info)
             .trailing_text(if deferred_loading { "loading" } else { "deferred" })
     };
@@ -234,9 +234,9 @@ fn tree_nodes(deferred_loaded: bool, deferred_loading: bool) -> Vec<TreeNode<'st
                 "widget-gallery",
                 [
                     TreeNode::leaf(DemoTreeNode::CargoToml, "Cargo.toml")
-                        .leading_icon(IconName::Edit),
+                        .leading_icon(IconRole::EditModify),
                     TreeNode::leaf(DemoTreeNode::Target, "target")
-                        .leading_icon(IconName::Folder)
+                        .leading_icon(IconRole::Folder)
                         .disabled(true)
                         .trailing_text("disabled"),
                     TreeNode::branch(
@@ -244,31 +244,31 @@ fn tree_nodes(deferred_loaded: bool, deferred_loading: bool) -> Vec<TreeNode<'st
                         "src",
                         [
                             TreeNode::leaf(DemoTreeNode::AppRs, "app.rs")
-                                .leading_icon(IconName::Edit)
+                                .leading_icon(IconRole::EditModify)
                                 .trailing_text("modified"),
                             TreeNode::branch(
                                 DemoTreeNode::Pages,
                                 "pages",
                                 [
                                     TreeNode::leaf(DemoTreeNode::LayoutNavRs, "layout_nav.rs")
-                                        .leading_icon(IconName::Edit)
+                                        .leading_icon(IconRole::EditModify)
                                         .tone(ToneRole::Warning),
                                     TreeNode::leaf(DemoTreeNode::InputsRs, "inputs.rs")
-                                        .leading_icon(IconName::Edit),
+                                        .leading_icon(IconRole::EditModify),
                                 ],
                             )
-                            .leading_icon(IconName::Folder),
+                            .leading_icon(IconRole::Folder),
                         ],
                     )
-                    .leading_icon(IconName::Folder),
+                    .leading_icon(IconRole::Folder),
                     remote_branch,
                 ],
             )
-            .leading_icon(IconName::Folder)
+            .leading_icon(IconRole::Folder)
             .trailing_text("new"),
         ],
     )
-    .leading_icon(IconName::Folder)]
+    .leading_icon(IconRole::Folder)]
 }
 
 fn tree_feedback(app: &WidgetGallery) -> Element<'_, Message> {
@@ -305,7 +305,7 @@ fn selectable(app: &WidgetGallery) -> Element<'_, Message> {
             column![
                 SelectableItem::new("Selected item")
                     .selected(app.layout.selected_item == 0)
-                    .leading_icon(IconName::Check)
+                    .leading_icon(IconRole::ActionConfirm)
                     .trailing_text("active")
                     .on_press(Message::SelectItem(0)),
                 SelectableItem::new("Disabled item with long label")
@@ -326,7 +326,7 @@ fn tab(
     label: &'static str,
     tab: DemoTab,
     active: DemoTab,
-    icon: IconName,
+    icon: IconRole,
 ) -> TabItem<'static, Message> {
     TabItem::new(label)
         .icon(icon)
