@@ -16,7 +16,7 @@ are independent of product-specific domain logic. It depends on `iced` and
   implementations.
 - `widgets` — reusable widgets exposed through a flat facade and category
   facades: `primitives`, `controls`, `display`, `containers`, `navigation`,
-  `overlays`, `feedback`, and `composite`.
+  `overlays`, and `feedback`.
 - `layout`, `graphics`, `accessibility` — focused facades for layout surfaces,
   visual assets, and keyboard/focus helpers.
 - `focus_trap` — Tab/Shift+Tab focus cycling helpers for overlays.

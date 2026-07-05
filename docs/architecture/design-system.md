@@ -120,7 +120,7 @@ no widget.
 Todos são `nive-ui` puros (dependem só de `iced`), type-safe e estilizados por role.
 O contrato público é duplo: `nive_ui::widgets::*` continua sendo o facade plano
 para app code, enquanto `nive_ui::widgets::{primitives, controls, display,
-containers, navigation, overlays, feedback, composite}` organiza a taxonomia
+containers, navigation, overlays e feedback` organiza a taxonomia
 final para imports explícitos, docs, gallery e crescimento futuro.
 
 ```mermaid
@@ -138,10 +138,15 @@ flowchart TB
         Checkbox
         Switch
         Select
+        SelectableItem
         SegmentedControl
         Autocomplete
         ColorInput
         ColorPicker
+        Field
+        FieldGroup
+        InputGroup
+        PathInput
     end
     subgraph display["Display"]
         Badge
@@ -159,6 +164,7 @@ flowchart TB
         Panel
         SplitPane
         SelectableCard
+        SectionHeader
     end
     subgraph navigation["Navigation"]
         Tabs["TabBar / TabItem"]
@@ -173,20 +179,10 @@ flowchart TB
         DialogHost
         ToastHost
     end
-    subgraph composite["Composite"]
-        Field
-        FieldGroup
-        InputGroup
-        PathInput
-        SectionHeader
-        SelectableItem
-    end
     subgraph feedback["Feedback & Estado"]
-        Callout
         InlineAlert
         ProgressBar
         Spinner
-        LoadingIndicator
         Skeleton
         EmptyState
         StatusLines["Error / Resource / Operation StatusLine"]
@@ -196,8 +192,8 @@ flowchart TB
     end
 ```
 
-**Hosts & templates** (na raiz de `nive-ui`, compõem os widgets acima):
-`DialogHost` (modal) · `ToastHost` (toasts) · `BootstrapView` (splash) · `focus_trap`
+**Hosts & templates** (composição de overlays e templates):
+`DialogHost` / `ToastHost` (em `widgets::overlays`) · `BootstrapView` (splash) · `focus_trap`
 (ciclo de foco em overlays).
 
 > **Lacunas do roadmap (Fase 2):** o catálogo cobre apps gerais e densos *exceto* os dois
