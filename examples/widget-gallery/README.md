@@ -11,6 +11,8 @@ The gallery exercises:
 
 - variant matrices for size, tone, disabled, loading, long-label, and compact
   states
+- **density switching** between Comfortable, Standard, and Compact through
+  theme/catalog selection
 - app-owned state for inputs, selections, overlays, feedback controls, and
   theme preference
 - semantic icon roles, a fixture app symbol, and a theme catalog override on

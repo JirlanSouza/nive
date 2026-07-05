@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::BTreeSet};
 
 use nive::prelude::ui::DialogRequest;
 use nive::prelude::*;
-use nive::ui::theme::{ControlSize, SurfaceRole};
+use nive::ui::theme::{self, ControlSize, SurfaceRole, ThemeDensity};
 use nive::ui::widgets::primitives::text as ntext;
 use nive::ui::interaction::SelectionMode;
 use nive::ui::widgets::{TreeEvent, TreeState};
@@ -127,6 +127,7 @@ pub struct WidgetGallery {
     pub route: PageId,
     pub search: String,
     pub theme: ThemePreference,
+    pub density: ThemeDensity,
     pub control_size: ControlSize,
     pub form: FormState,
     pub overlays: OverlayState,
@@ -141,6 +142,7 @@ pub enum Message {
     Navigate(PageId),
     SearchChanged(String),
     ThemeChanged(ThemePreference),
+    DensityChanged(ThemeDensity),
     ControlSizeChanged(ControlSize),
     NameChanged(String),
     EmailChanged(String),
@@ -247,6 +249,7 @@ impl Application for WidgetGallery {
                 route: PageId::Actions,
                 search: String::new(),
                 theme: ThemePreference::System,
+                density: ThemeDensity::Standard,
                 control_size: ControlSize::Sm,
                 form: FormState::default(),
                 overlays: OverlayState::default(),
@@ -270,7 +273,30 @@ impl Application for WidgetGallery {
         match message {
             Message::Navigate(route) => self.route = route,
             Message::SearchChanged(value) => self.search = value,
-            Message::ThemeChanged(theme) => self.theme = theme,
+            Message::ThemeChanged(theme) => {
+                self.theme = theme;
+                let catalog = app_theme_catalog_for_density(self.density);
+                let theme_mode = match theme {
+                    ThemePreference::System | ThemePreference::Light => {
+                        nive::ui::theme::ThemeMode::Light
+                    }
+                    ThemePreference::Dark => nive::ui::theme::ThemeMode::Dark,
+                };
+                let resolved = catalog.resolve(theme_mode);
+                theme::runtime::set_active(resolved);
+            }
+            Message::DensityChanged(density) => {
+                self.density = density;
+                let catalog = app_theme_catalog_for_density(density);
+                let theme_mode = match self.theme {
+                    ThemePreference::System | ThemePreference::Light => {
+                        nive::ui::theme::ThemeMode::Light
+                    }
+                    ThemePreference::Dark => nive::ui::theme::ThemeMode::Dark,
+                };
+                let resolved = catalog.resolve(theme_mode);
+                theme::runtime::set_active(resolved);
+            }
             Message::ControlSizeChanged(size) => self.control_size = size,
             Message::NameChanged(value) => self.form.name = value,
             Message::EmailChanged(value) => self.form.email = value,
@@ -339,7 +365,7 @@ impl Application for WidgetGallery {
             Message::Noop => {}
         }
 
-        effect.with_theme(self.theme)
+        effect
     }
 
     fn view(
@@ -382,11 +408,17 @@ impl Application for WidgetGallery {
 }
 
 fn app_theme_catalog() -> ThemeCatalog {
+    app_theme_catalog_for_density(ThemeDensity::Standard)
+}
+
+fn app_theme_catalog_for_density(density: ThemeDensity) -> ThemeCatalog {
     ThemeCatalog::new(
         Theme::builder("Widget Gallery Light", ThemeMode::Light)
+            .density(density)
             .icons(icons::APP_ICON_CATALOG)
             .build(),
         Theme::builder("Widget Gallery Dark", ThemeMode::Dark)
+            .density(density)
             .icons(icons::APP_ICON_CATALOG)
             .build(),
     )
@@ -425,12 +457,20 @@ impl WidgetGallery {
             .item(size_item("LG", ControlSize::Lg, self.control_size))
             .fill();
 
+        let densities = SegmentedControl::new()
+            .item(density_item("Compact", ThemeDensity::Compact, self.density))
+            .item(density_item("Standard", ThemeDensity::Standard, self.density))
+            .item(density_item("Comfortable", ThemeDensity::Comfortable, self.density))
+            .fill();
+
         Panel::new(
             column![
                 ntext::title("Widget Gallery"),
                 Input::new("Search widgets", &self.search).on_input(Message::SearchChanged),
                 ntext::section_label("Theme"),
                 themes,
+                ntext::section_label("Density"),
+                densities,
                 ntext::section_label("Control size"),
                 sizes,
                 scrollable(entries).height(Length::Fill),
@@ -490,4 +530,14 @@ fn size_item(
     SegmentedItem::new(label)
         .selected(active == size)
         .on_press(Message::ControlSizeChanged(size))
+}
+
+fn density_item(
+    label: &'static str,
+    density: ThemeDensity,
+    active: ThemeDensity,
+) -> SegmentedItem<'static, Message> {
+    SegmentedItem::new(label)
+        .selected(active == density)
+        .on_press(Message::DensityChanged(density))
 }
