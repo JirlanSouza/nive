@@ -121,7 +121,7 @@ pub use context::{
 pub use dnd::{Drag, DropCommit, DropContext, DropDecision};
 pub use keyboard::{ActivationBehavior, ActivationTrigger, RenameBehavior, StepAdjustment};
 pub use orientation::Orientation;
-pub use pointer::{PointerButton, PointerGesture, PointerGestureKind};
+pub use pointer::{PointerButton, PointerGesture, PointerGestureKind, PointerGestureState};
 pub use selection::{ClickModifiers, Selection, SelectionMode, SelectionSnapshot};
 pub use transfer::{
     CollectionTransferPayload, Transfer, TransferData, TransferOperation, TransferOperations,
