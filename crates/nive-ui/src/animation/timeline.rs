@@ -5,7 +5,7 @@ pub use iced::animation::Easing;
 /// The timing specification of an animation: how long it runs, how its progress
 /// is shaped ([`Easing`]), whether it repeats, and an optional start [`delay`].
 ///
-/// An [`Animation`] is pure data — it knows how to project an [`AnimationFrame`]
+/// An [`Animation`] is pure data, it knows how to project an [`AnimationFrame`]
 /// for a given elapsed time. The widgets
 /// (`AnimatedVisual`, `AnimatedLayout`) drive it against the window clock.
 ///
@@ -196,7 +196,7 @@ impl AnimationFrame {
         self.cycle
     }
 
-    /// Progress expressed as turns — an alias of [`progress`] for rotations.
+    /// Progress expressed as turns, an alias of [`progress`] for rotations.
     ///
     /// [`progress`]: AnimationFrame::progress
     pub fn turns(self) -> f32 {
