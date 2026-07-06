@@ -96,16 +96,16 @@ impl Widget<ColorPickerEvent, crate::theme::Theme, iced::Renderer> for Saturatio
         );
 
         control_widget::handle_keyboard(self.disabled, state, event, shell, |event| {
-            let (action, large) = saturation_value_action(event)?;
+            let action = saturation_value_action(event)?;
             let mut saturation = self.hsva.saturation();
             let mut value = self.hsva.value();
 
             match action {
                 SaturationValueAction::Saturation(action) => {
-                    saturation = adjust_unit(saturation, action, large);
+                    saturation = adjust_unit(saturation, action);
                 }
                 SaturationValueAction::Value(action) => {
-                    value = adjust_unit(value, action, large);
+                    value = adjust_unit(value, action);
                 }
             }
 

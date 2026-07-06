@@ -12,7 +12,7 @@ use super::{
     control_state::ControlState,
     control_widget,
     drag::{handle_drag, interaction},
-    keyboard::{adjust_unit, slider_action},
+    keyboard::{adjust_unit, unit_slider_action},
     metrics::slider_size,
     render::{bounded_marker_center, draw_alpha_surface, draw_marker},
 };
@@ -86,10 +86,10 @@ impl Widget<ColorPickerEvent, crate::theme::Theme, iced::Renderer> for AlphaSlid
         );
 
         control_widget::handle_keyboard(self.disabled, state, event, shell, |event| {
-            let (action, large) = slider_action(event)?;
+            let action = unit_slider_action(event)?;
 
             Some(ColorPickerEvent::AlphaChanged(adjust_unit(
-                self.alpha, action, large,
+                self.alpha, action,
             )))
         });
     }
