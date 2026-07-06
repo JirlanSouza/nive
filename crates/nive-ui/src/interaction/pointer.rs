@@ -68,5 +68,4 @@ pub struct PointerGesture<Region> {
 
 mod gesture_state;
 
-#[allow(unused_imports)]
-pub(crate) use gesture_state::*;
+pub use gesture_state::PointerGestureState;
