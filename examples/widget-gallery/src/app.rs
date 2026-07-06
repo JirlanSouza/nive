@@ -112,6 +112,7 @@ pub struct LayoutState {
     pub selected_card: usize,
     pub selected_item: usize,
     pub split_ratio: f32,
+    pub vertical_split_ratio: f32,
     pub expanded_tree_nodes: BTreeSet<DemoTreeNode>,
     pub tree_state: TreeState<DemoTreeNode>,
     pub tree_selection_mode: SelectionMode,
@@ -164,6 +165,7 @@ pub enum Message {
     TreeSelectionModeChanged(SelectionMode),
     TreeDeferredLoaded(DemoTreeNode),
     SplitRatioChanged(f32),
+    VerticalSplitRatioChanged(f32),
     ShowDialog(DialogKind),
     CloseDialog,
     TogglePopover(PopoverKind),
@@ -209,6 +211,7 @@ impl Default for LayoutState {
             selected_card: 0,
             selected_item: 0,
             split_ratio: 0.42,
+            vertical_split_ratio: 0.35,
             expanded_tree_nodes: [
                 DemoTreeNode::Examples,
                 DemoTreeNode::WidgetGallery,
@@ -352,6 +355,7 @@ impl Application for WidgetGallery {
                 }
             }
             Message::SplitRatioChanged(ratio) => self.layout.split_ratio = ratio,
+            Message::VerticalSplitRatioChanged(ratio) => self.layout.vertical_split_ratio = ratio,
             Message::ShowDialog(dialog) => self.overlays.active_dialog = Some(dialog),
             Message::CloseDialog => self.overlays.active_dialog = None,
             Message::TogglePopover(popover) => {

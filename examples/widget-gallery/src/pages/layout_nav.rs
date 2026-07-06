@@ -1,6 +1,6 @@
 use nive::prelude::*;
 use nive::ui::theme::{SurfaceRole, ToneRole};
-use nive::ui::interaction::{SelectionMode, TransferOperation};
+use nive::ui::interaction::{Orientation, SelectionMode, TransferOperation};
 use nive::ui::widgets::controls::button as nbutton;
 use nive::ui::widgets::primitives::text as ntext;
 use nive::widget::{column, row};
@@ -98,16 +98,19 @@ fn split_pane(app: &WidgetGallery) -> Element<'_, Message> {
                 .padding(14)
                 .role(SurfaceRole::Elevated),
         )
+        .orientation(Orientation::Horizontal)
         .ratio(app.layout.split_ratio)
         .min_sizes(160.0, 220.0)
-        .available_length(720.0)
+        .on_change(Message::SplitRatioChanged)
+        .snap(0.05)
         .height(160),
         SplitPane::new(
             Panel::new(ntext::body("Top")).padding(12),
             Panel::new(ntext::body("Bottom")).padding(12),
         )
-        .vertical()
-        .ratio(0.35)
+        .orientation(Orientation::Vertical)
+        .ratio(app.layout.vertical_split_ratio)
+        .on_change(Message::VerticalSplitRatioChanged)
         .height(180),
     ]
     .spacing(12)
