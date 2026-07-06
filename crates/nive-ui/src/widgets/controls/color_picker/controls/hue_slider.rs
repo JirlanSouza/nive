@@ -12,7 +12,7 @@ use super::{
     control_state::ControlState,
     control_widget,
     drag::{handle_drag, interaction},
-    keyboard::{adjust_hue, slider_action},
+    keyboard::{adjust_hue, hue_slider_action},
     metrics::slider_size,
     render::{bounded_marker_center, draw_hue_surface, draw_marker},
 };
@@ -86,11 +86,9 @@ impl Widget<ColorPickerEvent, crate::theme::Theme, iced::Renderer> for HueSlider
         );
 
         control_widget::handle_keyboard(self.disabled, state, event, shell, |event| {
-            let (action, large) = slider_action(event)?;
+            let action = hue_slider_action(event)?;
 
-            Some(ColorPickerEvent::HueChanged(adjust_hue(
-                self.hue, action, large,
-            )))
+            Some(ColorPickerEvent::HueChanged(adjust_hue(self.hue, action)))
         });
     }
 
