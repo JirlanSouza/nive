@@ -1,4 +1,5 @@
 use super::*;
+use crate::interaction::Orientation;
 use iced::keyboard::{
     key::{Code, Named, Physical},
     Event, Key, Location, Modifiers,
@@ -349,4 +350,122 @@ fn is_rename_key_event_ignores_repeated() {
         repeat: true,
     };
     assert!(!behavior.is_rename_key_event(&event));
+}
+
+#[test]
+fn step_adjustment_horizontal_keys() {
+    let step = StepAdjustment::new(0.01, 0.1);
+
+    assert_eq!(
+        step.delta(
+            &Key::Named(Named::ArrowRight),
+            Modifiers::NONE,
+            Orientation::Horizontal
+        ),
+        Some(0.01)
+    );
+    assert_eq!(
+        step.delta(
+            &Key::Named(Named::ArrowLeft),
+            Modifiers::NONE,
+            Orientation::Horizontal
+        ),
+        Some(-0.01)
+    );
+    assert_eq!(
+        step.delta(
+            &Key::Named(Named::ArrowUp),
+            Modifiers::NONE,
+            Orientation::Horizontal
+        ),
+        None
+    );
+    assert_eq!(
+        step.delta(
+            &Key::Named(Named::ArrowDown),
+            Modifiers::NONE,
+            Orientation::Horizontal
+        ),
+        None
+    );
+}
+
+#[test]
+fn step_adjustment_vertical_keys() {
+    let step = StepAdjustment::new(0.01, 0.1);
+
+    assert_eq!(
+        step.delta(
+            &Key::Named(Named::ArrowDown),
+            Modifiers::NONE,
+            Orientation::Vertical
+        ),
+        Some(0.01)
+    );
+    assert_eq!(
+        step.delta(
+            &Key::Named(Named::ArrowUp),
+            Modifiers::NONE,
+            Orientation::Vertical
+        ),
+        Some(-0.01)
+    );
+    assert_eq!(
+        step.delta(
+            &Key::Named(Named::ArrowLeft),
+            Modifiers::NONE,
+            Orientation::Vertical
+        ),
+        None
+    );
+    assert_eq!(
+        step.delta(
+            &Key::Named(Named::ArrowRight),
+            Modifiers::NONE,
+            Orientation::Vertical
+        ),
+        None
+    );
+}
+
+#[test]
+fn step_adjustment_shift_increases_step() {
+    let step = StepAdjustment::new(0.01, 0.1);
+
+    assert_eq!(
+        step.delta(
+            &Key::Named(Named::ArrowRight),
+            Modifiers::SHIFT,
+            Orientation::Horizontal
+        ),
+        Some(0.1)
+    );
+}
+
+#[test]
+fn step_adjustment_command_doubles_large_step() {
+    let step = StepAdjustment::new(0.01, 0.1);
+
+    assert_eq!(
+        step.delta(
+            &Key::Named(Named::ArrowRight),
+            Modifiers::COMMAND,
+            Orientation::Horizontal
+        ),
+        Some(0.2)
+    );
+}
+
+#[test]
+fn step_adjustment_command_uses_explicit_modifier_step() {
+    let step = StepAdjustment::new(0.01, 0.1).with_modifier_step(0.5);
+
+    assert_eq!(
+        step.delta(
+            &Key::Named(Named::ArrowRight),
+            Modifiers::COMMAND,
+            Orientation::Horizontal
+        ),
+        Some(0.5)
+    );
 }

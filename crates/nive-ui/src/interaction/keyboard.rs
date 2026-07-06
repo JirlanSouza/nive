@@ -1,4 +1,6 @@
-use iced::keyboard::key::Named;
+use iced::keyboard::{key::Named, Key, Modifiers};
+
+use super::Orientation;
 
 /// Activation behavior presets.
 ///
@@ -191,6 +193,83 @@ impl RenameBehavior {
             Key::Named(named) => self.should_rename(*named),
             _ => false,
         }
+    }
+}
+
+/// Reusable arrow-key step adjustment for continuous values, parameterized by
+/// [`Orientation`].
+///
+/// `ArrowRight`/`ArrowDown` produce a positive delta; `ArrowLeft`/`ArrowUp`
+/// produce a negative delta. Arrow keys off the given orientation (e.g.
+/// `ArrowUp`/`ArrowDown` for `Orientation::Horizontal`) return `None`.
+///
+/// # Examples
+///
+/// ```
+/// use nive_ui::interaction::{Orientation, StepAdjustment};
+/// use iced::keyboard::{key::Named, Key, Modifiers};
+///
+/// let step = StepAdjustment::new(0.01, 0.1);
+/// let delta = step.delta(
+///     &Key::Named(Named::ArrowRight),
+///     Modifiers::default(),
+///     Orientation::Horizontal,
+/// );
+///
+/// assert_eq!(delta, Some(0.01));
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StepAdjustment {
+    /// Step used with no modifiers held.
+    pub step: f32,
+    /// Step used when Shift is held.
+    pub large_step: f32,
+    /// Step used when Command (macOS) or Ctrl (other) is held. Defaults to
+    /// `large_step * 2.0` when not configured via [`Self::with_modifier_step`].
+    pub modifier_step: Option<f32>,
+}
+
+impl StepAdjustment {
+    /// Creates a step adjustment with the given normal and large (Shift) steps.
+    pub const fn new(step: f32, large_step: f32) -> Self {
+        Self {
+            step,
+            large_step,
+            modifier_step: None,
+        }
+    }
+
+    /// Sets an explicit step used when Command/Ctrl is held.
+    pub const fn with_modifier_step(mut self, modifier_step: f32) -> Self {
+        self.modifier_step = Some(modifier_step);
+        self
+    }
+
+    /// Computes the signed step delta for an arrow key given the current
+    /// modifiers and orientation. Returns `None` if the key is not an arrow
+    /// key for the given orientation.
+    pub fn delta(&self, key: &Key, modifiers: Modifiers, orientation: Orientation) -> Option<f32> {
+        let Key::Named(named) = key else {
+            return None;
+        };
+
+        let sign = match (orientation, named) {
+            (Orientation::Horizontal, Named::ArrowRight) => 1.0,
+            (Orientation::Horizontal, Named::ArrowLeft) => -1.0,
+            (Orientation::Vertical, Named::ArrowDown) => 1.0,
+            (Orientation::Vertical, Named::ArrowUp) => -1.0,
+            _ => return None,
+        };
+
+        let magnitude = if modifiers.command() {
+            self.modifier_step.unwrap_or(self.large_step * 2.0)
+        } else if modifiers.shift() {
+            self.large_step
+        } else {
+            self.step
+        };
+
+        Some(sign * magnitude)
     }
 }
 

@@ -1,3 +1,4 @@
+pub use crate::interaction::Orientation;
 pub use crate::widgets::containers::{
     ActionCard, Card, Panel, SelectableCard, SplitPane, SplitPaneConstraints, SplitPaneDirection,
 };
