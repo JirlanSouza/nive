@@ -10,4 +10,4 @@ pub use card::Card;
 pub use panel::Panel;
 pub use section_header::{SectionHeader, SectionHeaderAction, SectionHeaderStatus};
 pub use selectable_card::SelectableCard;
-pub use split_pane::{SplitPane, SplitPaneConstraints, SplitPaneDirection};
+pub use split_pane::{SplitPane, SplitPaneConstraints};

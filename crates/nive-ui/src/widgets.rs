@@ -13,7 +13,7 @@ pub use primitives::{icon, text};
 
 pub use containers::{
     ActionCard, Card, Panel, SectionHeader, SectionHeaderAction, SectionHeaderStatus,
-    SelectableCard, SplitPane, SplitPaneConstraints, SplitPaneDirection,
+    SelectableCard, SplitPane, SplitPaneConstraints,
 };
 pub use controls::{
     Autocomplete, AutocompleteMessage, Button, ButtonVariant, Checkbox, ColorInput, ColorPicker,
