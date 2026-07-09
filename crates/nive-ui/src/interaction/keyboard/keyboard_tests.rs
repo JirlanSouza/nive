@@ -88,6 +88,22 @@ fn explicit_activation_behaviors_resolve_to_themselves() {
 }
 
 #[test]
+fn click_trigger_is_not_included_in_existing_activation_presets() {
+    for behavior in [
+        ActivationBehavior::DoubleClick,
+        ActivationBehavior::Enter,
+        ActivationBehavior::Space,
+        ActivationBehavior::EnterAndDoubleClick,
+        ActivationBehavior::SpaceAndDoubleClick,
+        ActivationBehavior::EnterSpaceAndDoubleClick,
+        ActivationBehavior::CommandOpenAndDoubleClick,
+        ActivationBehavior::SpaceCommandOpenAndDoubleClick,
+    ] {
+        assert!(!behavior.includes(ActivationTrigger::Click));
+    }
+}
+
+#[test]
 fn explicit_rename_behaviors_resolve_to_themselves() {
     assert_eq!(RenameBehavior::Disabled.resolve(), RenameBehavior::Disabled);
     assert_eq!(RenameBehavior::F2.resolve(), RenameBehavior::F2);

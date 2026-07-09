@@ -118,6 +118,8 @@ impl ActivationBehavior {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ActivationTrigger {
+    /// Primary pointer click.
+    Click,
     /// Pointer double-click.
     DoubleClick,
     /// Enter or Return activation.
