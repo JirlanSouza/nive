@@ -226,6 +226,17 @@ flowchart TB
 `DialogHost` / `ToastHost` (em `widgets::overlays`) · `BootstrapView` (splash) · `focus_trap`
 (ciclo de foco em overlays).
 
+### `SegmentedControl` vs `TabBar`
+
+Use `SegmentedControl` para escolher entre um conjunto pequeno e fixo de modos
+ou filtros mutuamente exclusivos. Os itens são opções estáveis da própria
+interface e normalmente não têm ciclo de vida independente.
+
+Use `TabBar` para coleções abertas de documentos ou views identificadas por
+IDs de domínio. O app controla a lista, a ordem, o item ativo, dirty state,
+pinning e política de fechamento; o widget emite intents para ativar, fechar,
+abrir contexto, reordenar e tear-off sem mutar o modelo sozinho.
+
 > **Lacunas do roadmap (Fase 2):** o catálogo cobre apps gerais e densos *exceto* os dois
 > widgets analíticos pesados — **tabela virtualizada** e **gráfico de série temporal** — que
 > entram como features opt-in (`tables`, `charts`).
