@@ -158,30 +158,18 @@ pub(super) fn pane_sizes(
     leading_length: f32,
     trailing_length: f32,
 ) -> (Size, Size) {
-    match orientation {
-        Orientation::Horizontal => (
-            Size::new(leading_length, cross),
-            Size::new(trailing_length, cross),
-        ),
-        Orientation::Vertical => (
-            Size::new(cross, leading_length),
-            Size::new(cross, trailing_length),
-        ),
-    }
+    (
+        orientation.size(leading_length, cross),
+        orientation.size(trailing_length, cross),
+    )
 }
 
 pub(super) fn main_length(orientation: Orientation, size: Size) -> f32 {
-    match orientation {
-        Orientation::Horizontal => size.width,
-        Orientation::Vertical => size.height,
-    }
+    orientation.main_length(size)
 }
 
 pub(super) fn cross_length(orientation: Orientation, size: Size) -> f32 {
-    match orientation {
-        Orientation::Horizontal => size.height,
-        Orientation::Vertical => size.width,
-    }
+    orientation.cross_length(size)
 }
 
 #[cfg(test)]
