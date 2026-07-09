@@ -150,6 +150,13 @@ pub const APP_ICON_CATALOG: IconCatalog = IconCatalog::new(&[
         ),
     ),
     IconCatalogEntry::new(
+        IconRole::TabPinned,
+        IconGlyph::new(
+            include_bytes!("../../../assets/icons/generated/lucide/pin.svg"),
+            "lucide:pin",
+        ),
+    ),
+    IconCatalogEntry::new(
         IconRole::ViewConceal,
         IconGlyph::new(
             include_bytes!("../../../assets/icons/generated/lucide/eye-off.svg"),
