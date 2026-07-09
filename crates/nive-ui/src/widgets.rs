@@ -1,3 +1,4 @@
+pub mod advanced;
 pub mod containers;
 pub mod controls;
 pub mod display;
@@ -36,7 +37,8 @@ pub use feedback::{
 };
 pub use navigation::{
     command_palette_filter, command_palette_view, ActionGroup, CommandPaletteRow, DropdownMenu,
-    DropdownMenuItem, TabBar, TabItem, Toolbar, ToolbarAction, ToolbarGroup,
+    DropdownMenuItem, TabBar, TabCloseRequest, TabCloseTrigger, TabDrop, TabDropTarget, TabItem,
+    TabTearOff, Toolbar, ToolbarAction, ToolbarGroup,
 };
 pub use overlays::{
     Dialog, DialogActionFooter, DialogFooter, DialogHeader, DialogHost, Popover, PopoverCollision,
