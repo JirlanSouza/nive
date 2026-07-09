@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use iced::{
     widget::{button, container, row, text, Column, Row, Space},
     Alignment, Length, Padding,
@@ -21,7 +23,7 @@ pub struct DropdownMenu<'a, Message> {
 }
 
 pub struct DropdownMenuItem<'a, Message> {
-    label: &'a str,
+    label: Cow<'a, str>,
     icon: Option<IconRole>,
     trailing: Option<&'a str>,
     selected: bool,
@@ -135,9 +137,9 @@ where
 }
 
 impl<'a, Message: Clone + 'a> DropdownMenuItem<'a, Message> {
-    pub fn new(label: &'a str) -> Self {
+    pub fn new(label: impl Into<Cow<'a, str>>) -> Self {
         Self {
-            label,
+            label: label.into(),
             icon: None,
             trailing: None,
             selected: false,
@@ -228,7 +230,7 @@ impl<'a, Message: Clone + 'a> DropdownMenuItem<'a, Message> {
         }
 
         left = left.push(
-            text(self.label)
+            text(self.label.clone())
                 .size(metrics.font_size)
                 .shaping(text::Shaping::Auto),
         );
