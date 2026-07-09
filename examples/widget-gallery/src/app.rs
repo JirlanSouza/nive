@@ -4,8 +4,8 @@ use nive::prelude::ui::DialogRequest;
 use nive::prelude::*;
 use nive::ui::theme::{self, ControlSize, SurfaceRole, ThemeDensity};
 use nive::ui::widgets::primitives::text as ntext;
-use nive::ui::interaction::SelectionMode;
-use nive::ui::widgets::{TreeEvent, TreeState};
+use nive::ui::interaction::{ContextRequest, SelectionMode};
+use nive::ui::widgets::{TabCloseRequest, TabDrop, TabTearOff, TreeEvent, TreeState};
 use nive::widget::{column, row};
 
 use crate::catalog::{entry_for, matches, PageId, CATALOG};
@@ -22,6 +22,26 @@ pub enum DemoTab {
     Overview,
     Details,
     LongLabel,
+    PinnedNotes,
+    Console,
+    Search,
+    Preview,
+    Logs,
+}
+
+impl DemoTab {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Overview => "Overview",
+            Self::Details => "Details",
+            Self::LongLabel => "Very long tab label",
+            Self::PinnedNotes => "Pinned notes",
+            Self::Console => "Console",
+            Self::Search => "Search",
+            Self::Preview => "Preview",
+            Self::Logs => "Logs",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -108,6 +128,7 @@ pub struct OverlayState {
 
 pub struct LayoutState {
     pub tab: DemoTab,
+    pub tab_order: Vec<DemoTab>,
     pub dirty_tab: bool,
     pub selected_card: usize,
     pub selected_item: usize,
@@ -122,6 +143,7 @@ pub struct LayoutState {
     pub tree_context_feedback: String,
     pub tree_clipboard_feedback: String,
     pub tree_drop_feedback: String,
+    pub tab_feedback: String,
 }
 
 pub struct WidgetGallery {
@@ -157,6 +179,10 @@ pub enum Message {
     ColorChanged(Color),
     PickPath,
     SelectTab(DemoTab),
+    TabCloseRequested(TabCloseRequest<DemoTab>),
+    TabContextRequested(ContextRequest<DemoTab>),
+    TabReordered(TabDrop<DemoTab>),
+    TabTornOff(TabTearOff<DemoTab>),
     ToggleDirtyTab,
     SelectCard(usize),
     SelectItem(usize),
@@ -207,6 +233,16 @@ impl Default for LayoutState {
 
         Self {
             tab: DemoTab::Overview,
+            tab_order: vec![
+                DemoTab::PinnedNotes,
+                DemoTab::Overview,
+                DemoTab::Details,
+                DemoTab::LongLabel,
+                DemoTab::Console,
+                DemoTab::Search,
+                DemoTab::Preview,
+                DemoTab::Logs,
+            ],
             dirty_tab: true,
             selected_card: 0,
             selected_item: 0,
@@ -228,6 +264,7 @@ impl Default for LayoutState {
             tree_context_feedback: "Context: none".to_owned(),
             tree_clipboard_feedback: "Clipboard: none".to_owned(),
             tree_drop_feedback: "Transfer: idle".to_owned(),
+            tab_feedback: "TabBar: activation, close, context, reorder, and tear-off intents appear here".to_owned(),
         }
     }
 }
@@ -314,7 +351,93 @@ impl Application for WidgetGallery {
             Message::PickPath => {
                 self.form.path = "/tmp/nive-gallery-selected".to_owned();
             }
-            Message::SelectTab(tab) => self.layout.tab = tab,
+            Message::SelectTab(tab) => {
+                self.layout.tab = tab;
+                self.layout.tab_feedback = format!("Activated tab: {}", tab.label());
+            }
+            Message::TabCloseRequested(request) => {
+                let id_label = request.id.label().to_owned();
+                self.layout.tab_order.retain(|t| *t != request.id);
+                if self.layout.tab == request.id {
+                    self.layout.tab = self
+                        .layout
+                        .tab_order
+                        .first()
+                        .copied()
+                        .unwrap_or(DemoTab::Overview);
+                }
+                self.layout.tab_feedback = format!("Closed tab: {}", id_label);
+            }
+            Message::TabContextRequested(request) => {
+                self.layout.tab_feedback = format!(
+                    "Context request: {:?}, selected {}",
+                    request.target,
+                    request.selection.selected.len()
+                );
+            }
+            Message::TabReordered(drop) => {
+                if let Some(&dragged_id) = drop.payload.ids.first() {
+                    #[allow(unreachable_patterns)]
+                    let target_pos = match &drop.target {
+                        nive::ui::widgets::TabDropTarget::Before(id) => Some((id, 0)),
+                        nive::ui::widgets::TabDropTarget::After(id) => Some((id, 1)),
+                        _ => None,
+                    };
+                    if let Some((target_id, offset)) = target_pos {
+                        self.layout.tab_order.retain(|t| *t != dragged_id);
+                        let mut idx = self
+                            .layout
+                            .tab_order
+                            .iter()
+                            .position(|t| *t == *target_id)
+                            .map(|p| p + offset)
+                            .unwrap_or(self.layout.tab_order.len());
+                        if idx > self.layout.tab_order.len() {
+                            idx = self.layout.tab_order.len();
+                        }
+                        self.layout.tab_order.insert(idx, dragged_id);
+                    }
+                }
+                self.layout.tab_feedback = format!(
+                    "Reordered tab: {} -> {:?} ({:?})",
+                    drop.payload
+                        .ids
+                        .first()
+                        .map(|id| id.label())
+                        .unwrap_or("?"),
+                    drop.target,
+                    drop.operation
+                );
+            }
+            Message::TabTornOff(tear_off) => {
+                let id_label = tear_off
+                    .payload
+                    .ids
+                    .first()
+                    .map(|id| id.label())
+                    .unwrap_or("?")
+                    .to_owned();
+                self.layout
+                    .tab_order
+                    .retain(|t| !tear_off.payload.ids.iter().any(|id| id == t));
+                if self
+                    .layout
+                    .tab_order
+                    .iter()
+                    .all(|t| *t != self.layout.tab)
+                {
+                    self.layout.tab = self
+                        .layout
+                        .tab_order
+                        .first()
+                        .copied()
+                        .unwrap_or(DemoTab::Overview);
+                }
+                self.layout.tab_feedback = format!(
+                    "Torn off tab: {} at ({:.0}, {:.0})",
+                    id_label, tear_off.position.x, tear_off.position.y
+                );
+            }
             Message::ToggleDirtyTab => self.layout.dirty_tab = !self.layout.dirty_tab,
             Message::SelectCard(index) => self.layout.selected_card = index,
             Message::SelectItem(index) => self.layout.selected_item = index,
