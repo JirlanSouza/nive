@@ -23,32 +23,26 @@ pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
 }
 
 fn tabs(app: &WidgetGallery) -> Element<'_, Message> {
+    let tab_items: Vec<TabItem<'static, DemoTab>> = app
+        .layout
+        .tab_order
+        .iter()
+        .map(|&demo_tab| make_tab(demo_tab, app.layout.dirty_tab))
+        .collect();
+
     variant_grid([
         example_cell(
             "TabBar",
             column![
-                TabBar::new()
-                    .tab(tab(
-                        "Overview",
-                        DemoTab::Overview,
-                        app.layout.tab,
-                        IconRole::MailInbox
-                    ))
-                    .tab(
-                        TabItem::new("Details")
-                            .icon(IconRole::DialogInformation)
-                            .selected(app.layout.tab == DemoTab::Details)
-                            .dirty(app.layout.dirty_tab)
-                            .on_press(Message::SelectTab(DemoTab::Details))
-                            .on_close(Message::ToggleDirtyTab)
-                    )
-                    .tab(
-                        TabItem::new("Very long tab label")
-                            .selected(app.layout.tab == DemoTab::LongLabel)
-                            .on_press(Message::SelectTab(DemoTab::LongLabel))
-                    )
-                    .tab(TabItem::new("Disabled").disabled(true))
+                TabBar::new(app.layout.tab)
+                    .tabs(tab_items)
+                    .on_activate(|id, _trigger| Message::SelectTab(id))
+                    .on_close_request(Message::TabCloseRequested)
+                    .on_context(Message::TabContextRequested)
+                    .on_reorder(Message::TabReordered)
+                    .on_tear_off(Message::TabTornOff)
                     .fill(),
+                ntext::body_small(&app.layout.tab_feedback),
                 nbutton::secondary("Toggle dirty tab")
                     .shrink()
                     .on_press(Message::ToggleDirtyTab),
@@ -325,14 +319,21 @@ fn selectable(app: &WidgetGallery) -> Element<'_, Message> {
     ])
 }
 
-fn tab(
-    label: &'static str,
-    tab: DemoTab,
-    active: DemoTab,
-    icon: IconRole,
-) -> TabItem<'static, Message> {
-    TabItem::new(label)
-        .icon(icon)
-        .selected(active == tab)
-        .on_press(Message::SelectTab(tab))
+fn tab(tab: DemoTab, icon: IconRole) -> TabItem<'static, DemoTab> {
+    TabItem::new(tab, tab.label()).icon(icon)
+}
+
+fn make_tab(demo_tab: DemoTab, dirty_tab: bool) -> TabItem<'static, DemoTab> {
+    match demo_tab {
+        DemoTab::PinnedNotes => tab(demo_tab, IconRole::DialogInformation).pinned(true),
+        DemoTab::Overview => tab(demo_tab, IconRole::MailInbox),
+        DemoTab::Details => tab(demo_tab, IconRole::DialogInformation)
+            .dirty(dirty_tab)
+            .closable(true),
+        DemoTab::Console => tab(demo_tab, IconRole::OpenMenu).closable(true),
+        DemoTab::Search => tab(demo_tab, IconRole::ViewRefresh).closable(true),
+        DemoTab::Preview => tab(demo_tab, IconRole::DialogSuccess).closable(true),
+        DemoTab::Logs => tab(demo_tab, IconRole::ListAdd).disabled(true),
+        DemoTab::LongLabel => TabItem::new(demo_tab, demo_tab.label()).closable(true),
+    }
 }
