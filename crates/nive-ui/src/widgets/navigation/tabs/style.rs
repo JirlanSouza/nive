@@ -77,17 +77,19 @@ pub fn bar_style(role: SurfaceRole) -> impl Fn(&crate::theme::Theme) -> containe
 }
 
 pub fn dirty_indicator_style(size: f32) -> impl Fn(&crate::theme::Theme) -> container::Style {
-    move |theme: &crate::theme::Theme| {
-        let accent = theme.control(ControlRole::Selectable, ControlState::SELECTED);
-
-        container::Style {
-            text_color: None,
-            background: Some(Background::Color(accent.foreground)),
-            border: transparent_border_with_radius(size / 2.0),
-            shadow: Shadow::default(),
-            ..container::Style::default()
-        }
+    move |theme: &crate::theme::Theme| container::Style {
+        text_color: None,
+        background: Some(Background::Color(insertion_marker_color(theme))),
+        border: transparent_border_with_radius(size / 2.0),
+        shadow: Shadow::default(),
+        ..container::Style::default()
     }
+}
+
+pub(super) fn insertion_marker_color(theme: &crate::theme::Theme) -> iced::Color {
+    theme
+        .control(ControlRole::Selectable, ControlState::SELECTED)
+        .foreground
 }
 
 pub(crate) fn slot_position_for_part(part: TabPart) -> SlotPosition {
