@@ -118,7 +118,7 @@ pub mod transfer;
 pub use context::{
     ContextInvocation, ContextPosition, ContextRequest, ContextSelectionBehavior, ContextTarget,
 };
-pub use dnd::{Drag, DropCommit, DropContext, DropDecision};
+pub use dnd::{linear_insertion, Drag, DropCommit, DropContext, DropDecision, LinearInsertion};
 pub use keyboard::{ActivationBehavior, ActivationTrigger, RenameBehavior, StepAdjustment};
 pub use orientation::Orientation;
 pub use pointer::{PointerButton, PointerGesture, PointerGestureKind, PointerGestureState};

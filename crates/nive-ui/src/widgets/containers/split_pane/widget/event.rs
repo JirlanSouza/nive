@@ -126,10 +126,7 @@ pub(super) fn resize_interaction(orientation: Orientation) -> mouse::Interaction
 }
 
 pub(super) fn axis_position(orientation: Orientation, position: Point) -> f32 {
-    match orientation {
-        Orientation::Horizontal => position.x,
-        Orientation::Vertical => position.y,
-    }
+    orientation.main_position(position)
 }
 impl<'a, Message> super::SplitPane<'a, Message>
 where
