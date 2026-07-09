@@ -1,101 +1,73 @@
 use iced::{keyboard, mouse, Point};
 
-use super::{Drag, DropCommit, DropContext, DropDecision, TransferOperation, TransferOperations};
+use super::{Drag, DropCommit, DropContext, DropDecision};
+use crate::interaction::{
+    PointerGesture, PointerGestureKind, TransferOperation, TransferOperations,
+};
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) struct DragSession<T, Origin, Target> {
     phase: DragPhase<T, Origin, Target>,
-    drag_threshold: f32,
-    modifiers: keyboard::Modifiers,
 }
 
 impl<T, Origin, Target> Default for DragSession<T, Origin, Target> {
     fn default() -> Self {
         Self {
             phase: DragPhase::Idle,
-            drag_threshold: 4.0,
-            modifiers: keyboard::Modifiers::NONE,
         }
     }
 }
 
-#[allow(dead_code)]
 impl<T, Origin, Target> DragSession<T, Origin, Target> {
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
-
-    pub(crate) fn with_drag_threshold(mut self, threshold: f32) -> Self {
-        self.drag_threshold = threshold.max(0.0);
-        self
-    }
-
-    pub(crate) fn begin(&mut self, position: Point) {
-        self.phase = DragPhase::Pending { origin: position };
-    }
-
-    pub(crate) fn update_modifiers(&mut self, modifiers: keyboard::Modifiers) {
-        self.modifiers = modifiers;
-        if let DragPhase::Active { requested, .. } = &mut self.phase {
-            *requested = requested_operation_from_modifiers(modifiers);
-        }
-    }
-
-    pub(crate) fn move_to(
+    pub(crate) fn handle_gesture<Region>(
         &mut self,
-        position: Point,
+        gesture: &PointerGesture<Region>,
         source: impl FnOnce() -> Option<Drag<T, Origin>>,
         target: impl FnOnce(DropContext<'_, T, Origin>) -> DropDecision<Target>,
-    ) -> DragSessionFeedback
+    ) -> DragSessionOutcome<T, Origin, Target>
     where
         Target: Clone,
     {
-        if let DragPhase::Pending { origin } = self.phase {
-            if distance(origin, position) < self.drag_threshold {
-                return DragSessionFeedback::Pending;
+        match gesture.kind {
+            PointerGestureKind::DragStarted => {
+                let Some(drag) = source() else {
+                    self.phase = DragPhase::Idle;
+                    return DragSessionOutcome::Feedback(DragSessionFeedback::Rejected);
+                };
+
+                self.phase = DragPhase::Active {
+                    drag,
+                    target: None,
+                    requested: requested_operation_from_modifiers(gesture.modifiers),
+                    modifiers: gesture.modifiers,
+                    cancelled: false,
+                };
+
+                self.probe_target(gesture.position, target)
             }
-
-            let Some(drag) = source() else {
-                self.phase = DragPhase::Idle;
-                return DragSessionFeedback::Rejected;
-            };
-
-            self.phase = DragPhase::Active {
-                drag,
-                target: None,
-                requested: requested_operation_from_modifiers(self.modifiers),
-                cancelled: false,
-            };
+            PointerGestureKind::DragMoved => self.probe_target(gesture.position, target),
+            PointerGestureKind::DragReleased => {
+                DragSessionOutcome::Commit(self.release(gesture.position))
+            }
+            PointerGestureKind::DragCancelled => {
+                self.cancel();
+                DragSessionOutcome::Feedback(DragSessionFeedback::Rejected)
+            }
+            _ => DragSessionOutcome::Feedback(DragSessionFeedback::Idle),
         }
+    }
 
-        let DragPhase::Active {
-            drag,
-            target: current_target,
+    #[allow(dead_code)] // consumidor futuro: Tree (parte 2)
+    pub(crate) fn update_modifiers(&mut self, modifiers: keyboard::Modifiers) {
+        if let DragPhase::Active {
             requested,
-            cancelled,
+            modifiers: active_modifiers,
+            ..
         } = &mut self.phase
-        else {
-            return DragSessionFeedback::Idle;
-        };
-
-        if *cancelled {
-            return DragSessionFeedback::Rejected;
+        {
+            *requested = requested_operation_from_modifiers(modifiers);
+            *active_modifiers = modifiers;
         }
-
-        let context = DropContext {
-            payload: &drag.payload,
-            origin: &drag.origin,
-            operations: drag.operations,
-            preferred: drag.preferred,
-            requested: *requested,
-            position,
-            modifiers: self.modifiers,
-        };
-        let decision = target(context);
-        *current_target = accepted_target(drag.operations, decision);
-
-        DragSessionFeedback::from_target(current_target.as_ref().map(|target| target.operation))
     }
 
     pub(crate) fn release(&mut self, position: Point) -> Option<DropCommit<T, Origin, Target>> {
@@ -127,6 +99,7 @@ impl<T, Origin, Target> DragSession<T, Origin, Target> {
         }
     }
 
+    #[allow(dead_code)] // consumidor futuro: Tree (parte 2)
     pub(crate) fn mouse_interaction(&self) -> mouse::Interaction {
         let DragPhase::Active {
             target, cancelled, ..
@@ -147,57 +120,93 @@ impl<T, Origin, Target> DragSession<T, Origin, Target> {
         }
     }
 
+    #[allow(dead_code)] // consumidor futuro: Tree (parte 2)
     pub(crate) fn grabbing_interaction(&self) -> mouse::Interaction {
-        if matches!(
-            self.phase,
-            DragPhase::Pending { .. } | DragPhase::Active { .. }
-        ) {
+        if matches!(self.phase, DragPhase::Active { .. }) {
             mouse::Interaction::Grabbing
         } else {
             mouse::Interaction::Grab
         }
     }
+
+    fn probe_target(
+        &mut self,
+        position: Point,
+        target: impl FnOnce(DropContext<'_, T, Origin>) -> DropDecision<Target>,
+    ) -> DragSessionOutcome<T, Origin, Target>
+    where
+        Target: Clone,
+    {
+        let DragPhase::Active {
+            drag,
+            target: current_target,
+            requested,
+            modifiers,
+            cancelled,
+        } = &mut self.phase
+        else {
+            return DragSessionOutcome::Feedback(DragSessionFeedback::Idle);
+        };
+
+        if *cancelled {
+            return DragSessionOutcome::Feedback(DragSessionFeedback::Rejected);
+        }
+
+        let context = DropContext {
+            payload: &drag.payload,
+            origin: &drag.origin,
+            operations: drag.operations,
+            preferred: drag.preferred,
+            requested: *requested,
+            position,
+            modifiers: *modifiers,
+        };
+        let decision = target(context);
+        *current_target = accepted_target(drag.operations, decision);
+
+        DragSessionOutcome::Feedback(DragSessionFeedback::from_target(
+            current_target.as_ref().map(|target| target.operation),
+        ))
+    }
 }
 
-#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum DragSessionOutcome<T, Origin, Target> {
+    Feedback(DragSessionFeedback),
+    Commit(Option<DropCommit<T, Origin, Target>>),
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DragSessionFeedback {
     Idle,
-    Pending,
     Rejected,
     Accepted(TransferOperation),
 }
 
-#[allow(dead_code)]
 impl DragSessionFeedback {
     fn from_target(operation: Option<TransferOperation>) -> Self {
         operation.map_or(Self::Rejected, Self::Accepted)
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 enum DragPhase<T, Origin, Target> {
     Idle,
-    Pending {
-        origin: Point,
-    },
     Active {
         drag: Drag<T, Origin>,
         target: Option<AcceptedDrop<Target>>,
         requested: Option<TransferOperation>,
+        modifiers: keyboard::Modifiers,
         cancelled: bool,
     },
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 struct AcceptedDrop<Target> {
     target: Target,
     operation: TransferOperation,
 }
 
-#[allow(dead_code)]
 fn accepted_target<Target>(
     operations: TransferOperations,
     decision: DropDecision<Target>,
@@ -211,7 +220,6 @@ fn accepted_target<Target>(
     }
 }
 
-#[allow(dead_code)]
 pub(crate) fn requested_operation_from_modifiers(
     modifiers: keyboard::Modifiers,
 ) -> Option<TransferOperation> {
@@ -226,18 +234,11 @@ pub(crate) fn requested_operation_from_modifiers(
     }
 }
 
-#[allow(dead_code)]
-fn distance(a: Point, b: Point) -> f32 {
-    let dx = a.x - b.x;
-    let dy = a.y - b.y;
-
-    (dx * dx + dy * dy).sqrt()
-}
-
 #[cfg(test)]
 mod dnd_tests {
     use super::super::TransferData;
     use super::*;
+    use crate::interaction::PointerButton;
 
     fn drag(operations: TransferOperations, preferred: TransferOperation) -> Drag<&'static str> {
         Drag {
@@ -248,13 +249,30 @@ mod dnd_tests {
         }
     }
 
-    #[test]
-    fn successful_release_emits_commit() {
-        let mut session = DragSession::new().with_drag_threshold(1.0);
+    fn gesture(
+        kind: PointerGestureKind,
+        position: Point,
+        modifiers: keyboard::Modifiers,
+    ) -> PointerGesture<&'static str> {
+        PointerGesture {
+            kind,
+            button: PointerButton::Primary,
+            region: "row",
+            position,
+            modifiers,
+        }
+    }
 
-        session.begin(Point::ORIGIN);
-        let feedback = session.move_to(
-            Point::new(2.0, 0.0),
+    #[test]
+    fn drag_started_begins_session_and_probes_target() {
+        let mut session = DragSession::default();
+
+        let outcome = session.handle_gesture(
+            &gesture(
+                PointerGestureKind::DragStarted,
+                Point::new(2.0, 0.0),
+                keyboard::Modifiers::NONE,
+            ),
             || Some(drag(TransferOperations::MOVE, TransferOperation::Move)),
             |context| {
                 DropDecision::accept("target", context.preferred_operation().expect("operation"))
@@ -263,76 +281,97 @@ mod dnd_tests {
         let commit = session.release(Point::new(2.0, 0.0)).expect("commit");
 
         assert_eq!(
-            feedback,
-            DragSessionFeedback::Accepted(TransferOperation::Move)
+            outcome,
+            DragSessionOutcome::Feedback(DragSessionFeedback::Accepted(TransferOperation::Move))
         );
         assert_eq!(commit.target, "target");
         assert_eq!(commit.operation, TransferOperation::Move);
     }
 
     #[test]
-    fn rejected_target_emits_no_commit() {
-        let mut session = DragSession::new().with_drag_threshold(1.0);
+    fn drag_moved_updates_candidate_without_restarting_source() {
+        let mut session = DragSession::default();
 
-        session.begin(Point::ORIGIN);
-        let feedback = session.move_to(
-            Point::new(2.0, 0.0),
+        session.handle_gesture(
+            &gesture(
+                PointerGestureKind::DragStarted,
+                Point::new(2.0, 0.0),
+                keyboard::Modifiers::NONE,
+            ),
+            || Some(drag(TransferOperations::MOVE, TransferOperation::Move)),
+            |_| DropDecision::accept("first", TransferOperation::Move),
+        );
+        let outcome = session.handle_gesture(
+            &gesture(
+                PointerGestureKind::DragMoved,
+                Point::new(4.0, 0.0),
+                keyboard::Modifiers::NONE,
+            ),
+            || panic!("drag source should only be consumed at start"),
+            |_| DropDecision::accept("second", TransferOperation::Move),
+        );
+        let commit = session.release(Point::new(4.0, 0.0)).expect("commit");
+
+        assert_eq!(
+            outcome,
+            DragSessionOutcome::Feedback(DragSessionFeedback::Accepted(TransferOperation::Move))
+        );
+        assert_eq!(commit.target, "second");
+    }
+
+    #[test]
+    fn rejected_target_emits_no_commit() {
+        let mut session = DragSession::default();
+
+        let outcome = session.handle_gesture(
+            &gesture(
+                PointerGestureKind::DragStarted,
+                Point::new(2.0, 0.0),
+                keyboard::Modifiers::NONE,
+            ),
             || Some(drag(TransferOperations::MOVE, TransferOperation::Move)),
             |_| DropDecision::<&'static str>::Reject,
         );
 
-        assert_eq!(feedback, DragSessionFeedback::Rejected);
+        assert_eq!(
+            outcome,
+            DragSessionOutcome::Feedback(DragSessionFeedback::Rejected)
+        );
         assert!(session.release(Point::new(2.0, 0.0)).is_none());
     }
 
     #[test]
     fn disallowed_target_operation_emits_no_commit() {
-        let mut session = DragSession::new().with_drag_threshold(1.0);
+        let mut session = DragSession::default();
 
-        session.begin(Point::ORIGIN);
-        let feedback = session.move_to(
-            Point::new(2.0, 0.0),
+        let outcome = session.handle_gesture(
+            &gesture(
+                PointerGestureKind::DragStarted,
+                Point::new(2.0, 0.0),
+                keyboard::Modifiers::NONE,
+            ),
             || Some(drag(TransferOperations::MOVE, TransferOperation::Move)),
             |_| DropDecision::accept("target", TransferOperation::Copy),
         );
 
-        assert_eq!(feedback, DragSessionFeedback::Rejected);
+        assert_eq!(
+            outcome,
+            DragSessionOutcome::Feedback(DragSessionFeedback::Rejected)
+        );
         assert_eq!(session.mouse_interaction(), mouse::Interaction::NoDrop);
         assert!(session.release(Point::new(2.0, 0.0)).is_none());
     }
 
     #[test]
-    fn falls_back_to_preferred_operation() {
-        let mut session = DragSession::new().with_drag_threshold(1.0);
-
-        session.begin(Point::ORIGIN);
-        let feedback = session.move_to(
-            Point::new(2.0, 0.0),
-            || {
-                Some(drag(
-                    TransferOperations::COPY | TransferOperations::MOVE,
-                    TransferOperation::Move,
-                ))
-            },
-            |context| {
-                DropDecision::accept("target", context.preferred_operation().expect("operation"))
-            },
-        );
-
-        assert_eq!(
-            feedback,
-            DragSessionFeedback::Accepted(TransferOperation::Move)
-        );
-    }
-
-    #[test]
     fn modifier_requested_operation_is_visible_to_target() {
-        let mut session = DragSession::new().with_drag_threshold(1.0);
+        let mut session = DragSession::default();
 
-        session.update_modifiers(keyboard::Modifiers::COMMAND);
-        session.begin(Point::ORIGIN);
-        let feedback = session.move_to(
-            Point::new(2.0, 0.0),
+        let outcome = session.handle_gesture(
+            &gesture(
+                PointerGestureKind::DragStarted,
+                Point::new(2.0, 0.0),
+                keyboard::Modifiers::COMMAND,
+            ),
             || {
                 Some(drag(
                     TransferOperations::COPY | TransferOperations::MOVE,
@@ -343,41 +382,66 @@ mod dnd_tests {
         );
 
         assert_eq!(
-            feedback,
-            DragSessionFeedback::Accepted(TransferOperation::Copy)
+            outcome,
+            DragSessionOutcome::Feedback(DragSessionFeedback::Accepted(TransferOperation::Copy))
         );
         assert_eq!(session.mouse_interaction(), mouse::Interaction::Copy);
     }
 
     #[test]
-    fn cancellation_emits_no_commit() {
-        let mut session = DragSession::new().with_drag_threshold(1.0);
+    fn drag_released_commits_active_target() {
+        let mut session = DragSession::default();
 
-        session.begin(Point::ORIGIN);
-        session.move_to(
-            Point::new(2.0, 0.0),
+        session.handle_gesture(
+            &gesture(
+                PointerGestureKind::DragStarted,
+                Point::new(2.0, 0.0),
+                keyboard::Modifiers::NONE,
+            ),
             || Some(drag(TransferOperations::MOVE, TransferOperation::Move)),
             |_| DropDecision::accept("target", TransferOperation::Move),
         );
-        session.cancel();
+        let outcome = session.handle_gesture(
+            &gesture(
+                PointerGestureKind::DragReleased,
+                Point::new(3.0, 0.0),
+                keyboard::Modifiers::NONE,
+            ),
+            || panic!("release should not consume source"),
+            |_| panic!("release should not probe target"),
+        );
 
-        assert_eq!(session.mouse_interaction(), mouse::Interaction::NoDrop);
-        assert!(session.release(Point::new(2.0, 0.0)).is_none());
+        let DragSessionOutcome::Commit(Some(commit)) = outcome else {
+            panic!("expected commit");
+        };
+        assert_eq!(commit.target, "target");
+        assert_eq!(commit.position, Point::new(3.0, 0.0));
     }
 
     #[test]
-    fn release_without_target_emits_no_commit() {
-        let mut session = DragSession::new().with_drag_threshold(1.0);
+    fn cancellation_emits_no_commit() {
+        let mut session = DragSession::default();
 
-        session.begin(Point::ORIGIN);
-        assert_eq!(
-            session.move_to(
-                Point::new(0.5, 0.0),
-                || Some(drag(TransferOperations::MOVE, TransferOperation::Move)),
-                |_| DropDecision::<&'static str>::Reject,
+        session.handle_gesture(
+            &gesture(
+                PointerGestureKind::DragStarted,
+                Point::new(2.0, 0.0),
+                keyboard::Modifiers::NONE,
             ),
-            DragSessionFeedback::Pending
+            || Some(drag(TransferOperations::MOVE, TransferOperation::Move)),
+            |_| DropDecision::accept("target", TransferOperation::Move),
         );
-        assert!(session.release(Point::new(0.5, 0.0)).is_none());
+        session.handle_gesture(
+            &gesture(
+                PointerGestureKind::DragCancelled,
+                Point::new(2.0, 0.0),
+                keyboard::Modifiers::NONE,
+            ),
+            || panic!("cancel should not consume source"),
+            |_| panic!("cancel should not probe target"),
+        );
+
+        assert_eq!(session.mouse_interaction(), mouse::Interaction::NoDrop);
+        assert!(session.release(Point::new(2.0, 0.0)).is_none());
     }
 }
