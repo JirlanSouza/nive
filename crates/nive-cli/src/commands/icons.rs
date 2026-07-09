@@ -191,7 +191,7 @@ pub enum IconsCommands {
     /// Register a custom SVG in icons.toml
     #[command(name = "add-custom")]
     AddCustom {
-        /// Custom icon name used by custom:<name> refs
+        /// Custom icon name used by `custom:<name>` refs
         name: String,
         /// Manifest-relative SVG path
         path: String,
