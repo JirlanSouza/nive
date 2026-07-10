@@ -58,6 +58,133 @@ pub mod layout;
 pub mod prelude;
 pub mod theme;
 pub mod tokens;
+
+macro_rules! impl_layout_builders {
+    () => {};
+    (width_opt $(, $rest:ident)*) => {
+        /// Sets the widget width.
+        pub fn width(mut self, width: impl Into<Length>) -> Self {
+            self.width = Some(width.into());
+            self
+        }
+
+        crate::impl_layout_builders!($($rest),*);
+    };
+    (width_direct $(, $rest:ident)*) => {
+        /// Sets the widget width.
+        pub fn width(mut self, width: impl Into<Length>) -> Self {
+            self.width = width.into();
+            self
+        }
+
+        crate::impl_layout_builders!($($rest),*);
+    };
+    (height_opt $(, $rest:ident)*) => {
+        /// Sets the widget height.
+        pub fn height(mut self, height: impl Into<Length>) -> Self {
+            self.height = Some(height.into());
+            self
+        }
+
+        crate::impl_layout_builders!($($rest),*);
+    };
+    (height_direct $(, $rest:ident)*) => {
+        /// Sets the widget height.
+        pub fn height(mut self, height: impl Into<Length>) -> Self {
+            self.height = height.into();
+            self
+        }
+
+        crate::impl_layout_builders!($($rest),*);
+    };
+    (fill_width_opt $(, $rest:ident)*) => {
+        /// Sets the widget width to fill available space.
+        pub fn fill_width(mut self) -> Self {
+            self.width = Some(Length::Fill);
+            self
+        }
+
+        crate::impl_layout_builders!($($rest),*);
+    };
+    (fill_width_direct $(, $rest:ident)*) => {
+        /// Sets the widget width to fill available space.
+        pub fn fill_width(mut self) -> Self {
+            self.width = Length::Fill;
+            self
+        }
+
+        crate::impl_layout_builders!($($rest),*);
+    };
+    (fill_height_opt $(, $rest:ident)*) => {
+        /// Sets the widget height to fill available space.
+        pub fn fill_height(mut self) -> Self {
+            self.height = Some(Length::Fill);
+            self
+        }
+
+        crate::impl_layout_builders!($($rest),*);
+    };
+    (fill_height_direct $(, $rest:ident)*) => {
+        /// Sets the widget height to fill available space.
+        pub fn fill_height(mut self) -> Self {
+            self.height = Length::Fill;
+            self
+        }
+
+        crate::impl_layout_builders!($($rest),*);
+    };
+    (fill_opt $(, $rest:ident)*) => {
+        /// Sets widget width and height to fill available space.
+        pub fn fill(mut self) -> Self {
+            self.width = Some(Length::Fill);
+            self.height = Some(Length::Fill);
+            self
+        }
+
+        crate::impl_layout_builders!($($rest),*);
+    };
+    (fill_direct $(, $rest:ident)*) => {
+        /// Sets widget width and height to fill available space.
+        pub fn fill(mut self) -> Self {
+            self.width = Length::Fill;
+            self.height = Length::Fill;
+            self
+        }
+
+        crate::impl_layout_builders!($($rest),*);
+    };
+    (fill_direct_height_opt $(, $rest:ident)*) => {
+        /// Sets widget width and height to fill available space.
+        pub fn fill(mut self) -> Self {
+            self.width = Length::Fill;
+            self.height = Some(Length::Fill);
+            self
+        }
+
+        crate::impl_layout_builders!($($rest),*);
+    };
+    (shrink_width_opt $(, $rest:ident)*) => {
+        /// Sets the widget width to shrink to its content.
+        pub fn shrink_width(mut self) -> Self {
+            self.width = Some(Length::Shrink);
+            self
+        }
+
+        crate::impl_layout_builders!($($rest),*);
+    };
+    (shrink_width_direct $(, $rest:ident)*) => {
+        /// Sets the widget width to shrink to its content.
+        pub fn shrink_width(mut self) -> Self {
+            self.width = Length::Shrink;
+            self
+        }
+
+        crate::impl_layout_builders!($($rest),*);
+    };
+}
+
+pub(crate) use impl_layout_builders;
+
 pub mod widgets;
 
 pub use bootstrap::{BootstrapError, BootstrapView};
