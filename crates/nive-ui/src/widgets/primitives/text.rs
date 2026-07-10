@@ -87,7 +87,7 @@ pub fn text_muted() -> impl Fn(&crate::theme::Theme) -> iced::widget::text::Styl
 }
 
 pub fn text_accent() -> impl Fn(&crate::theme::Theme) -> iced::widget::text::Style {
-    theme_text::tone(ToneRole::Primary)
+    theme_text::tone(ToneRole::Accent)
 }
 
 #[cfg(test)]

@@ -11,6 +11,7 @@ pub use view::command_palette_view;
 /// Apps build these from their own action/command catalogs. The widget layer
 /// only consumes the public fields, so the row type stays decoupled from
 /// `nive-runtime`.
+/// One command row rendered by `command_palette_view`.
 pub struct CommandPaletteRow<'a, M> {
     pub id: &'a str,
     pub label: &'a str,
@@ -42,18 +43,18 @@ impl<'a, M> CommandPaletteRow<'a, M> {
         self
     }
 
-    pub fn enabled(mut self, enabled: bool) -> Self {
-        self.enabled = enabled;
-        if !enabled {
+    /// Sets whether the row is disabled.
+    ///
+    /// Disabled rows do not produce activation messages.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.enabled = !disabled;
+        if disabled {
             self.message = None;
         }
         self
     }
 
-    pub fn disabled(self) -> Self {
-        self.enabled(false)
-    }
-
+    /// Returns the row message only when the row is enabled.
     pub fn activated(&self) -> Option<&M> {
         if self.enabled {
             self.message.as_ref()

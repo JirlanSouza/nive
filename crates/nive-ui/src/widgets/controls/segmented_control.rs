@@ -22,7 +22,7 @@ use crate::widgets::primitives::IconRole;
 pub struct SegmentedControl<'a, Message> {
     items: Vec<SegmentedItem<'a, Message>>,
     size: ControlSize,
-    fill: bool,
+    width: Length,
     variant: SegmentedControlVariant,
 }
 
@@ -48,7 +48,7 @@ where
         Self {
             items: Vec::new(),
             size: ControlSize::Sm,
-            fill: false,
+            width: Length::Shrink,
             variant: SegmentedControlVariant::Default,
         }
     }
@@ -83,10 +83,7 @@ where
         self.size(ControlSize::Lg)
     }
 
-    pub fn fill(mut self) -> Self {
-        self.fill = true;
-        self
-    }
+    crate::impl_layout_builders!(width_direct, fill_width_direct, shrink_width_direct);
 
     /// Renders the control as linked items sharing one outer border.
     ///
@@ -102,6 +99,7 @@ where
         let item_count = self.items.len();
         let variant = self.variant;
         let size = self.size;
+        let fill = matches!(self.width, Length::Fill);
         let outer_padding = outer_padding_for_variant(variant, metrics);
         let item_height = item_height_for_variant(variant, metrics);
         let items = self.items.into_iter().enumerate().map(|(index, item)| {
@@ -109,7 +107,7 @@ where
                 size,
                 metrics,
                 position_for_index(index, item_count),
-                self.fill,
+                fill,
                 variant,
                 item_height,
             )
@@ -128,9 +126,7 @@ where
             .padding(outer_padding)
             .height(Length::Fixed(metrics.height));
 
-        if self.fill {
-            segmented = segmented.width(Length::Fill);
-        }
+        segmented = segmented.width(self.width);
 
         segmented.into()
     }
@@ -227,6 +223,7 @@ impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
                 height: item_height,
                 padding_h: metrics.padding_h,
                 selected: self.selected,
+                destructive: false,
                 kind,
             })
     }

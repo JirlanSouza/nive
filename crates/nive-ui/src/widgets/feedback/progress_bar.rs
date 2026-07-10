@@ -20,7 +20,7 @@ impl ProgressBar {
         Self {
             range,
             value,
-            tone: ToneRole::Primary,
+            tone: ToneRole::Accent,
             size: ControlSize::Sm,
             width: Length::Fill,
             height: None,
@@ -57,7 +57,7 @@ impl ProgressBar {
     }
 
     pub fn accent(self) -> Self {
-        self.tone(ToneRole::Primary)
+        self.tone(ToneRole::Accent)
     }
 
     pub fn size(mut self, size: ControlSize) -> Self {
@@ -81,15 +81,12 @@ impl ProgressBar {
         self.size(ControlSize::Lg)
     }
 
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = width.into();
-        self
-    }
-
-    pub fn height(mut self, height: impl Into<Length>) -> Self {
-        self.height = Some(height.into());
-        self
-    }
+    crate::impl_layout_builders!(
+        width_direct,
+        height_opt,
+        fill_width_direct,
+        shrink_width_direct
+    );
 
     fn into_element<'a, Message>(self) -> Element<'a, Message>
     where

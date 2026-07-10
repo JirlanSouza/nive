@@ -63,14 +63,7 @@ where
         self.size(ControlSize::Lg)
     }
 
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = Some(width.into());
-        self
-    }
-
-    pub fn fill(self) -> Self {
-        self.width(Length::Fill)
-    }
+    crate::impl_layout_builders!(width_opt, fill_width_opt, shrink_width_opt);
 
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
@@ -144,7 +137,7 @@ fn style(radius: Radius) -> impl Fn(&crate::theme::Theme, Status) -> iced_checkb
             Status::Disabled { .. } => ControlState::DISABLED,
         };
         let control = theme.control(ControlRole::Standard, state);
-        let primary = theme.tone(ToneRole::Primary);
+        let primary = theme.tone(ToneRole::Accent);
         let disabled = matches!(status, Status::Disabled { .. });
         let alpha = if disabled { 0.55 } else { 1.0 };
 
@@ -155,7 +148,7 @@ fn style(radius: Radius) -> impl Fn(&crate::theme::Theme, Status) -> iced_checkb
                 control.background
             }),
             icon_color: if is_checked {
-                theme.tone(ToneRole::Primary).on_color.scale_alpha(alpha)
+                theme.tone(ToneRole::Accent).on_color.scale_alpha(alpha)
             } else {
                 Color::TRANSPARENT
             },
@@ -185,6 +178,96 @@ fn style(radius: Radius) -> impl Fn(&crate::theme::Theme, Status) -> iced_checkb
 mod checkbox_tests {
     use super::*;
     use crate::theme::Theme;
+    use iced::{
+        advanced::{
+            layout::{Layout, Limits, Node},
+            mouse,
+            widget::Tree,
+            Shell,
+        },
+        Event, Font, Pixels, Point, Rectangle, Size, Vector,
+    };
+
+    const ORIGIN: Vector = Vector::new(16.0, 16.0);
+
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    enum Message {
+        Toggled(bool),
+    }
+
+    struct Harness<'a> {
+        element: Element<'a, Message>,
+        tree: Tree,
+        node: Node,
+        renderer: iced::Renderer,
+    }
+
+    impl<'a> Harness<'a> {
+        fn new(element: Element<'a, Message>) -> Self {
+            let tree = Tree::new(&element);
+            let mut harness = Self {
+                element,
+                tree,
+                node: Node::new(Size::ZERO),
+                renderer: test_renderer(),
+            };
+            harness.layout();
+            harness
+        }
+
+        fn layout(&mut self) {
+            self.element.as_widget_mut().diff(&mut self.tree);
+            self.node = self.element.as_widget_mut().layout(
+                &mut self.tree,
+                &self.renderer,
+                &Limits::new(Size::ZERO, Size::new(240.0, 80.0)),
+            );
+        }
+
+        fn center(&self) -> Point {
+            let bounds = Layout::with_offset(ORIGIN, &self.node).bounds();
+
+            Point::new(
+                bounds.x + bounds.width / 2.0,
+                bounds.y + bounds.height / 2.0,
+            )
+        }
+
+        fn click(&mut self, position: Point) -> Vec<Message> {
+            let mut messages = Vec::new();
+            let mut clipboard = iced::advanced::clipboard::Null;
+            let viewport = Rectangle::new(Point::ORIGIN, Size::new(4096.0, 4096.0));
+            let events = [
+                Event::Mouse(mouse::Event::CursorMoved { position }),
+                Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
+                Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)),
+            ];
+
+            for event in events {
+                let cursor = mouse::Cursor::Available(position);
+                let mut shell = Shell::new(&mut messages);
+                self.element.as_widget_mut().update(
+                    &mut self.tree,
+                    &event,
+                    Layout::with_offset(ORIGIN, &self.node),
+                    cursor,
+                    &self.renderer,
+                    &mut clipboard,
+                    &mut shell,
+                    &viewport,
+                );
+            }
+
+            messages
+        }
+    }
+
+    fn test_renderer() -> iced::Renderer {
+        iced_renderer::fallback::Renderer::Secondary(iced_tiny_skia::Renderer::new(
+            Font::default(),
+            Pixels(14.0),
+        ))
+    }
 
     #[test]
     fn checked_checkbox_uses_app_primary_background() {
@@ -193,7 +276,7 @@ mod checkbox_tests {
 
         assert_eq!(
             background_color(checkbox.background),
-            theme.tone(ToneRole::Primary).color
+            theme.tone(ToneRole::Accent).color
         );
     }
 
@@ -215,5 +298,32 @@ mod checkbox_tests {
             Background::Color(color) => color,
             _ => panic!("Expected color background"),
         }
+    }
+
+    #[test]
+    fn enabled_checkbox_with_callback_emits_toggle() {
+        let checkbox: Element<'_, Message> = Checkbox::new("Enabled", false)
+            .on_toggle(Message::Toggled)
+            .into();
+        let mut harness = Harness::new(checkbox);
+        let center = harness.center();
+
+        let messages = harness.click(center);
+
+        assert_eq!(messages, vec![Message::Toggled(true)]);
+    }
+
+    #[test]
+    fn disabled_checkbox_ignores_present_callback() {
+        let checkbox: Element<'_, Message> = Checkbox::new("Disabled", false)
+            .on_toggle(Message::Toggled)
+            .disabled(true)
+            .into();
+        let mut harness = Harness::new(checkbox);
+        let center = harness.center();
+
+        let messages = harness.click(center);
+
+        assert!(messages.is_empty());
     }
 }

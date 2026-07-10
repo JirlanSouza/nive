@@ -9,7 +9,7 @@ use iced::{
 
 use crate::{
     advanced::pressable::{draw_focus_ring, is_keyboard_activation},
-    theme::ShapeRole,
+    theme::ShapeSize,
     widgets::{
         controls::button::ButtonFocusRing,
         overlays::popover::{translated_bounds, PopoverOverlay},
@@ -225,7 +225,7 @@ where
                 renderer,
                 theme,
                 layout.bounds(),
-                theme.shape(ShapeRole::Medium).radius(),
+                theme.shape(ShapeSize::Md).radius(),
                 ButtonFocusRing::Default,
             );
         }

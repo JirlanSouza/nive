@@ -122,6 +122,12 @@ where
         self
     }
 
+    /// Conditionally emits app-owned ratio updates.
+    pub fn on_change_maybe(mut self, message: Option<impl Fn(f32) -> Message + 'a>) -> Self {
+        self.on_change = message.map(|message| Box::new(message) as _);
+        self
+    }
+
     /// Prevents interactive resize when set.
     pub fn locked(mut self, locked: bool) -> Self {
         self.locked = locked;
@@ -151,15 +157,13 @@ where
         self
     }
 
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = width.into();
-        self
-    }
-
-    pub fn height(mut self, height: impl Into<Length>) -> Self {
-        self.height = height.into();
-        self
-    }
+    crate::impl_layout_builders!(
+        width_direct,
+        height_direct,
+        fill_width_direct,
+        fill_height_direct,
+        fill_direct
+    );
 }
 
 impl<'a, Message> From<SplitPane<'a, Message>> for Element<'a, Message>

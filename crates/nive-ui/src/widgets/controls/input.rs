@@ -15,16 +15,20 @@ use self::{blur::InputBlur, focus_tracker::InputFocusTracker};
 pub use crate::theme::FieldValidation;
 pub use style::TextInputAppearance;
 
+/// Controlled text input.
+///
+/// Text changes are reported with [`Input::on_change`]. The older
+/// `on_input` spelling is intentionally not part of the public API.
 pub struct Input<'a, Message> {
     placeholder: Cow<'a, str>,
     value: Cow<'a, str>,
     appearance: TextInputAppearance,
     validation: FieldValidation,
     size: ControlSize,
-    fill: bool,
+    width: Length,
     disabled: bool,
     secure: bool,
-    on_input: Option<Box<dyn Fn(String) -> Message + 'a>>,
+    on_change: Option<Box<dyn Fn(String) -> Message + 'a>>,
     on_submit: Option<Message>,
     on_blur: Option<Message>,
     focus_tracker: Option<Rc<Cell<bool>>>,
@@ -56,7 +60,7 @@ where
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct InputRender {
-    fill: bool,
+    width: Length,
     font_size: f32,
     padding_v: f32,
     padding_h: f32,
@@ -75,10 +79,10 @@ where
             appearance: TextInputAppearance::Standard,
             validation: FieldValidation::Valid,
             size: ControlSize::Sm,
-            fill: true,
+            width: Length::Fill,
             disabled: false,
             secure: false,
-            on_input: None,
+            on_change: None,
             on_submit: None,
             on_blur: None,
             focus_tracker: None,
@@ -136,10 +140,7 @@ where
         self
     }
 
-    pub fn shrink(mut self) -> Self {
-        self.fill = false;
-        self
-    }
+    crate::impl_layout_builders!(width_direct, fill_width_direct, shrink_width_direct);
 
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
@@ -151,13 +152,15 @@ where
         self
     }
 
-    pub fn on_input(mut self, f: impl Fn(String) -> Message + 'a) -> Self {
-        self.on_input = Some(Box::new(f));
+    /// Maps edited text values into app messages.
+    pub fn on_change(mut self, f: impl Fn(String) -> Message + 'a) -> Self {
+        self.on_change = Some(Box::new(f));
         self
     }
 
-    pub fn on_input_maybe(mut self, f: Option<impl Fn(String) -> Message + 'a>) -> Self {
-        self.on_input = f.map(|f| Box::new(f) as _);
+    /// Conditionally maps edited text values into app messages.
+    pub fn on_change_maybe(mut self, f: Option<impl Fn(String) -> Message + 'a>) -> Self {
+        self.on_change = f.map(|f| Box::new(f) as _);
         self
     }
 
@@ -190,10 +193,10 @@ where
         f: impl Fn(Message) -> NewMessage + 'a,
     ) -> Input<'a, NewMessage> {
         let f: Rc<dyn Fn(Message) -> NewMessage + 'a> = Rc::new(f);
-        let on_input = self.on_input.map({
+        let on_change = self.on_change.map({
             let f = Rc::clone(&f);
-            move |on_input| {
-                Box::new(move |value| f(on_input(value))) as Box<dyn Fn(String) -> NewMessage + 'a>
+            move |on_change| {
+                Box::new(move |value| f(on_change(value))) as Box<dyn Fn(String) -> NewMessage + 'a>
             }
         });
 
@@ -203,10 +206,10 @@ where
             appearance: self.appearance,
             validation: self.validation,
             size: self.size,
-            fill: self.fill,
+            width: self.width,
             disabled: self.disabled,
             secure: self.secure,
-            on_input,
+            on_change,
             on_submit: self.on_submit.map(|message| f(message)),
             on_blur: self.on_blur.map(|message| f(message)),
             focus_tracker: self.focus_tracker,
@@ -230,7 +233,7 @@ where
         padding_h: f32,
     ) -> Element<'a, Message> {
         self.into_text_input_with(InputRender {
-            fill,
+            width: if fill { Length::Fill } else { Length::Shrink },
             font_size,
             padding_v,
             padding_h,
@@ -241,10 +244,10 @@ where
 
     fn into_text_input(self) -> Element<'a, Message> {
         let metrics = theme_text_input::metrics(self.size);
-        let fill = self.fill;
+        let width = self.width;
         let appearance = self.appearance;
         self.into_text_input_with(InputRender {
-            fill,
+            width,
             font_size: metrics.font_size,
             padding_v: metrics.padding_v,
             padding_h: metrics.padding_h,
@@ -265,11 +268,9 @@ where
             render.radius,
         ));
 
-        if render.fill {
-            input = input.width(Length::Fill);
-        }
+        input = input.width(render.width);
 
-        input = input.on_input_maybe(if self.disabled { None } else { self.on_input });
+        input = input.on_input_maybe(if self.disabled { None } else { self.on_change });
 
         if let Some(msg) = self.on_submit {
             input = input.on_submit(msg);

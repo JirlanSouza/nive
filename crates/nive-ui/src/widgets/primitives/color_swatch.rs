@@ -4,7 +4,7 @@ use iced::{
 };
 
 use crate::{
-    theme::{self, BorderRole, ShapeRole, TextRole, ToneRole},
+    theme::{self, BorderRole, ShapeSize, TextRole, ToneRole},
     Element,
 };
 
@@ -95,7 +95,7 @@ where
 
     fn into_element(self) -> Element<'a, Message> {
         let size = self.size;
-        let default_radius = theme::active().shape(ShapeRole::Medium).radius_value();
+        let default_radius = theme::active().shape(ShapeSize::Md).radius_value();
         let radius = self.radius.unwrap_or((size / 2.4).min(default_radius));
         let disabled = self.disabled;
         let selected = self.selected;
@@ -152,7 +152,7 @@ fn swatch_style(
             color
         };
         let border_color = if selected {
-            theme.tone(ToneRole::Primary).color
+            theme.tone(ToneRole::Accent).color
         } else {
             theme.border(BorderRole::Default).color
         };
@@ -195,7 +195,7 @@ mod color_swatch_tests {
         let theme = Theme::Dark;
         let style = swatch_style(Color::WHITE, 4.0, true, false)(&theme);
 
-        assert_eq!(style.border.color, theme.tone(ToneRole::Primary).color);
+        assert_eq!(style.border.color, theme.tone(ToneRole::Accent).color);
         assert_eq!(style.border.width, 2.0);
     }
 }

@@ -33,7 +33,7 @@ where
     fn into_element(self) -> Element<'a, Message> {
         let close = button::primary("Close")
             .sm()
-            .shrink()
+            .shrink_width()
             .on_press_maybe(self.on_close);
 
         let body = column![

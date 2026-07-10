@@ -19,7 +19,7 @@ impl<'a> Spinner<'a> {
     pub fn new() -> Self {
         Self {
             label: None,
-            tone: ToneRole::Primary,
+            tone: ToneRole::Accent,
             size: ControlSize::Sm,
         }
     }
@@ -55,7 +55,7 @@ impl<'a> Spinner<'a> {
     }
 
     pub fn accent(self) -> Self {
-        self.tone(ToneRole::Primary)
+        self.tone(ToneRole::Accent)
     }
 
     pub fn size(mut self, size: ControlSize) -> Self {

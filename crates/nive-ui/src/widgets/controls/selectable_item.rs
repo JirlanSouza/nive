@@ -38,7 +38,7 @@ pub struct SelectableItem<'a, Message> {
     trailing_text: Option<&'a str>,
     trailing: Option<Element<'a, Message>>,
     size: ControlSize,
-    fill: bool,
+    width: Length,
     on_press: Option<Message>,
     disabled: bool,
     tooltip_label: Option<&'a str>,
@@ -57,7 +57,7 @@ where
             trailing_text: None,
             trailing: None,
             size: ControlSize::Sm,
-            fill: true,
+            width: Length::Fill,
             on_press: None,
             disabled: false,
             tooltip_label: None,
@@ -114,10 +114,7 @@ where
         self
     }
 
-    pub fn shrink(mut self) -> Self {
-        self.fill = false;
-        self
-    }
+    crate::impl_layout_builders!(fill_width_direct, shrink_width_direct);
 
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
@@ -146,7 +143,7 @@ where
         } else {
             SelectableItemVariant::Default
         };
-        let fill = self.fill;
+        let width = self.width;
         let activation = if self.disabled {
             None
         } else {
@@ -159,9 +156,7 @@ where
             .style(style(variant, metrics.radius))
             .padding([metrics.padding_v, metrics.padding_h]);
 
-        if fill {
-            item = item.width(Length::Fill);
-        }
+        item = item.width(width);
 
         item = item.height(metrics.height);
         let item = item.on_press_maybe(activation.clone());

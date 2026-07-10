@@ -22,6 +22,10 @@ pub struct DropdownMenu<'a, Message> {
     width: Option<Length>,
 }
 
+/// One item inside a [`DropdownMenu`].
+///
+/// Use [`DropdownMenuItem::destructive`] for actions that may delete or damage
+/// data. Status tone language uses `danger()` on feedback/display widgets.
 pub struct DropdownMenuItem<'a, Message> {
     label: Cow<'a, str>,
     icon: Option<IconRole>,
@@ -85,14 +89,7 @@ where
         self.size(ControlSize::Lg)
     }
 
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = Some(width.into());
-        self
-    }
-
-    pub fn fill(self) -> Self {
-        self.width(Length::Fill)
-    }
+    crate::impl_layout_builders!(width_opt, fill_width_opt, shrink_width_opt);
 
     fn into_element(self) -> Element<'a, Message> {
         let metrics = theme_menu::metrics(self.size);
@@ -165,8 +162,9 @@ impl<'a, Message: Clone + 'a> DropdownMenuItem<'a, Message> {
         self
     }
 
-    pub fn destructive(mut self, destructive: bool) -> Self {
-        self.destructive = destructive;
+    /// Marks this item as a destructive action.
+    pub fn destructive(mut self) -> Self {
+        self.destructive = true;
         self
     }
 

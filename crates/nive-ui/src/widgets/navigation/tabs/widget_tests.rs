@@ -14,7 +14,7 @@ const ORIGIN: Vector = Vector::new(50.0, 30.0);
 
 #[derive(Clone, Debug, PartialEq)]
 enum Msg {
-    Activate(u8, ActivationTrigger),
+    Select(u8),
     Close(TabCloseRequest<u8>),
     Context(ContextRequest<u8>),
     Drop(TabDrop<u8>),
@@ -179,6 +179,62 @@ impl<'a> Harness<'a> {
         }))
     }
 
+    fn click_overlay(&mut self, offset: Vector) -> UpdateResult {
+        let viewport = Rectangle::new(Point::ORIGIN, Size::new(4096.0, 4096.0));
+        let mut overlay = self
+            .element
+            .as_widget_mut()
+            .overlay(
+                &mut self.tree,
+                Layout::with_offset(ORIGIN, &self.node),
+                &self.renderer,
+                &viewport,
+                Vector::ZERO,
+            )
+            .expect("overlay");
+        let node = overlay
+            .as_overlay_mut()
+            .layout(&self.renderer, viewport.size());
+        let layout = Layout::new(&node);
+        let bounds = layout.bounds();
+        let position = Point::new(bounds.x + offset.x, bounds.y + offset.y);
+        let mut messages = Vec::new();
+        let mut captured = false;
+        let mut layout_invalid = false;
+        let mut clipboard = iced::advanced::clipboard::Null;
+
+        for event in [
+            Event::Mouse(mouse::Event::CursorMoved { position }),
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
+            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)),
+        ] {
+            let mut shell = Shell::new(&mut messages);
+            overlay.as_overlay_mut().update(
+                &event,
+                layout,
+                mouse::Cursor::Available(position),
+                &self.renderer,
+                &mut clipboard,
+                &mut shell,
+            );
+            captured |= shell.is_event_captured();
+            layout_invalid |= shell.is_layout_invalid();
+        }
+
+        drop(overlay);
+
+        if layout_invalid {
+            self.layout();
+            self.sync_geometry();
+        }
+
+        UpdateResult {
+            messages,
+            captured,
+            layout_invalid,
+        }
+    }
+
     fn cursor_left(&mut self) -> UpdateResult {
         self.update(Event::Mouse(mouse::Event::CursorLeft))
     }
@@ -209,6 +265,15 @@ impl<'a> Harness<'a> {
             .map(|(_, bounds, _)| *bounds)
             .expect("tab bounds")
     }
+
+    fn all_tabs_button_center(&self) -> Point {
+        let bounds = self.state().all_tabs_button.expect("all-tabs button");
+
+        Point::new(
+            bounds.x + bounds.width / 2.0,
+            bounds.y + bounds.height / 2.0,
+        )
+    }
 }
 
 fn test_renderer() -> iced::Renderer {
@@ -225,8 +290,8 @@ fn item(id: u8) -> TabItem<'static, u8> {
 fn standard_bar() -> TabBar<'static, u8, Msg> {
     TabBar::new(1)
         .tabs([item(1).pinned(true), item(2).closable(true), item(3)])
-        .fill()
-        .on_activate(Msg::Activate)
+        .fill_width()
+        .on_select(Msg::Select)
         .on_close_request(Msg::Close)
         .on_context(Msg::Context)
         .on_reorder(Msg::Drop)
@@ -239,22 +304,45 @@ fn tear_off_bar() -> TabBar<'static, u8, Msg> {
 fn overflow_bar(active: u8) -> TabBar<'static, u8, Msg> {
     TabBar::new(active)
         .tabs((1..=10).map(|id| TabItem::new(id, format!("Very long tab {id}"))))
-        .fill()
-        .on_activate(Msg::Activate)
+        .fill_width()
+        .on_select(Msg::Select)
         .on_close_request(Msg::Close)
         .on_context(Msg::Context)
         .on_reorder(Msg::Drop)
 }
 
 #[test]
-fn harness_layout_and_click_activates_tab() {
+fn harness_layout_and_click_selects_tab() {
     let mut harness = Harness::new(standard_bar().into(), Size::new(480.0, 80.0));
     let result = harness.click(mouse::Button::Left, harness.tab_center(2));
 
-    assert_eq!(
-        result.messages,
-        vec![Msg::Activate(2, ActivationTrigger::Click)]
-    );
+    assert_eq!(result.messages, vec![Msg::Select(2)]);
+}
+
+#[test]
+fn disabled_tab_ignores_present_select_callback() {
+    let bar = TabBar::new(1)
+        .tabs([item(1), item(2).disabled(true)])
+        .fill_width()
+        .on_select(Msg::Select);
+    let mut harness = Harness::new(bar.into(), Size::new(480.0, 80.0));
+    let result = harness.click(mouse::Button::Left, harness.tab_center(2));
+
+    assert!(result.messages.is_empty());
+}
+
+#[test]
+fn overflow_menu_selection_uses_on_select() {
+    let mut harness = Harness::new(overflow_bar(5).into(), Size::new(320.0, 80.0));
+    let open = harness.click(mouse::Button::Left, harness.all_tabs_button_center());
+
+    assert!(open.captured);
+    assert!(harness.state().menu_open);
+
+    let result = harness.click_overlay(Vector::new(20.0, 16.0));
+
+    assert_eq!(result.messages, vec![Msg::Select(1)]);
+    assert!(!harness.state().menu_open);
 }
 
 #[test]
@@ -296,7 +384,7 @@ fn secondary_click_outside_widget_emits_nothing_and_does_not_capture() {
 #[test]
 fn layout_never_panics_with_empty_tabs() {
     let mut harness = Harness::new(
-        TabBar::new(None).fill().on_activate(Msg::Activate).into(),
+        TabBar::new(None).fill_width().on_select(Msg::Select).into(),
         Size::new(320.0, 80.0),
     );
 

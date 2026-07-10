@@ -19,6 +19,7 @@ pub struct Field<'a, Message> {
     label: Option<&'a str>,
     hint: Option<&'a str>,
     error: Option<&'a str>,
+    width: Length,
 }
 
 impl<'a, Message> Field<'a, Message>
@@ -31,6 +32,7 @@ where
             label: None,
             hint: None,
             error: None,
+            width: Length::Fill,
         }
     }
 
@@ -49,6 +51,8 @@ where
         self
     }
 
+    crate::impl_layout_builders!(width_direct, fill_width_direct, shrink_width_direct);
+
     fn into_container(self) -> container::Container<'a, Message, crate::theme::Theme> {
         let metrics = metrics();
         let mut content = column![].spacing(metrics.gap);
@@ -65,7 +69,7 @@ where
             content = content.push(FieldHint::new(hint));
         }
 
-        container(content).style(style).width(Length::Fill)
+        container(content).style(style).width(self.width)
     }
 }
 
@@ -80,7 +84,7 @@ where
 
 pub struct FieldGroup<'a, Message> {
     content: Element<'a, Message>,
-    fill: bool,
+    width: Length,
 }
 
 impl<'a, Message> FieldGroup<'a, Message>
@@ -90,23 +94,14 @@ where
     pub fn new(content: impl Into<Element<'a, Message>>) -> Self {
         Self {
             content: content.into(),
-            fill: true,
+            width: Length::Fill,
         }
     }
 
-    pub fn shrink(mut self) -> Self {
-        self.fill = false;
-        self
-    }
+    crate::impl_layout_builders!(width_direct, fill_width_direct, shrink_width_direct);
 
     fn into_container(self) -> container::Container<'a, Message, crate::theme::Theme> {
-        let mut group = container(self.content).style(style);
-
-        if self.fill {
-            group = group.width(Length::Fill);
-        }
-
-        group
+        container(self.content).style(style).width(self.width)
     }
 }
 
