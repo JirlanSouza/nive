@@ -65,6 +65,30 @@ impl<'a, Id> TreeNode<'a, Id> {
         self
     }
 
+    pub fn neutral(self) -> Self {
+        self.tone(ToneRole::Neutral)
+    }
+
+    pub fn accent(self) -> Self {
+        self.tone(ToneRole::Accent)
+    }
+
+    pub fn info(self) -> Self {
+        self.tone(ToneRole::Info)
+    }
+
+    pub fn success(self) -> Self {
+        self.tone(ToneRole::Success)
+    }
+
+    pub fn warning(self) -> Self {
+        self.tone(ToneRole::Warning)
+    }
+
+    pub fn danger(self) -> Self {
+        self.tone(ToneRole::Danger)
+    }
+
     /// Adds trailing secondary text to the row rendered for this node.
     pub fn trailing_text(mut self, trailing: impl Into<Cow<'a, str>>) -> Self {
         self.trailing_text = Some(trailing.into());

@@ -60,6 +60,22 @@ where
         self
     }
 
+    pub fn width_px(self, width: f32) -> Self {
+        self.width(PopoverWidth::Fixed(width))
+    }
+
+    pub fn match_anchor_width(self) -> Self {
+        self.width(PopoverWidth::MatchAnchor)
+    }
+
+    pub fn at_least_anchor_width(self) -> Self {
+        self.width(PopoverWidth::AtLeastAnchor)
+    }
+
+    pub fn content_width(self) -> Self {
+        self.width(PopoverWidth::Content)
+    }
+
     pub fn collision(mut self, collision: PopoverCollision) -> Self {
         self.collision = collision;
         self
@@ -106,5 +122,31 @@ where
 {
     fn from(popover: Popover<'a, Message>) -> Self {
         popover.into_element()
+    }
+}
+
+#[cfg(test)]
+mod popover_tests {
+    use super::*;
+
+    #[test]
+    fn width_shortcuts_map_to_popover_width_variants() {
+        assert_eq!(
+            empty_popover().width_px(240.0).width,
+            PopoverWidth::Fixed(240.0)
+        );
+        assert_eq!(
+            empty_popover().match_anchor_width().width,
+            PopoverWidth::MatchAnchor
+        );
+        assert_eq!(
+            empty_popover().at_least_anchor_width().width,
+            PopoverWidth::AtLeastAnchor
+        );
+        assert_eq!(empty_popover().content_width().width, PopoverWidth::Content);
+    }
+
+    fn empty_popover() -> Popover<'static, ()> {
+        Popover::new(iced::widget::Space::new())
     }
 }
