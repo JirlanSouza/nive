@@ -26,7 +26,7 @@ classDiagram
         +control(ControlRole, ControlState) ControlSpec
         +tone(ToneRole) ToneSpec
         +typography(TypographyRole) TextStyle
-        +shape(ShapeRole) ShapeSpec
+        +shape(ShapeSize) ShapeSpec
         +space(SpaceStep) f32
         +gap(GapRole) f32
         +padding(PaddingRole) Padding
@@ -75,7 +75,7 @@ classDiagram
     class ThemeBuilder {
         +new(name, mode)
         +palette(Palette)
-        +primary/success/warning/danger(Color)
+        +accent/success/warning/danger(Color)
         +typography/shapes/spacing/controls(...)
         +build() Theme
         +build_data() ThemeData
@@ -116,7 +116,88 @@ no widget.
 
 ---
 
-## 3. Density (`ThemeDensity`)
+## 3. Shape, Tone E Controles
+
+### Shape scale
+
+`ShapeSize` é uma escala ordenada, não um role semântico. Use `ShapeSize`
+quando o raio é escolhido por tamanho; roles continuam reservados para
+semântica como `SurfaceRole`, `TextRole`, `BorderRole` e `ToneRole`.
+
+| `ShapeSize` | Token | Valor |
+| --- | --- | --- |
+| `None` | inline | `0.0` |
+| `Xs` | `radius::XS` | `2.0` |
+| `Sm` | `radius::SM` | `4.0` |
+| `Md` | `radius::MD` | `6.0` |
+| `Lg` | `radius::LG` | `8.0` |
+| `Xl` | `radius::XL` | `12.0` |
+| `Xxl` | `radius::XXL` | `16.0` |
+| `Full` | `radius::FULL` | `9999.0` |
+
+`ShapeSize::Full` significa cápsula/círculo e é intencionalmente separado dos
+maiores tokens numéricos (`XXXL = 24.0`, `XXXXL = 32.0`). Renderers do Iced
+clampam o raio ao menor eixo, então `FULL` resolve como pill sem o widget
+calcular tamanho.
+
+Exatamente cinco superfícies expõem shape público:
+`Card`, `Panel`, `ActionCard`, `SelectableCard` e `SkeletonCard`. Elas usam
+`shape(ShapeSize)`, `shape_xs()`...`shape_xxl()`, `square()` e `radius(f32)`.
+Não há `shape_full()`/`pill()`; o spelling raro é `shape(ShapeSize::Full)`.
+`InitialAvatar::sm()`/`lg()` é a exceção documentada aos atalhos nus, porque
+tamanho é o conceito central do avatar.
+
+### Tone scale
+
+`ToneRole` usa `Accent` para a cor de marca/sistema. `Primary` fica reservado
+para hierarquia de texto (`TextRole::Primary`) e para ação sugerida em botões.
+
+| `ToneRole` | Uso |
+| --- | --- |
+| `Neutral` | estado neutro ou informativo sem destaque de marca |
+| `Accent` | marca/sistema, antes chamado de primary tone |
+| `Info` | informação |
+| `Success` | sucesso |
+| `Warning` | atenção |
+| `Danger` | erro/falha/risco |
+
+Widgets que expõem `tone(ToneRole)` também expõem
+`neutral()`, `accent()`, `info()`, `success()`, `warning()` e `danger()`.
+`danger()` é linguagem de status. Ações que podem destruir dados usam
+`destructive()` em `Button`, `DropdownMenuItem` e `ToolbarAction`; esses
+widgets não expõem `danger()`. `ToolbarAction` também não tem `suggested()`
+para evitar hierarquia visual forte dentro de toolbars.
+
+### Button intent × variant
+
+`Button` separa intenção da ação e aparência:
+
+| Eixo | Valores |
+| --- | --- |
+| `ButtonIntent` | `Neutral`, `Suggested`, `Destructive` |
+| `ButtonVariant` | `Solid`, `Subtle`, `Outline`, `Ghost` |
+
+Atalhos de alto nível continuam existindo e mapeiam para pares:
+
+| Atalho | Par |
+| --- | --- |
+| `primary()` / `button::primary` | `Suggested + Solid` |
+| `secondary()` / `button::secondary` | `Neutral + Subtle` |
+| `outline()` / `button::outline` | `Neutral + Outline` |
+| `ghost()` / `button::ghost` | `Neutral + Ghost` |
+| `destructive()` / `button::destructive` | `Destructive + Solid` |
+| `button::icon` | `Neutral + Ghost` |
+
+`ButtonVariant::Link`, `button::link(...)` e `Button::link()` não fazem parte
+do botão. Links terão controle dedicado quando a área de navegação precisar.
+
+### Dense desktop default
+
+`ControlSize::Sm` é o default operacional denso do catálogo. `Xs`, `Md` e `Lg`
+são ajustes locais; `ThemeDensity` muda a compactness global mantendo o mesmo
+vocabulário de tamanho local.
+
+## 4. Density (`ThemeDensity`)
 
 `ThemeDensity` é um eixo global de compactness que afeta spacing, paddings, gaps,
 alturas de controle, tamanhos de ícone e chrome de widgets. Existem três variantes:
@@ -145,7 +226,7 @@ A densidade é resolvida durante a construção do tema:
 
 ---
 
-## 4. Catálogo de Widgets (40+)
+## 5. Catálogo de Widgets (40+)
 
 Todos são `nive-ui` puros (dependem só de `iced`), type-safe e estilizados por role.
 O contrato público é duplo: `nive_ui::widgets::*` continua sendo o facade plano
@@ -234,8 +315,53 @@ interface e normalmente não têm ciclo de vida independente.
 
 Use `TabBar` para coleções abertas de documentos ou views identificadas por
 IDs de domínio. O app controla a lista, a ordem, o item ativo, dirty state,
-pinning e política de fechamento; o widget emite intents para ativar, fechar,
+pinning e política de fechamento; o widget emite intents para selecionar, fechar,
 abrir contexto, reordenar e tear-off sem mutar o modelo sozinho.
+
+### Layout grammar
+
+Widgets com layout público usam somente esta gramática:
+`width(...)`, `height(...)`, `fill_width()`, `fill_height()`, `fill()` e
+`shrink_width()`. `fill()` sempre significa preencher os dois eixos e só existe
+onde isso faz sentido (`Tree`, `SplitPane`, superfícies). Widgets inline ou de
+barra usam `fill_width()` quando precisam ocupar a linha. Não há `fill_all`,
+`fill_both`, `fill_w`, `fill_h` ou `shrink()` público.
+
+Principais defaults:
+
+| Família | Default |
+| --- | --- |
+| Campos (`Input`, `PathInput`, `Select`, `Field`, `FieldGroup`) | fill width |
+| Ações inline (`Button`, `Checkbox`, `Switch`, `SegmentedControl`) | shrink width |
+| Superfícies (`Card`, `Panel`, `ActionCard`, `SelectableCard`) | shrink both |
+| Viewports (`SplitPane`, `Tree`) | fill both |
+| Strips (`Toolbar`, `TabBar`) | shrink width; apps optam por `fill_width()` |
+
+### Interaction vocabulary
+
+Estado e callbacks seguem um vocabulário único:
+
+| Domínio | Spelling |
+| --- | --- |
+| Desabilitar widget | `disabled(bool)` |
+| Selecionáveis | `selected(bool)` |
+| Booleanos | `checked(bool)` + `on_toggle(fn(bool) -> Message)` |
+| Navegação controlada | `active(...)` |
+| Ativação de ação | `on_press(Message)` |
+| Valor editável | `on_change(fn(V) -> Message)` |
+| Escolha entre opções | `on_select(fn(T) -> Message)` |
+| Browse de caminho | `on_browse(Message)` |
+
+Callbacks opcionais usam o par `_maybe`: `on_press_maybe`,
+`on_toggle_maybe`, `on_change_maybe`, `on_select_maybe` e
+`on_browse_maybe`. `None` remove a mensagem, mas não força visual disabled.
+`disabled(true)` sempre vence sobre callbacks presentes.
+
+`Input` e `PathInput` usam `on_change`; `Autocomplete::on_select` entrega o
+valor da sugestão, não um índice. `TabBar::on_select` entrega só o id do tab;
+`ActivationTrigger` fica interno à fundação de interação. `TreeDrag::enabled()`
+e `TreeDrag::disabled()` são a exceção documentada porque constroem presets de
+configuração, não estado mutável de widget.
 
 > **Lacunas do roadmap (Fase 2):** o catálogo cobre apps gerais e densos *exceto* os dois
 > widgets analíticos pesados — **tabela virtualizada** e **gráfico de série temporal** — que
