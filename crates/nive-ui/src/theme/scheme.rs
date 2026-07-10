@@ -7,7 +7,7 @@ use crate::icons::{self, IconCatalog, IconGlyph, IconRole};
 use super::color_scheme::{BorderSpec, ColorScheme, ControlSpec, SurfaceSpec, TextSpec, ToneSpec};
 use super::component::{self, ControlMetrics, ControlMetricsScale, ControlSize};
 use super::density::ThemeDensity;
-use super::shape::{self, ShapeRole, ShapeScale, ShapeSpec};
+use super::shape::{self, ShapeScale, ShapeSize, ShapeSpec};
 use super::spacing::{self, GapRole, PaddingRole, SpaceStep, SpacingScale};
 use super::typography::{self, TextStyle, TypographyRole, TypographyScale};
 use super::{BorderRole, ControlRole, ControlState, SurfaceRole, TextRole, ThemeMode, ToneRole};
@@ -171,7 +171,7 @@ impl Theme {
         self.data().shapes
     }
 
-    pub fn shape(self, role: ShapeRole) -> ShapeSpec {
+    pub fn shape(self, role: ShapeSize) -> ShapeSpec {
         self.shapes().get(role)
     }
 
@@ -258,7 +258,7 @@ impl iced::theme::Base for Theme {
         Some(iced::theme::Palette {
             background: self.surface(SurfaceRole::App).background,
             text: self.text(TextRole::Primary).color,
-            primary: self.tone(ToneRole::Primary).color,
+            primary: self.tone(ToneRole::Accent).color,
             success: self.tone(ToneRole::Success).color,
             warning: self.tone(ToneRole::Warning).color,
             danger: self.tone(ToneRole::Danger).color,
@@ -413,7 +413,7 @@ mod theme_tests {
         iced::theme::Palette {
             background: theme.surface(SurfaceRole::App).background,
             text: theme.text(TextRole::Primary).color,
-            primary: theme.tone(ToneRole::Primary).color,
+            primary: theme.tone(ToneRole::Accent).color,
             success: theme.tone(ToneRole::Success).color,
             warning: theme.tone(ToneRole::Warning).color,
             danger: theme.tone(ToneRole::Danger).color,

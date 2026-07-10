@@ -1,6 +1,6 @@
 use iced::{border::Radius, widget::container, Background, Border};
 
-use crate::theme::{BorderSpec, ShapeRole, SurfaceRole, SurfaceSpec};
+use crate::theme::{BorderSpec, ShapeSize, SurfaceRole, SurfaceSpec};
 
 pub fn style(role: SurfaceRole) -> impl Fn(&crate::theme::Theme) -> container::Style {
     move |theme: &crate::theme::Theme| {
@@ -39,7 +39,7 @@ fn border(spec: BorderSpec, radius: Radius) -> Border {
 
 fn default_radius(theme: crate::theme::Theme, role: SurfaceRole) -> Radius {
     match role {
-        SurfaceRole::Dialog | SurfaceRole::Popover => theme.shape(ShapeRole::Large).radius(),
+        SurfaceRole::Dialog | SurfaceRole::Popover => theme.shape(ShapeSize::Lg).radius(),
         _ => 0.0.into(),
     }
 }
@@ -67,7 +67,7 @@ mod surface_tests {
         let theme = Theme::Dark;
         let style = style(SurfaceRole::Popover)(&theme);
 
-        assert_eq!(style.border.radius, theme.shape(ShapeRole::Large).radius());
+        assert_eq!(style.border.radius, theme.shape(ShapeSize::Lg).radius());
     }
 
     fn background_color(style: &container::Style) -> iced::Color {

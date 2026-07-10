@@ -1,7 +1,7 @@
 use iced::Padding;
 
 use super::density::ThemeDensity;
-use super::shape::{ShapeRole, ShapeScale, ShapeSpec};
+use super::shape::{ShapeScale, ShapeSize, ShapeSpec};
 use super::spacing::{SpaceStep, SpacingScale};
 use super::typography::{TextStyle, TypographyRole, TypographyScale};
 
@@ -71,7 +71,7 @@ pub fn scale_for_density(
     ControlMetricsScale {
         xs: metrics(
             xs_height,
-            shapes.get(ShapeRole::Small),
+            shapes.get(ShapeSize::Sm),
             typography.get(TypographyRole::BodySmall),
             Padding::ZERO
                 .vertical(spacing.step(SpaceStep::Xxs))
@@ -81,7 +81,7 @@ pub fn scale_for_density(
         ),
         sm: metrics(
             sm_height,
-            shapes.get(ShapeRole::Medium),
+            shapes.get(ShapeSize::Md),
             typography.get(TypographyRole::Body),
             Padding::ZERO
                 .vertical(spacing.step(SpaceStep::Xs))
@@ -91,7 +91,7 @@ pub fn scale_for_density(
         ),
         md: metrics(
             md_height,
-            shapes.get(ShapeRole::Large),
+            shapes.get(ShapeSize::Lg),
             typography.get(TypographyRole::Body),
             Padding::ZERO
                 .vertical(spacing.step(SpaceStep::Sm))
@@ -101,7 +101,7 @@ pub fn scale_for_density(
         ),
         lg: metrics(
             lg_height,
-            shapes.get(ShapeRole::Large),
+            shapes.get(ShapeSize::Lg),
             typography.get(TypographyRole::Heading),
             Padding::ZERO
                 .vertical(spacing.step(SpaceStep::Md))
