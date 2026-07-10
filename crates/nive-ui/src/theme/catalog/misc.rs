@@ -6,7 +6,7 @@ use iced::{
 
 use super::shared::border_with_radius;
 use crate::theme::{
-    BorderRole, BorderSpec, ControlRole, ControlState, ShapeRole, SurfaceRole, TextRole, Theme,
+    BorderRole, BorderSpec, ControlRole, ControlState, ShapeSize, SurfaceRole, TextRole, Theme,
     ToneRole,
 };
 
@@ -24,12 +24,12 @@ pub(super) fn default_rule(theme: &Theme) -> rule::Style {
 pub(super) fn default_progress_bar(theme: &Theme) -> progress_bar::Style {
     let theme = *theme;
     let control = theme.control(ControlRole::Standard, ControlState::ENABLED);
-    let tone = theme.tone(ToneRole::Primary);
+    let tone = theme.tone(ToneRole::Accent);
 
     progress_bar::Style {
         background: Background::Color(control.background),
         bar: Background::Color(tone.color),
-        border: border_with_radius(BorderSpec::none(), theme.shape(ShapeRole::Small).radius()),
+        border: border_with_radius(BorderSpec::none(), theme.shape(ShapeSize::Sm).radius()),
     }
 }
 
@@ -39,21 +39,15 @@ pub(super) fn default_scrollable(theme: &Theme, status: scrollable::Status) -> s
     let scroller_color = theme.text(TextRole::Muted).color.scale_alpha(0.50);
     let active_rail = scrollable::Rail {
         background: Some(Background::Color(rail_color)),
-        border: border_with_radius(
-            BorderSpec::none(),
-            theme.shape(ShapeRole::ExtraSmall).radius(),
-        ),
+        border: border_with_radius(BorderSpec::none(), theme.shape(ShapeSize::Xs).radius()),
         scroller: scrollable::Scroller {
             background: Background::Color(scroller_color),
-            border: border_with_radius(
-                BorderSpec::none(),
-                theme.shape(ShapeRole::ExtraSmall).radius(),
-            ),
+            border: border_with_radius(BorderSpec::none(), theme.shape(ShapeSize::Xs).radius()),
         },
     };
     let primary_rail = scrollable::Rail {
         scroller: scrollable::Scroller {
-            background: Background::Color(theme.tone(ToneRole::Primary).color),
+            background: Background::Color(theme.tone(ToneRole::Accent).color),
             ..active_rail.scroller
         },
         ..active_rail
@@ -61,7 +55,7 @@ pub(super) fn default_scrollable(theme: &Theme, status: scrollable::Status) -> s
     let popover = theme.surface(SurfaceRole::Popover);
     let auto_scroll = scrollable::AutoScroll {
         background: Background::Color(popover.background.scale_alpha(0.90)),
-        border: border_with_radius(popover.border, theme.shape(ShapeRole::ExtraLarge).radius()),
+        border: border_with_radius(popover.border, theme.shape(ShapeSize::Xl).radius()),
         shadow: popover.shadow,
         icon: theme.text(TextRole::Secondary).color,
     };
@@ -118,7 +112,7 @@ pub(super) fn default_menu(theme: &Theme) -> menu::Style {
 
     menu::Style {
         background: Background::Color(surface.background),
-        border: border_with_radius(surface.border, theme.shape(ShapeRole::Medium).radius()),
+        border: border_with_radius(surface.border, theme.shape(ShapeSize::Md).radius()),
         text_color: surface.foreground,
         selected_text_color: selected.foreground,
         selected_background: Background::Color(selected.background),
@@ -140,6 +134,6 @@ pub(super) fn default_pick_list(theme: &Theme, status: pick_list::Status) -> pic
         placeholder_color: theme.text(TextRole::Muted).color,
         handle_color: theme.text(TextRole::Secondary).color,
         background: Background::Color(control.background),
-        border: border_with_radius(control.border, theme.shape(ShapeRole::Medium).radius()),
+        border: border_with_radius(control.border, theme.shape(ShapeSize::Md).radius()),
     }
 }

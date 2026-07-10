@@ -380,7 +380,7 @@ impl ColorScheme {
     fn tone_colors(&self, tone: ToneRole) -> ToneColorsForRole {
         match tone {
             ToneRole::Neutral => self.tone.neutral,
-            ToneRole::Primary => self.tone.primary,
+            ToneRole::Accent => self.tone.primary,
             ToneRole::Info => self.tone.info,
             ToneRole::Success => self.tone.success,
             ToneRole::Warning => self.tone.warning,
@@ -500,14 +500,14 @@ mod color_scheme_tests {
     ];
     const TONE_ROLES: [ToneRole; 6] = [
         ToneRole::Neutral,
-        ToneRole::Primary,
+        ToneRole::Accent,
         ToneRole::Info,
         ToneRole::Success,
         ToneRole::Warning,
         ToneRole::Danger,
     ];
     const MIN_TONE_CONTRAST: f32 = 2.25;
-    const MIN_ON_PRIMARY_CONTRAST: f32 = 4.5;
+    const MIN_ON_ACCENT_CONTRAST: f32 = 4.5;
 
     #[test]
     fn light_and_dark_modes_are_explicit() {
@@ -534,17 +534,26 @@ mod color_scheme_tests {
         let theme = Theme::Dark;
 
         assert_eq!(
-            theme.tone(ToneRole::Primary).color,
+            theme.tone(ToneRole::Accent).color,
             theme
                 .control(ControlRole::Selectable, ControlState::SELECTED)
                 .foreground
         );
         assert_eq!(
-            theme.tone(ToneRole::Primary).border,
+            theme.tone(ToneRole::Accent).border,
             theme
                 .control(ControlRole::Selectable, ControlState::SELECTED)
                 .border
         );
+    }
+
+    #[test]
+    fn accent_tone_reuses_the_palette_primary_pair() {
+        for mode in [ThemeMode::Light, ThemeMode::Dark] {
+            let scheme = Theme::from_mode(mode).color_scheme();
+
+            assert_eq!(scheme.tone(ToneRole::Accent), scheme.tone.primary.spec());
+        }
     }
 
     #[test]
@@ -587,25 +596,25 @@ mod color_scheme_tests {
     }
 
     #[test]
-    fn focus_border_is_brighter_than_primary() {
+    fn focus_border_is_brighter_than_accent() {
         for mode in [ThemeMode::Light, ThemeMode::Dark] {
             let theme = Theme::from_mode(mode);
             let focus = theme.border(BorderRole::Focus).color;
-            let primary = theme.tone(ToneRole::Primary).color;
+            let accent = theme.tone(ToneRole::Accent).color;
 
-            assert!(luminance(focus) > luminance(primary));
+            assert!(luminance(focus) > luminance(accent));
             assert!(focus.a > 0.90);
         }
     }
 
     #[test]
-    fn focus_border_stays_visually_close_to_primary() {
+    fn focus_border_stays_visually_close_to_accent() {
         for mode in [ThemeMode::Light, ThemeMode::Dark] {
             let theme = Theme::from_mode(mode);
             let focus = theme.border(BorderRole::Focus).color;
-            let primary = theme.tone(ToneRole::Primary).color;
+            let accent = theme.tone(ToneRole::Accent).color;
 
-            assert!(color_distance(focus, primary) < 0.22);
+            assert!(color_distance(focus, accent) < 0.22);
         }
     }
 
@@ -651,16 +660,16 @@ mod color_scheme_tests {
     }
 
     #[test]
-    fn on_primary_text_reads_over_primary_in_light_and_dark_modes() {
+    fn on_accent_text_reads_over_accent_in_light_and_dark_modes() {
         for mode in [ThemeMode::Light, ThemeMode::Dark] {
             let theme = Theme::from_mode(mode);
-            let primary = theme.tone(ToneRole::Primary).color;
+            let accent = theme.tone(ToneRole::Accent).color;
 
             assert_contrast_at_least(
-                format!("{mode:?} on Primary"),
-                theme.tone(ToneRole::Primary).on_color,
-                primary,
-                MIN_ON_PRIMARY_CONTRAST,
+                format!("{mode:?} on Accent"),
+                theme.tone(ToneRole::Accent).on_color,
+                accent,
+                MIN_ON_ACCENT_CONTRAST,
             );
         }
     }

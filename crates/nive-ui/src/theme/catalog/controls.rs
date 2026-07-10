@@ -6,7 +6,7 @@ use iced::{
 use super::classes::FieldValidation;
 use super::shared::{alpha_when_disabled, border_with_radius, transparent_border_with_radius};
 use crate::theme::{
-    BorderRole, BorderSpec, ControlRole, ControlState, InteractionState, ShapeRole, TextRole,
+    BorderRole, BorderSpec, ControlRole, ControlState, InteractionState, ShapeSize, TextRole,
     Theme, ToneRole,
 };
 
@@ -23,7 +23,7 @@ pub(super) fn default_checkbox(theme: &Theme, status: checkbox::Status) -> check
         checkbox::Status::Disabled { .. } => ControlState::DISABLED,
     };
     let control = theme.control(ControlRole::Standard, state);
-    let tone = theme.tone(ToneRole::Primary);
+    let tone = theme.tone(ToneRole::Accent);
     let disabled = matches!(status, checkbox::Status::Disabled { .. });
     let alpha = if disabled { 0.55 } else { 1.0 };
 
@@ -34,7 +34,7 @@ pub(super) fn default_checkbox(theme: &Theme, status: checkbox::Status) -> check
             control.background
         }),
         icon_color: if is_checked {
-            theme.tone(ToneRole::Primary).on_color.scale_alpha(alpha)
+            theme.tone(ToneRole::Accent).on_color.scale_alpha(alpha)
         } else {
             Color::TRANSPARENT
         },
@@ -44,7 +44,7 @@ pub(super) fn default_checkbox(theme: &Theme, status: checkbox::Status) -> check
             } else {
                 control.border
             },
-            theme.shape(ShapeRole::Small).radius(),
+            theme.shape(ShapeSize::Sm).radius(),
         ),
         text_color: Some(if disabled {
             theme.text(TextRole::Muted).color.scale_alpha(0.65)
@@ -66,14 +66,15 @@ pub(super) fn standard_text_input(
 
     let mut style = text_input::Style {
         background: Background::Color(control.background),
-        border: border_with_radius(control.border, theme.shape(ShapeRole::Medium).radius()),
+        border: border_with_radius(control.border, theme.shape(ShapeSize::Md).radius()),
         icon: alpha_when_disabled(muted, disabled),
         placeholder: alpha_when_disabled(muted, disabled),
         value: alpha_when_disabled(control.foreground, disabled),
-        selection: theme
-            .tone(ToneRole::Primary)
-            .color
-            .scale_alpha(if disabled { 0.15 } else { 0.30 }),
+        selection: theme.tone(ToneRole::Accent).color.scale_alpha(if disabled {
+            0.15
+        } else {
+            0.30
+        }),
     };
 
     apply_standard_text_input_validation(&mut style, theme, validation, disabled);
@@ -92,14 +93,15 @@ pub(super) fn embedded_text_input(
     let disabled = matches!(status, text_input::Status::Disabled);
     let mut style = text_input::Style {
         background: Background::Color(Color::TRANSPARENT),
-        border: transparent_border_with_radius(theme.shape(ShapeRole::Medium).radius()),
+        border: transparent_border_with_radius(theme.shape(ShapeSize::Md).radius()),
         icon: alpha_when_disabled(muted, disabled),
         placeholder: alpha_when_disabled(muted, disabled),
         value: alpha_when_disabled(value, disabled),
-        selection: theme
-            .tone(ToneRole::Primary)
-            .color
-            .scale_alpha(if disabled { 0.15 } else { 0.30 }),
+        selection: theme.tone(ToneRole::Accent).color.scale_alpha(if disabled {
+            0.15
+        } else {
+            0.30
+        }),
     };
 
     if matches!(validation, FieldValidation::Invalid) {
@@ -151,12 +153,12 @@ pub(super) fn default_toggler(theme: &Theme, status: toggler::Status) -> toggler
         1.0
     };
     let background = if is_toggled {
-        theme.tone(ToneRole::Primary).color
+        theme.tone(ToneRole::Accent).color
     } else {
         control.background
     };
     let foreground = if is_toggled {
-        theme.tone(ToneRole::Primary).on_color
+        theme.tone(ToneRole::Accent).on_color
     } else {
         theme.text(TextRole::Secondary).color
     };

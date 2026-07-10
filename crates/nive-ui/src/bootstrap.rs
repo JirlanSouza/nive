@@ -360,7 +360,7 @@ fn status_label_style() -> impl Fn(&crate::theme::Theme) -> iced_text::Style {
 }
 
 fn startup_accent(theme: &crate::theme::Theme) -> Color {
-    let accent = theme.tone(ToneRole::Primary).color;
+    let accent = theme.tone(ToneRole::Accent).color;
     let lift = if theme.is_dark() { 0.28 } else { 0.04 };
 
     blend(accent, Color::WHITE, lift)

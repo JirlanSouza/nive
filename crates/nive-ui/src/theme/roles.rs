@@ -1,3 +1,4 @@
+/// Semantic surface roles resolved by [`crate::theme::Theme`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SurfaceRole {
     App,
@@ -11,6 +12,7 @@ pub enum SurfaceRole {
     Scrim,
 }
 
+/// Text hierarchy roles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TextRole {
     Primary,
@@ -19,6 +21,7 @@ pub enum TextRole {
     Disabled,
 }
 
+/// Semantic border roles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BorderRole {
     Default,
@@ -29,16 +32,22 @@ pub enum BorderRole {
     Danger,
 }
 
+/// Semantic tone roles for status and accent color.
+///
+/// Use `Accent` for the product/system accent tone. `Primary` remains only in
+/// text hierarchy vocabulary as [`TextRole::Primary`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToneRole {
     Neutral,
-    Primary,
+    /// Product/system accent tone.
+    Accent,
     Info,
     Success,
     Warning,
     Danger,
 }
 
+/// Control chrome roles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ControlRole {
     Standard,
@@ -46,6 +55,7 @@ pub enum ControlRole {
     Selectable,
 }
 
+/// Pointer/keyboard interaction flags for control state resolution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct InteractionState {
     pub hovered: bool,
@@ -99,6 +109,7 @@ impl InteractionState {
     }
 }
 
+/// Combined enabled/selected/interaction state for control styling.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ControlState {
     pub enabled: bool,
