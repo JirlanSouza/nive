@@ -343,6 +343,10 @@ the fix.
 
 ### Release notes template
 
+Widget API changes in alpha releases should link migration notes when relevant.
+For the public API semantics cleanup, use
+[`migrations/widget-public-api-semantics.md`](migrations/widget-public-api-semantics.md).
+
 ```markdown
 ## v0.1.0-alpha.1
 

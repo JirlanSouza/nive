@@ -51,11 +51,11 @@ use nive_ui::prelude::*;
 
 let light = Theme::builder("Acme Light", theme::ThemeMode::Light)
     .density(ThemeDensity::Compact)
-    .primary(color::hex(0x0EA5E9))
+    .accent(color::hex(0x0EA5E9))
     .build();
 let dark = Theme::builder("Acme Dark", theme::ThemeMode::Dark)
     .density(ThemeDensity::Compact)
-    .primary(color::hex(0x38BDF8))
+    .accent(color::hex(0x38BDF8))
     .build();
 let catalog = ThemeCatalog::new(light, dark);
 ```
