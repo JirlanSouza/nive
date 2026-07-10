@@ -14,6 +14,10 @@ struct BadgeMetrics {
     radius: f32,
 }
 
+/// Compact status label.
+///
+/// Use `danger()` for danger/error status tone. Destructive action semantics
+/// belong to actionable widgets such as `Button`.
 pub struct Badge<'a, Message> {
     label: &'a str,
     tone: ToneRole,
@@ -39,28 +43,29 @@ where
         self
     }
 
-    pub fn neutral(label: &'a str) -> Self {
-        Self::new(label).tone(ToneRole::Neutral)
+    pub fn neutral(self) -> Self {
+        self.tone(ToneRole::Neutral)
     }
 
-    pub fn info(label: &'a str) -> Self {
-        Self::new(label).tone(ToneRole::Info)
+    pub fn accent(self) -> Self {
+        self.tone(ToneRole::Accent)
     }
 
-    pub fn success(label: &'a str) -> Self {
-        Self::new(label).tone(ToneRole::Success)
+    pub fn info(self) -> Self {
+        self.tone(ToneRole::Info)
     }
 
-    pub fn warning(label: &'a str) -> Self {
-        Self::new(label).tone(ToneRole::Warning)
+    pub fn success(self) -> Self {
+        self.tone(ToneRole::Success)
     }
 
-    pub fn danger(label: &'a str) -> Self {
-        Self::new(label).tone(ToneRole::Danger)
+    pub fn warning(self) -> Self {
+        self.tone(ToneRole::Warning)
     }
 
-    pub fn accent(label: &'a str) -> Self {
-        Self::new(label).tone(ToneRole::Primary)
+    /// Applies the danger status tone.
+    pub fn danger(self) -> Self {
+        self.tone(ToneRole::Danger)
     }
 
     pub fn size(mut self, size: ControlSize) -> Self {

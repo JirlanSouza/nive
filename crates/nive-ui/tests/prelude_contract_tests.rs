@@ -14,7 +14,8 @@ fn prelude_exposes_common_ui_contracts() {
 
 #[test]
 fn prelude_exposes_common_widget_contracts() {
-    let _: ButtonVariant = ButtonVariant::Primary;
+    let _: ButtonIntent = ButtonIntent::Suggested;
+    let _: ButtonVariant = ButtonVariant::Solid;
     let _: Element<'_, ()> = Card::new(text("Card")).into();
     let _: Element<'_, ()> = Field::new(text_input("Name", "")).label("Name").into();
     let _: Element<'_, ()> = Dialog::new(text("Dialog")).into();
@@ -26,12 +27,13 @@ fn prelude_exposes_common_widget_contracts() {
 fn widget_taxonomy_exposes_category_facades() {
     use nive_ui::widgets::{containers, controls, display, navigation, overlays, primitives};
 
-    let _: controls::ButtonVariant = controls::ButtonVariant::Primary;
+    let _: controls::ButtonIntent = controls::ButtonIntent::Suggested;
+    let _: controls::ButtonVariant = controls::ButtonVariant::Solid;
     let _: Element<'_, ()> = controls::Checkbox::new("Enabled", true).into();
     let _: Element<'_, ()> = controls::Field::new(text_input("Name", "")).into();
     let _: Element<'_, ()> = containers::Panel::new(text("Panel")).into();
     let _: Element<'_, ()> = containers::SectionHeader::new("Title").into();
-    let _: Element<'_, ()> = display::Badge::success("Ready").into();
+    let _: Element<'_, ()> = display::Badge::new("Ready").success().into();
     let _: Element<'_, ()> = navigation::Toolbar::new().into();
     let _: Element<'_, ()> = overlays::Dialog::new(text("Dialog")).into();
     let _: Element<'_, ()> = primitives::Separator::horizontal().into();
@@ -147,10 +149,10 @@ fn feedback_presentation_contracts_are_reexported_from_nive_core() {
 #[test]
 fn theme_facade_builds_product_catalogs() {
     let light = Theme::builder("Contract Light", theme::ThemeMode::Light)
-        .primary(theme::hex(0x0EA5E9))
+        .accent(theme::hex(0x0EA5E9))
         .build();
     let dark = Theme::builder("Contract Dark", theme::ThemeMode::Dark)
-        .primary(theme::hex(0x38BDF8))
+        .accent(theme::hex(0x38BDF8))
         .build();
     let catalog = ThemeCatalog::new(light, dark);
 
