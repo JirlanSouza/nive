@@ -42,6 +42,8 @@ pub enum TreePasteTarget<Id> {
 ///
 /// `Default` is disabled. Use [`TreeDrag::enabled`] to allow app-internal tree
 /// drag/drop and optionally narrow accepted drops with [`TreeDrag::can_drop`].
+/// The `enabled()`/`disabled()` methods are complete configuration presets,
+/// not widget-state builders.
 #[derive(Clone)]
 pub struct TreeDrag<Id> {
     enabled: bool,
