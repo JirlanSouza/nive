@@ -84,7 +84,11 @@ impl ThemeBuilder {
         self
     }
 
-    pub fn primary(mut self, color: iced::Color) -> Self {
+    /// Sets the semantic accent color.
+    ///
+    /// This maps to Iced's `Palette::primary` field and resolves as
+    /// [`super::ToneRole::Accent`] in Nive themes.
+    pub fn accent(mut self, color: iced::Color) -> Self {
         self.palette.primary = color;
         self
     }
@@ -183,14 +187,14 @@ mod tests {
         let theme = ThemeBuilder::new("Acme Dark", ThemeMode::Dark)
             .app_background(hex(0x101820))
             .text(hex(0xF6F7FB))
-            .primary(hex(0x0EA5E9))
+            .accent(hex(0x0EA5E9))
             .warning(hex(0xF59E0B))
             .build();
 
         assert_eq!(theme.name(), "Acme Dark");
         assert_eq!(theme.mode(), ThemeMode::Dark);
         assert_eq!(theme.surface(SurfaceRole::App).background, hex(0x101820));
-        assert_eq!(theme.tone(ToneRole::Primary).color, hex(0x0EA5E9));
+        assert_eq!(theme.tone(ToneRole::Accent).color, hex(0x0EA5E9));
         assert_eq!(theme.tone(ToneRole::Warning).color, hex(0xF59E0B));
     }
 
