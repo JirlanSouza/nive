@@ -28,7 +28,7 @@ fn alerts() -> Element<'static, Message> {
             InlineAlert::new("Project indexed")
                 .body("Search and navigation are up to date.")
                 .success()
-                .action(nbutton::secondary("View").shrink().on_press(Message::Noop)),
+                .action(nbutton::secondary("View").shrink_width().on_press(Message::Noop)),
         ),
         example_cell(
             "Warning",
@@ -43,7 +43,7 @@ fn alerts() -> Element<'static, Message> {
                 .danger()
                 .action(
                     nbutton::destructive("Retry")
-                        .shrink()
+                        .shrink_width()
                         .on_press(Message::Noop),
                 ),
         ),
@@ -188,7 +188,7 @@ fn controls(app: &WidgetGallery) -> Element<'_, Message> {
             .item(mode_item("Error", FeedbackMode::Error, app.feedback))
             .item(mode_item("Empty", FeedbackMode::Empty, app.feedback))
             .item(mode_item("Running", FeedbackMode::Running, app.feedback))
-            .fill(),
+            .fill_width(),
         InlineAlert::new("Devtools optional")
             .body("Run the explicit devtools command only when inspecting simulator integration.")
             .info(),

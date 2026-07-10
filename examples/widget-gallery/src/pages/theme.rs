@@ -27,7 +27,7 @@ fn tones() -> Element<'static, Message> {
         example_cell(
             "Role swatches",
             column![
-                swatch(theme::active().tone(ToneRole::Primary).color, "Primary"),
+                swatch(theme::active().tone(ToneRole::Accent).color, "Accent"),
                 swatch(theme::active().tone(ToneRole::Info).color, "Info"),
                 swatch(theme::active().tone(ToneRole::Success).color, "Success"),
                 swatch(theme::active().tone(ToneRole::Warning).color, "Warning"),
@@ -38,11 +38,11 @@ fn tones() -> Element<'static, Message> {
         example_cell(
             "Tone badges",
             variant_row([
-                Badge::accent("Primary").into(),
-                Badge::info("Info").into(),
-                Badge::success("Success").into(),
-                Badge::warning("Warning").into(),
-                Badge::danger("Danger").into(),
+                Badge::new("Accent").accent().into(),
+                Badge::new("Info").info().into(),
+                Badge::new("Success").success().into(),
+                Badge::new("Warning").warning().into(),
+                Badge::new("Danger").danger().into(),
             ]),
         ),
     ])
@@ -127,8 +127,8 @@ fn controls(size: ControlSize, app: &WidgetGallery) -> Element<'_, Message> {
             .on_press(Message::Noop),
         Input::new("Input", &app.form.name)
             .size(size)
-            .on_input(Message::NameChanged),
-        Badge::accent("Badge").size(size),
+            .on_change(Message::NameChanged),
+        Badge::new("Badge").accent().size(size),
         ProgressBar::percent(0.55).size(size),
     ]
     .spacing(8)
@@ -152,7 +152,7 @@ fn spacing_shape() -> Element<'static, Message> {
         example_cell(
             "Shape",
             row![
-                Card::new(ntext::caption("sm")).sm().padding(12),
+                Card::new(ntext::caption("md")).shape_md().padding(12),
                 Card::new(ntext::caption("lg")).padding(12),
             ]
             .spacing(10),

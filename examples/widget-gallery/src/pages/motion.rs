@@ -84,7 +84,7 @@ fn animated_layout() -> Element<'static, Message> {
                         .size(18.0)
                         .color(
                             theme::active()
-                                .tone(ToneRole::Primary)
+                                .tone(ToneRole::Accent)
                                 .color
                                 .scale_alpha(pulse),
                         )
@@ -120,10 +120,10 @@ fn timeline() -> Element<'static, Message> {
         example_cell(
             "Easing",
             variant_row([
-                Badge::neutral("Linear").into(),
-                Badge::info("EaseIn").into(),
-                Badge::success("EaseOut").into(),
-                Badge::warning("EaseInOut").into(),
+                Badge::new("Linear").neutral().into(),
+                Badge::new("EaseIn").info().into(),
+                Badge::new("EaseOut").success().into(),
+                Badge::new("EaseInOut").warning().into(),
             ]),
         ),
     ])
