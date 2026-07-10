@@ -2,74 +2,98 @@ use crate::tokens::radius as token_radius;
 
 use iced::border::Radius;
 
+/// Ordered corner-radius scale used by theme shape resolution.
+///
+/// `Full` carries pill/circle semantics and resolves to
+/// [`crate::tokens::radius::FULL`], not the largest numeric token.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ShapeRole {
+pub enum ShapeSize {
+    /// Square corners.
     None,
-    ExtraSmall,
-    Small,
-    Medium,
-    Large,
-    ExtraLarge,
+    /// Extra-small radius.
+    Xs,
+    /// Small radius.
+    Sm,
+    /// Medium radius.
+    Md,
+    /// Large radius.
+    Lg,
+    /// Extra-large radius.
+    Xl,
+    /// Extra-extra-large radius.
+    Xxl,
+    /// Pill/circle radius.
     Full,
 }
 
+/// Concrete shape resolved from a [`ShapeSize`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ShapeSpec {
     pub radius: Radius,
 }
 
+/// Theme-owned shape scale.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ShapeScale {
     pub none: ShapeSpec,
-    pub extra_small: ShapeSpec,
-    pub small: ShapeSpec,
-    pub medium: ShapeSpec,
-    pub large: ShapeSpec,
-    pub extra_large: ShapeSpec,
+    pub xs: ShapeSpec,
+    pub sm: ShapeSpec,
+    pub md: ShapeSpec,
+    pub lg: ShapeSpec,
+    pub xl: ShapeSpec,
+    pub xxl: ShapeSpec,
     pub full: ShapeSpec,
 }
 
+/// Default shape scale.
 pub const SCALE: ShapeScale = ShapeScale {
     none: ShapeSpec::new(0.0),
-    extra_small: ShapeSpec::new(token_radius::XS),
-    small: ShapeSpec::new(token_radius::SM),
-    medium: ShapeSpec::new(token_radius::MD),
-    large: ShapeSpec::new(token_radius::LG),
-    extra_large: ShapeSpec::new(token_radius::XL),
-    full: ShapeSpec::new(token_radius::XXXXL),
+    xs: ShapeSpec::new(token_radius::XS),
+    sm: ShapeSpec::new(token_radius::SM),
+    md: ShapeSpec::new(token_radius::MD),
+    lg: ShapeSpec::new(token_radius::LG),
+    xl: ShapeSpec::new(token_radius::XL),
+    xxl: ShapeSpec::new(token_radius::XXL),
+    full: ShapeSpec::new(token_radius::FULL),
 };
 
+/// Returns the default shape scale.
 pub const fn scale() -> ShapeScale {
     SCALE
 }
 
-pub const fn radius(role: ShapeRole) -> f32 {
-    match role {
-        ShapeRole::None => 0.0,
-        ShapeRole::ExtraSmall => token_radius::XS,
-        ShapeRole::Small => token_radius::SM,
-        ShapeRole::Medium => token_radius::MD,
-        ShapeRole::Large => token_radius::LG,
-        ShapeRole::ExtraLarge => token_radius::XL,
-        ShapeRole::Full => token_radius::XXXXL,
+/// Resolves a shape size to its scalar radius value.
+pub const fn radius(size: ShapeSize) -> f32 {
+    match size {
+        ShapeSize::None => 0.0,
+        ShapeSize::Xs => token_radius::XS,
+        ShapeSize::Sm => token_radius::SM,
+        ShapeSize::Md => token_radius::MD,
+        ShapeSize::Lg => token_radius::LG,
+        ShapeSize::Xl => token_radius::XL,
+        ShapeSize::Xxl => token_radius::XXL,
+        ShapeSize::Full => token_radius::FULL,
     }
 }
 
 impl ShapeScale {
-    pub fn get(self, role: ShapeRole) -> ShapeSpec {
-        match role {
-            ShapeRole::None => self.none,
-            ShapeRole::ExtraSmall => self.extra_small,
-            ShapeRole::Small => self.small,
-            ShapeRole::Medium => self.medium,
-            ShapeRole::Large => self.large,
-            ShapeRole::ExtraLarge => self.extra_large,
-            ShapeRole::Full => self.full,
+    /// Returns the concrete shape for a size.
+    pub fn get(self, size: ShapeSize) -> ShapeSpec {
+        match size {
+            ShapeSize::None => self.none,
+            ShapeSize::Xs => self.xs,
+            ShapeSize::Sm => self.sm,
+            ShapeSize::Md => self.md,
+            ShapeSize::Lg => self.lg,
+            ShapeSize::Xl => self.xl,
+            ShapeSize::Xxl => self.xxl,
+            ShapeSize::Full => self.full,
         }
     }
 }
 
 impl ShapeSpec {
+    /// Creates a uniform-radius shape spec.
     pub const fn new(radius: f32) -> Self {
         let radius = Radius {
             top_left: radius,
@@ -81,10 +105,12 @@ impl ShapeSpec {
         Self { radius }
     }
 
+    /// Returns the Iced radius.
     pub const fn radius(self) -> Radius {
         self.radius
     }
 
+    /// Returns the scalar top-left radius value.
     pub const fn radius_value(self) -> f32 {
         self.radius.top_left
     }
@@ -95,14 +121,28 @@ mod shape_tests {
     use super::*;
 
     #[test]
-    fn shape_roles_map_to_existing_radius_scale() {
-        assert_eq!(radius(ShapeRole::None), 0.0);
-        assert_eq!(radius(ShapeRole::ExtraSmall), token_radius::XS);
-        assert_eq!(radius(ShapeRole::Small), token_radius::SM);
-        assert_eq!(radius(ShapeRole::Medium), token_radius::MD);
-        assert_eq!(radius(ShapeRole::Large), token_radius::LG);
-        assert_eq!(radius(ShapeRole::ExtraLarge), token_radius::XL);
-        assert_eq!(radius(ShapeRole::Full), token_radius::XXXXL);
+    fn shape_sizes_map_to_radius_tokens() {
+        assert_eq!(radius(ShapeSize::None), 0.0);
+        assert_eq!(radius(ShapeSize::Xs), token_radius::XS);
+        assert_eq!(radius(ShapeSize::Sm), token_radius::SM);
+        assert_eq!(radius(ShapeSize::Md), token_radius::MD);
+        assert_eq!(radius(ShapeSize::Lg), token_radius::LG);
+        assert_eq!(radius(ShapeSize::Xl), token_radius::XL);
+        assert_eq!(radius(ShapeSize::Xxl), token_radius::XXL);
+        assert_eq!(radius(ShapeSize::Full), token_radius::FULL);
+    }
+
+    #[test]
+    fn radius_tokens_are_decided_integer_values() {
+        assert_eq!(token_radius::XS, 2.0);
+        assert_eq!(token_radius::SM, 4.0);
+        assert_eq!(token_radius::MD, 6.0);
+        assert_eq!(token_radius::LG, 8.0);
+        assert_eq!(token_radius::XL, 12.0);
+        assert_eq!(token_radius::XXL, 16.0);
+        assert_eq!(token_radius::XXXL, 24.0);
+        assert_eq!(token_radius::XXXXL, 32.0);
+        assert_eq!(token_radius::FULL, 9999.0);
     }
 
     #[test]
@@ -110,28 +150,23 @@ mod shape_tests {
         let scale = scale();
 
         assert!(
-            scale.get(ShapeRole::None).radius_value()
-                < scale.get(ShapeRole::ExtraSmall).radius_value()
+            scale.get(ShapeSize::None).radius_value() < scale.get(ShapeSize::Xs).radius_value()
         );
+        assert!(scale.get(ShapeSize::Xs).radius_value() < scale.get(ShapeSize::Sm).radius_value());
+        assert!(scale.get(ShapeSize::Sm).radius_value() < scale.get(ShapeSize::Md).radius_value());
+        assert!(scale.get(ShapeSize::Md).radius_value() < scale.get(ShapeSize::Lg).radius_value());
+        assert!(scale.get(ShapeSize::Lg).radius_value() < scale.get(ShapeSize::Xl).radius_value());
+        assert!(scale.get(ShapeSize::Xl).radius_value() < scale.get(ShapeSize::Xxl).radius_value());
         assert!(
-            scale.get(ShapeRole::ExtraSmall).radius_value()
-                < scale.get(ShapeRole::Small).radius_value()
+            scale.get(ShapeSize::Xxl).radius_value() < scale.get(ShapeSize::Full).radius_value()
         );
-        assert!(
-            scale.get(ShapeRole::Small).radius_value()
-                < scale.get(ShapeRole::Medium).radius_value()
-        );
-        assert!(
-            scale.get(ShapeRole::Medium).radius_value()
-                < scale.get(ShapeRole::Large).radius_value()
-        );
-        assert!(
-            scale.get(ShapeRole::Large).radius_value()
-                < scale.get(ShapeRole::ExtraLarge).radius_value()
-        );
-        assert!(
-            scale.get(ShapeRole::ExtraLarge).radius_value()
-                < scale.get(ShapeRole::Full).radius_value()
+    }
+
+    #[test]
+    fn full_shape_uses_pill_token() {
+        assert_eq!(
+            scale().get(ShapeSize::Full).radius_value(),
+            token_radius::FULL
         );
     }
 }
