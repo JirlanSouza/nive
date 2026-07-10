@@ -172,6 +172,11 @@ where
         self
     }
 
+    pub fn on_press_maybe(mut self, message: Option<Message>) -> Self {
+        self.on_press = message;
+        self
+    }
+
     fn into_element(
         self,
         metrics: theme_section_header::SectionHeaderMetrics,
@@ -234,6 +239,30 @@ impl<'a> SectionHeaderStatus<'a> {
         }
 
         self
+    }
+
+    pub fn neutral(self) -> Self {
+        self.tone(ToneRole::Neutral)
+    }
+
+    pub fn accent(self) -> Self {
+        self.tone(ToneRole::Accent)
+    }
+
+    pub fn info(self) -> Self {
+        self.tone(ToneRole::Info)
+    }
+
+    pub fn success(self) -> Self {
+        self.tone(ToneRole::Success)
+    }
+
+    pub fn warning(self) -> Self {
+        self.tone(ToneRole::Warning)
+    }
+
+    pub fn danger(self) -> Self {
+        self.tone(ToneRole::Danger)
     }
 
     fn into_element<Message>(
