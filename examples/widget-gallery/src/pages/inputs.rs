@@ -32,7 +32,7 @@ fn text_inputs(app: &WidgetGallery) -> Element<'_, Message> {
     variant_grid([
         example_cell(
             "Filled",
-            Field::new(Input::new("Name", &app.form.name).on_input(Message::NameChanged))
+            Field::new(Input::new("Name", &app.form.name).on_change(Message::NameChanged))
                 .label("Name")
                 .hint("Editable field with helper text"),
         ),
@@ -40,7 +40,7 @@ fn text_inputs(app: &WidgetGallery) -> Element<'_, Message> {
             "Invalid",
             Field::new(
                 Input::new("Email", &app.form.email)
-                    .on_input(Message::EmailChanged)
+                    .on_change(Message::EmailChanged)
                     .invalid(email_invalid),
             )
             .label("Email")
@@ -51,13 +51,13 @@ fn text_inputs(app: &WidgetGallery) -> Element<'_, Message> {
             Field::new(
                 Input::new("Password", &app.form.secret)
                     .secure(true)
-                    .on_input(Message::SecretChanged),
+                    .on_change(Message::SecretChanged),
             )
             .label("Password"),
         ),
         example_cell(
             "Placeholder-only",
-            Input::new("Empty placeholder", "").on_input(Message::InputSearchChanged),
+            Input::new("Empty placeholder", "").on_change(Message::InputSearchChanged),
         ),
         example_cell(
             "Disabled",
@@ -69,14 +69,14 @@ fn text_inputs(app: &WidgetGallery) -> Element<'_, Message> {
                 "Long",
                 "A very long value that keeps text clipping and scroll behavior visible inside the input",
             )
-            .on_input(Message::InputSearchChanged),
+            .on_change(Message::InputSearchChanged),
         ),
         example_cell(
             "Field parts",
             FieldGroup::new(
                 column![
                     FieldLabel::new("Standalone label"),
-                    Input::new("Grouped input", &app.form.name).on_input(Message::NameChanged),
+                    Input::new("Grouped input", &app.form.name).on_change(Message::NameChanged),
                     FieldHint::new("FieldHint inside FieldGroup"),
                     FieldError::new("FieldError baseline"),
                 ]
@@ -91,7 +91,7 @@ fn grouped_inputs(app: &WidgetGallery) -> Element<'_, Message> {
         example_cell(
             "InputGroup",
             InputGroup::new(
-                Input::new("Search", &app.form.search).on_input(Message::InputSearchChanged),
+                Input::new("Search", &app.form.search).on_change(Message::InputSearchChanged),
             )
             .leading_icon(IconRole::EditFind)
             .trailing_text("⌘K"),
@@ -99,7 +99,7 @@ fn grouped_inputs(app: &WidgetGallery) -> Element<'_, Message> {
         example_cell(
             "Ghost group",
             InputGroup::new(
-                Input::new("Filter", &app.form.search).on_input(Message::InputSearchChanged),
+                Input::new("Filter", &app.form.search).on_change(Message::InputSearchChanged),
             )
             .leading_text("repo:")
             .trailing_action(
@@ -111,15 +111,15 @@ fn grouped_inputs(app: &WidgetGallery) -> Element<'_, Message> {
             "Autocomplete",
             Autocomplete::new(
                 Input::new("Type to search commands", &app.form.search)
-                    .on_input(Message::InputSearchChanged),
+                    .on_change(Message::InputSearchChanged),
             )
             .open(!app.form.search.is_empty())
-            .item_count(3)
-            .on_select(|index| match index {
-                0 => Message::InputSearchChanged("Open settings".to_owned()),
-                1 => Message::InputSearchChanged("Refresh project".to_owned()),
-                _ => Message::InputSearchChanged("Delete project".to_owned()),
-            })
+            .suggestions(vec![
+                "Open settings".to_owned(),
+                "Refresh project".to_owned(),
+                "Delete project".to_owned(),
+            ])
+            .on_select(Message::InputSearchChanged)
             .content_with(|highlighted| suggestions(highlighted)),
         ),
     ])
@@ -167,7 +167,7 @@ fn choices(app: &WidgetGallery) -> Element<'_, Message> {
             Select::new(PLANS.to_vec(), app.form.selected_plan)
                 .placeholder("Plan")
                 .on_select(Message::SelectPlan)
-                .fill(),
+                .fill_width(),
         ),
         example_cell(
             "SegmentedControl",
@@ -175,7 +175,7 @@ fn choices(app: &WidgetGallery) -> Element<'_, Message> {
                 .item(segment("Preview", app.form.segment))
                 .item(segment("Code", app.form.segment))
                 .item(segment("Tests", app.form.segment).icon(IconRole::ActionConfirm))
-                .fill(),
+                .fill_width(),
         ),
         example_cell(
             "SegmentedControl flat",
@@ -184,7 +184,7 @@ fn choices(app: &WidgetGallery) -> Element<'_, Message> {
                 .item(segment("Preview", app.form.segment))
                 .item(segment("Code", app.form.segment))
                 .item(segment("Tests", app.form.segment).icon(IconRole::ActionConfirm))
-                .fill(),
+                .fill_width(),
         ),
     ])
 }
@@ -212,7 +212,7 @@ fn color_path(app: &WidgetGallery) -> Element<'_, Message> {
             "PathInput",
             PathInput::new("Project path", &app.form.path)
                 .leading_icon(IconRole::Folder)
-                .on_input(Message::PathChanged)
+                .on_change(Message::PathChanged)
                 .on_browse(Message::PickPath),
         ),
     ])
@@ -231,7 +231,7 @@ fn size_stack(size: ControlSize, app: &WidgetGallery) -> Element<'_, Message> {
     column![
         Input::new("Input", &app.form.name)
             .size(size)
-            .on_input(Message::NameChanged),
+            .on_change(Message::NameChanged),
         Checkbox::new("Checkbox", app.form.checked)
             .size(size)
             .on_toggle(Message::ToggleChecked),

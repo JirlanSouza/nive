@@ -575,25 +575,25 @@ impl WidgetGallery {
                     .selected(self.theme == ThemePreference::Dark)
                     .on_press(Message::ThemeChanged(ThemePreference::Dark)),
             )
-            .fill();
+            .fill_width();
 
         let sizes = SegmentedControl::new()
             .item(size_item("XS", ControlSize::Xs, self.control_size))
             .item(size_item("SM", ControlSize::Sm, self.control_size))
             .item(size_item("MD", ControlSize::Md, self.control_size))
             .item(size_item("LG", ControlSize::Lg, self.control_size))
-            .fill();
+            .fill_width();
 
         let densities = SegmentedControl::new()
             .item(density_item("Compact", ThemeDensity::Compact, self.density))
             .item(density_item("Standard", ThemeDensity::Standard, self.density))
             .item(density_item("Comfortable", ThemeDensity::Comfortable, self.density))
-            .fill();
+            .fill_width();
 
         Panel::new(
             column![
                 ntext::title("Widget Gallery"),
-                Input::new("Search widgets", &self.search).on_input(Message::SearchChanged),
+                Input::new("Search widgets", &self.search).on_change(Message::SearchChanged),
                 ntext::section_label("Theme"),
                 themes,
                 ntext::section_label("Density"),

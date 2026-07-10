@@ -72,12 +72,12 @@ impl Application for FormsApp {
             text("Contact Form").size(24),
             Field::new(
                 Input::new("Enter your name", &self.name)
-                    .on_input(Message::NameChanged)
+                    .on_change(Message::NameChanged)
             )
             .label("Name"),
             Field::new(
                 Input::new("Enter your email", &self.email)
-                    .on_input(Message::EmailChanged)
+                    .on_change(Message::EmailChanged)
                     .validation(if email_invalid {
                         FieldValidation::Invalid
                     } else {

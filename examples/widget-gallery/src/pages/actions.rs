@@ -32,42 +32,63 @@ pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
 }
 
 fn buttons(size: ControlSize) -> Element<'static, Message> {
+    use nbutton::{ButtonIntent as Intent, ButtonVariant as Variant};
+
     variant_grid([
-        example_cell(
-            "Primary",
-            nbutton::primary("Create")
-                .size(size)
-                .on_press(Message::Noop),
-        ),
-        example_cell(
-            "Secondary",
-            nbutton::secondary("Duplicate")
-                .size(size)
-                .on_press(Message::Noop),
-        ),
-        example_cell(
-            "Outline",
-            nbutton::outline("Inspect")
-                .size(size)
-                .on_press(Message::Noop),
-        ),
-        example_cell(
-            "Ghost",
-            nbutton::ghost("Preview").size(size).on_press(Message::Noop),
-        ),
-        example_cell(
+        button_combo("Neutral solid", "Neutral", Intent::Neutral, Variant::Solid, size),
+        button_combo("Neutral subtle", "Neutral", Intent::Neutral, Variant::Subtle, size),
+        button_combo("Neutral outline", "Neutral", Intent::Neutral, Variant::Outline, size),
+        button_combo("Neutral ghost", "Neutral", Intent::Neutral, Variant::Ghost, size),
+        button_combo("Suggested solid", "Suggested", Intent::Suggested, Variant::Solid, size),
+        button_combo("Suggested subtle", "Suggested", Intent::Suggested, Variant::Subtle, size),
+        button_combo("Suggested outline", "Suggested", Intent::Suggested, Variant::Outline, size),
+        button_combo("Suggested ghost", "Suggested", Intent::Suggested, Variant::Ghost, size),
+        button_combo(
+            "Destructive solid",
             "Destructive",
-            nbutton::destructive("Delete")
-                .size(size)
-                .on_press(Message::Noop),
+            Intent::Destructive,
+            Variant::Solid,
+            size,
         ),
-        example_cell(
-            "Link",
-            nbutton::link("Open details")
-                .size(size)
-                .on_press(Message::Noop),
+        button_combo(
+            "Destructive subtle",
+            "Destructive",
+            Intent::Destructive,
+            Variant::Subtle,
+            size,
+        ),
+        button_combo(
+            "Destructive outline",
+            "Destructive",
+            Intent::Destructive,
+            Variant::Outline,
+            size,
+        ),
+        button_combo(
+            "Destructive ghost",
+            "Destructive",
+            Intent::Destructive,
+            Variant::Ghost,
+            size,
         ),
     ])
+}
+
+fn button_combo(
+    title: &'static str,
+    label: &'static str,
+    intent: nbutton::ButtonIntent,
+    variant: nbutton::ButtonVariant,
+    size: ControlSize,
+) -> Element<'static, Message> {
+    example_cell(
+        title,
+        nbutton::secondary(label)
+            .intent(intent)
+            .variant(variant)
+            .size(size)
+            .on_press(Message::Noop),
+    )
 }
 
 fn button_states() -> Element<'static, Message> {
@@ -139,7 +160,7 @@ fn segmented_controls(size: ControlSize, selected: &'static str) -> Element<'sta
                 .item(segment("Preview", selected))
                 .item(segment("Code", selected))
                 .item(segment("Tests", selected).icon(IconRole::ActionConfirm))
-                .fill(),
+                .fill_width(),
         ),
         example_cell(
             "Flat",
@@ -149,7 +170,7 @@ fn segmented_controls(size: ControlSize, selected: &'static str) -> Element<'sta
                 .item(segment("Preview", selected))
                 .item(segment("Code", selected))
                 .item(segment("Tests", selected).icon(IconRole::ActionConfirm))
-                .fill(),
+                .fill_width(),
         ),
         example_cell(
             "Inline",
@@ -205,6 +226,7 @@ fn action_groups(size: ControlSize) -> Element<'static, Message> {
                 .action(ToolbarAction::label("Code").on_press(Message::Noop))
                 .action(
                     ToolbarAction::icon(IconRole::EditDelete)
+                        .destructive()
                         .disabled(true)
                         .tooltip("Delete"),
                 ),
@@ -270,11 +292,12 @@ fn toolbar(size: ControlSize) -> Element<'static, Message> {
                         )
                         .action(
                             ToolbarAction::icon(IconRole::EditDelete)
+                                .destructive()
                                 .disabled(true)
                                 .tooltip("Delete"),
                         ),
                 )
-                .fill(),
+                .fill_width(),
             container(ntext::body_small("Selected project activity")).padding(16)
         ]
         .spacing(0),
@@ -314,7 +337,7 @@ pub fn view_menu_only() -> Element<'static, Message> {
         .item(
             DropdownMenuItem::new("Delete")
                 .icon(IconRole::EditDelete)
-                .destructive(true)
+                .destructive()
                 .on_press(Message::Noop),
         )
         .width(260)

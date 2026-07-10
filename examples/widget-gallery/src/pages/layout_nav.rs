@@ -36,15 +36,15 @@ fn tabs(app: &WidgetGallery) -> Element<'_, Message> {
             column![
                 TabBar::new(app.layout.tab)
                     .tabs(tab_items)
-                    .on_activate(|id, _trigger| Message::SelectTab(id))
+                    .on_select(Message::SelectTab)
                     .on_close_request(Message::TabCloseRequested)
                     .on_context(Message::TabContextRequested)
                     .on_reorder(Message::TabReordered)
                     .on_tear_off(Message::TabTornOff)
-                    .fill(),
+                    .fill_width(),
                 ntext::body_small(&app.layout.tab_feedback),
                 nbutton::secondary("Toggle dirty tab")
-                    .shrink()
+                    .shrink_width()
                     .on_press(Message::ToggleDirtyTab),
             ]
             .spacing(10),
@@ -163,20 +163,21 @@ fn trees(app: &WidgetGallery) -> Element<'_, Message> {
             column![
                 row![
                     ntext::caption("Tree"),
-                    Badge::info(match mode {
+                    Badge::new(match mode {
                         SelectionMode::Multiple => "Multi-select",
                         SelectionMode::Single => "Single-select",
                         SelectionMode::None => "Selection off",
-                    }),
+                    })
+                    .info(),
                 ]
                 .spacing(8)
                 .align_y(Alignment::Center),
                 row![
                     nbutton::secondary("Single")
-                        .shrink()
+                        .shrink_width()
                         .on_press(Message::TreeSelectionModeChanged(SelectionMode::Single)),
                     nbutton::secondary("Multiple")
-                        .shrink()
+                        .shrink_width()
                         .on_press(Message::TreeSelectionModeChanged(SelectionMode::Multiple)),
                 ]
                 .spacing(8),
@@ -310,7 +311,7 @@ fn selectable(app: &WidgetGallery) -> Element<'_, Message> {
                     .leading_color(Color::from_rgb8(218, 78, 78)),
                 SelectableItem::new("Compact item")
                     .xs()
-                    .shrink()
+                    .shrink_width()
                     .tooltip("Compact selectable item")
                     .on_press(Message::SelectItem(2)),
             ]

@@ -62,20 +62,20 @@ fn badges() -> Element<'static, Message> {
         example_cell(
             "Tone badges",
             variant_row([
-                Badge::neutral("Neutral").into(),
-                Badge::info("Info").into(),
-                Badge::success("Success").into(),
-                Badge::warning("Warning").into(),
-                Badge::danger("Danger").into(),
+                Badge::new("Neutral").neutral().into(),
+                Badge::new("Info").info().into(),
+                Badge::new("Success").success().into(),
+                Badge::new("Warning").warning().into(),
+                Badge::new("Danger").danger().into(),
             ]),
         ),
         example_cell(
             "Sizes",
             variant_row([
-                Badge::accent("XS").xs().into(),
-                Badge::accent("SM").sm().into(),
-                Badge::accent("MD").md().into(),
-                Badge::accent("LG").lg().into(),
+                Badge::new("XS").accent().xs().into(),
+                Badge::new("SM").accent().sm().into(),
+                Badge::new("MD").accent().md().into(),
+                Badge::new("LG").accent().lg().into(),
             ]),
         ),
         example_cell(
@@ -142,15 +142,15 @@ fn metadata() -> Element<'static, Message> {
                     .tone(ToneRole::Success),
                 DataRow::new("Long metadata key that pressures dense rows")
                     .value("Long value preserved for review")
-                    .trailing(Badge::warning("Review")),
+                    .trailing(Badge::new("Review").warning()),
             ]
             .spacing(8),
         ),
         example_cell(
             "Compact cards",
             row![
-                Card::new(MetricCard::new("Files", 24)).sm().padding(10),
-                Card::new(MetricCard::new("Errors", 0)).sm().padding(10),
+                Card::new(MetricCard::new("Files", 24)).shape_md().padding(10),
+                Card::new(MetricCard::new("Errors", 0)).shape_md().padding(10),
             ]
             .spacing(8),
         ),
