@@ -23,7 +23,7 @@ pub struct InputGroup<'a, Message> {
     leading_slots: Vec<InputGroupSlot<'a, Message>>,
     trailing_slots: Vec<InputGroupSlot<'a, Message>>,
     size: ControlSize,
-    fill: bool,
+    width: Length,
     variant: InputGroupVariant,
 }
 
@@ -50,7 +50,7 @@ where
             leading_slots: Vec::new(),
             trailing_slots: Vec::new(),
             size: ControlSize::Sm,
-            fill: true,
+            width: Length::Fill,
             variant: InputGroupVariant::Default,
         }
     }
@@ -121,15 +121,7 @@ where
         self
     }
 
-    pub fn fill(mut self) -> Self {
-        self.fill = true;
-        self
-    }
-
-    pub fn shrink(mut self) -> Self {
-        self.fill = false;
-        self
-    }
+    crate::impl_layout_builders!(width_direct, fill_width_direct, shrink_width_direct);
 
     pub fn variant(mut self, variant: InputGroupVariant) -> Self {
         self.variant = variant;
@@ -145,6 +137,7 @@ where
         let input_disabled = self.input.is_disabled();
         let input_validation = self.input.field_validation();
         let slot_count = self.leading_slots.len() + 1 + self.trailing_slots.len();
+        let fill = matches!(self.width, Length::Fill);
         let mut row = Row::new()
             .spacing(0)
             .align_y(Alignment::Center)
@@ -155,7 +148,7 @@ where
         for slot in self.leading_slots {
             row = row.push(slot.into_element(
                 self.size,
-                self.fill,
+                fill,
                 input_disabled,
                 metrics,
                 position_for_index(index, slot_count),
@@ -166,7 +159,7 @@ where
         let input_radius =
             radius_for_position(position_for_index(index, slot_count), metrics.radius);
         row = row.push(self.input.into_group_element(
-            self.fill,
+            fill,
             input_radius,
             metrics.font_size,
             metrics.input_padding_v,
@@ -177,7 +170,7 @@ where
         for slot in self.trailing_slots {
             row = row.push(slot.into_element(
                 self.size,
-                self.fill,
+                fill,
                 input_disabled,
                 metrics,
                 position_for_index(index, slot_count),
@@ -187,9 +180,7 @@ where
 
         let mut group = container(row).height(Length::Fixed(metrics.height));
 
-        if self.fill {
-            group = group.width(Length::Fill);
-        }
+        group = group.width(self.width);
 
         Element::new(InputGroupFrame {
             content: group.into(),
@@ -249,6 +240,7 @@ where
                 height: metrics.height,
                 padding_h: metrics.slot_padding_h,
                 selected: false,
+                destructive: false,
                 kind: GroupedItemKind::Embedded,
             }),
             InputGroupSlot::Visual(content) => container(content)

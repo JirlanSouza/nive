@@ -5,7 +5,7 @@ use iced::{
     Background, Border,
 };
 
-use crate::theme::{self, BorderRole, ShapeRole, SpaceStep, SurfaceRole, TypographyRole};
+use crate::theme::{self, BorderRole, ShapeSize, SpaceStep, SurfaceRole, TypographyRole};
 use crate::Element;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -60,7 +60,7 @@ fn style() -> impl Fn(&crate::theme::Theme) -> container::Style {
             border: Border {
                 color: border.color,
                 width: border.width,
-                radius: theme.shape(ShapeRole::Medium).radius(),
+                radius: theme.shape(ShapeSize::Md).radius(),
             },
             shadow: surface.shadow,
             ..container::Style::default()

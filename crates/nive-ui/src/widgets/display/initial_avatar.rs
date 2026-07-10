@@ -5,7 +5,7 @@ use iced::{
 
 use crate::{
     theme::{
-        self, BorderRole, BorderSpec, ShapeRole, SurfaceRole, TextRole, ToneRole, TypographyRole,
+        self, BorderRole, BorderSpec, ShapeSize, SurfaceRole, TextRole, ToneRole, TypographyRole,
     },
     Element,
 };
@@ -25,6 +25,10 @@ pub enum AvatarSize {
     Lg,
 }
 
+/// Initial-based avatar.
+///
+/// `sm()` and `lg()` are retained as bare size shortcuts because the avatar's
+/// own size is its central configuration axis.
 pub struct InitialAvatar<'a, Message> {
     label: &'a str,
     class: AvatarClass,
@@ -95,12 +99,12 @@ fn metrics(size: AvatarSize) -> Metrics {
         AvatarSize::Sm => Metrics {
             dimension: AVATAR_SIZE_SM,
             font_size: theme::typography(TypographyRole::Body).size,
-            radius: theme::active().shape(ShapeRole::Medium).radius_value(),
+            radius: theme::active().shape(ShapeSize::Md).radius_value(),
         },
         AvatarSize::Lg => Metrics {
             dimension: AVATAR_SIZE_LG,
             font_size: 24.0,
-            radius: theme::active().shape(ShapeRole::ExtraLarge).radius_value(),
+            radius: theme::active().shape(ShapeSize::Xl).radius_value(),
         },
     }
 }
@@ -118,10 +122,10 @@ fn style(class: AvatarClass, radius: f32) -> impl Fn(&crate::theme::Theme) -> co
                 )
             }
             AvatarClass::Accent => {
-                let tone = theme.tone(ToneRole::Primary);
+                let tone = theme.tone(ToneRole::Accent);
                 (
                     tone.color,
-                    theme.tone(ToneRole::Primary).on_color,
+                    theme.tone(ToneRole::Accent).on_color,
                     BorderSpec::none(),
                 )
             }
@@ -153,9 +157,9 @@ mod initial_avatar_tests {
         let theme = Theme::Dark;
         let style = style(
             AvatarClass::Accent,
-            theme.shape(ShapeRole::Medium).radius_value(),
+            theme.shape(ShapeSize::Md).radius_value(),
         )(&theme);
-        let tone = theme.tone(ToneRole::Primary);
+        let tone = theme.tone(ToneRole::Accent);
 
         assert_eq!(background_color(&style), tone.color);
         assert_eq!(style.text_color, Some(tone.on_color));

@@ -101,20 +101,20 @@ impl<'a, Message> ErrorFeedbackAction<'a, Message> {
             } => match role {
                 ErrorFeedbackCommandRole::Primary => button::primary(label)
                     .size(size)
-                    .shrink()
+                    .shrink_width()
                     .disabled(disabled)
                     .on_press(on_press)
                     .into(),
                 ErrorFeedbackCommandRole::Secondary => button::secondary(label)
                     .size(size)
-                    .shrink()
+                    .shrink_width()
                     .disabled(disabled)
                     .on_press(on_press)
                     .into(),
             },
-            Self::Details { on_press } => button::link("Details...")
+            Self::Details { on_press } => button::ghost("Details...")
                 .size(size)
-                .shrink()
+                .shrink_width()
                 .on_press(on_press)
                 .into(),
             Self::Dismiss { on_press } => button::icon(IconRole::WindowClose)

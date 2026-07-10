@@ -73,14 +73,7 @@ where
         self
     }
 
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = Some(width.into());
-        self
-    }
-
-    pub fn fill(self) -> Self {
-        self.width(Length::Fill)
-    }
+    crate::impl_layout_builders!(width_opt, fill_width_opt, shrink_width_opt);
 
     fn into_element(self) -> Element<'a, Message> {
         let metrics = theme_toolbar::metrics(self.size);

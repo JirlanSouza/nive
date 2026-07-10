@@ -137,14 +137,14 @@ fn style(theme: &crate::theme::Theme, status: toggler::Status) -> toggler::Style
         ControlState::ENABLED
     };
     let control = theme.control(ControlRole::Standard, state);
-    let primary = theme.tone(ToneRole::Primary);
+    let primary = theme.tone(ToneRole::Accent);
     let background = if is_toggled {
         primary.color
     } else {
         control.background
     };
     let foreground = if is_toggled {
-        theme.tone(ToneRole::Primary).on_color
+        theme.tone(ToneRole::Accent).on_color
     } else {
         theme.text(TextRole::Secondary).color
     };
@@ -176,7 +176,7 @@ mod switch_tests {
 
         assert_eq!(
             background_color(style.background),
-            theme.tone(ToneRole::Primary).color
+            theme.tone(ToneRole::Accent).color
         );
     }
 

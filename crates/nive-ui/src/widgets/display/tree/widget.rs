@@ -197,27 +197,13 @@ where
         self
     }
 
-    /// Sets the tree width.
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = width.into();
-        self
-    }
-
-    /// Sets the tree viewport height.
-    ///
-    /// This constrains the tree-owned scrollable unless
-    /// [`no_scroll`](Self::no_scroll) is used.
-    pub fn height(mut self, height: impl Into<Length>) -> Self {
-        self.height = height.into();
-        self
-    }
-
-    /// Fills available width and height.
-    pub fn fill(mut self) -> Self {
-        self.width = Length::Fill;
-        self.height = Length::Fill;
-        self
-    }
+    crate::impl_layout_builders!(
+        width_direct,
+        height_direct,
+        fill_width_direct,
+        fill_height_direct,
+        fill_direct
+    );
 
     /// Renders content-sized rows without an internal viewport.
     ///
@@ -388,5 +374,21 @@ where
 {
     fn from(tree: Tree<'a, Id, Message>) -> Self {
         tree.into_element()
+    }
+}
+
+#[cfg(test)]
+mod layout_tests {
+    use super::*;
+
+    #[test]
+    fn fill_sets_tree_width_and_height() {
+        let tree = Tree::<u32, ()>::new(Vec::<TreeNode<'_, u32>>::new())
+            .width(Length::Shrink)
+            .height(Length::Fixed(120.0))
+            .fill();
+
+        assert_eq!(tree.width, Length::Fill);
+        assert_eq!(tree.height, Length::Fill);
     }
 }

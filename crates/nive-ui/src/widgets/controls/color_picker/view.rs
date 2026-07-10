@@ -84,9 +84,9 @@ fn hex_field<'a>(value: String, disabled: bool) -> Element<'a, ColorPickerEvent>
     let input = Input::<ColorPickerEvent>::new("", value)
         .xs()
         .disabled(disabled)
-        .on_input_maybe((!disabled).then_some(ColorPickerEvent::HexInput));
+        .on_change_maybe((!disabled).then_some(ColorPickerEvent::HexInput));
 
-    container(InputGroup::new(input).leading_text("HEX").xs().fill())
+    container(InputGroup::new(input).leading_text("HEX").xs().fill_width())
         .width(Length::Fixed(HEX_INPUT_WIDTH))
         .into()
 }
@@ -95,9 +95,9 @@ fn alpha_field<'a>(value: String, disabled: bool) -> Element<'a, ColorPickerEven
     let input = Input::<ColorPickerEvent>::new("", value)
         .xs()
         .disabled(disabled)
-        .on_input_maybe((!disabled).then_some(ColorPickerEvent::AlphaInput));
+        .on_change_maybe((!disabled).then_some(ColorPickerEvent::AlphaInput));
 
-    container(InputGroup::new(input).trailing_text("%").xs().fill())
+    container(InputGroup::new(input).trailing_text("%").xs().fill_width())
         .width(Length::Fixed(ALPHA_INPUT_WIDTH))
         .into()
 }

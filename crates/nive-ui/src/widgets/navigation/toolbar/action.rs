@@ -4,10 +4,15 @@ use super::style as theme_toolbar;
 use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec};
 use crate::widgets::primitives::IconRole;
 
+/// Action rendered inside a `Toolbar`.
+///
+/// Toolbar actions use `destructive()` for destructive semantics and do not
+/// expose `danger()` or `suggested()` shortcuts.
 pub struct ToolbarAction<'a, Message> {
     label: Option<&'a str>,
     icon: Option<IconRole>,
     selected: bool,
+    destructive: bool,
     disabled: bool,
     loading: bool,
     reserve_loading_indicator: bool,
@@ -21,6 +26,7 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
             label: None,
             icon: Some(icon),
             selected: false,
+            destructive: false,
             disabled: false,
             loading: false,
             reserve_loading_indicator: false,
@@ -34,6 +40,7 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
             label: Some(label),
             icon: None,
             selected: false,
+            destructive: false,
             disabled: false,
             loading: false,
             reserve_loading_indicator: false,
@@ -47,6 +54,7 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
             label: Some(label),
             icon: Some(icon),
             selected: false,
+            destructive: false,
             disabled: false,
             loading: false,
             reserve_loading_indicator: false,
@@ -57,6 +65,12 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
 
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    /// Marks this action as destructive.
+    pub fn destructive(mut self) -> Self {
+        self.destructive = true;
         self
     }
 
@@ -115,6 +129,7 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
             height: metrics.action_height,
             padding_h: metrics.action_padding_h,
             selected: self.selected,
+            destructive: self.destructive,
             kind: GroupedItemKind::Selectable,
         })
     }

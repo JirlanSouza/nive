@@ -36,7 +36,6 @@
 //!
 //! ```
 
-//! use nive_ui::interaction::ActivationTrigger;
 //! use nive_ui::widgets::{TabBar, TabItem};
 //!
 //! #[derive(Clone, Debug, PartialEq, Eq)]
@@ -47,7 +46,7 @@
 //!
 //! #[derive(Clone, Debug)]
 //! enum Message {
-//!     Activate(TabId, ActivationTrigger),
+//!     Select(TabId),
 //! }
 //!
 //! let tabs = [TabId::Overview, TabId::Details];
@@ -55,7 +54,7 @@
 //!     .tabs(tabs.iter().cloned().map(|id| {
 //!         TabItem::new(id, "Tab")
 //!     }))
-//!     .on_activate(Message::Activate)
+//!     .on_select(Message::Select)
 //!     .into();
 //! ```
 //!
@@ -77,10 +76,9 @@ use iced::{
 
 use crate::interaction::dnd::{DragSession, DragSessionFeedback, DragSessionOutcome};
 use crate::interaction::{
-    ActivationTrigger, CollectionTransferPayload, ContextInvocation, ContextPosition,
-    ContextRequest, ContextTarget, Drag, DropDecision, LinearInsertion, Orientation, PointerButton,
-    PointerGestureKind, PointerGestureState, SelectionSnapshot, TransferData, TransferOperation,
-    TransferOperations,
+    CollectionTransferPayload, ContextInvocation, ContextPosition, ContextRequest, ContextTarget,
+    Drag, DropDecision, LinearInsertion, Orientation, PointerButton, PointerGestureKind,
+    PointerGestureState, SelectionSnapshot, TransferData, TransferOperation, TransferOperations,
 };
 use crate::theme::{ControlSize, SurfaceRole};
 use crate::Element;
@@ -98,7 +96,7 @@ use crate::widgets::overlays::popover::{
 use crate::widgets::overlays::tooltip as tooltip_widget;
 use crate::widgets::primitives::{icon as icon_widget, IconRole};
 
-type ActivateCallback<'a, Id, Message> = Box<dyn Fn(Id, ActivationTrigger) -> Message + 'a>;
+type SelectCallback<'a, Id, Message> = Box<dyn Fn(Id) -> Message + 'a>;
 type CloseCallback<'a, Id, Message> = Box<dyn Fn(TabCloseRequest<Id>) -> Message + 'a>;
 type ContextCallback<'a, Id, Message> = Box<dyn Fn(ContextRequest<Id>) -> Message + 'a>;
 type ReorderCallback<'a, Id, Message> = Box<dyn Fn(TabDrop<Id>) -> Message + 'a>;
@@ -116,7 +114,7 @@ pub struct TabBar<'a, Id, Message> {
     size: ControlSize,
     role: SurfaceRole,
     width: Option<Length>,
-    on_activate: Option<ActivateCallback<'a, Id, Message>>,
+    on_select: Option<SelectCallback<'a, Id, Message>>,
     on_close_request: Option<CloseCallback<'a, Id, Message>>,
     on_context: Option<ContextCallback<'a, Id, Message>>,
     on_reorder: Option<ReorderCallback<'a, Id, Message>>,
@@ -237,7 +235,7 @@ struct DisplayTab<Id> {
 /// Internal messages produced by the all-tabs dropdown overlay.
 #[derive(Debug, Clone)]
 enum MenuMessage<Id> {
-    Activate(Id),
+    Select(Id),
     Dismiss,
 }
 
@@ -254,7 +252,7 @@ where
             size: ControlSize::Sm,
             role: SurfaceRole::Chrome,
             width: None,
-            on_activate: None,
+            on_select: None,
             on_close_request: None,
             on_context: None,
             on_reorder: None,
@@ -289,18 +287,15 @@ where
         self.push(tab)
     }
 
-    /// Maps tab activation intents into app messages.
-    pub fn on_activate(mut self, f: impl Fn(Id, ActivationTrigger) -> Message + 'a) -> Self {
-        self.on_activate = Some(Box::new(f));
+    /// Maps tab selection into app messages.
+    pub fn on_select(mut self, f: impl Fn(Id) -> Message + 'a) -> Self {
+        self.on_select = Some(Box::new(f));
         self
     }
 
-    /// Conditionally maps tab activation intents into app messages.
-    pub fn on_activate_maybe(
-        mut self,
-        f: Option<impl Fn(Id, ActivationTrigger) -> Message + 'a>,
-    ) -> Self {
-        self.on_activate = f.map(|f| Box::new(f) as ActivateCallback<'a, Id, Message>);
+    /// Conditionally maps tab selection into app messages.
+    pub fn on_select_maybe(mut self, f: Option<impl Fn(Id) -> Message + 'a>) -> Self {
+        self.on_select = f.map(|f| Box::new(f) as SelectCallback<'a, Id, Message>);
         self
     }
 
@@ -392,16 +387,7 @@ where
         self
     }
 
-    /// Sets width.
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = Some(width.into());
-        self
-    }
-
-    /// Fills available width.
-    pub fn fill(self) -> Self {
-        self.width(Length::Fill)
-    }
+    crate::impl_layout_builders!(width_opt, fill_width_opt, shrink_width_opt);
 
     fn displayed_tabs<'b>(&'b self) -> Vec<DisplayedTab<'b, 'a, Id>> {
         let mut pinned = Vec::new();
@@ -503,6 +489,7 @@ where
                 height: metrics.tab_height,
                 padding_h: 0.0,
                 selected: false,
+                destructive: false,
                 kind: GroupedItemKind::Embedded,
             })
             .into()
@@ -538,6 +525,7 @@ where
                     height: metrics.tab_height,
                     padding_h: 0.0,
                     selected,
+                    destructive: false,
                     kind: GroupedItemKind::Selectable,
                 });
             row![main, close]
@@ -591,9 +579,9 @@ where
         let activation = if tab.disabled {
             None
         } else {
-            self.on_activate
+            self.on_select
                 .as_ref()
-                .map(|on_activate| on_activate(tab.id.clone(), ActivationTrigger::Click))
+                .map(|on_select| on_select(tab.id.clone()))
         };
         let tab_width = (metrics.tab_height * 3.0).max(72.0);
         button::Button::custom(content.into())
@@ -606,6 +594,7 @@ where
                 height: metrics.tab_height,
                 padding_h: metrics.padding_h,
                 selected,
+                destructive: false,
                 kind: GroupedItemKind::Selectable,
             })
     }
@@ -630,7 +619,7 @@ where
         for (id, label, selected) in self.menu_entries() {
             let item = DropdownMenuItem::new(label)
                 .selected(selected)
-                .on_press(MenuMessage::Activate(id));
+                .on_press(MenuMessage::Select(id));
             menu = menu.push(item);
         }
         menu.into()
@@ -1436,16 +1425,16 @@ where
 
         // The menu element is refreshed in `update` before `overlay` runs, so it
         // reflects the latest tab set.
-        let on_activate_ref = self.on_activate.as_ref();
+        let on_select_ref = self.on_select.as_ref();
         let menu_state = &mut tree.children[1];
         let menu: &'b mut Element<'a, MenuMessage<Id>> = &mut self.menu;
         let on_dismiss_message = MenuMessage::<Id>::Dismiss;
 
         let on_message =
             move |message: MenuMessage<Id>, parent_shell: &mut Shell<'_, Message>| match message {
-                MenuMessage::Activate(id) => {
-                    if let Some(on_activate) = on_activate_ref {
-                        parent_shell.publish(on_activate(id, ActivationTrigger::Click));
+                MenuMessage::Select(id) => {
+                    if let Some(on_select) = on_select_ref {
+                        parent_shell.publish(on_select(id));
                     }
                     state.menu_open = false;
                     parent_shell.capture_event();
@@ -1660,7 +1649,7 @@ mod tabs_tests {
     #[allow(dead_code)]
     #[derive(Clone, Debug, PartialEq)]
     enum Message {
-        Activate(u8, ActivationTrigger),
+        Select(u8),
         Close(TabCloseRequest<u8>),
         Context(ContextRequest<u8>),
         Drop(TabDrop<u8>),

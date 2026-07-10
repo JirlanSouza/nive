@@ -26,7 +26,7 @@ where
     selected: Option<T>,
     placeholder: Option<&'a str>,
     size: ControlSize,
-    width: Option<Length>,
+    width: Length,
     disabled: bool,
     on_select: Option<Box<dyn Fn(T) -> Message + 'a>>,
     on_open: Option<Message>,
@@ -44,7 +44,7 @@ where
             selected,
             placeholder: None,
             size: ControlSize::Sm,
-            width: None,
+            width: Length::Fill,
             disabled: false,
             on_select: None,
             on_open: None,
@@ -78,18 +78,7 @@ where
         self.size(ControlSize::Lg)
     }
 
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = Some(width.into());
-        self
-    }
-
-    pub fn fill(self) -> Self {
-        self.width(Length::Fill)
-    }
-
-    pub fn shrink(self) -> Self {
-        self.width(Length::Shrink)
-    }
+    crate::impl_layout_builders!(width_direct, fill_width_direct, shrink_width_direct);
 
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
@@ -118,7 +107,7 @@ where
 
     fn into_element(self) -> Element<'a, Message> {
         let metrics = metrics(self.size);
-        let width = self.width.unwrap_or(Length::Shrink);
+        let width = self.width;
 
         if self.disabled || self.on_select.is_none() {
             return disabled_select(
@@ -322,6 +311,17 @@ mod select_tests {
         let style = style(6.0)(&theme, pick_list::Status::Opened { is_hovered: false });
 
         assert_eq!(style.border.color, theme.border(BorderRole::Focus).color);
+    }
+
+    #[test]
+    fn layout_builders_set_select_width() {
+        let default = Select::<_, ()>::new(vec!["Free"], None::<&str>);
+        let shrunk = Select::<_, ()>::new(vec!["Free"], None::<&str>).shrink_width();
+        let filled = Select::<_, ()>::new(vec!["Free"], None::<&str>).fill_width();
+
+        assert_eq!(default.width, Length::Fill);
+        assert_eq!(shrunk.width, Length::Shrink);
+        assert_eq!(filled.width, Length::Fill);
     }
 
     fn background_color(background: Background) -> Color {

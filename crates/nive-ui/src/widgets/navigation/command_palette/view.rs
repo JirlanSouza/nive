@@ -35,7 +35,7 @@ where
     let mut input = Input::new(placeholder, query)
         .appearance(crate::widgets::TextInputAppearance::Standard)
         .md()
-        .on_input(on_query_change);
+        .on_change(on_query_change);
 
     if let Some(message) = on_submit {
         input = input.on_submit(message);

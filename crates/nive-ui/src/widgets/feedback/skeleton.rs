@@ -4,7 +4,7 @@ use iced::{
 };
 
 use crate::theme::{
-    self, control_metrics, ControlSize, PaddingRole, ShapeRole, SurfaceRole, TextRole,
+    self, control_metrics, ControlSize, PaddingRole, ShapeSize, SurfaceRole, TextRole,
 };
 use crate::{Element, Renderer};
 
@@ -36,10 +36,12 @@ pub struct SkeletonControl<'a, Message> {
     size: ControlSize,
 }
 
+/// Skeleton loading surface with configurable shape.
 pub struct SkeletonCard<'a, Message> {
     content: Element<'a, Message>,
     role: SurfaceRole,
     width: Length,
+    height: Option<Length>,
     padding: Padding,
     radius: f32,
 }
@@ -91,15 +93,14 @@ impl Skeleton {
         Self::new().kind(SkeletonKind::TextRow)
     }
 
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = Some(width.into());
-        self
-    }
-
-    pub fn height(mut self, height: impl Into<Length>) -> Self {
-        self.height = Some(height.into());
-        self
-    }
+    crate::impl_layout_builders!(
+        width_opt,
+        height_opt,
+        fill_width_opt,
+        fill_height_opt,
+        fill_opt,
+        shrink_width_opt
+    );
 
     pub fn radius(mut self, radius: f32) -> Self {
         self.radius = Some(radius);
@@ -161,10 +162,7 @@ where
         }
     }
 
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = width.into();
-        self
-    }
+    crate::impl_layout_builders!(width_direct, fill_width_direct, shrink_width_direct);
 
     pub fn size(mut self, size: ControlSize) -> Self {
         self.size = size;
@@ -213,8 +211,9 @@ where
             content: content.into(),
             role: SurfaceRole::Panel,
             width: Length::Fill,
+            height: None,
             padding: theme::padding(PaddingRole::Compact),
-            radius: theme::active().shape(ShapeRole::Large).radius_value(),
+            radius: theme::active().shape(ShapeSize::Lg).radius_value(),
         }
     }
 
@@ -223,27 +222,72 @@ where
         self
     }
 
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = width.into();
+    /// Sets the card shape from the theme scale.
+    pub fn shape(mut self, shape: ShapeSize) -> Self {
+        self.radius = theme::active().shape(shape).radius_value();
         self
     }
+
+    pub fn shape_xs(self) -> Self {
+        self.shape(ShapeSize::Xs)
+    }
+
+    pub fn shape_sm(self) -> Self {
+        self.shape(ShapeSize::Sm)
+    }
+
+    pub fn shape_md(self) -> Self {
+        self.shape(ShapeSize::Md)
+    }
+
+    pub fn shape_lg(self) -> Self {
+        self.shape(ShapeSize::Lg)
+    }
+
+    pub fn shape_xl(self) -> Self {
+        self.shape(ShapeSize::Xl)
+    }
+
+    pub fn shape_xxl(self) -> Self {
+        self.shape(ShapeSize::Xxl)
+    }
+
+    /// Sets square corners, equivalent to `shape(ShapeSize::None)`.
+    pub fn square(self) -> Self {
+        self.shape(ShapeSize::None)
+    }
+
+    crate::impl_layout_builders!(
+        width_direct,
+        height_opt,
+        fill_width_direct,
+        fill_height_opt,
+        fill_direct_height_opt,
+        shrink_width_direct
+    );
 
     pub fn padding(mut self, padding: impl Into<Padding>) -> Self {
         self.padding = padding.into();
         self
     }
 
+    /// Sets a raw radius in pixels.
     pub fn radius(mut self, radius: f32) -> Self {
         self.radius = radius;
         self
     }
 
     fn into_element(self) -> Element<'a, Message> {
-        container(self.content)
+        let mut card = container(self.content)
             .style(card_style(self.role, self.radius))
             .padding(self.padding)
-            .width(self.width)
-            .into()
+            .width(self.width);
+
+        if let Some(height) = self.height {
+            card = card.height(height);
+        }
+
+        card.into()
     }
 }
 
@@ -355,6 +399,7 @@ fn skeleton_color(theme: crate::theme::Theme) -> Color {
 mod skeleton_tests {
     use super::*;
     use crate::theme::Theme;
+    use crate::tokens::radius as token_radius;
 
     #[test]
     fn block_metrics_use_control_size() {
@@ -407,5 +452,17 @@ mod skeleton_tests {
             Some(Background::Color(surface.background))
         );
         assert_eq!(style.border.color, surface.border.color);
+    }
+
+    #[test]
+    fn shape_builders_resolve_skeleton_card_radius() {
+        let default = SkeletonCard::<()>::new(iced::widget::Space::new());
+        let square = SkeletonCard::<()>::new(iced::widget::Space::new()).square();
+        let none = SkeletonCard::<()>::new(iced::widget::Space::new()).shape(ShapeSize::None);
+        let full = SkeletonCard::<()>::new(iced::widget::Space::new()).shape(ShapeSize::Full);
+
+        assert_eq!(default.radius, token_radius::LG);
+        assert_eq!(square.radius, none.radius);
+        assert_eq!(full.radius, token_radius::FULL);
     }
 }

@@ -1,6 +1,6 @@
 use iced::{widget::container, widget::progress_bar, widget::text, Background, Border, Shadow};
 
-use crate::theme::{self, control_metrics, ControlSize, ShapeRole, TextRole, ToneRole};
+use crate::theme::{self, control_metrics, ControlSize, ShapeSize, TextRole, ToneRole};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct InlineAlertMetrics {
@@ -37,7 +37,7 @@ pub fn inline_alert_metrics(size: ControlSize) -> InlineAlertMetrics {
             ControlSize::Lg => spacing.xl,
         },
         gap: spacing.md.max(control.gap),
-        radius: theme::active().shape(ShapeRole::Large).radius_value(),
+        radius: theme::active().shape(ShapeSize::Lg).radius_value(),
         indicator_size: match size {
             ControlSize::Xs => 6.0,
             ControlSize::Sm => 7.0,
@@ -156,8 +156,8 @@ mod feedback_tests {
     #[test]
     fn progress_uses_app_tone_role() {
         let theme = Theme::Dark;
-        let style = progress_style(ToneRole::Primary, 6.0)(&theme);
-        let tone = theme.tone(ToneRole::Primary);
+        let style = progress_style(ToneRole::Accent, 6.0)(&theme);
+        let tone = theme.tone(ToneRole::Accent);
 
         assert_eq!(background_color(style.bar), tone.color);
     }

@@ -45,6 +45,30 @@ where
         self
     }
 
+    pub fn neutral(self) -> Self {
+        self.tone(ToneRole::Neutral)
+    }
+
+    pub fn accent(self) -> Self {
+        self.tone(ToneRole::Accent)
+    }
+
+    pub fn info(self) -> Self {
+        self.tone(ToneRole::Info)
+    }
+
+    pub fn success(self) -> Self {
+        self.tone(ToneRole::Success)
+    }
+
+    pub fn warning(self) -> Self {
+        self.tone(ToneRole::Warning)
+    }
+
+    pub fn danger(self) -> Self {
+        self.tone(ToneRole::Danger)
+    }
+
     pub fn leading(mut self, leading: impl Into<Element<'a, Message>>) -> Self {
         self.leading = Some(leading.into());
         self
@@ -76,14 +100,7 @@ where
         self.size(ControlSize::Lg)
     }
 
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = Some(width.into());
-        self
-    }
-
-    pub fn fill(self) -> Self {
-        self.width(Length::Fill)
-    }
+    crate::impl_layout_builders!(width_opt, fill_width_opt, shrink_width_opt);
 
     fn into_element(self) -> Element<'a, Message> {
         let metrics = theme_metadata::metrics(self.size);

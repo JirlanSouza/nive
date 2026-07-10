@@ -9,6 +9,10 @@ use crate::Element;
 use super::style as theme_feedback;
 use crate::widgets::primitives::tone_dot::tone_dot;
 
+/// Inline feedback callout.
+///
+/// Use `danger()` for error/failure status tone. Destructive action semantics
+/// belong to actionable widgets such as `Button`.
 pub struct InlineAlert<'a, Message> {
     title: &'a str,
     body: Option<&'a str>,
@@ -41,6 +45,14 @@ where
         self
     }
 
+    pub fn neutral(self) -> Self {
+        self.tone(ToneRole::Neutral)
+    }
+
+    pub fn accent(self) -> Self {
+        self.tone(ToneRole::Accent)
+    }
+
     pub fn info(self) -> Self {
         self.tone(ToneRole::Info)
     }
@@ -53,12 +65,9 @@ where
         self.tone(ToneRole::Warning)
     }
 
+    /// Applies the danger status tone.
     pub fn danger(self) -> Self {
         self.tone(ToneRole::Danger)
-    }
-
-    pub fn accent(self) -> Self {
-        self.tone(ToneRole::Primary)
     }
 
     pub fn size(mut self, size: ControlSize) -> Self {

@@ -16,7 +16,7 @@ use super::style as theme_toolbar;
 pub struct ActionGroup<'a, Message> {
     items: Vec<ActionGroupItem<'a, Message>>,
     size: ControlSize,
-    fill: bool,
+    width: Length,
 }
 
 enum ActionGroupItem<'a, Message> {
@@ -32,7 +32,7 @@ where
         Self {
             items: Vec::new(),
             size: ControlSize::Sm,
-            fill: false,
+            width: Length::Shrink,
         }
     }
 
@@ -71,10 +71,7 @@ where
         self.size(ControlSize::Lg)
     }
 
-    pub fn fill(mut self) -> Self {
-        self.fill = true;
-        self
-    }
+    crate::impl_layout_builders!(fill_width_direct, shrink_width_direct);
 
     fn into_element(self) -> Element<'a, Message> {
         let metrics = theme_toolbar::metrics(self.size);
@@ -94,9 +91,7 @@ where
             .style(theme_toolbar::group_style(metrics.radius))
             .height(Length::Fixed(metrics.action_height));
 
-        if self.fill {
-            group = group.width(Length::Fill);
-        }
+        group = group.width(self.width);
 
         group.into()
     }
