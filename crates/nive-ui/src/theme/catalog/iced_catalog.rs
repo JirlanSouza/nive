@@ -6,10 +6,7 @@ use iced::{
     },
 };
 
-use super::button::{
-    destructive_button, embedded_button, ghost_button, link_button, outline_button, primary_button,
-    secondary_button,
-};
+use super::button::{embedded_button, standard_button};
 use super::classes::{
     ButtonClass, CheckboxClass, ContainerClass, MenuClass, PickListClass, ProgressBarClass,
     RuleClass, ScrollableClass, TextClass, TextInputClass, TogglerClass,
@@ -31,12 +28,9 @@ impl button::Catalog for Theme {
 
     fn style(&self, class: &Self::Class<'_>, status: button::Status) -> button::Style {
         match class {
-            ButtonClass::Primary => primary_button(self, status),
-            ButtonClass::Secondary => secondary_button(self, status),
-            ButtonClass::Outline => outline_button(self, status),
-            ButtonClass::Ghost => ghost_button(self, status),
-            ButtonClass::Destructive => destructive_button(self, status),
-            ButtonClass::Link => link_button(self, status),
+            ButtonClass::Standard { intent, variant } => {
+                standard_button(self, *intent, *variant, status)
+            }
             ButtonClass::Embedded => embedded_button(self, status),
             ButtonClass::Custom(style) => style(self, status),
         }

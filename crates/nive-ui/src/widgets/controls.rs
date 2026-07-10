@@ -13,7 +13,7 @@ pub mod selectable_item;
 pub mod switch;
 
 pub use autocomplete::{Autocomplete, AutocompleteMessage};
-pub use button::{Button, ButtonVariant};
+pub use button::{Button, ButtonIntent, ButtonVariant};
 pub use checkbox::Checkbox;
 pub use color_input::ColorInput;
 pub use color_picker::{ColorPicker, RgbHexColor};

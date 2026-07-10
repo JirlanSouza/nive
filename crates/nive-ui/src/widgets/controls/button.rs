@@ -15,13 +15,15 @@ use crate::advanced::pressable::Pressable;
 use crate::widgets::overlays::tooltip as tooltip_widget;
 use crate::widgets::primitives::IconRole;
 
-pub use style::ButtonVariant;
 pub use style::{button_control_state, focus_ring, ButtonFocusRing};
+pub use style::{ButtonIntent, ButtonVariant};
 
+/// Action button with separate intent and visual variant axes.
 pub struct Button<'a, Message> {
     content: Content<'a, Message>,
     leading_icon: Option<IconRole>,
     trailing_icon: Option<IconRole>,
+    intent: ButtonIntent,
     variant: ButtonVariant,
     size: ControlSize,
     text_align: TextAlign,
@@ -50,67 +52,92 @@ pub(crate) struct GroupedItemSpec {
     pub(crate) height: f32,
     pub(crate) padding_h: f32,
     pub(crate) selected: bool,
+    pub(crate) destructive: bool,
     pub(crate) kind: GroupedItemKind,
 }
 
+/// Creates a suggested solid button.
 pub fn primary<'a, Message>(label: &'a str) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
-    Button::new(Content::Label(label), ButtonVariant::Primary)
+    Button::new(
+        Content::Label(label),
+        ButtonIntent::Suggested,
+        ButtonVariant::Solid,
+    )
 }
 
+/// Creates a neutral outline button.
 pub fn outline<'a, Message>(label: &'a str) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
-    Button::new(Content::Label(label), ButtonVariant::Outline)
+    Button::new(
+        Content::Label(label),
+        ButtonIntent::Neutral,
+        ButtonVariant::Outline,
+    )
 }
 
+/// Creates a neutral subtle button.
 pub fn secondary<'a, Message>(label: &'a str) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
-    Button::new(Content::Label(label), ButtonVariant::Secondary)
+    Button::new(
+        Content::Label(label),
+        ButtonIntent::Neutral,
+        ButtonVariant::Subtle,
+    )
 }
 
+/// Creates a neutral ghost button.
 pub fn ghost<'a, Message>(label: &'a str) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
-    Button::new(Content::Label(label), ButtonVariant::Ghost)
+    Button::new(
+        Content::Label(label),
+        ButtonIntent::Neutral,
+        ButtonVariant::Ghost,
+    )
 }
 
+/// Creates a destructive solid button.
 pub fn destructive<'a, Message>(label: &'a str) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
-    Button::new(Content::Label(label), ButtonVariant::Destructive)
+    Button::new(
+        Content::Label(label),
+        ButtonIntent::Destructive,
+        ButtonVariant::Solid,
+    )
 }
 
-pub fn link<'a, Message>(label: &'a str) -> Button<'a, Message>
-where
-    Message: Clone + 'a,
-{
-    Button::new(Content::Label(label), ButtonVariant::Link)
-}
-
+/// Creates a neutral ghost icon button.
 pub fn icon<'a, Message>(app_icon: IconRole) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
-    Button::new(Content::Icon(app_icon), ButtonVariant::Ghost)
+    Button::new(
+        Content::Icon(app_icon),
+        ButtonIntent::Neutral,
+        ButtonVariant::Ghost,
+    )
 }
 
 impl<'a, Message> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
-    fn new(content: Content<'a, Message>, variant: ButtonVariant) -> Self {
+    fn new(content: Content<'a, Message>, intent: ButtonIntent, variant: ButtonVariant) -> Self {
         Self {
             content,
             leading_icon: None,
             trailing_icon: None,
+            intent,
             variant,
             size: ControlSize::Sm,
             text_align: TextAlign::Center,
@@ -127,37 +154,77 @@ where
         }
     }
 
+    /// Sets the visual variant axis.
     pub fn variant(mut self, variant: ButtonVariant) -> Self {
         self.variant = variant;
         self
     }
 
+    /// Sets the semantic intent axis.
+    pub fn intent(mut self, intent: ButtonIntent) -> Self {
+        self.intent = intent;
+        self
+    }
+
     pub(crate) fn custom(content: Element<'a, Message>) -> Self {
-        Self::new(Content::Custom(content), ButtonVariant::Ghost)
+        Self::new(
+            Content::Custom(content),
+            ButtonIntent::Neutral,
+            ButtonVariant::Ghost,
+        )
     }
 
+    /// Sets this button to `Suggested + Solid`.
     pub fn primary(self) -> Self {
-        self.variant(ButtonVariant::Primary)
+        self.intent(ButtonIntent::Suggested)
+            .variant(ButtonVariant::Solid)
     }
 
+    /// Sets this button to `Neutral + Subtle`.
     pub fn secondary(self) -> Self {
-        self.variant(ButtonVariant::Secondary)
+        self.intent(ButtonIntent::Neutral)
+            .variant(ButtonVariant::Subtle)
     }
 
+    /// Sets this button to `Neutral + Outline`.
     pub fn outline(self) -> Self {
-        self.variant(ButtonVariant::Outline)
+        self.intent(ButtonIntent::Neutral)
+            .variant(ButtonVariant::Outline)
     }
 
+    /// Sets this button to `Neutral + Ghost`.
     pub fn ghost(self) -> Self {
-        self.variant(ButtonVariant::Ghost)
+        self.intent(ButtonIntent::Neutral)
+            .variant(ButtonVariant::Ghost)
     }
 
+    /// Sets this button to `Destructive + Solid`.
+    ///
+    /// Use `destructive` for actions. Status widgets use `danger` for the
+    /// corresponding tone language.
     pub fn destructive(self) -> Self {
-        self.variant(ButtonVariant::Destructive)
+        self.intent(ButtonIntent::Destructive)
+            .variant(ButtonVariant::Solid)
     }
 
-    pub fn link(self) -> Self {
-        self.variant(ButtonVariant::Link)
+    /// Sets the intent axis to neutral.
+    pub fn neutral(self) -> Self {
+        self.intent(ButtonIntent::Neutral)
+    }
+
+    /// Sets the intent axis to suggested/default action.
+    pub fn suggested(self) -> Self {
+        self.intent(ButtonIntent::Suggested)
+    }
+
+    /// Sets the variant axis to solid.
+    pub fn solid(self) -> Self {
+        self.variant(ButtonVariant::Solid)
+    }
+
+    /// Sets the variant axis to subtle.
+    pub fn subtle(self) -> Self {
+        self.variant(ButtonVariant::Subtle)
     }
 
     pub fn size(mut self, size: ControlSize) -> Self {
@@ -195,17 +262,9 @@ where
         self
     }
 
-    pub fn shrink(mut self) -> Self {
-        self.width = Some(Length::Shrink);
-        self
-    }
+    crate::impl_layout_builders!(width_opt, fill_width_opt, shrink_width_opt);
 
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = Some(width.into());
-        self
-    }
-
-    pub fn height(mut self, height: impl Into<Length>) -> Self {
+    pub(crate) fn height(mut self, height: impl Into<Length>) -> Self {
         self.height = Some(height.into());
         self
     }
@@ -313,7 +372,9 @@ where
 
     fn focus_ring(&self) -> ButtonFocusRing {
         match self.variant {
-            ButtonVariant::Primary => ButtonFocusRing::OnPrimary,
+            ButtonVariant::Solid if self.intent == ButtonIntent::Suggested => {
+                ButtonFocusRing::OnPrimary
+            }
             _ => ButtonFocusRing::Default,
         }
     }
@@ -325,5 +386,85 @@ where
 {
     fn from(button: Button<'a, Message>) -> Self {
         button.into_element_chrome(ButtonChrome::Standalone)
+    }
+}
+
+#[cfg(test)]
+mod button_tests {
+    use super::*;
+
+    #[test]
+    fn shrink_width_sets_button_width_to_shrink() {
+        let button = secondary::<()>("Open").fill_width().shrink_width();
+
+        assert_eq!(button.width, Some(Length::Shrink));
+    }
+
+    #[test]
+    fn high_level_shortcuts_map_to_intent_and_variant_pairs() {
+        assert_button(
+            primary::<()>("Create"),
+            ButtonIntent::Suggested,
+            ButtonVariant::Solid,
+        );
+        assert_button(
+            secondary::<()>("Copy"),
+            ButtonIntent::Neutral,
+            ButtonVariant::Subtle,
+        );
+        assert_button(
+            outline::<()>("Inspect"),
+            ButtonIntent::Neutral,
+            ButtonVariant::Outline,
+        );
+        assert_button(
+            ghost::<()>("Preview"),
+            ButtonIntent::Neutral,
+            ButtonVariant::Ghost,
+        );
+        assert_button(
+            destructive::<()>("Delete"),
+            ButtonIntent::Destructive,
+            ButtonVariant::Solid,
+        );
+        assert_button(
+            icon::<()>(IconRole::WindowClose),
+            ButtonIntent::Neutral,
+            ButtonVariant::Ghost,
+        );
+    }
+
+    #[test]
+    fn axis_shortcuts_change_their_button_axis() {
+        let button = secondary::<()>("Save").suggested().solid();
+
+        assert_button(button, ButtonIntent::Suggested, ButtonVariant::Solid);
+        assert_button(
+            ghost::<()>("Neutral").solid(),
+            ButtonIntent::Neutral,
+            ButtonVariant::Solid,
+        );
+        assert_button(
+            primary::<()>("Subtle").neutral().subtle(),
+            ButtonIntent::Neutral,
+            ButtonVariant::Subtle,
+        );
+    }
+
+    fn assert_button(button: Button<'_, ()>, intent: ButtonIntent, variant: ButtonVariant) {
+        assert_eq!(button.intent, intent);
+        assert_eq!(button.variant, variant);
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    enum Message {
+        Pressed,
+    }
+
+    #[test]
+    fn disabled_button_ignores_present_callback() {
+        let button = primary("Save").on_press(Message::Pressed).disabled(true);
+
+        assert_eq!(button.keyboard_activation(), None);
     }
 }

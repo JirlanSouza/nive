@@ -1,7 +1,8 @@
 use iced::{widget::button, Background, Color, Shadow};
 
 use super::shared::{border_with_radius, transparent_border_with_radius};
-use crate::theme::{ControlRole, ControlState, ShapeRole, TextRole, Theme, ToneRole};
+use crate::theme::{ControlRole, ControlState, ShapeSize, TextRole, Theme, ToneRole};
+use crate::widgets::controls::button::{ButtonIntent, ButtonVariant};
 
 pub(super) fn button_control_state(status: button::Status) -> ControlState {
     match status {
@@ -14,7 +15,7 @@ pub(super) fn button_control_state(status: button::Status) -> ControlState {
 
 pub(super) fn primary_button(theme: &Theme, status: button::Status) -> button::Style {
     let theme = *theme;
-    let tone = theme.tone(ToneRole::Primary);
+    let tone = theme.tone(ToneRole::Accent);
     let alpha = match status {
         button::Status::Active => 1.0,
         button::Status::Hovered => 0.90,
@@ -24,14 +25,14 @@ pub(super) fn primary_button(theme: &Theme, status: button::Status) -> button::S
 
     button::Style {
         background: Some(Background::Color(tone.color.scale_alpha(alpha))),
-        text_color: theme.tone(ToneRole::Primary).on_color.scale_alpha(
+        text_color: theme.tone(ToneRole::Accent).on_color.scale_alpha(
             if matches!(status, button::Status::Disabled) {
                 0.65
             } else {
                 1.0
             },
         ),
-        border: transparent_border_with_radius(theme.shape(ShapeRole::Medium).radius()),
+        border: transparent_border_with_radius(theme.shape(ShapeSize::Md).radius()),
         shadow: Shadow::default(),
         ..button::Style::default()
     }
@@ -59,7 +60,7 @@ pub(super) fn secondary_button(theme: &Theme, status: button::Status) -> button:
     button::Style {
         background: Some(Background::Color(background)),
         text_color,
-        border: border_with_radius(border, theme.shape(ShapeRole::Medium).radius()),
+        border: border_with_radius(border, theme.shape(ShapeSize::Md).radius()),
         shadow: Shadow::default(),
         ..button::Style::default()
     }
@@ -81,7 +82,7 @@ pub(super) fn outline_button(theme: &Theme, status: button::Status) -> button::S
     button::Style {
         background: Some(Background::Color(background)),
         text_color,
-        border: border_with_radius(control.border, theme.shape(ShapeRole::Medium).radius()),
+        border: border_with_radius(control.border, theme.shape(ShapeSize::Md).radius()),
         shadow: Shadow::default(),
         ..button::Style::default()
     }
@@ -103,7 +104,7 @@ pub(super) fn ghost_button(theme: &Theme, status: button::Status) -> button::Sty
     button::Style {
         background: Some(Background::Color(background)),
         text_color,
-        border: transparent_border_with_radius(theme.shape(ShapeRole::Medium).radius()),
+        border: transparent_border_with_radius(theme.shape(ShapeSize::Md).radius()),
         shadow: Shadow::default(),
         ..button::Style::default()
     }
@@ -127,28 +128,142 @@ pub(super) fn destructive_button(theme: &Theme, status: button::Status) -> butto
     button::Style {
         background: Some(Background::Color(background)),
         text_color,
-        border: border_with_radius(tone.border, theme.shape(ShapeRole::Medium).radius()),
+        border: border_with_radius(tone.border, theme.shape(ShapeSize::Md).radius()),
         shadow: Shadow::default(),
         ..button::Style::default()
     }
 }
 
-pub(super) fn link_button(theme: &Theme, status: button::Status) -> button::Style {
+pub(super) fn standard_button(
+    theme: &Theme,
+    intent: ButtonIntent,
+    variant: ButtonVariant,
+    status: button::Status,
+) -> button::Style {
+    match (intent, variant) {
+        (ButtonIntent::Suggested, ButtonVariant::Solid) => primary_button(theme, status),
+        (ButtonIntent::Neutral, ButtonVariant::Subtle) => secondary_button(theme, status),
+        (ButtonIntent::Neutral, ButtonVariant::Outline) => outline_button(theme, status),
+        (ButtonIntent::Neutral, ButtonVariant::Ghost) => ghost_button(theme, status),
+        (ButtonIntent::Destructive, ButtonVariant::Solid) => destructive_button(theme, status),
+        _ => composed_button(theme, intent, variant, status),
+    }
+}
+
+fn composed_button(
+    theme: &Theme,
+    intent: ButtonIntent,
+    variant: ButtonVariant,
+    status: button::Status,
+) -> button::Style {
+    match variant {
+        ButtonVariant::Solid => solid_tone_button(theme, tone_role(intent), status),
+        ButtonVariant::Subtle => subtle_tone_button(theme, tone_role(intent), status),
+        ButtonVariant::Outline => outline_tone_button(theme, tone_role(intent), status),
+        ButtonVariant::Ghost => ghost_tone_button(theme, tone_role(intent), status),
+    }
+}
+
+fn solid_tone_button(theme: &Theme, role: ToneRole, status: button::Status) -> button::Style {
     let theme = *theme;
-    let tone = theme.tone(ToneRole::Primary);
+    let tone = theme.tone(role);
     let alpha = match status {
         button::Status::Active => 1.0,
-        button::Status::Hovered => 0.88,
-        button::Status::Pressed => 0.76,
-        button::Status::Disabled => 0.50,
+        button::Status::Hovered => 0.90,
+        button::Status::Pressed => 0.82,
+        button::Status::Disabled => 0.45,
     };
 
     button::Style {
-        background: Some(Background::Color(Color::TRANSPARENT)),
-        text_color: tone.color.scale_alpha(alpha),
-        border: transparent_border_with_radius(theme.shape(ShapeRole::Medium).radius()),
+        background: Some(Background::Color(tone.color.scale_alpha(alpha))),
+        text_color: tone
+            .on_color
+            .scale_alpha(if matches!(status, button::Status::Disabled) {
+                0.65
+            } else {
+                1.0
+            }),
+        border: transparent_border_with_radius(theme.shape(ShapeSize::Md).radius()),
         shadow: Shadow::default(),
         ..button::Style::default()
+    }
+}
+
+fn subtle_tone_button(theme: &Theme, role: ToneRole, status: button::Status) -> button::Style {
+    let theme = *theme;
+    let tone = theme.tone(role);
+    let background = match status {
+        button::Status::Active => tone.container,
+        button::Status::Hovered => tone.container.scale_alpha(1.35),
+        button::Status::Pressed => tone.container.scale_alpha(1.12),
+        button::Status::Disabled => tone.container.scale_alpha(0.55),
+    };
+    let text_color = if matches!(status, button::Status::Disabled) {
+        tone.color.scale_alpha(0.55)
+    } else {
+        tone.color
+    };
+
+    button::Style {
+        background: Some(Background::Color(background)),
+        text_color,
+        border: border_with_radius(tone.border, theme.shape(ShapeSize::Md).radius()),
+        shadow: Shadow::default(),
+        ..button::Style::default()
+    }
+}
+
+fn outline_tone_button(theme: &Theme, role: ToneRole, status: button::Status) -> button::Style {
+    let theme = *theme;
+    let tone = theme.tone(role);
+    let background = match status {
+        button::Status::Active | button::Status::Disabled => Color::TRANSPARENT,
+        button::Status::Hovered => tone.container,
+        button::Status::Pressed => tone.container.scale_alpha(1.18),
+    };
+    let text_color = if matches!(status, button::Status::Disabled) {
+        tone.color.scale_alpha(0.55)
+    } else {
+        tone.color
+    };
+
+    button::Style {
+        background: Some(Background::Color(background)),
+        text_color,
+        border: border_with_radius(tone.border, theme.shape(ShapeSize::Md).radius()),
+        shadow: Shadow::default(),
+        ..button::Style::default()
+    }
+}
+
+fn ghost_tone_button(theme: &Theme, role: ToneRole, status: button::Status) -> button::Style {
+    let theme = *theme;
+    let tone = theme.tone(role);
+    let background = match status {
+        button::Status::Active | button::Status::Disabled => Color::TRANSPARENT,
+        button::Status::Hovered => tone.container,
+        button::Status::Pressed => tone.container.scale_alpha(1.18),
+    };
+    let text_color = if matches!(status, button::Status::Disabled) {
+        tone.color.scale_alpha(0.55)
+    } else {
+        tone.color
+    };
+
+    button::Style {
+        background: Some(Background::Color(background)),
+        text_color,
+        border: transparent_border_with_radius(theme.shape(ShapeSize::Md).radius()),
+        shadow: Shadow::default(),
+        ..button::Style::default()
+    }
+}
+
+fn tone_role(intent: ButtonIntent) -> ToneRole {
+    match intent {
+        ButtonIntent::Neutral => ToneRole::Neutral,
+        ButtonIntent::Suggested => ToneRole::Accent,
+        ButtonIntent::Destructive => ToneRole::Danger,
     }
 }
 
@@ -169,7 +284,7 @@ pub(super) fn embedded_button(theme: &Theme, status: button::Status) -> button::
     button::Style {
         background: Some(Background::Color(background)),
         text_color: foreground,
-        border: transparent_border_with_radius(theme.shape(ShapeRole::Medium).radius()),
+        border: transparent_border_with_radius(theme.shape(ShapeSize::Md).radius()),
         shadow: Shadow::default(),
         ..button::Style::default()
     }

@@ -8,16 +8,21 @@ use iced::{
 };
 
 use super::{
+    button::{destructive_button, ghost_button, outline_button, primary_button, secondary_button},
     ButtonClass, CheckboxClass, ContainerClass, FieldValidation, MenuClass, PickListClass,
     ProgressBarClass, RuleClass, ScrollableClass, TextClass, TextInputClass, TogglerClass,
 };
 use crate::theme::{BorderRole, ControlRole, ControlState, SurfaceRole, Theme, ToneRole};
+use crate::widgets::{ButtonIntent, ButtonVariant};
 
 #[test]
 fn catalog_defaults_are_semantic_classes() {
     assert!(matches!(
         <Theme as button::Catalog>::default(),
-        ButtonClass::Primary
+        ButtonClass::Standard {
+            intent: ButtonIntent::Suggested,
+            variant: ButtonVariant::Solid,
+        }
     ));
     assert!(matches!(
         <Theme as checkbox::Catalog>::default(),
@@ -88,22 +93,28 @@ fn default_container_is_transparent() {
 }
 
 #[test]
-fn button_primary_class_uses_semantic_primary() {
+fn button_suggested_solid_class_uses_accent() {
     let theme = Theme::Dark;
-    let class = ButtonClass::Primary;
+    let class = ButtonClass::Standard {
+        intent: ButtonIntent::Suggested,
+        variant: ButtonVariant::Solid,
+    };
     let style = <Theme as button::Catalog>::style(&theme, &class, button::Status::Active);
 
     assert_eq!(
         background_color(style.background),
-        theme.tone(ToneRole::Primary).color
+        theme.tone(ToneRole::Accent).color
     );
-    assert_eq!(style.text_color, theme.tone(ToneRole::Primary).on_color);
+    assert_eq!(style.text_color, theme.tone(ToneRole::Accent).on_color);
 }
 
 #[test]
 fn button_destructive_class_uses_danger_tone() {
     let theme = Theme::Dark;
-    let class = ButtonClass::Destructive;
+    let class = ButtonClass::Standard {
+        intent: ButtonIntent::Destructive,
+        variant: ButtonVariant::Solid,
+    };
     let style = <Theme as button::Catalog>::style(&theme, &class, button::Status::Active);
     let danger = theme.tone(ToneRole::Danger);
 
@@ -114,28 +125,66 @@ fn button_destructive_class_uses_danger_tone() {
 }
 
 #[test]
-fn button_link_class_uses_primary_text_without_chrome() {
+fn legacy_button_combinations_match_previous_styles_for_each_status() {
     let theme = Theme::Dark;
-    let class = ButtonClass::Link;
-    let style = <Theme as button::Catalog>::style(&theme, &class, button::Status::Active);
+    let cases: [(
+        ButtonIntent,
+        ButtonVariant,
+        fn(&Theme, button::Status) -> button::Style,
+    ); 5] = [
+        (
+            ButtonIntent::Suggested,
+            ButtonVariant::Solid,
+            primary_button,
+        ),
+        (
+            ButtonIntent::Neutral,
+            ButtonVariant::Subtle,
+            secondary_button,
+        ),
+        (
+            ButtonIntent::Neutral,
+            ButtonVariant::Outline,
+            outline_button,
+        ),
+        (ButtonIntent::Neutral, ButtonVariant::Ghost, ghost_button),
+        (
+            ButtonIntent::Destructive,
+            ButtonVariant::Solid,
+            destructive_button,
+        ),
+    ];
+    let statuses = [
+        button::Status::Active,
+        button::Status::Hovered,
+        button::Status::Pressed,
+        button::Status::Disabled,
+    ];
 
-    assert_eq!(background_color(style.background), Color::TRANSPARENT);
-    assert_eq!(style.text_color, theme.tone(ToneRole::Primary).color);
-    assert_eq!(style.border.color, Color::TRANSPARENT);
-    assert_eq!(style.border.width, 0.0);
+    for (intent, variant, legacy_style) in cases {
+        let class = ButtonClass::Standard { intent, variant };
+
+        for status in statuses {
+            assert_eq!(
+                <Theme as button::Catalog>::style(&theme, &class, status),
+                legacy_style(&theme, status),
+                "{intent:?} {variant:?} {status:?}"
+            );
+        }
+    }
 }
 
 #[test]
-fn default_button_uses_semantic_primary() {
+fn default_button_uses_suggested_solid() {
     let theme = Theme::Dark;
     let class = <Theme as button::Catalog>::default();
     let style = <Theme as button::Catalog>::style(&theme, &class, button::Status::Active);
 
     assert_eq!(
         background_color(style.background),
-        theme.tone(ToneRole::Primary).color
+        theme.tone(ToneRole::Accent).color
     );
-    assert_eq!(style.text_color, theme.tone(ToneRole::Primary).on_color);
+    assert_eq!(style.text_color, theme.tone(ToneRole::Accent).on_color);
 }
 
 #[test]
@@ -150,9 +199,9 @@ fn default_checkbox_uses_semantic_primary_when_checked() {
 
     assert_eq!(
         background_color(Some(style.background)),
-        theme.tone(ToneRole::Primary).color
+        theme.tone(ToneRole::Accent).color
     );
-    assert_eq!(style.icon_color, theme.tone(ToneRole::Primary).on_color);
+    assert_eq!(style.icon_color, theme.tone(ToneRole::Accent).on_color);
 }
 
 #[test]
@@ -217,7 +266,7 @@ fn default_toggler_uses_semantic_primary_when_toggled() {
 
     assert_eq!(
         background_color(Some(style.background)),
-        theme.tone(ToneRole::Primary).color
+        theme.tone(ToneRole::Accent).color
     );
 }
 
@@ -238,7 +287,7 @@ fn default_progress_bar_uses_semantic_primary_bar() {
 
     assert_eq!(
         background_color(Some(style.bar)),
-        theme.tone(ToneRole::Primary).color
+        theme.tone(ToneRole::Accent).color
     );
 }
 
@@ -259,7 +308,7 @@ fn default_scrollable_hover_uses_primary_scroller() {
 
     assert_eq!(
         background_color(Some(style.vertical_rail.scroller.background)),
-        theme.tone(ToneRole::Primary).color
+        theme.tone(ToneRole::Accent).color
     );
 }
 

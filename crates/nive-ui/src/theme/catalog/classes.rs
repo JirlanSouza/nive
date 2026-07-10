@@ -7,18 +7,24 @@ use iced::{
 };
 
 use super::super::{TextRole, Theme, ToneRole};
+use crate::widgets::controls::button::{ButtonIntent, ButtonVariant};
 
-#[derive(Default)]
 pub enum ButtonClass<'a> {
-    #[default]
-    Primary,
-    Secondary,
-    Outline,
-    Ghost,
-    Destructive,
-    Link,
+    Standard {
+        intent: ButtonIntent,
+        variant: ButtonVariant,
+    },
     Embedded,
     Custom(button::StyleFn<'a, Theme>),
+}
+
+impl Default for ButtonClass<'_> {
+    fn default() -> Self {
+        Self::Standard {
+            intent: ButtonIntent::Suggested,
+            variant: ButtonVariant::Solid,
+        }
+    }
 }
 
 #[derive(Default)]
