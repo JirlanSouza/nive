@@ -31,7 +31,7 @@ pub use roles::{
     BorderRole, ControlRole, ControlState, InteractionState, SurfaceRole, TextRole, ToneRole,
 };
 pub use scheme::{Theme, ThemeCatalog, ThemeData, ThemeId};
-pub use shape::{ShapeRole, ShapeScale, ShapeSpec};
+pub use shape::{ShapeScale, ShapeSize, ShapeSpec};
 pub use spacing::{GapRole, PaddingRole, SpaceStep};
 pub use typography::{typography, TextStyle, TypographyRole, TypographyScale};
 
