@@ -17,9 +17,9 @@ pub use containers::{
     SelectableCard, SplitPane, SplitPaneConstraints,
 };
 pub use controls::{
-    Autocomplete, AutocompleteMessage, Button, ButtonVariant, Checkbox, ColorInput, ColorPicker,
-    Field, FieldError, FieldGroup, FieldHint, FieldLabel, FieldValidation, Input, InputGroup,
-    InputGroupVariant, PathInput, RgbHexColor, SegmentedControl, SegmentedItem, Select,
+    Autocomplete, AutocompleteMessage, Button, ButtonIntent, ButtonVariant, Checkbox, ColorInput,
+    ColorPicker, Field, FieldError, FieldGroup, FieldHint, FieldLabel, FieldValidation, Input,
+    InputGroup, InputGroupVariant, PathInput, RgbHexColor, SegmentedControl, SegmentedItem, Select,
     SelectableItem, Switch, TextInputAppearance,
 };
 pub use display::{

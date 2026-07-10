@@ -9,7 +9,7 @@ use crate::theme::{
     ControlState, TextRole, ToneRole,
 };
 
-use crate::advanced::control_style::border_with_radius;
+use crate::advanced::control_style::{border_with_radius, transparent_border_with_radius};
 
 pub fn button_control_state(status: button::Status) -> ControlState {
     match status {
@@ -20,6 +20,7 @@ pub fn button_control_state(status: button::Status) -> ControlState {
     }
 }
 
+/// Visual metrics for a button at a resolved control size.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ButtonMetrics {
     pub font_size: f32,
@@ -30,14 +31,31 @@ pub struct ButtonMetrics {
     pub gap: f32,
 }
 
+/// Action semantics for a button.
+///
+/// `Suggested` is the desktop default-action intent. Destructive actions use
+/// `Destructive`; status tone remains `ToneRole::Danger` on non-action widgets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ButtonIntent {
+    /// Ordinary action.
+    Neutral,
+    /// Suggested/default action.
+    Suggested,
+    /// Action that may delete or otherwise damage data.
+    Destructive,
+}
+
+/// Button appearance variant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ButtonVariant {
-    Primary,
-    Secondary,
+    /// Filled button chrome.
+    Solid,
+    /// Low-emphasis filled/subtle chrome.
+    Subtle,
+    /// Outlined button chrome.
     Outline,
+    /// Minimal transparent chrome.
     Ghost,
-    Destructive,
-    Link,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,11 +65,12 @@ pub enum ButtonFocusRing {
 }
 
 pub fn style(
+    intent: ButtonIntent,
     variant: ButtonVariant,
     radius: Radius,
 ) -> impl Fn(&crate::theme::Theme, Status) -> button::Style {
     move |theme: &crate::theme::Theme, status: Status| {
-        let class = button_class(variant);
+        let class = button_class(intent, variant);
         let mut style = <crate::theme::Theme as button::Catalog>::style(theme, &class, status);
         style.border.radius = radius;
         style
@@ -71,6 +90,7 @@ pub(crate) fn embedded_style(
 
 pub(crate) fn selectable_style(
     selected: bool,
+    destructive: bool,
     radius: Radius,
 ) -> impl Fn(&crate::theme::Theme, Status) -> button::Style {
     move |theme: &crate::theme::Theme, status: Status| {
@@ -78,6 +98,28 @@ pub(crate) fn selectable_style(
         let control = theme.control(ControlRole::Standard, button_control_state(status));
         let selected_control = theme.control(ControlRole::Selectable, ControlState::SELECTED);
         let disabled_control = theme.control(ControlRole::Standard, ControlState::DISABLED);
+        let danger = theme.tone(ToneRole::Danger);
+
+        if destructive {
+            let background = match status {
+                Status::Active | Status::Disabled => Color::TRANSPARENT,
+                Status::Hovered => danger.container,
+                Status::Pressed => danger.container.scale_alpha(1.18),
+            };
+            let text_color = if matches!(status, Status::Disabled) {
+                danger.color.scale_alpha(0.55)
+            } else {
+                danger.color
+            };
+
+            return button::Style {
+                background: Some(Background::Color(background)),
+                text_color,
+                border: transparent_border_with_radius(radius),
+                shadow: Shadow::default(),
+                ..button::Style::default()
+            };
+        }
 
         let background = match (selected, status) {
             (true, Status::Hovered) => selected_control.background.scale_alpha(1.20),
@@ -110,15 +152,8 @@ pub(crate) fn selectable_style(
     }
 }
 
-pub(crate) fn button_class(variant: ButtonVariant) -> ButtonClass<'static> {
-    match variant {
-        ButtonVariant::Primary => ButtonClass::Primary,
-        ButtonVariant::Secondary => ButtonClass::Secondary,
-        ButtonVariant::Outline => ButtonClass::Outline,
-        ButtonVariant::Ghost => ButtonClass::Ghost,
-        ButtonVariant::Destructive => ButtonClass::Destructive,
-        ButtonVariant::Link => ButtonClass::Link,
-    }
+pub(crate) fn button_class(intent: ButtonIntent, variant: ButtonVariant) -> ButtonClass<'static> {
+    ButtonClass::Standard { intent, variant }
 }
 
 pub fn focus_ring(theme: &crate::theme::Theme, ring: ButtonFocusRing, radius: Radius) -> Border {
@@ -126,7 +161,7 @@ pub fn focus_ring(theme: &crate::theme::Theme, ring: ButtonFocusRing, radius: Ra
     let focus = theme.border(BorderRole::Focus);
     let color = match ring {
         ButtonFocusRing::Default => focus.color,
-        ButtonFocusRing::OnPrimary => theme.tone(ToneRole::Primary).on_color,
+        ButtonFocusRing::OnPrimary => theme.tone(ToneRole::Accent).on_color,
     };
 
     border_with_radius(BorderSpec::new(color, focus.width), radius)
@@ -175,17 +210,21 @@ mod button_tests {
     }
 
     #[test]
-    fn primary_uses_catalog_class() {
+    fn suggested_solid_uses_catalog_class() {
         let theme = Theme::Dark;
         let radius = Radius::new(4.0);
-        let style = style(ButtonVariant::Primary, radius)(&theme, Status::Active);
-        let expected =
-            <Theme as button::Catalog>::style(&theme, &ButtonClass::Primary, Status::Active);
-
-        assert_eq!(
-            background_color(&style),
-            theme.tone(ToneRole::Primary).color
+        let style =
+            style(ButtonIntent::Suggested, ButtonVariant::Solid, radius)(&theme, Status::Active);
+        let expected = <Theme as button::Catalog>::style(
+            &theme,
+            &ButtonClass::Standard {
+                intent: ButtonIntent::Suggested,
+                variant: ButtonVariant::Solid,
+            },
+            Status::Active,
         );
+
+        assert_eq!(background_color(&style), theme.tone(ToneRole::Accent).color);
         assert_eq!(style.text_color, expected.text_color);
         assert_eq!(style.border.color, expected.border.color);
         assert_eq!(style.border.width, expected.border.width);
@@ -196,9 +235,16 @@ mod button_tests {
     fn destructive_uses_catalog_class() {
         let theme = Theme::Dark;
         let radius = Radius::new(6.0);
-        let style = style(ButtonVariant::Destructive, radius)(&theme, Status::Active);
-        let expected =
-            <Theme as button::Catalog>::style(&theme, &ButtonClass::Destructive, Status::Active);
+        let style =
+            style(ButtonIntent::Destructive, ButtonVariant::Solid, radius)(&theme, Status::Active);
+        let expected = <Theme as button::Catalog>::style(
+            &theme,
+            &ButtonClass::Standard {
+                intent: ButtonIntent::Destructive,
+                variant: ButtonVariant::Solid,
+            },
+            Status::Active,
+        );
 
         assert_eq!(background_color(&style), background_color(&expected));
         assert_eq!(style.text_color, expected.text_color);
@@ -208,24 +254,9 @@ mod button_tests {
     }
 
     #[test]
-    fn link_uses_catalog_class() {
-        let theme = Theme::Dark;
-        let radius = Radius::new(8.0);
-        let style = style(ButtonVariant::Link, radius)(&theme, Status::Active);
-        let expected =
-            <Theme as button::Catalog>::style(&theme, &ButtonClass::Link, Status::Active);
-
-        assert_eq!(background_color(&style), Color::TRANSPARENT);
-        assert_eq!(style.text_color, expected.text_color);
-        assert_eq!(style.border.color, expected.border.color);
-        assert_eq!(style.border.width, expected.border.width);
-        assert_eq!(style.border.radius, radius);
-    }
-
-    #[test]
     fn selectable_selected_uses_selectable_role() {
         let theme = Theme::Dark;
-        let style = selectable_style(true, Radius::new(6.0))(&theme, Status::Active);
+        let style = selectable_style(true, false, Radius::new(6.0))(&theme, Status::Active);
         let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
 
         assert_eq!(background_color(&style), selected.background);
@@ -237,7 +268,7 @@ mod button_tests {
     #[test]
     fn selectable_unselected_active_is_transparent() {
         let theme = Theme::Dark;
-        let style = selectable_style(false, Radius::new(6.0))(&theme, Status::Active);
+        let style = selectable_style(false, false, Radius::new(6.0))(&theme, Status::Active);
 
         assert_eq!(background_color(&style), Color::TRANSPARENT);
         assert_eq!(style.text_color, theme.text(TextRole::Secondary).color);
@@ -247,7 +278,7 @@ mod button_tests {
     #[test]
     fn selectable_unselected_hover_uses_standard_control_background() {
         let theme = Theme::Dark;
-        let style = selectable_style(false, Radius::new(6.0))(&theme, Status::Hovered);
+        let style = selectable_style(false, false, Radius::new(6.0))(&theme, Status::Hovered);
         let control = theme.control(ControlRole::Standard, ControlState::HOVERED);
 
         assert_eq!(background_color(&style), control.background);
@@ -257,7 +288,7 @@ mod button_tests {
     #[test]
     fn selectable_selected_pressed_scales_selected_background() {
         let theme = Theme::Dark;
-        let style = selectable_style(true, Radius::new(6.0))(&theme, Status::Pressed);
+        let style = selectable_style(true, false, Radius::new(6.0))(&theme, Status::Pressed);
         let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
 
         assert_eq!(
@@ -270,7 +301,7 @@ mod button_tests {
     #[test]
     fn selectable_disabled_selected_uses_canonical_scaled_selected_color() {
         let theme = Theme::Dark;
-        let style = selectable_style(true, Radius::new(6.0))(&theme, Status::Disabled);
+        let style = selectable_style(true, false, Radius::new(6.0))(&theme, Status::Disabled);
         let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
 
         assert_eq!(
