@@ -3,14 +3,16 @@ use iced::{
     Length, Padding,
 };
 
-use crate::theme::surface as theme_surface;
-use crate::theme::{gap, GapRole, SurfaceRole};
+use crate::theme::{self, surface as theme_surface};
+use crate::theme::{gap, GapRole, ShapeSize, SurfaceRole};
 use crate::Element;
 
+/// Panel surface with optional header and configurable shape.
 pub struct Panel<'a, Message> {
     header: Option<Element<'a, Message>>,
     content: Element<'a, Message>,
     role: SurfaceRole,
+    radius: f32,
     padding: Option<Padding>,
     width: Option<iced::Length>,
     height: Option<iced::Length>,
@@ -26,6 +28,7 @@ where
             header: None,
             content: content.into(),
             role: SurfaceRole::Panel,
+            radius: theme::active().shape(ShapeSize::None).radius_value(),
             padding: None,
             width: None,
             height: None,
@@ -43,20 +46,60 @@ where
         self
     }
 
+    /// Sets the panel shape from the theme scale.
+    pub fn shape(mut self, shape: ShapeSize) -> Self {
+        self.radius = theme::active().shape(shape).radius_value();
+        self
+    }
+
+    pub fn shape_xs(self) -> Self {
+        self.shape(ShapeSize::Xs)
+    }
+
+    pub fn shape_sm(self) -> Self {
+        self.shape(ShapeSize::Sm)
+    }
+
+    pub fn shape_md(self) -> Self {
+        self.shape(ShapeSize::Md)
+    }
+
+    pub fn shape_lg(self) -> Self {
+        self.shape(ShapeSize::Lg)
+    }
+
+    pub fn shape_xl(self) -> Self {
+        self.shape(ShapeSize::Xl)
+    }
+
+    pub fn shape_xxl(self) -> Self {
+        self.shape(ShapeSize::Xxl)
+    }
+
+    /// Sets square corners, equivalent to `shape(ShapeSize::None)`.
+    pub fn square(self) -> Self {
+        self.shape(ShapeSize::None)
+    }
+
+    /// Sets a raw radius in pixels.
+    pub fn radius(mut self, radius: f32) -> Self {
+        self.radius = radius;
+        self
+    }
+
     pub fn padding(mut self, padding: impl Into<Padding>) -> Self {
         self.padding = Some(padding.into());
         self
     }
 
-    pub fn width(mut self, width: impl Into<iced::Length>) -> Self {
-        self.width = Some(width.into());
-        self
-    }
-
-    pub fn height(mut self, height: impl Into<iced::Length>) -> Self {
-        self.height = Some(height.into());
-        self
-    }
+    crate::impl_layout_builders!(
+        width_opt,
+        height_opt,
+        fill_width_opt,
+        fill_height_opt,
+        fill_opt,
+        shrink_width_opt
+    );
 
     pub fn center(mut self, length: impl Into<iced::Length>) -> Self {
         self.center = Some(length.into());
@@ -72,7 +115,10 @@ where
             None => self.content,
         };
 
-        let mut panel = container(body).style(theme_surface::style(self.role));
+        let mut panel = container(body).style(theme_surface::style_with_radius(
+            self.role,
+            self.radius.into(),
+        ));
 
         if let Some(padding) = self.padding {
             panel = panel.padding(padding);
@@ -100,5 +146,23 @@ where
 {
     fn from(panel: Panel<'a, Message>) -> Self {
         panel.into_container().into()
+    }
+}
+
+#[cfg(test)]
+mod panel_tests {
+    use super::*;
+    use crate::tokens::radius as token_radius;
+
+    #[test]
+    fn shape_builders_resolve_panel_radius() {
+        let default = Panel::<()>::new(iced::widget::Space::new());
+        let square = Panel::<()>::new(iced::widget::Space::new()).square();
+        let none = Panel::<()>::new(iced::widget::Space::new()).shape(ShapeSize::None);
+        let full = Panel::<()>::new(iced::widget::Space::new()).shape(ShapeSize::Full);
+
+        assert_eq!(default.radius, 0.0);
+        assert_eq!(square.radius, none.radius);
+        assert_eq!(full.radius, token_radius::FULL);
     }
 }
