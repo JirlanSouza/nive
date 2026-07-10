@@ -1,6 +1,6 @@
 use iced::{widget::button, Length, Padding};
 
-use crate::theme::SurfaceRole;
+use crate::theme::{self, ShapeSize, SurfaceRole};
 use crate::Element;
 
 use self::style as theme_action_card;
@@ -9,6 +9,7 @@ pub(super) mod style;
 use crate::advanced::pressable::Pressable;
 use crate::widgets::controls::button::ButtonFocusRing;
 
+/// Pressable content card with configurable shape.
 pub struct ActionCard<'a, Message> {
     content: Element<'a, Message>,
     role: SurfaceRole,
@@ -42,6 +43,42 @@ where
         self
     }
 
+    /// Sets the card shape from the theme scale.
+    pub fn shape(mut self, shape: ShapeSize) -> Self {
+        self.radius = theme::active().shape(shape).radius_value();
+        self
+    }
+
+    pub fn shape_xs(self) -> Self {
+        self.shape(ShapeSize::Xs)
+    }
+
+    pub fn shape_sm(self) -> Self {
+        self.shape(ShapeSize::Sm)
+    }
+
+    pub fn shape_md(self) -> Self {
+        self.shape(ShapeSize::Md)
+    }
+
+    pub fn shape_lg(self) -> Self {
+        self.shape(ShapeSize::Lg)
+    }
+
+    pub fn shape_xl(self) -> Self {
+        self.shape(ShapeSize::Xl)
+    }
+
+    pub fn shape_xxl(self) -> Self {
+        self.shape(ShapeSize::Xxl)
+    }
+
+    /// Sets square corners, equivalent to `shape(ShapeSize::None)`.
+    pub fn square(self) -> Self {
+        self.shape(ShapeSize::None)
+    }
+
+    /// Sets a raw radius in pixels.
     pub fn radius(mut self, radius: f32) -> Self {
         self.radius = radius;
         self
@@ -52,15 +89,14 @@ where
         self
     }
 
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = Some(width.into());
-        self
-    }
-
-    pub fn height(mut self, height: impl Into<Length>) -> Self {
-        self.height = Some(height.into());
-        self
-    }
+    crate::impl_layout_builders!(
+        width_opt,
+        height_opt,
+        fill_width_opt,
+        fill_height_opt,
+        fill_opt,
+        shrink_width_opt
+    );
 
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
@@ -111,5 +147,23 @@ where
 {
     fn from(card: ActionCard<'a, Message>) -> Self {
         card.into_element()
+    }
+}
+
+#[cfg(test)]
+mod action_card_tests {
+    use super::*;
+    use crate::tokens::radius as token_radius;
+
+    #[test]
+    fn shape_builders_resolve_action_card_radius() {
+        let default = ActionCard::<()>::new(iced::widget::Space::new());
+        let square = ActionCard::<()>::new(iced::widget::Space::new()).square();
+        let none = ActionCard::<()>::new(iced::widget::Space::new()).shape(ShapeSize::None);
+        let full = ActionCard::<()>::new(iced::widget::Space::new()).shape(ShapeSize::Full);
+
+        assert_eq!(default.radius, token_radius::LG);
+        assert_eq!(square.radius, none.radius);
+        assert_eq!(full.radius, token_radius::FULL);
     }
 }

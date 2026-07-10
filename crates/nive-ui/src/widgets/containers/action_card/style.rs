@@ -7,7 +7,7 @@ use crate::advanced::control_style::{border_with_radius, disabled_alpha};
 use crate::widgets::controls::button::button_control_state;
 
 use crate::theme::{
-    self, BorderRole, ControlRole, ControlState, ShapeRole, SpaceStep, SurfaceRole, TextRole,
+    self, BorderRole, ControlRole, ControlState, ShapeSize, SpaceStep, SurfaceRole, TextRole,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -19,7 +19,7 @@ pub struct ActionCardMetrics {
 pub fn metrics() -> ActionCardMetrics {
     ActionCardMetrics {
         padding: theme::space(SpaceStep::Md),
-        radius: theme::active().shape(ShapeRole::Large).radius_value(),
+        radius: theme::active().shape(ShapeSize::Lg).radius_value(),
     }
 }
 
