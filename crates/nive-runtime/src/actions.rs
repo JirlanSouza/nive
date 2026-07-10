@@ -238,7 +238,7 @@ where
             }
 
             if !action.is_enabled() {
-                row = row.disabled();
+                row = row.disabled(true);
             }
 
             row

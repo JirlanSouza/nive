@@ -45,7 +45,7 @@ where
     let search = container(
         input::default("Search devtools", state.query())
             .xs()
-            .on_input(move |query| map(DevtoolsPanelMessage::SearchChanged(query))),
+            .on_change(move |query| map(DevtoolsPanelMessage::SearchChanged(query))),
     )
     .width(Length::Fixed(SEARCH_FIELD_WIDTH));
 
@@ -110,7 +110,7 @@ where
                 ))),
         )
         .xs()
-        .fill()
+        .fill_width()
         .into()
 }
 

@@ -101,7 +101,7 @@ where
 {
     row![
         Space::new().width(Length::Fixed(state_control_indent())),
-        Badge::danger("Command failed").xs(),
+        Badge::new("Command failed").danger().xs(),
         nive_ui::widgets::primitives::text::caption(error),
         Space::new().width(Length::Fill),
         button::ghost("Dismiss")
@@ -201,9 +201,9 @@ where
     Message: Clone + 'a,
 {
     match snapshot {
-        SimulableSnapshot::Idle => Badge::neutral("Idle").xs().into(),
+        SimulableSnapshot::Idle => Badge::new("Idle").neutral().xs().into(),
         SimulableSnapshot::Loading { has_value } => {
-            let badge: Element<'a, Message> = Badge::info("Loading").xs().into();
+            let badge: Element<'a, Message> = Badge::new("Loading").info().xs().into();
             if *has_value {
                 column![
                     badge,
@@ -215,9 +215,9 @@ where
                 badge
             }
         }
-        SimulableSnapshot::Loaded => Badge::success("Loaded").xs().into(),
+        SimulableSnapshot::Loaded => Badge::new("Loaded").success().xs().into(),
         SimulableSnapshot::Failed { has_value, summary } => column![
-            Badge::danger("Failed").xs(),
+            Badge::new("Failed").danger().xs(),
             nive_ui::widgets::primitives::text::caption(if *has_value {
                 format!("{summary} · cached")
             } else {
@@ -226,9 +226,9 @@ where
         ]
         .spacing(theme::gap(GapRole::Tight))
         .into(),
-        SimulableSnapshot::Running => Badge::info("Running").xs().into(),
+        SimulableSnapshot::Running => Badge::new("Running").info().xs().into(),
         SimulableSnapshot::OperationFailed { summary } => column![
-            Badge::danger("Failed").xs(),
+            Badge::new("Failed").danger().xs(),
             nive_ui::widgets::primitives::text::caption(summary.clone()),
         ]
         .spacing(theme::gap(GapRole::Tight))
@@ -248,14 +248,14 @@ where
     let path = path.to_string();
     let input = input::default_owned("Failure message", value)
         .xs()
-        .on_input(move |value| {
+        .on_change(move |value| {
             map(DevtoolsPanelMessage::ErrorMessageChanged {
                 path: path.clone(),
                 value,
             })
         });
 
-    container(InputGroup::new(input).leading_text("err").xs().fill())
+    container(InputGroup::new(input).leading_text("err").xs().fill_width())
         .width(Length::Fixed(280.0))
         .align_y(alignment::Vertical::Center)
         .into()
