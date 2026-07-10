@@ -57,16 +57,20 @@ where
         .clip(true);
 
     let button_widget = match chrome {
-        ButtonChrome::Standalone => {
-            button_widget.style(theme_button::style(button.variant, metrics.radius.into()))
-        }
+        ButtonChrome::Standalone => button_widget.style(theme_button::style(
+            button.intent,
+            button.variant,
+            metrics.radius.into(),
+        )),
         ButtonChrome::Grouped(spec) => match spec.kind {
             GroupedItemKind::Embedded => {
                 button_widget.style(theme_button::embedded_style(spec.radius))
             }
-            GroupedItemKind::Selectable => {
-                button_widget.style(theme_button::selectable_style(spec.selected, spec.radius))
-            }
+            GroupedItemKind::Selectable => button_widget.style(theme_button::selectable_style(
+                spec.selected,
+                spec.destructive,
+                spec.radius,
+            )),
         },
     };
 

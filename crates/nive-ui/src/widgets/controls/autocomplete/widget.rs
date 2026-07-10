@@ -20,10 +20,19 @@ use crate::Element;
 
 type ContentBuilder<'a, Message> = Box<dyn Fn(Option<usize>) -> Element<'a, Message> + 'a>;
 
-pub struct Autocomplete<'a, Message> {
+/// Input-anchored autocomplete overlay.
+///
+/// Typing is handled by the wrapped [`Input`] through `on_change`. Suggestion
+/// choice is reported with [`Autocomplete::on_select`] and carries the selected
+/// suggestion value, not an index.
+pub struct Autocomplete<'a, Message, Suggestion = String>
+where
+    Suggestion: Clone + 'a,
+{
     anchor: Element<'a, AutocompleteMessage<Message>>,
     content: Element<'a, AutocompleteMessage<Message>>,
     content_builder: Option<ContentBuilder<'a, Message>>,
+    suggestions: Vec<Suggestion>,
     item_count: usize,
     input_value: String,
     input_focused: Rc<Cell<bool>>,
@@ -32,7 +41,7 @@ pub struct Autocomplete<'a, Message> {
     width: PopoverWidth,
     collision: PopoverCollision,
     gap: f32,
-    on_select: Option<Box<dyn Fn(usize) -> Message + 'a>>,
+    on_select: Option<Box<dyn Fn(Suggestion) -> Message + 'a>>,
     on_dismiss: Option<Message>,
 }
 
@@ -42,7 +51,7 @@ pub enum AutocompleteMessage<Message> {
     Dismiss,
 }
 
-impl<'a, Message> Autocomplete<'a, Message>
+impl<'a, Message> Autocomplete<'a, Message, String>
 where
     Message: Clone + 'a,
 {
@@ -67,6 +76,7 @@ where
             anchor: anchor(input),
             content: Element::from(iced::widget::Space::new()).map(AutocompleteMessage::Parent),
             content_builder: None,
+            suggestions: Vec::new(),
             item_count: 0,
             input_value,
             input_focused,
@@ -81,8 +91,9 @@ where
     }
 }
 
-impl<'a, Message> Autocomplete<'a, Message>
+impl<'a, Message, Suggestion> Autocomplete<'a, Message, Suggestion>
 where
+    Suggestion: Clone + 'a,
     Message: Clone + 'a,
 {
     pub fn content(mut self, content: impl Into<Element<'a, Message>>) -> Self {
@@ -101,6 +112,38 @@ where
         self.item_count = item_count;
         self.refresh_content(initial_highlight(self.open, self.item_count));
         self
+    }
+
+    /// Sets the selectable suggestion values.
+    ///
+    /// Call this before `on_select` when changing the suggestion type.
+    pub fn suggestions<NewSuggestion>(
+        self,
+        suggestions: impl Into<Vec<NewSuggestion>>,
+    ) -> Autocomplete<'a, Message, NewSuggestion>
+    where
+        NewSuggestion: Clone + 'a,
+    {
+        let suggestions = suggestions.into();
+        let item_count = suggestions.len();
+        let mut autocomplete = Autocomplete {
+            anchor: self.anchor,
+            content: self.content,
+            content_builder: self.content_builder,
+            suggestions,
+            item_count,
+            input_value: self.input_value,
+            input_focused: self.input_focused,
+            open: self.open,
+            placement: self.placement,
+            width: self.width,
+            collision: self.collision,
+            gap: self.gap,
+            on_select: None,
+            on_dismiss: self.on_dismiss,
+        };
+        autocomplete.refresh_content(initial_highlight(autocomplete.open, item_count));
+        autocomplete
     }
 
     pub fn open(mut self, open: bool) -> Self {
@@ -128,8 +171,15 @@ where
         self
     }
 
-    pub fn on_select(mut self, f: impl Fn(usize) -> Message + 'a) -> Self {
+    /// Maps the selected suggestion value into an app message.
+    pub fn on_select(mut self, f: impl Fn(Suggestion) -> Message + 'a) -> Self {
         self.on_select = Some(Box::new(f));
+        self
+    }
+
+    /// Conditionally maps selected suggestion values into app messages.
+    pub fn on_select_maybe(mut self, f: Option<impl Fn(Suggestion) -> Message + 'a>) -> Self {
+        self.on_select = f.map(|f| Box::new(f) as _);
         self
     }
 
@@ -202,7 +252,12 @@ where
             AutocompleteKeyAction::SelectHighlighted => {
                 let message = state
                     .highlighted
-                    .and_then(|index| self.on_select.as_ref().map(|on_select| on_select(index)));
+                    .and_then(|index| self.suggestions.get(index).cloned())
+                    .and_then(|suggestion| {
+                        self.on_select
+                            .as_ref()
+                            .map(|on_select| on_select(suggestion))
+                    });
 
                 self.publish_optional(message, shell)
             }
@@ -273,8 +328,10 @@ where
     }
 }
 
-impl<'a, Message> Widget<Message, crate::theme::Theme, iced::Renderer> for Autocomplete<'a, Message>
+impl<'a, Message, Suggestion> Widget<Message, crate::theme::Theme, iced::Renderer>
+    for Autocomplete<'a, Message, Suggestion>
 where
+    Suggestion: Clone + 'a,
     Message: Clone + 'a,
 {
     fn tag(&self) -> tree::Tag {
@@ -497,11 +554,12 @@ where
     }
 }
 
-impl<'a, Message> From<Autocomplete<'a, Message>> for Element<'a, Message>
+impl<'a, Message, Suggestion> From<Autocomplete<'a, Message, Suggestion>> for Element<'a, Message>
 where
+    Suggestion: Clone + 'a,
     Message: Clone + 'a,
 {
-    fn from(autocomplete: Autocomplete<'a, Message>) -> Self {
+    fn from(autocomplete: Autocomplete<'a, Message, Suggestion>) -> Self {
         Element::new(autocomplete)
     }
 }
@@ -527,7 +585,7 @@ mod autocomplete_tests {
     }
 
     fn autocomplete(value: &str) -> Autocomplete<'_, TestMessage> {
-        Autocomplete::new(input::default("Search", value).on_input(|_| TestMessage::Input))
+        Autocomplete::new(input::default("Search", value).on_change(|_| TestMessage::Input))
             .open(true)
             .item_count(2)
     }
