@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use iced::{
     widget::{column, container, text, Space},
     Alignment, Border, Length, Shadow,
@@ -20,8 +22,8 @@ const VERTICAL_OFFSET_TOP_FILL_PORTION: u16 = 6;
 const VERTICAL_OFFSET_BOTTOM_FILL_PORTION: u16 = 14;
 
 pub struct EmptyState<'a, Message> {
-    title: &'a str,
-    description: Option<&'a str>,
+    title: Cow<'a, str>,
+    description: Option<Cow<'a, str>>,
     icon: Option<IconRole>,
     loading: bool,
     action: Option<Element<'a, Message>>,
@@ -31,9 +33,9 @@ impl<'a, Message> EmptyState<'a, Message>
 where
     Message: Clone + 'a,
 {
-    pub fn new(title: &'a str) -> Self {
+    pub fn new(title: impl Into<Cow<'a, str>>) -> Self {
         Self {
-            title,
+            title: title.into(),
             description: None,
             icon: None,
             loading: false,
@@ -41,8 +43,8 @@ where
         }
     }
 
-    pub fn description(mut self, description: &'a str) -> Self {
-        self.description = Some(description);
+    pub fn description(mut self, description: impl Into<Cow<'a, str>>) -> Self {
+        self.description = Some(description.into());
         self
     }
 

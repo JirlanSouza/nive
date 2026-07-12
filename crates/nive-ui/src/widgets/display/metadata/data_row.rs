@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use iced::{
     widget::{container, row, text, Space},
     Alignment, Length, Padding,
@@ -10,8 +12,8 @@ use super::style as theme_metadata;
 use crate::widgets::primitives::tone_dot::tone_dot;
 
 pub struct DataRow<'a, Message> {
-    label: &'a str,
-    value: Option<&'a str>,
+    label: Cow<'a, str>,
+    value: Option<Cow<'a, str>>,
     tone: Option<ToneRole>,
     leading: Option<Element<'a, Message>>,
     trailing: Option<Element<'a, Message>>,
@@ -23,9 +25,9 @@ impl<'a, Message> DataRow<'a, Message>
 where
     Message: Clone + 'a,
 {
-    pub fn new(label: &'a str) -> Self {
+    pub fn new(label: impl Into<Cow<'a, str>>) -> Self {
         Self {
-            label,
+            label: label.into(),
             value: None,
             tone: None,
             leading: None,
@@ -35,8 +37,8 @@ where
         }
     }
 
-    pub fn value(mut self, value: &'a str) -> Self {
-        self.value = Some(value);
+    pub fn value(mut self, value: impl Into<Cow<'a, str>>) -> Self {
+        self.value = Some(value.into());
         self
     }
 

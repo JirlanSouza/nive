@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{borrow::Cow, time::Duration};
 
 use iced::{
     widget::{container, text, tooltip},
@@ -18,12 +18,13 @@ struct TooltipMetrics {
 
 pub fn bottom<'a, Message>(
     content: impl Into<Element<'a, Message>>,
-    label: &'a str,
+    label: impl Into<Cow<'a, str>>,
 ) -> Element<'a, Message>
 where
     Message: 'a,
 {
     let metrics = metrics();
+    let label = label.into();
 
     tooltip(
         content,

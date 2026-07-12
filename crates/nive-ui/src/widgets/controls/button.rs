@@ -2,6 +2,8 @@ mod chrome;
 mod content;
 mod style;
 
+use std::borrow::Cow;
+
 use iced::{border::Radius, widget::Id, Length, Padding};
 
 use crate::theme::ControlSize;
@@ -36,7 +38,7 @@ pub struct Button<'a, Message> {
     focusable: bool,
     id: Option<Id>,
     on_press: Option<Message>,
-    tooltip: Option<&'a str>,
+    tooltip: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -305,13 +307,16 @@ where
         self
     }
 
-    pub fn tooltip(mut self, tooltip: &'a str) -> Self {
-        self.tooltip = Some(tooltip);
+    pub fn tooltip(mut self, tooltip: impl Into<Cow<'a, str>>) -> Self {
+        self.tooltip = Some(tooltip.into());
         self
     }
 
-    pub fn tooltip_maybe(mut self, tooltip: Option<&'a str>) -> Self {
-        self.tooltip = tooltip;
+    pub fn tooltip_maybe<T>(mut self, tooltip: Option<T>) -> Self
+    where
+        T: Into<Cow<'a, str>>,
+    {
+        self.tooltip = tooltip.map(Into::into);
         self
     }
 
@@ -344,12 +349,12 @@ where
         self.into_element_chrome(ButtonChrome::Grouped(spec))
     }
 
-    fn into_element_chrome(self, chrome: ButtonChrome) -> Element<'a, Message> {
+    fn into_element_chrome(mut self, chrome: ButtonChrome) -> Element<'a, Message> {
         let radius = chrome.radius(self.size);
         let activation = self.keyboard_activation();
         let id = self.id.clone();
         let ring = self.focus_ring();
-        let tooltip_label = self.tooltip;
+        let tooltip_label = self.tooltip.take();
         let button = chrome::into_app_button(self, chrome);
         let button: Element<'a, Message> = match activation {
             Some(message) => Pressable::new(button, message, id, radius, ring).into(),
@@ -466,5 +471,12 @@ mod button_tests {
         let button = primary("Save").on_press(Message::Pressed).disabled(true);
 
         assert_eq!(button.keyboard_activation(), None);
+    }
+
+    #[test]
+    fn tooltip_accepts_owned_label() {
+        let button = icon::<()>(IconRole::WindowClose).tooltip(String::from("Close"));
+
+        assert_eq!(button.tooltip.as_deref(), Some("Close"));
     }
 }
