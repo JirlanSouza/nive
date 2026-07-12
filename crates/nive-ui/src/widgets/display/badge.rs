@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use iced::{
     widget::{container, text},
     Background, Border, Shadow,
@@ -19,7 +21,7 @@ struct BadgeMetrics {
 /// Use `danger()` for danger/error status tone. Destructive action semantics
 /// belong to actionable widgets such as `Button`.
 pub struct Badge<'a, Message> {
-    label: &'a str,
+    label: Cow<'a, str>,
     tone: ToneRole,
     size: ControlSize,
     _marker: std::marker::PhantomData<Message>,
@@ -29,9 +31,9 @@ impl<'a, Message> Badge<'a, Message>
 where
     Message: Clone + 'a,
 {
-    pub fn new(label: &'a str) -> Self {
+    pub fn new(label: impl Into<Cow<'a, str>>) -> Self {
         Self {
-            label,
+            label: label.into(),
             tone: ToneRole::Neutral,
             size: ControlSize::Sm,
             _marker: std::marker::PhantomData,

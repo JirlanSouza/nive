@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use iced::{widget::row, Alignment, Length};
 
 use crate::{
@@ -9,7 +11,7 @@ use crate::{
 use super::{ErrorFeedbackAction, ErrorFeedbackActionRow};
 
 pub struct ErrorStatusLine<'a, Message> {
-    message: &'a str,
+    message: Cow<'a, str>,
     actions: Vec<ErrorFeedbackAction<'a, Message>>,
 }
 
@@ -17,9 +19,9 @@ impl<'a, Message> ErrorStatusLine<'a, Message>
 where
     Message: Clone + 'a,
 {
-    pub fn new(message: &'a str) -> Self {
+    pub fn new(message: impl Into<Cow<'a, str>>) -> Self {
         Self {
-            message,
+            message: message.into(),
             actions: Vec::new(),
         }
     }

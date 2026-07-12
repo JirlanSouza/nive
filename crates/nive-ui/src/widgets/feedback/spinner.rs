@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use iced::{
     widget::{row, text},
     Alignment,
@@ -10,7 +12,7 @@ use super::style as theme_feedback;
 use crate::widgets::primitives::tone_dot::tone_dot;
 
 pub struct Spinner<'a> {
-    label: Option<&'a str>,
+    label: Option<Cow<'a, str>>,
     tone: ToneRole,
     size: ControlSize,
 }
@@ -24,8 +26,8 @@ impl<'a> Spinner<'a> {
         }
     }
 
-    pub fn label(mut self, label: &'a str) -> Self {
-        self.label = Some(label);
+    pub fn label(mut self, label: impl Into<Cow<'a, str>>) -> Self {
+        self.label = Some(label.into());
         self
     }
 

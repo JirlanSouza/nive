@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use iced::{
     widget::{container, Space},
     Length,
@@ -12,11 +14,11 @@ pub struct OperationStatusLine<'a, Message> {
     actions: Vec<ErrorFeedbackAction<'a, Message>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum OperationStatusLineState<'a> {
     Idle,
-    Running { label: &'a str },
-    Error { message: &'a str },
+    Running { label: Cow<'a, str> },
+    Error { message: Cow<'a, str> },
 }
 
 impl<'a, Message> OperationStatusLine<'a, Message>
@@ -30,16 +32,20 @@ where
         }
     }
 
-    pub fn running(label: &'a str) -> Self {
+    pub fn running(label: impl Into<Cow<'a, str>>) -> Self {
         Self {
-            state: OperationStatusLineState::Running { label },
+            state: OperationStatusLineState::Running {
+                label: label.into(),
+            },
             actions: Vec::new(),
         }
     }
 
-    pub fn error(message: &'a str) -> Self {
+    pub fn error(message: impl Into<Cow<'a, str>>) -> Self {
         Self {
-            state: OperationStatusLineState::Error { message },
+            state: OperationStatusLineState::Error {
+                message: message.into(),
+            },
             actions: Vec::new(),
         }
     }

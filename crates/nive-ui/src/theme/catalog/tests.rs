@@ -15,6 +15,8 @@ use super::{
 use crate::theme::{BorderRole, ControlRole, ControlState, SurfaceRole, Theme, ToneRole};
 use crate::widgets::{ButtonIntent, ButtonVariant};
 
+type ButtonStyleFn = fn(&Theme, button::Status) -> button::Style;
+
 #[test]
 fn catalog_defaults_are_semantic_classes() {
     assert!(matches!(
@@ -127,11 +129,7 @@ fn button_destructive_class_uses_danger_tone() {
 #[test]
 fn legacy_button_combinations_match_previous_styles_for_each_status() {
     let theme = Theme::Dark;
-    let cases: [(
-        ButtonIntent,
-        ButtonVariant,
-        fn(&Theme, button::Status) -> button::Style,
-    ); 5] = [
+    let cases: [(ButtonIntent, ButtonVariant, ButtonStyleFn); 5] = [
         (
             ButtonIntent::Suggested,
             ButtonVariant::Solid,
