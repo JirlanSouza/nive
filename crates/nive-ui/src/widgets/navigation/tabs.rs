@@ -492,7 +492,6 @@ where
                 destructive: false,
                 kind: GroupedItemKind::Embedded,
             })
-            .into()
     }
 
     fn tab_element<'b>(
@@ -583,9 +582,8 @@ where
                 .as_ref()
                 .map(|on_select| on_select(tab.id.clone()))
         };
-        let tab_width = (metrics.tab_height * 3.0).max(72.0);
         button::Button::custom(content.into())
-            .width(Length::Fixed(tab_width))
+            .width(Length::Shrink)
             .on_press_maybe(activation)
             .disabled(tab.disabled)
             .into_grouped_item(GroupedItemSpec {
@@ -676,7 +674,7 @@ where
         let pinned = self
             .tabs
             .iter()
-            .find(|tab| &tab.id == &dragged_id)
+            .find(|tab| tab.id == dragged_id)
             .map(|tab| tab.pinned)
             .unwrap_or(false);
 
@@ -834,7 +832,7 @@ where
     }
 }
 
-impl<'a, Id: Clone + Eq + 'static> Default for TabBarState<Id> {
+impl<Id: Clone + Eq + 'static> Default for TabBarState<Id> {
     fn default() -> Self {
         Self {
             scroll_offset: 0.0,
@@ -929,7 +927,7 @@ where
     fn children(&self) -> Vec<Tree> {
         let state = TabBarState::<Id>::default();
         vec![
-            Tree::new(&self.content_element(&state)),
+            Tree::new(self.content_element(&state)),
             Tree::new(&self.menu),
         ]
     }
@@ -1146,27 +1144,23 @@ where
                     PointerButton::Primary,
                     PointerGestureKind::Clicked { .. },
                     TabRegion::ChevronLeft,
-                ) => {
-                    if state.has_overflow {
-                        let step = CHEVRON_SCROLL_STEP_FACTOR * state.strip_width;
-                        state.scroll_offset = (state.scroll_offset - step).max(0.0);
-                        shell.invalidate_layout();
-                        shell.request_redraw();
-                        shell.capture_event();
-                    }
+                ) if state.has_overflow => {
+                    let step = CHEVRON_SCROLL_STEP_FACTOR * state.strip_width;
+                    state.scroll_offset = (state.scroll_offset - step).max(0.0);
+                    shell.invalidate_layout();
+                    shell.request_redraw();
+                    shell.capture_event();
                 }
                 (
                     PointerButton::Primary,
                     PointerGestureKind::Clicked { .. },
                     TabRegion::ChevronRight,
-                ) => {
-                    if state.has_overflow {
-                        let step = CHEVRON_SCROLL_STEP_FACTOR * state.strip_width;
-                        state.scroll_offset = (state.scroll_offset + step).min(state.max_scroll);
-                        shell.invalidate_layout();
-                        shell.request_redraw();
-                        shell.capture_event();
-                    }
+                ) if state.has_overflow => {
+                    let step = CHEVRON_SCROLL_STEP_FACTOR * state.strip_width;
+                    state.scroll_offset = (state.scroll_offset + step).min(state.max_scroll);
+                    shell.invalidate_layout();
+                    shell.request_redraw();
+                    shell.capture_event();
                 }
                 (
                     PointerButton::Primary,
@@ -1181,33 +1175,29 @@ where
                     PointerButton::Primary,
                     PointerGestureKind::DragStarted,
                     TabRegion::Tab(display_index),
-                ) => {
-                    if self.on_reorder.is_some() {
-                        let displayed_tabs = self.displayed_tabs();
-                        let Some(displayed) = displayed_tabs.get(display_index) else {
-                            continue;
-                        };
-                        let dragged_id = displayed.item.id.clone();
-                        state.dragged_id = Some(dragged_id.clone());
+                ) if self.on_reorder.is_some() => {
+                    let displayed_tabs = self.displayed_tabs();
+                    let Some(displayed) = displayed_tabs.get(display_index) else {
+                        continue;
+                    };
+                    let dragged_id = displayed.item.id.clone();
+                    state.dragged_id = Some(dragged_id.clone());
 
-                        let outcome = state.drag_session.handle_gesture(
-                            &gesture_to_pointer(&gesture, TabRegion::Tab(display_index)),
-                            || {
-                                Some(Drag::<CollectionTransferPayload<Id>, ()> {
-                                    payload: TransferData::local(singleton_payload(
-                                        dragged_id.clone(),
-                                    )),
-                                    origin: (),
-                                    operations: TransferOperations::MOVE,
-                                    preferred: TransferOperation::Move,
-                                })
-                            },
-                            |_context| DropDecision::<TabDropTarget<Id>>::Reject,
-                        );
+                    let outcome = state.drag_session.handle_gesture(
+                        &gesture_to_pointer(&gesture, TabRegion::Tab(display_index)),
+                        || {
+                            Some(Drag::<CollectionTransferPayload<Id>, ()> {
+                                payload: TransferData::local(singleton_payload(dragged_id.clone())),
+                                origin: (),
+                                operations: TransferOperations::MOVE,
+                                preferred: TransferOperation::Move,
+                            })
+                        },
+                        |_context| DropDecision::<TabDropTarget<Id>>::Reject,
+                    );
 
-                        if let DragSessionOutcome::Feedback(_) = outcome {
-                            // Drag has started; first move event will probe targets.
-                        }
+                    if let DragSessionOutcome::Feedback(_) = outcome {
+                        // Drag has started; first move event will probe targets.
                     }
                 }
                 (PointerButton::Primary, PointerGestureKind::DragMoved, _) => {
