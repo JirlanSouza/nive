@@ -21,7 +21,10 @@ devtools = ["nive-runtime/devtools"]
 # Forwards `file-picker` to `nive-runtime`, exposing param structs and
 # `pick_*` / `save_file` functions through `nive::prelude::ui`.
 file-picker = ["nive-runtime/file-picker"]
+# Forwards optional workbench adapters to `nive-workbench`.
+workbench-runtime = ["nive-workbench/runtime"]
 
 [dependencies]
 nive-ui = { version = "0.1.0-alpha.1", path = "../nive-ui" }
 nive-runtime = { version = "0.1.0-alpha.1", path = "../nive-runtime" }
+nive-workbench = { version = "0.1.0-alpha.1", path = "../nive-workbench" }

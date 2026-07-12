@@ -1,7 +1,7 @@
 //! Nive - A Rust/Iced framework for building desktop applications.
 //!
-//! This is the umbrella crate that re-exports `nive-ui` and `nive-runtime`
-//! for convenient app development.
+//! This is the umbrella crate that re-exports `nive-ui`, `nive-runtime`, and
+//! `nive-workbench` for convenient app development.
 //!
 //! # Quick Start
 //!
@@ -31,9 +31,10 @@
 //! runtime window handles (`WindowHandle`/`WindowRegistry`/`WindowMode`),
 //! `ToastDuration`, and file picker params.
 //!
-//! The crate root also re-exports the runtime and UI crates for convenience.
-//! Those broad crate-root exports are beta before 1.0; application templates
-//! should prefer the prelude tiers above for the most stable import shape.
+//! The crate root also re-exports the runtime and UI crates for convenience,
+//! and exposes workbench APIs through `nive::workbench` plus the prelude tiers.
+//! Broad crate-root exports are beta before 1.0; application templates should
+//! prefer the prelude tiers above for the most stable import shape.
 //!
 //! Feature-gated APIs are exposed through the corresponding `nive` feature
 //! flags, including `devtools` and `file-picker`. Devtools simulator internals
@@ -44,6 +45,7 @@
 //!
 //! - `nive-ui`: visual design system (tokens, theme, widgets, icons)
 //! - `nive-runtime`: application lifecycle, window management, feedback, devtools
+//! - `nive-workbench`: fixed-region professional desktop shell
 //!
 //! # Status
 //!
@@ -51,6 +53,7 @@
 
 pub use nive_runtime as runtime;
 pub use nive_ui as ui;
+pub use nive_workbench as workbench;
 
 pub mod prelude {
     // Minimal template-stable surface. Compiles the scaffolded counter
@@ -70,6 +73,7 @@ pub mod prelude {
         WindowRole, WindowSession, WindowSessionPosition, WindowSessionSize, WindowSpec,
     };
     pub use nive_ui::prelude::*;
+    pub use nive_workbench::prelude::*;
 
     pub use nive_ui::widgets::Icon;
 
