@@ -1,12 +1,16 @@
 mod style;
 
+use std::borrow::Cow;
+
 use iced::{
     border::Radius,
-    widget::{container, Row},
+    widget::{container, text, Row},
     Alignment, Length,
 };
 
-use crate::theme::ControlSize;
+use crate::theme::{self, ControlSize, ToneRole};
+use crate::widgets::display::Badge;
+use crate::widgets::primitives::tone_dot::tone_dot;
 use crate::Element;
 
 use self::style as theme_segmented_control;
@@ -27,8 +31,11 @@ pub struct SegmentedControl<'a, Message> {
 }
 
 pub struct SegmentedItem<'a, Message> {
-    label: &'a str,
+    label: Cow<'a, str>,
     icon: Option<IconRole>,
+    badge: Option<Cow<'a, str>>,
+    status: Option<ToneRole>,
+    tooltip: Option<Cow<'a, str>>,
     selected: bool,
     disabled: bool,
     on_press: Option<Message>,
@@ -151,10 +158,13 @@ where
 }
 
 impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
-    pub fn new(label: &'a str) -> Self {
+    pub fn new(label: impl Into<Cow<'a, str>>) -> Self {
         Self {
-            label,
+            label: label.into(),
             icon: None,
+            badge: None,
+            status: None,
+            tooltip: None,
             selected: false,
             disabled: false,
             on_press: None,
@@ -163,6 +173,29 @@ impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
 
     pub fn icon(mut self, icon: IconRole) -> Self {
         self.icon = Some(icon);
+        self
+    }
+
+    pub fn badge(mut self, badge: impl Into<Cow<'a, str>>) -> Self {
+        self.badge = Some(badge.into());
+        self
+    }
+
+    pub fn status(mut self, status: ToneRole) -> Self {
+        self.status = Some(status);
+        self
+    }
+
+    pub fn tooltip(mut self, tooltip: impl Into<Cow<'a, str>>) -> Self {
+        self.tooltip = Some(tooltip.into());
+        self
+    }
+
+    pub fn tooltip_maybe<T>(mut self, tooltip: Option<T>) -> Self
+    where
+        T: Into<Cow<'a, str>>,
+    {
+        self.tooltip = tooltip.map(Into::into);
         self
     }
 
@@ -195,10 +228,21 @@ impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
         variant: SegmentedControlVariant,
         item_height: f32,
     ) -> Element<'a, Message> {
-        let mut item = button::secondary(self.label);
+        let spacing = theme::spacing();
+        let mut content = Row::new().spacing(spacing.xxs).align_y(Alignment::Center);
+
         if let Some(icon) = self.icon {
-            item = item.leading_icon(icon);
+            content = content.push(crate::widgets::primitives::icon::role(icon));
         }
+        content = content.push(text(self.label));
+        if let Some(status) = self.status {
+            content = content.push(tone_dot(status, 6.0));
+        }
+        if let Some(badge) = self.badge {
+            content = content.push(Badge::new(badge).tone(status_tone(self.status)).xs());
+        }
+
+        let mut item = button::Button::custom(content.into()).secondary();
         if self.disabled {
             item = item.disabled(true);
         }
@@ -216,7 +260,8 @@ impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
                 radius_for_position(position, metrics.radius),
             ),
         };
-        item.on_press_maybe(self.on_press)
+        item.tooltip_maybe(self.tooltip)
+            .on_press_maybe(self.on_press)
             .into_grouped_item(GroupedItemSpec {
                 size,
                 radius,
@@ -227,6 +272,10 @@ impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
                 kind,
             })
     }
+}
+
+fn status_tone(status: Option<ToneRole>) -> ToneRole {
+    status.unwrap_or(ToneRole::Neutral)
 }
 
 fn outer_padding_for_variant(
