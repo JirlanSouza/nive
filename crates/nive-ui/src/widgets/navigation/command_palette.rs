@@ -12,6 +12,7 @@ pub use view::command_palette_view;
 /// only consumes the public fields, so the row type stays decoupled from
 /// `nive-runtime`.
 /// One command row rendered by `command_palette_view`.
+#[derive(Clone)]
 pub struct CommandPaletteRow<'a, M> {
     pub id: &'a str,
     pub label: &'a str,
