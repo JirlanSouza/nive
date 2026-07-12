@@ -1,0 +1,15 @@
+[workspace]
+
+[package]
+name = "nive-example-workbench-monitor"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "workbench-monitor"
+path = "src/main.rs"
+
+[dependencies]
+iced = "0.14"
+nive = { path = "../../crates/nive", features = ["workbench-runtime"] }
