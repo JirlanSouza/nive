@@ -2,7 +2,10 @@ use std::borrow::Cow;
 use std::rc::Rc;
 
 use iced::widget::Space;
-use nive_ui::IconRole;
+use nive_ui::{
+    widgets::{RailSide, VerticalRailBadge},
+    IconRole,
+};
 
 use crate::layout::WorkbenchRegion;
 use nive_ui::theme::ToneRole;
@@ -26,10 +29,35 @@ fn selector_defaults_match_regions() {
 }
 
 #[test]
-fn rail_activation_restores_collapsed_region_with_target_panel() {
-    let state = WorkbenchPanelHostState::new(WorkbenchRegion::Left);
+fn region_rail_side_matches_window_edges() {
+    assert_eq!(WorkbenchRegion::Left.rail_side(), Some(RailSide::Left));
+    assert_eq!(WorkbenchRegion::Right.rail_side(), Some(RailSide::Right));
+    assert_eq!(WorkbenchRegion::Bottom.rail_side(), None);
+    assert_eq!(WorkbenchRegion::Toolbar.rail_side(), None);
+    assert_eq!(WorkbenchRegion::Center.rail_side(), None);
+    assert_eq!(WorkbenchRegion::Status.rail_side(), None);
+}
 
-    let event: WorkbenchPanelEvent<&str, &str> = state.rail_activation_event("files", true);
+#[test]
+fn host_mode_builders_map_to_presentation_modes() {
+    let docked = WorkbenchPanelHostState::<&str>::new(WorkbenchRegion::Left);
+    assert_eq!(docked.mode, PanelHostMode::Docked);
+    assert_eq!(
+        docked.clone().collapsed(true).mode,
+        PanelHostMode::Collapsed
+    );
+    assert_eq!(docked.clone().collapsed(false).mode, PanelHostMode::Docked);
+    assert_eq!(
+        docked.mode(PanelHostMode::Maximized).mode,
+        PanelHostMode::Maximized
+    );
+}
+
+#[test]
+fn rail_activation_restores_collapsed_region_with_target_panel() {
+    let state = WorkbenchPanelHostState::new(WorkbenchRegion::Left).collapsed(true);
+
+    let event: WorkbenchPanelEvent<&str, &str> = state.rail_activation_event("files");
 
     assert_eq!(
         event,
@@ -46,13 +74,28 @@ fn rail_activation_can_collapse_active_panel() {
         .active_panel("files")
         .collapse_on_active_click(true);
 
-    let event: WorkbenchPanelEvent<&str, &str> = state.rail_activation_event("files", false);
+    let event: WorkbenchPanelEvent<&str, &str> = state.rail_activation_event("files");
 
     assert_eq!(
         event,
         WorkbenchPanelEvent::CollapseRequested {
             region: WorkbenchRegion::Left,
             panel_id: "files"
+        }
+    );
+}
+
+#[test]
+fn rail_activation_selects_panel_when_docked() {
+    let state = WorkbenchPanelHostState::new(WorkbenchRegion::Right).active_panel("files");
+
+    let event: WorkbenchPanelEvent<&str, &str> = state.rail_activation_event("logs");
+
+    assert_eq!(
+        event,
+        WorkbenchPanelEvent::Selected {
+            region: WorkbenchRegion::Right,
+            panel_id: "logs"
         }
     );
 }
@@ -90,7 +133,7 @@ fn panel_chrome_accepts_owned_accessible_labels() {
     let _header: nive_ui::Element<'_, ()> = header.view(mapper);
 
     let rail = PanelRail::new(
-        WorkbenchRegion::Left,
+        RailSide::Left,
         [PanelRailItem::new(
             "files",
             IconRole::Folder,
@@ -122,4 +165,34 @@ fn bottom_header_tab_carries_metadata() {
     assert_eq!(tab.badge.as_deref(), Some("3"));
     assert_eq!(tab.status, Some(ToneRole::Warning));
     assert!(tab.disabled);
+}
+
+#[test]
+fn panel_rail_maps_identity_and_preserves_disabled_items() {
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    enum Message {
+        Select(&'static str),
+    }
+
+    let disabled =
+        PanelRailItem::new("problems", IconRole::DialogWarning, "Problems").disabled(true);
+    let rail = PanelRail::new(
+        RailSide::Right,
+        [
+            PanelRailItem::new("files", IconRole::Folder, "Files")
+                .badge(VerticalRailBadge::new("2").info().description("2 files")),
+            disabled.clone(),
+        ],
+    )
+    .on_select(Message::Select);
+
+    let mapper = rail.on_select.as_ref().expect("rail mapper");
+
+    assert_eq!(mapper("files"), Message::Select("files"));
+    assert_eq!(
+        rail.items[0].badge.as_ref().map(|badge| badge.tone_role()),
+        Some(ToneRole::Info)
+    );
+    assert!(rail.items[1].disabled);
+    assert_eq!(rail.items[1].id(), disabled.id());
 }

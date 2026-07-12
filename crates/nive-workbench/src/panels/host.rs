@@ -1,16 +1,18 @@
-use std::borrow::Cow;
-use std::rc::Rc;
+use std::{borrow::Cow, rc::Rc};
 
-use iced::widget::{row, Space};
-use iced::{Alignment, Length};
-use nive_ui::theme::SurfaceRole;
-use nive_ui::widgets::{Panel, SegmentedControl, SegmentedItem};
-use nive_ui::{Element, IconRole};
+use iced::{
+    widget::{row, Space},
+    Alignment, Length,
+};
+use nive_ui::{
+    theme::SurfaceRole,
+    widgets::{Panel, RailSide, SegmentedControl, SegmentedItem, VerticalRailBadge},
+    Element, IconRole,
+};
 
-use super::model::PanelRail;
 use super::model::{
-    BottomHeaderTab, PanelHeaderBar, PanelRailItem, PanelSelectorPlacement, WorkbenchPanel,
-    WorkbenchPanelEvent, WorkbenchPanelHostState,
+    BottomHeaderTab, PanelHeaderBar, PanelHostMode, PanelRail, PanelRailItem,
+    PanelSelectorPlacement, WorkbenchPanel, WorkbenchPanelEvent, WorkbenchPanelHostState,
 };
 use crate::layout::WorkbenchRegion;
 
@@ -25,48 +27,8 @@ where
     ActionId: Clone + 'a,
     Message: Clone + 'a,
 {
-    panel_host_with_options(state, panels, false, false, mapper)
-}
-
-pub(crate) fn panel_host_with_collapsed<'a, PanelId, ActionId, Message>(
-    state: WorkbenchPanelHostState<PanelId>,
-    panels: impl IntoIterator<Item = WorkbenchPanel<'a, PanelId, ActionId, Message>>,
-    collapsed: bool,
-    mapper: impl Fn(WorkbenchPanelEvent<PanelId, ActionId>) -> Message + 'a,
-) -> Element<'a, Message>
-where
-    PanelId: Clone + Eq + 'a,
-    ActionId: Clone + 'a,
-    Message: Clone + 'a,
-{
-    panel_host_with_options(state, panels, collapsed, false, mapper)
-}
-
-pub(crate) fn panel_host_with_restore<'a, PanelId, ActionId, Message>(
-    state: WorkbenchPanelHostState<PanelId>,
-    panels: impl IntoIterator<Item = WorkbenchPanel<'a, PanelId, ActionId, Message>>,
-    mapper: impl Fn(WorkbenchPanelEvent<PanelId, ActionId>) -> Message + 'a,
-) -> Element<'a, Message>
-where
-    PanelId: Clone + Eq + 'a,
-    ActionId: Clone + 'a,
-    Message: Clone + 'a,
-{
-    panel_host_with_options(state, panels, false, true, mapper)
-}
-
-fn panel_host_with_options<'a, PanelId, ActionId, Message>(
-    state: WorkbenchPanelHostState<PanelId>,
-    panels: impl IntoIterator<Item = WorkbenchPanel<'a, PanelId, ActionId, Message>>,
-    collapsed: bool,
-    show_restore: bool,
-    mapper: impl Fn(WorkbenchPanelEvent<PanelId, ActionId>) -> Message + 'a,
-) -> Element<'a, Message>
-where
-    PanelId: Clone + Eq + 'a,
-    ActionId: Clone + 'a,
-    Message: Clone + 'a,
-{
+    let collapsed = matches!(state.mode, PanelHostMode::Collapsed);
+    let show_restore = matches!(state.mode, PanelHostMode::Maximized);
     let mapper: Rc<dyn Fn(WorkbenchPanelEvent<PanelId, ActionId>) -> Message + 'a> =
         Rc::new(mapper);
     let mut panels: Vec<_> = panels.into_iter().filter(|panel| panel.visible).collect();
@@ -83,18 +45,24 @@ where
 
     match state.selector {
         PanelSelectorPlacement::SideRail => {
+            let Some(side) = state.region.rail_side() else {
+                return render_active_panel(
+                    state.region,
+                    panels.remove(active_index),
+                    show_restore,
+                    mapper,
+                );
+            };
             let items = rail_items(&panels, &active_id);
             let rail_mapper = {
                 let mapper = mapper.clone();
                 let state = state.clone();
                 move |panel_id| {
-                    let event = state.rail_activation_event(panel_id, collapsed);
+                    let event = state.rail_activation_event(panel_id);
                     mapper(event)
                 }
             };
-            let rail = PanelRail::new(state.region, items)
-                .on_select(rail_mapper)
-                .view();
+            let rail = PanelRail::new(side, items).on_select(rail_mapper).view();
             if collapsed {
                 return rail;
             }
@@ -104,7 +72,11 @@ where
                 show_restore,
                 mapper,
             );
-            row![rail, panel].height(Length::Fill).into()
+
+            match side {
+                RailSide::Left => row![rail, panel].height(Length::Fill).into(),
+                RailSide::Right => row![panel, rail].height(Length::Fill).into(),
+            }
         }
         PanelSelectorPlacement::HeaderTabs => {
             render_bottom_host(state.region, panels, active_index, show_restore, mapper)
@@ -133,10 +105,11 @@ where
                 .selected(&panel.id == active_id)
                 .disabled(panel.disabled);
             if let Some(badge) = &panel.badge {
-                item = item.badge(badge.clone());
-            }
-            if let Some(status) = panel.status {
-                item = item.status(status);
+                let mut rail_badge = VerticalRailBadge::new(badge.clone());
+                if let Some(status) = panel.status {
+                    rail_badge = rail_badge.tone(status);
+                }
+                item = item.badge(rail_badge);
             }
             Some(item)
         })
