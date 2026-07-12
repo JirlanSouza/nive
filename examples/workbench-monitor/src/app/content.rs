@@ -1,5 +1,6 @@
 use nive::prelude::*;
-use nive::widget::{column, container, row, scrollable, text};
+use nive::widget::{column, container, row, scrollable};
+use nive::widgets::{button as nive_button, text as nive_text};
 
 use super::tone::tone_label;
 use super::{AppCommand, Message, WorkbenchMonitor};
@@ -7,14 +8,16 @@ use super::{AppCommand, Message, WorkbenchMonitor};
 impl WorkbenchMonitor {
     pub(super) fn services_view(&self) -> Element<'_, Message> {
         let rows = self.model.services.iter().map(|service| {
-            DataRow::new(service.name)
-                .tone(service.health)
-                .value(format!(
+            SelectableItem::new(service.name)
+                .selected(
+                    matches!(self.selected, super::Selection::Service(id) if id == service.id),
+                )
+                .leading_color(theme::active().tone(service.health).color)
+                .trailing(nive_text::caption(format!(
                     "{} rpm · {} ms",
                     service.requests_per_minute, service.latency_ms
-                ))
-                .trailing(button("Open").on_press(Message::OpenService(service.id)))
-                .fill_width()
+                )))
+                .on_press(Message::OpenService(service.id))
                 .into()
         });
 
@@ -23,11 +26,14 @@ impl WorkbenchMonitor {
 
     pub(super) fn hosts_view(&self) -> Element<'_, Message> {
         let rows = self.model.hosts.iter().map(|host| {
-            DataRow::new(host.name)
-                .tone(host.health)
-                .value(format!("{} · cpu {}%", host.zone, host.cpu_percent))
-                .trailing(button("Inspect").on_press(Message::InspectHost(host.id)))
-                .fill_width()
+            SelectableItem::new(host.name)
+                .selected(matches!(self.selected, super::Selection::Host(id) if id == host.id))
+                .leading_color(theme::active().tone(host.health).color)
+                .trailing(nive_text::caption(format!(
+                    "{} · cpu {}%",
+                    host.zone, host.cpu_percent
+                )))
+                .on_press(Message::InspectHost(host.id))
                 .into()
         });
 
@@ -36,11 +42,11 @@ impl WorkbenchMonitor {
 
     pub(super) fn alerts_left_view(&self) -> Element<'_, Message> {
         let rows = self.model.active_alerts().map(|alert| {
-            DataRow::new(alert.title)
-                .tone(alert.severity)
-                .value(alert.service_id)
-                .trailing(button("Details").on_press(Message::ShowAlert(alert.id)))
-                .fill_width()
+            SelectableItem::new(alert.title)
+                .selected(matches!(self.selected, super::Selection::Alert(id) if id == alert.id))
+                .leading_color(theme::active().tone(alert.severity).color)
+                .trailing_text(alert.service_id)
+                .on_press(Message::ShowAlert(alert.id))
                 .into()
         });
 
@@ -60,7 +66,7 @@ impl WorkbenchMonitor {
                     ToneRole::Success
                 })
                 .value(if self.dirty_filter { "dirty" } else { "clean" })
-                .trailing(button("Toggle").on_press(Message::ToggleFilterDirty))
+                .trailing(nive_button::secondary("Toggle").on_press(Message::ToggleFilterDirty))
                 .fill_width(),
         ]
         .spacing(8)
@@ -73,7 +79,8 @@ impl WorkbenchMonitor {
             DataRow::new("Environment")
                 .value(self.model.environment_label())
                 .trailing(
-                    button("Switch").on_press(Message::Command(AppCommand::SwitchEnvironment))
+                    nive_button::secondary("Switch")
+                        .on_press(Message::Command(AppCommand::SwitchEnvironment))
                 )
                 .fill_width(),
             DataRow::new("Theme")
@@ -82,7 +89,7 @@ impl WorkbenchMonitor {
                 } else {
                     "light"
                 })
-                .trailing(button("Toggle").on_press(Message::ToggleTheme))
+                .trailing(nive_button::secondary("Toggle").on_press(Message::ToggleTheme))
                 .fill_width(),
         ]
         .spacing(8)
@@ -101,30 +108,127 @@ impl WorkbenchMonitor {
             .sum();
 
         let cards = row![
-            MetricCard::new("requests/min", total_rpm),
-            MetricCard::new("active alerts", active_alerts),
-            MetricCard::new("running jobs", running_jobs),
+            Card::new(MetricCard::new("requests/min", total_rpm))
+                .shape_md()
+                .padding(14)
+                .fill_width(),
+            Card::new(MetricCard::new("active alerts", active_alerts))
+                .shape_md()
+                .padding(14)
+                .fill_width(),
+            Card::new(MetricCard::new("running jobs", running_jobs))
+                .shape_md()
+                .padding(14)
+                .fill_width(),
         ]
         .spacing(12);
 
+        let status = if active_alerts > 0 {
+            SectionHeaderStatus::icon_label(
+                IconRole::DialogWarning,
+                format!("{active_alerts} active"),
+                self.alert_tone(),
+            )
+        } else {
+            SectionHeaderStatus::icon_label(IconRole::DialogSuccess, "healthy", ToneRole::Success)
+        };
+
+        let alert_summary: Element<'_, Message> = if let Some(alert) =
+            self.model.active_alerts().next()
+        {
+            InlineAlert::new(alert.title)
+                .tone(alert.severity)
+                .body("Open the alert to inspect service impact and acknowledge it.")
+                .action(nive_button::secondary("Details").on_press(Message::ShowAlert(alert.id)))
+                .into()
+        } else {
+            InlineAlert::new("No active fleet alerts")
+                .success()
+                .body("All monitored services are currently within threshold.")
+                .into()
+        };
+
         let services = self.model.services.iter().map(|service| {
-            DataRow::new(service.name)
-                .tone(service.health)
-                .value(format!(
-                    "{} ms · {}% uptime",
-                    service.latency_ms, service.uptime_percent
-                ))
-                .fill_width()
+            SelectableItem::new(service.name)
+                .selected(
+                    matches!(self.selected, super::Selection::Service(id) if id == service.id),
+                )
+                .leading_color(theme::active().tone(service.health).color)
+                .trailing(nive_text::caption(format!(
+                    "{} rpm · {} ms · {}% uptime",
+                    service.requests_per_minute, service.latency_ms, service.uptime_percent
+                )))
+                .on_press(Message::OpenService(service.id))
                 .into()
         });
 
         container(
             scrollable(
                 column![
-                    text("Fleet overview").size(28),
+                    SectionHeader::new("Fleet overview")
+                        .icon(IconRole::DialogInformation)
+                        .status(status)
+                        .action(
+                            SectionHeaderAction::icon_text(
+                                IconRole::ViewRefresh,
+                                "Run health check"
+                            )
+                            .tooltip("Run fleet health check")
+                            .on_press(Message::Command(AppCommand::RunHealthCheck))
+                        ),
                     cards,
-                    column(services).spacing(8),
-                    button("Toggle unsaved dashboard filter").on_press(Message::ToggleFilterDirty),
+                    alert_summary,
+                    Card::new(
+                        column![
+                            SectionHeader::new("Services")
+                                .icon(IconRole::Folder)
+                                .badge(self.model.services.len().to_string()),
+                            column(services).spacing(6),
+                        ]
+                        .spacing(8)
+                    )
+                    .shape_md()
+                    .padding(14)
+                    .fill_width(),
+                    Card::new(
+                        column![
+                            SectionHeader::new("Dashboard state")
+                                .icon(IconRole::TabPinned)
+                                .status(SectionHeaderStatus::icon_label(
+                                    if self.dirty_filter {
+                                        IconRole::DialogWarning
+                                    } else {
+                                        IconRole::DialogSuccess
+                                    },
+                                    if self.dirty_filter {
+                                        "unsaved"
+                                    } else {
+                                        "saved"
+                                    },
+                                    if self.dirty_filter {
+                                        ToneRole::Warning
+                                    } else {
+                                        ToneRole::Success
+                                    },
+                                )),
+                            DataRow::new("Unsaved dashboard filter")
+                                .tone(if self.dirty_filter {
+                                    ToneRole::Warning
+                                } else {
+                                    ToneRole::Success
+                                })
+                                .value(if self.dirty_filter { "dirty" } else { "clean" })
+                                .trailing(
+                                    nive_button::secondary("Toggle")
+                                        .on_press(Message::ToggleFilterDirty)
+                                )
+                                .fill_width(),
+                        ]
+                        .spacing(8)
+                    )
+                    .shape_md()
+                    .padding(14)
+                    .fill_width(),
                 ]
                 .spacing(16)
                 .padding(24),
@@ -143,34 +247,61 @@ impl WorkbenchMonitor {
 
         let host = self.model.host(service.host_id);
         let cards = row![
-            MetricCard::new("latency ms", service.latency_ms as i128),
-            MetricCard::new("uptime %", service.uptime_percent as i128),
-            MetricCard::new("error %", service.error_rate_percent as i128),
+            Card::new(MetricCard::new("latency ms", service.latency_ms as i128))
+                .shape_md()
+                .padding(14)
+                .fill_width(),
+            Card::new(MetricCard::new("uptime %", service.uptime_percent as i128))
+                .shape_md()
+                .padding(14)
+                .fill_width(),
+            Card::new(MetricCard::new(
+                "error %",
+                service.error_rate_percent as i128
+            ))
+            .shape_md()
+            .padding(14)
+            .fill_width(),
         ]
         .spacing(12);
         let host_label = host.map(|host| host.name).unwrap_or("unknown");
 
         container(
             column![
-                text(service.name).size(28),
+                SectionHeader::new(service.name)
+                    .icon(IconRole::Folder)
+                    .status(SectionHeaderStatus::icon_label(
+                        service_health_icon(service.health),
+                        tone_label(service.health),
+                        service.health,
+                    )),
                 cards,
-                KeyValueList::new()
-                    .item(MetadataItem::new("Host", host_label))
-                    .item(MetadataItem::new(
-                        "Environment",
-                        self.model.environment_label()
-                    ))
-                    .item(
-                        MetadataItem::new("Health", tone_label(service.health))
-                            .tone(service.health)
+                Card::new(
+                    KeyValueList::new()
+                        .item(MetadataItem::new("Host", host_label))
+                        .item(MetadataItem::new(
+                            "Environment",
+                            self.model.environment_label()
+                        ))
+                        .item(
+                            MetadataItem::new("Health", tone_label(service.health))
+                                .tone(service.health)
+                        )
+                        .fill_width()
+                )
+                .shape_md()
+                .padding(14)
+                .fill_width(),
+                ActionGroup::new()
+                    .action(
+                        ToolbarAction::icon_label(IconRole::ViewReveal, "Inspect service")
+                            .on_press(Message::InspectService(service.id))
                     )
-                    .fill_width(),
-                row![
-                    button("Inspect service").on_press(Message::InspectService(service.id)),
-                    button("Run health check")
-                        .on_press(Message::Command(AppCommand::RunHealthCheck)),
-                ]
-                .spacing(8),
+                    .action(
+                        ToolbarAction::icon_label(IconRole::ViewRefresh, "Run health check")
+                            .loading(self.model.running_jobs() > 0)
+                            .on_press(Message::Command(AppCommand::RunHealthCheck))
+                    ),
             ]
             .spacing(16)
             .padding(24),
@@ -181,7 +312,11 @@ impl WorkbenchMonitor {
     }
 
     pub(super) fn logs_view(&self) -> Element<'_, Message> {
-        let lines = self.model.logs.iter().map(|line| text(line).into());
+        let lines = self
+            .model
+            .logs
+            .iter()
+            .map(|line| nive_text::code_small(line).into());
         scrollable(column(lines).spacing(4).padding(12)).into()
     }
 
@@ -202,7 +337,7 @@ impl WorkbenchMonitor {
                 .description("Run a health check to exercise operation progress.")
                 .icon(IconRole::ViewRefresh)
                 .action(
-                    button("Run health check")
+                    nive_button::primary("Run health check")
                         .on_press(Message::Command(AppCommand::RunHealthCheck)),
                 )
                 .into();
@@ -229,5 +364,14 @@ impl WorkbenchMonitor {
         });
 
         scrollable(column(rows).spacing(12).padding(12)).into()
+    }
+}
+
+const fn service_health_icon(tone: ToneRole) -> IconRole {
+    match tone {
+        ToneRole::Success => IconRole::DialogSuccess,
+        ToneRole::Warning => IconRole::DialogWarning,
+        ToneRole::Danger => IconRole::DialogError,
+        ToneRole::Info | ToneRole::Accent | ToneRole::Neutral => IconRole::DialogInformation,
     }
 }
