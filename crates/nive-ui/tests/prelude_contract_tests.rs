@@ -37,7 +37,11 @@ fn widget_taxonomy_exposes_category_facades() {
     let _: Element<'_, ()> = display::Badge::new("Ready").success().into();
     let _: Element<'_, ()> = navigation::Toolbar::new().into();
     let _: Element<'_, ()> = navigation::VerticalRail::new(navigation::RailSide::Left)
-        .item(navigation::VerticalRailItem::new("Explorer"))
+        .on_select(|_: &str| ())
+        .item(
+            navigation::VerticalRailItem::new("explorer", "Explorer")
+                .badge(navigation::VerticalRailBadge::new("3").description("3 open explorers")),
+        )
         .into();
     let _: Element<'_, ()> = overlays::Dialog::new(text("Dialog")).into();
     let _: Element<'_, ()> = primitives::Separator::horizontal().into();
