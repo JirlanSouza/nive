@@ -186,9 +186,9 @@ fn popover_content(title: &'static str, body: &'static str) -> Element<'static, 
 
 fn command_palette(app: &WidgetGallery) -> Element<'_, Message> {
     let filtered = command_palette_filter(&app.overlays.command_query, COMMAND_ROWS);
-    let visible: Vec<&CommandPaletteRow<'static, Message>> = filtered
+    let visible: Vec<CommandPaletteRow<'static, Message>> = filtered
         .into_iter()
-        .map(|index| &COMMAND_ROWS[index])
+        .map(|index| COMMAND_ROWS[index].clone())
         .collect();
 
     let highlighted = (!visible.is_empty()).then_some(0);
@@ -208,7 +208,7 @@ fn command_palette(app: &WidgetGallery) -> Element<'_, Message> {
                 command_palette_view(
                     "Search commands",
                     &app.overlays.command_query,
-                    visible.iter().copied(),
+                    visible.clone(),
                     Some(0),
                     Message::CommandQueryChanged,
                     on_submit,
