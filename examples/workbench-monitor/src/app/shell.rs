@@ -1,26 +1,61 @@
 use nive::prelude::*;
-use nive::widget::row;
 
 use super::{AppCommand, DocumentId, Message, PanelActionId, WorkbenchMonitor};
 
 impl WorkbenchMonitor {
     pub(super) fn toolbar(&self) -> Element<'_, Message> {
-        row![
-            button("Run health check").on_press(Message::Command(AppCommand::RunHealthCheck)),
-            button("Command palette").on_press(Message::OpenPalette),
-            button("Toggle theme").on_press(Message::ToggleTheme),
-            button("Switch environment").on_press(Message::Command(AppCommand::SwitchEnvironment)),
-            button("Clear selection").on_press(Message::ClearSelection),
-            button("Open latest alert").on_press_maybe(
-                self.model
-                    .active_alerts()
-                    .next()
-                    .map(|alert| Message::ShowAlert(alert.id)),
-            ),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center)
-        .into()
+        let latest_alert = self
+            .model
+            .active_alerts()
+            .next()
+            .map(|alert| Message::ShowAlert(alert.id));
+
+        Toolbar::new()
+            .fill_width()
+            .group(
+                ToolbarGroup::new()
+                    .action(
+                        ToolbarAction::icon_label(IconRole::ViewRefresh, "Run health check")
+                            .tooltip("Run fleet health check")
+                            .loading(self.model.running_jobs() > 0)
+                            .on_press(Message::Command(AppCommand::RunHealthCheck)),
+                    )
+                    .action(
+                        ToolbarAction::icon_label(IconRole::EditFind, "Command palette")
+                            .tooltip("Open command palette")
+                            .on_press(Message::OpenPalette),
+                    ),
+            )
+            .group(
+                ToolbarGroup::new()
+                    .action(
+                        ToolbarAction::icon_label(IconRole::PreferencesSystem, "Switch env")
+                            .tooltip("Switch monitor environment")
+                            .on_press(Message::Command(AppCommand::SwitchEnvironment)),
+                    )
+                    .action(
+                        ToolbarAction::icon_label(IconRole::DialogInformation, "Theme")
+                            .tooltip("Toggle light/dark theme")
+                            .selected(matches!(self.theme, ThemePreference::Dark))
+                            .on_press(Message::ToggleTheme),
+                    ),
+            )
+            .group(
+                ToolbarGroup::new()
+                    .action(
+                        ToolbarAction::icon_label(IconRole::DialogWarning, "Latest alert")
+                            .tooltip("Open latest active alert")
+                            .disabled(latest_alert.is_none())
+                            .on_press_maybe(latest_alert),
+                    )
+                    .action(
+                        ToolbarAction::icon_label(IconRole::WindowClose, "Clear selection")
+                            .tooltip("Clear inspector selection")
+                            .disabled(matches!(self.selected, super::Selection::None))
+                            .on_press(Message::ClearSelection),
+                    ),
+            )
+            .into()
     }
 
     pub(super) fn left_panels(
