@@ -1854,6 +1854,7 @@ version = "0.1.0-alpha.1"
 dependencies = [
  "nive-runtime",
  "nive-ui",
+ "nive-workbench",
 ]
 
 [[package]]
@@ -1902,6 +1903,15 @@ version = "0.1.0-alpha.1"
 dependencies = [
  "iced",
  "nive-core",
+]
+
+[[package]]
+name = "nive-workbench"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "iced",
+ "nive-ui",
+ "serde",
 ]
 
 [[package]]
