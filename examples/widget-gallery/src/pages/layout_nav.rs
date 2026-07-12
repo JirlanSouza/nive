@@ -82,31 +82,45 @@ fn vertical_rails(app: &WidgetGallery) -> Element<'_, Message> {
     let left = VerticalRail::new(RailSide::Left)
         .size(app.control_size)
         .height(220)
+        .on_select(|_| Message::Noop)
         .item(
-            rail_item("Explorer", IconRole::Folder)
+            rail_item("explorer", "Explorer", IconRole::Folder)
                 .selected(true)
-                .status(ToneRole::Success)
-                .badge("3"),
+                .badge(VerticalRailBadge::new("3").success().description("3 healthy services")),
         )
-        .item(rail_item("Search", IconRole::EditFind).selected(true))
-        .item(rail_item("Problems", IconRole::DialogWarning).status(ToneRole::Warning))
+        .item(rail_item("search", "Search", IconRole::EditFind).selected(true))
+        .item(
+            rail_item("problems", "Problems", IconRole::DialogWarning)
+                .badge(VerticalRailBadge::new("!").warning().description("Warnings available")),
+        )
         .item(rail_item(
+            "long",
             "Very long tool window label that truncates",
             IconRole::DialogInformation,
         ))
-        .item(rail_item("Disabled", IconRole::ViewConceal).disabled(true));
+        .item(rail_item("disabled", "Disabled", IconRole::ViewConceal).disabled(true));
 
     let right = VerticalRail::new(RailSide::Right)
         .size(app.control_size)
         .height(220)
-        .item(rail_item("Outline", IconRole::ListAdd).selected(true))
-        .item(rail_item("Run", IconRole::GoNext).status(ToneRole::Info))
-        .item(rail_item("Console", IconRole::OpenMenu))
-        .item(rail_item("Preview", IconRole::ViewReveal).badge("12"))
-        .item(rail_item("Logs", IconRole::EditModify).status(ToneRole::Danger))
-        .item(rail_item("History", IconRole::ViewRefresh))
-        .item(rail_item("Packages", IconRole::MailInbox))
-        .item(rail_item("Settings", IconRole::PreferencesSystem));
+        .on_select(|_| Message::Noop)
+        .item(rail_item("outline", "Outline", IconRole::ListAdd).selected(true))
+        .item(
+            rail_item("run", "Run", IconRole::GoNext)
+                .badge(VerticalRailBadge::new("1").info().description("1 running task")),
+        )
+        .item(rail_item("console", "Console", IconRole::OpenMenu))
+        .item(
+            rail_item("preview", "Preview", IconRole::ViewReveal)
+                .badge(VerticalRailBadge::new("12").description("12 previews")),
+        )
+        .item(
+            rail_item("logs", "Logs", IconRole::EditModify)
+                .badge(VerticalRailBadge::new("2").danger().description("2 log errors")),
+        )
+        .item(rail_item("history", "History", IconRole::ViewRefresh))
+        .item(rail_item("packages", "Packages", IconRole::MailInbox))
+        .item(rail_item("settings", "Settings", IconRole::PreferencesSystem));
 
     row![
         example_cell(
@@ -378,12 +392,11 @@ fn selectable(app: &WidgetGallery) -> Element<'_, Message> {
 }
 
 fn rail_item(
+    id: &'static str,
     label: &'static str,
     icon: IconRole,
-) -> VerticalRailItem<'static, Message> {
-    VerticalRailItem::new(label)
-        .icon(icon)
-        .on_press(Message::Noop)
+) -> VerticalRailItem<'static, &'static str> {
+    VerticalRailItem::new(id, label).icon(icon)
 }
 
 fn tab(tab: DemoTab, icon: IconRole) -> TabItem<'static, DemoTab> {
