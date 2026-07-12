@@ -8,7 +8,8 @@ Nive is a Rust/Iced desktop application framework. Active Cargo workspace member
 - `crates/nive-ui`: visual design system (tokens, theme, widgets, icons)
 - `crates/nive-runtime`: application lifecycle, window management, feedback, devtools
 - `crates/nive-runtime-derive`: proc macros for devtools
-- `crates/nive`: umbrella crate that re-exports nive-ui and nive-runtime
+- `crates/nive-workbench`: fixed-region professional desktop shell built from nive-ui primitives, with optional runtime adapters
+- `crates/nive`: umbrella crate that re-exports nive-ui and nive-runtime, and exposes workbench APIs through `nive::workbench` plus prelude tiers
 - `crates/nive-cli`: CLI for scaffolding and icon management (binary name: `nive`)
 
 Use the root `justfile` as the source of truth for active development commands.
@@ -60,5 +61,6 @@ Run package-specific `cargo` commands only for focused verification while iterat
 - `nive-ui`: shared visual design system for tokens, semantic theme contracts, reusable UI primitives, and icon management.
 - `nive-runtime`: shared app runtime foundation for application/update contracts, `Resource`/`Operation` async state, request IDs, user-facing errors, lifecycle contracts, and optional devtools simulator (feature `devtools`). The `Inspect` trait + derive walk app state to discover simulatable fields; `SimulableState` exposes snapshots, explicit capabilities, and simulator actions.
 - `nive-runtime-derive`: proc macro `#[derive(Inspect)]` that generates recursive `Inspect::inspect` implementations for app state structs.
-- `nive`: umbrella crate that re-exports `nive-ui` and `nive-runtime` for convenient app development.
+- `nive-workbench`: shell composition layer for document tabs, generic panel hosts, compact side rails, bottom header tabs, layout/session state, diagnostics/status surfaces, command palette hosting, and monitor-app visual validation. Default features depend on `nive-ui` only; the optional `runtime` feature adds adapters for supported `nive-runtime` concepts.
+- `nive`: umbrella crate that re-exports `nive-ui` and `nive-runtime`, exposes `nive-workbench` as `nive::workbench`, and includes workbench APIs in `nive::prelude::*` for convenient app development.
 - `nive-cli`: CLI binary (`nive`) for scaffolding new apps and managing provider-neutral icon manifests/generated modules.

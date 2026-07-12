@@ -8,6 +8,7 @@ A Rust/Iced framework for building desktop applications.
 
 - **Design System**: Semantic theme contracts, tokens, and reusable widgets
 - **Application Lifecycle**: Window management, bootstrap, feedback, and devtools
+- **Workbench Shell**: Fixed-region document, panel, diagnostics, command, and status surfaces
 - **Icon Management**: Theme-owned icon roles, app symbols, and provider-neutral `nive icons` CLI
 - **Scaffolding**: `nive new` CLI for quick project setup
 
@@ -37,6 +38,7 @@ cargo run
 - [`nive-ui`](crates/nive-ui): Visual design system (tokens, theme, widgets, icons)
 - [`nive-runtime`](crates/nive-runtime): Application lifecycle, window management, feedback
 - [`nive-runtime-derive`](crates/nive-runtime-derive): Proc macros for devtools
+- [`nive-workbench`](crates/nive-workbench): Fixed-region professional desktop shell
 - [`nive-cli`](crates/nive-cli): CLI for scaffolding and icon management
 
 ## Platform Notes
@@ -77,6 +79,7 @@ On first launch, Nive installs a `.desktop` entry and icon PNG to `~/.local/shar
 - [Theming](examples/theming/README.md) — Runtime theme switching with `Application::theme` override
 - [Icons](examples/icons/README.md) — Roles, symbols, custom SVGs, and theme icon catalog overrides
 - [Widget Gallery](examples/widget-gallery/README.md) — Navigable visual baseline for public widgets, variants, overlays, feedback, theme, icons, and motion
+- [Workbench Monitor](examples/workbench-monitor/README.md) — Simulated service-monitoring app for validating the fixed-region workbench shell, panel hosts, document tabs, command palette, dialogs, and toasts
 - [File Picker](examples/file-picker/README.md) — Native file picker dialogs (feature-gated)
 - [Devtools](examples/devtools/README.md) — Runtime state inspection panel (feature-gated)
 
