@@ -21,6 +21,7 @@ fn prelude_exposes_common_widget_contracts() {
     let _: Element<'_, ()> = Dialog::new(text("Dialog")).into();
     let _: Element<'_, ()> = EmptyState::new("No results").into();
     let _: Element<'_, ()> = Separator::horizontal().into();
+    let _: Element<'_, ()> = ToneDot::new(theme::roles::ToneRole::Success).sm().into();
 }
 
 #[test]
@@ -35,8 +36,14 @@ fn widget_taxonomy_exposes_category_facades() {
     let _: Element<'_, ()> = containers::SectionHeader::new("Title").into();
     let _: Element<'_, ()> = display::Badge::new("Ready").success().into();
     let _: Element<'_, ()> = navigation::Toolbar::new().into();
+    let _: Element<'_, ()> = navigation::VerticalRail::new(navigation::RailSide::Left)
+        .item(navigation::VerticalRailItem::new("Explorer"))
+        .into();
     let _: Element<'_, ()> = overlays::Dialog::new(text("Dialog")).into();
     let _: Element<'_, ()> = primitives::Separator::horizontal().into();
+    let _: Element<'_, ()> = primitives::ToneDot::new(theme::roles::ToneRole::Accent)
+        .xs()
+        .into();
 }
 
 #[test]
@@ -60,7 +67,7 @@ fn command_palette_exposes_filter_view_and_row_types() {
     assert_eq!(command_palette_filter("", &rows), vec![0, 1]);
 
     let _: Element<'_, ()> =
-        command_palette_view("Type a command", "", &rows, Some(0), |_| (), None);
+        command_palette_view("Type a command", "", rows, Some(0), |_| (), None);
 }
 
 #[test]

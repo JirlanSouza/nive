@@ -21,7 +21,7 @@ use crate::Element;
 pub fn command_palette_view<'a, M>(
     placeholder: &'a str,
     query: &'a str,
-    rows: impl IntoIterator<Item = &'a CommandPaletteRow<'a, M>>,
+    rows: impl IntoIterator<Item = CommandPaletteRow<'a, M>>,
     highlighted: Option<usize>,
     on_query_change: impl Fn(String) -> M + 'a,
     on_submit: Option<M>,
@@ -43,7 +43,7 @@ where
 
     let input: Element<'a, M> = input.into();
 
-    let collected: Vec<&'a CommandPaletteRow<'a, M>> = rows.into_iter().collect();
+    let collected: Vec<CommandPaletteRow<'a, M>> = rows.into_iter().collect();
     let list: Element<'a, M> = if collected.is_empty() {
         empty_state(query, spacing)
     } else {
@@ -60,7 +60,7 @@ where
 }
 
 fn list_content<'a, M>(
-    rows: &[&'a CommandPaletteRow<'a, M>],
+    rows: &[CommandPaletteRow<'a, M>],
     highlighted: Option<usize>,
     spacing: SpacingScale,
 ) -> Element<'a, M>
@@ -78,7 +78,7 @@ where
 }
 
 fn row_element<'a, M>(
-    row: &'a CommandPaletteRow<'a, M>,
+    row: &CommandPaletteRow<'a, M>,
     is_highlighted: bool,
     spacing: SpacingScale,
 ) -> Element<'a, M>
@@ -109,7 +109,7 @@ where
         label.width(Length::Fill).into()
     };
 
-    let trailing: Element<'a, M> = match row.shortcut_label.as_deref() {
+    let trailing: Element<'a, M> = match row.shortcut_label.clone() {
         Some(shortcut) => text(shortcut)
             .size(theme::typography(TypographyRole::Caption).size)
             .style(theme_text::style(TextRole::Muted))
