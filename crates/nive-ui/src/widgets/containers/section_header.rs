@@ -1,8 +1,10 @@
 mod style;
 
+use std::borrow::Cow;
+
 use iced::{
     time::Duration,
-    widget::{container, row, text, Row},
+    widget::{container, row, text, Row, Space},
     Alignment, Length, Padding, Radians,
 };
 
@@ -12,20 +14,24 @@ use crate::widgets::controls::button;
 use crate::widgets::feedback::presentation::{resource_status_phase, ResourceStatusPhase};
 use crate::widgets::feedback::ResourceStatusPresentation;
 use crate::widgets::primitives::{icon, IconRole};
+use crate::widgets::Badge;
 use crate::Element;
 
 use self::style as theme_section_header;
 
 pub struct SectionHeader<'a, Message> {
-    title: &'a str,
+    title: Cow<'a, str>,
+    icon: Option<IconRole>,
+    badge: Option<Cow<'a, str>>,
     size: ControlSize,
     status: Option<SectionHeaderStatus<'a>>,
     actions: Vec<SectionHeaderAction<'a, Message>>,
 }
 
 pub struct SectionHeaderAction<'a, Message> {
-    icon: IconRole,
-    tooltip: Option<&'a str>,
+    icon: Option<IconRole>,
+    label: Option<Cow<'a, str>>,
+    tooltip: Option<Cow<'a, str>>,
     disabled: bool,
     on_press: Option<Message>,
 }
@@ -36,12 +42,12 @@ pub struct SectionHeaderStatus<'a> {
 
 enum SectionHeaderStatusKind<'a> {
     Refreshing {
-        label: &'a str,
+        label: Cow<'a, str>,
         tone: ToneRole,
     },
     IconLabel {
         icon: IconRole,
-        label: &'a str,
+        label: Cow<'a, str>,
         tone: ToneRole,
     },
 }
@@ -50,9 +56,11 @@ impl<'a, Message> SectionHeader<'a, Message>
 where
     Message: Clone + 'a,
 {
-    pub fn new(title: &'a str) -> Self {
+    pub fn new(title: impl Into<Cow<'a, str>>) -> Self {
         Self {
-            title,
+            title: title.into(),
+            icon: None,
+            badge: None,
             size: ControlSize::Sm,
             status: None,
             actions: Vec::new(),
@@ -61,6 +69,16 @@ where
 
     pub fn size(mut self, size: ControlSize) -> Self {
         self.size = size;
+        self
+    }
+
+    pub fn icon(mut self, icon: IconRole) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    pub fn badge(mut self, badge: impl Into<Cow<'a, str>>) -> Self {
+        self.badge = Some(badge.into());
         self
     }
 
@@ -107,8 +125,19 @@ where
             .size(metrics.title_size)
             .line_height(metrics.title_line_height)
             .style(theme::text::style(TextRole::Muted));
+        let mut leading = row![]
+            .spacing(metrics.status_gap)
+            .align_y(Alignment::Center)
+            .width(Length::Fill);
+        if let Some(icon) = self.icon {
+            leading = leading.push(icon::role(icon).size(metrics.icon_size));
+        }
+        leading = leading.push(title);
+        if let Some(badge) = self.badge {
+            leading = leading.push(Badge::new(badge).neutral().xs());
+        }
         let mut header = Row::new()
-            .push(title.width(Length::Fill))
+            .push(leading)
             .spacing(metrics.gap)
             .align_y(Alignment::Center)
             .width(Length::Fill);
@@ -150,15 +179,36 @@ where
 {
     pub fn icon(icon: IconRole) -> Self {
         Self {
-            icon,
+            icon: Some(icon),
+            label: None,
             tooltip: None,
             disabled: false,
             on_press: None,
         }
     }
 
-    pub fn tooltip(mut self, tooltip: &'a str) -> Self {
-        self.tooltip = Some(tooltip);
+    pub fn text(label: impl Into<Cow<'a, str>>) -> Self {
+        Self {
+            icon: None,
+            label: Some(label.into()),
+            tooltip: None,
+            disabled: false,
+            on_press: None,
+        }
+    }
+
+    pub fn icon_text(icon: IconRole, label: impl Into<Cow<'a, str>>) -> Self {
+        Self {
+            icon: Some(icon),
+            label: Some(label.into()),
+            tooltip: None,
+            disabled: false,
+            on_press: None,
+        }
+    }
+
+    pub fn tooltip(mut self, tooltip: impl Into<Cow<'a, str>>) -> Self {
+        self.tooltip = Some(tooltip.into());
         self
     }
 
@@ -182,31 +232,52 @@ where
         metrics: theme_section_header::SectionHeaderMetrics,
         size: ControlSize,
     ) -> Element<'a, Message> {
-        button::icon(self.icon)
+        let mut action = match (self.icon, self.label) {
+            (Some(icon), None) => button::icon(icon)
+                .padding(Padding::ZERO)
+                .width(Length::Fixed(metrics.icon_button_side)),
+            (None, Some(label)) => button::Button::custom(text(label).into())
+                .ghost()
+                .padding(Padding::ZERO.horizontal(metrics.action_gap)),
+            (Some(icon), Some(label)) => {
+                let content = row![icon::role(icon).size(metrics.icon_size), text(label)]
+                    .spacing(metrics.status_gap)
+                    .align_y(Alignment::Center);
+                button::Button::custom(content.into())
+                    .ghost()
+                    .padding(Padding::ZERO.horizontal(metrics.action_gap))
+            }
+            (None, None) => button::Button::custom(Space::new().into()).ghost(),
+        };
+
+        action = action
             .size(size)
-            .padding(Padding::ZERO)
-            .width(Length::Fixed(metrics.icon_button_side))
             .height(Length::Fixed(metrics.icon_button_side))
             .disabled(self.disabled)
             .tooltip_maybe(self.tooltip)
-            .on_press_maybe(self.on_press)
-            .into()
+            .on_press_maybe(self.on_press);
+
+        action.into()
     }
 }
 
 impl<'a> SectionHeaderStatus<'a> {
-    pub fn refreshing(label: &'a str) -> Self {
+    pub fn refreshing(label: impl Into<Cow<'a, str>>) -> Self {
         Self {
             kind: SectionHeaderStatusKind::Refreshing {
-                label,
+                label: label.into(),
                 tone: ToneRole::Neutral,
             },
         }
     }
 
-    pub fn icon_label(icon: IconRole, label: &'a str, tone: ToneRole) -> Self {
+    pub fn icon_label(icon: IconRole, label: impl Into<Cow<'a, str>>, tone: ToneRole) -> Self {
         Self {
-            kind: SectionHeaderStatusKind::IconLabel { icon, label, tone },
+            kind: SectionHeaderStatusKind::IconLabel {
+                icon,
+                label: label.into(),
+                tone,
+            },
         }
     }
 
@@ -382,10 +453,8 @@ mod section_header_status_tests {
 
         assert!(matches!(
             status.kind,
-            SectionHeaderStatusKind::Refreshing {
-                label: "Refreshing",
-                ..
-            }
+            SectionHeaderStatusKind::Refreshing { label, .. }
+                if label == "Refreshing"
         ));
     }
 
@@ -405,10 +474,10 @@ mod section_header_status_tests {
         assert!(matches!(
             status.kind,
             SectionHeaderStatusKind::IconLabel {
-                label: "Failed",
+                label,
                 tone: ToneRole::Danger,
                 ..
-            }
+            } if label == "Failed"
         ));
     }
 }
