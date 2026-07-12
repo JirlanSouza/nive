@@ -38,7 +38,8 @@ pub use feedback::{
 pub use navigation::{
     command_palette_filter, command_palette_view, ActionGroup, CommandPaletteRow, DropdownMenu,
     DropdownMenuItem, RailSide, TabBar, TabCloseRequest, TabCloseTrigger, TabDrop, TabDropTarget,
-    TabItem, TabTearOff, Toolbar, ToolbarAction, ToolbarGroup, VerticalRail, VerticalRailItem,
+    TabItem, TabTearOff, Toolbar, ToolbarAction, ToolbarGroup, VerticalRail, VerticalRailBadge,
+    VerticalRailItem,
 };
 pub use overlays::{
     Dialog, DialogActionFooter, DialogFooter, DialogHeader, DialogHost, Popover, PopoverCollision,
