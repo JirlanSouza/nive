@@ -26,11 +26,7 @@ impl<'a, Message: Clone + 'a> MetricCard<'a, Message> {
 
     fn into_element(self) -> Element<'a, Message> {
         let metrics = metrics();
-        let value = if self.value > 0 {
-            self.value.to_string()
-        } else {
-            "--".to_string()
-        };
+        let value = format_metric_value(self.value);
 
         column![
             text(value).size(metrics.value_size).style(value_style()),
@@ -75,4 +71,18 @@ fn value_style() -> impl Fn(&crate::theme::Theme) -> text::Style {
 
 fn label_style() -> impl Fn(&crate::theme::Theme) -> text::Style {
     text_muted()
+}
+
+fn format_metric_value(value: i128) -> String {
+    value.to_string()
+}
+
+#[cfg(test)]
+mod metric_card_tests {
+    use super::*;
+
+    #[test]
+    fn formats_zero_as_a_valid_metric_value() {
+        assert_eq!(format_metric_value(0), "0");
+    }
 }
