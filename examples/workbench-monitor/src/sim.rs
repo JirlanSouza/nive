@@ -161,8 +161,10 @@ impl Simulation {
             Environment::Production => Environment::Staging,
             Environment::Staging => Environment::Production,
         };
-        self.events
-            .push(format!("Switched environment to {}", self.environment_label()));
+        self.events.push(format!(
+            "Switched environment to {}",
+            self.environment_label()
+        ));
     }
 
     pub const fn environment_label(&self) -> &'static str {
@@ -202,7 +204,7 @@ impl Simulation {
             self.environment_label()
         ));
 
-        if self.tick % 5 == 0 && self.alert(2).is_none() {
+        if self.tick.is_multiple_of(5) && self.alert(2).is_none() {
             self.alerts.push(Alert {
                 id: 2,
                 service_id: "api",
