@@ -4,6 +4,7 @@ members = [
   "crates/nive-ui",
   "crates/nive-runtime",
   "crates/nive-runtime-derive",
+  "crates/nive-workbench",
   "crates/nive",
   "crates/nive-cli",
 ]
