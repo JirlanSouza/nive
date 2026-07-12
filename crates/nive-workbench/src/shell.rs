@@ -10,8 +10,7 @@ use nive_ui::Element;
 use crate::documents::{DocumentArea, WorkbenchDocument, WorkbenchDocumentEvent};
 use crate::layout::{WorkbenchLayoutChange, WorkbenchLayoutState, WorkbenchRegion};
 use crate::panels::{
-    panel_host_with_collapsed, panel_host_with_restore, WorkbenchPanel, WorkbenchPanelEvent,
-    WorkbenchPanelHostState,
+    panel_host, PanelHostMode, WorkbenchPanel, WorkbenchPanelEvent, WorkbenchPanelHostState,
 };
 use crate::status::StatusBar;
 
@@ -218,9 +217,10 @@ where
     fn body(&mut self) -> Element<'a, Message> {
         if let Some(maximized) = self.state.maximized().cloned() {
             if let Some(panel) = self.take_panel(maximized.region, &maximized.panel_id) {
-                let state =
-                    WorkbenchPanelHostState::new(maximized.region).active_panel(maximized.panel_id);
-                return panel_host_with_restore(state, [panel], self.panel_mapper());
+                let state = WorkbenchPanelHostState::new(maximized.region)
+                    .active_panel(maximized.panel_id)
+                    .mode(PanelHostMode::Maximized);
+                return panel_host(state, [panel], self.panel_mapper());
             }
         }
 
@@ -309,12 +309,12 @@ where
         panels: Vec<WorkbenchPanel<'a, PanelId, ActionId, Message>>,
         collapsed: bool,
     ) -> Element<'a, Message> {
-        let mut state = WorkbenchPanelHostState::new(region);
+        let mut state = WorkbenchPanelHostState::new(region).collapsed(collapsed);
         if let Some(active) = self.state.active_panel(region).cloned() {
             state = state.active_panel(active);
         }
 
-        panel_host_with_collapsed(state, panels, collapsed, self.panel_mapper())
+        panel_host(state, panels, self.panel_mapper())
     }
 
     fn take_panel(

@@ -2,8 +2,11 @@ mod builders;
 
 use std::borrow::Cow;
 
-use nive_ui::theme::ToneRole;
-use nive_ui::{Element, IconRole};
+use nive_ui::{
+    theme::ToneRole,
+    widgets::{RailSide, VerticalRailBadge},
+    Element, IconRole,
+};
 
 use crate::layout::WorkbenchRegion;
 
@@ -30,6 +33,19 @@ impl PanelSelectorPlacement {
             }
         }
     }
+}
+
+/// How a panel host presents its region.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub enum PanelHostMode {
+    /// Selector plus the active panel (default docked presentation).
+    #[default]
+    Docked,
+    /// Region collapsed to its selector rail only.
+    Collapsed,
+    /// A single panel maximized, exposing an un-maximize affordance.
+    Maximized,
 }
 
 /// App action rendered in a panel header.
@@ -71,6 +87,8 @@ pub struct WorkbenchPanelHostState<PanelId> {
     pub selector: PanelSelectorPlacement,
     /// Whether selecting the already active rail item collapses the host.
     pub collapse_on_active_click: bool,
+    /// Host presentation mode.
+    pub mode: PanelHostMode,
 }
 
 /// Semantic panel event emitted by the workbench.
@@ -136,8 +154,7 @@ pub struct PanelRailItem<'a, PanelId> {
     pub(super) id: PanelId,
     pub(super) icon: IconRole,
     pub(super) label: Cow<'a, str>,
-    pub(super) badge: Option<Cow<'a, str>>,
-    pub(super) status: Option<ToneRole>,
+    pub(super) badge: Option<VerticalRailBadge<'a>>,
     pub(super) selected: bool,
     pub(super) disabled: bool,
 }
@@ -147,7 +164,7 @@ pub struct PanelRailItem<'a, PanelId> {
 /// If no mapper is configured with [`PanelRail::on_select`], rail items render
 /// from metadata but remain inert.
 pub struct PanelRail<'a, PanelId, Message> {
-    pub(super) region: WorkbenchRegion,
+    pub(super) side: RailSide,
     pub(super) items: Vec<PanelRailItem<'a, PanelId>>,
     pub(super) on_select: Option<Box<dyn Fn(PanelId) -> Message + 'a>>,
 }

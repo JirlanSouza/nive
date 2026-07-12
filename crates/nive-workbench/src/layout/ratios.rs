@@ -1,3 +1,4 @@
+use nive_ui::widgets::RailSide;
 use serde::{Deserialize, Serialize};
 
 /// Named workbench regions used by fixed-region shells.
@@ -22,6 +23,16 @@ impl WorkbenchRegion {
     /// Returns whether this region can host workbench panels.
     pub const fn is_panel_region(self) -> bool {
         matches!(self, Self::Left | Self::Right | Self::Bottom)
+    }
+
+    /// Returns the window edge a side rail hugs for this region, when it hosts one.
+    #[must_use]
+    pub const fn rail_side(self) -> Option<RailSide> {
+        match self {
+            Self::Left => Some(RailSide::Left),
+            Self::Right => Some(RailSide::Right),
+            Self::Toolbar | Self::Center | Self::Bottom | Self::Status => None,
+        }
     }
 }
 

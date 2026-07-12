@@ -1,11 +1,11 @@
 use std::borrow::Cow;
 
 use nive_ui::theme::ToneRole;
-use nive_ui::{Element, IconRole};
+use nive_ui::{widgets::VerticalRailBadge, Element, IconRole};
 
 use super::{
-    PanelAction, PanelRailItem, PanelSelectorPlacement, WorkbenchPanel, WorkbenchPanelEvent,
-    WorkbenchPanelHostState,
+    PanelAction, PanelHostMode, PanelRailItem, PanelSelectorPlacement, WorkbenchPanel,
+    WorkbenchPanelEvent, WorkbenchPanelHostState,
 };
 use crate::layout::WorkbenchRegion;
 
@@ -191,6 +191,7 @@ impl<PanelId> WorkbenchPanelHostState<PanelId> {
             active_panel: None,
             selector: PanelSelectorPlacement::default_for_region(region),
             collapse_on_active_click: false,
+            mode: PanelHostMode::Docked,
         }
     }
 
@@ -211,6 +212,22 @@ impl<PanelId> WorkbenchPanelHostState<PanelId> {
         self.collapse_on_active_click = enabled;
         self
     }
+
+    /// Sets the host presentation mode.
+    pub fn mode(mut self, mode: PanelHostMode) -> Self {
+        self.mode = mode;
+        self
+    }
+
+    /// Collapses the host to its selector rail, or restores docked presentation.
+    pub fn collapsed(mut self, collapsed: bool) -> Self {
+        self.mode = if collapsed {
+            PanelHostMode::Collapsed
+        } else {
+            PanelHostMode::Docked
+        };
+        self
+    }
 }
 
 impl<PanelId> WorkbenchPanelHostState<PanelId>
@@ -221,9 +238,8 @@ where
     pub fn rail_activation_event<ActionId>(
         &self,
         panel_id: PanelId,
-        collapsed: bool,
     ) -> WorkbenchPanelEvent<PanelId, ActionId> {
-        if collapsed {
+        if matches!(self.mode, PanelHostMode::Collapsed) {
             return WorkbenchPanelEvent::RestoreRequested {
                 region: self.region,
                 panel_id,
@@ -258,21 +274,14 @@ impl<'a, PanelId> PanelRailItem<'a, PanelId> {
             icon,
             label: label.into(),
             badge: None,
-            status: None,
             selected: false,
             disabled: false,
         }
     }
 
-    /// Sets badge text.
-    pub fn badge(mut self, badge: impl Into<Cow<'a, str>>) -> Self {
+    /// Sets badge metadata.
+    pub fn badge(mut self, badge: impl Into<VerticalRailBadge<'a>>) -> Self {
         self.badge = Some(badge.into());
-        self
-    }
-
-    /// Sets status tone.
-    pub fn status(mut self, status: ToneRole) -> Self {
-        self.status = Some(status);
         self
     }
 

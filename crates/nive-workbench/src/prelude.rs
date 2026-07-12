@@ -16,8 +16,8 @@ pub use crate::layout::{
 };
 pub use crate::panels::{
     bottom_panel_slot, logs_panel_slot, operations_panel_slot, output_panel_slot, panel_host,
-    BottomHeaderTab, PanelAction, PanelHeaderBar, PanelRail, PanelRailItem, PanelSelectorPlacement,
-    WorkbenchPanel, WorkbenchPanelEvent, WorkbenchPanelHostState,
+    BottomHeaderTab, PanelAction, PanelHeaderBar, PanelHostMode, PanelRail, PanelRailItem,
+    PanelSelectorPlacement, RailSide, WorkbenchPanel, WorkbenchPanelEvent, WorkbenchPanelHostState,
 };
 pub use crate::problems::{Problem, ProblemLocation, ProblemSeverity, ProblemsPanel};
 pub use crate::session::{

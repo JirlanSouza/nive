@@ -1,10 +1,7 @@
-use std::rc::Rc;
-
 use nive_ui::widgets::{RailSide, VerticalRail, VerticalRailItem};
 use nive_ui::Element;
 
 use super::model::{PanelRail, PanelRailItem};
-use crate::layout::WorkbenchRegion;
 
 impl<'a, PanelId, Message> PanelRail<'a, PanelId, Message>
 where
@@ -13,11 +10,11 @@ where
 {
     /// Builds a compact side rail.
     pub fn new(
-        region: WorkbenchRegion,
+        side: RailSide,
         items: impl IntoIterator<Item = PanelRailItem<'a, PanelId>>,
     ) -> Self {
         Self {
-            region,
+            side,
             items: items.into_iter().collect(),
             on_select: None,
         }
@@ -31,26 +28,17 @@ where
 
     /// Renders the side rail.
     pub fn view(self) -> Element<'a, Message> {
-        let side = match self.region {
-            WorkbenchRegion::Right => RailSide::Right,
-            _ => RailSide::Left,
-        };
-        let mut rail = VerticalRail::new(side).sm();
-        let mapper: Option<Rc<dyn Fn(PanelId) -> Message + 'a>> = self.on_select.map(Rc::from);
+        let mut rail = VerticalRail::new(self.side)
+            .sm()
+            .on_select_maybe(self.on_select);
 
         for item in self.items {
-            let mut control = VerticalRailItem::new(item.label)
+            let mut control = VerticalRailItem::new(item.id, item.label)
                 .icon(item.icon)
                 .selected(item.selected)
                 .disabled(item.disabled);
-            if let Some(status) = item.status {
-                control = control.status(status);
-            }
             if let Some(badge) = item.badge {
                 control = control.badge(badge);
-            }
-            if let Some(mapper) = mapper.as_ref() {
-                control = control.on_press(mapper(item.id.clone()));
             }
             rail = rail.push(control);
         }
