@@ -1,5 +1,6 @@
 pub mod command_palette;
 pub mod dropdown_menu;
+mod overflow;
 pub mod tabs;
 pub mod toolbar;
 pub mod vertical_rail;
@@ -10,4 +11,4 @@ pub use tabs::{
     TabBar, TabCloseRequest, TabCloseTrigger, TabDrop, TabDropTarget, TabItem, TabTearOff,
 };
 pub use toolbar::{ActionGroup, Toolbar, ToolbarAction, ToolbarGroup};
-pub use vertical_rail::{RailSide, VerticalRail, VerticalRailItem};
+pub use vertical_rail::{RailSide, VerticalRail, VerticalRailBadge, VerticalRailItem};

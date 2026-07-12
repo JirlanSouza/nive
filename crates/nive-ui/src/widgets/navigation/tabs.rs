@@ -84,6 +84,7 @@ use crate::theme::{ControlSize, SurfaceRole};
 use crate::Element;
 
 use self::style::{self as theme_tabs, TabPart};
+use super::overflow::{wheel_delta, Overflow, OverflowAxis, OverflowDirection};
 
 mod style;
 #[cfg(test)]
@@ -190,6 +191,7 @@ pub struct TabTearOff<Id> {
 
 #[derive(Debug, Clone)]
 struct TabBarState<Id: Clone + Eq + 'static> {
+    overflow: Overflow,
     scroll_offset: f32,
     max_scroll: f32,
     content_width: f32,
@@ -421,12 +423,12 @@ where
         let left_chevron = self.chevron_button(
             metrics,
             IconRole::NiveDisclosureLeft,
-            state.has_overflow && state.scroll_offset > 0.0,
+            state.overflow.show_start_chevron(),
         );
         let right_chevron = self.chevron_button(
             metrics,
             IconRole::NiveDisclosureRight,
-            state.has_overflow && state.scroll_offset < state.max_scroll,
+            state.overflow.show_end_chevron(),
         );
         let all_tabs_button = self.chevron_button(metrics, IconRole::ViewMore, state.has_overflow);
 
@@ -835,6 +837,7 @@ where
 impl<Id: Clone + Eq + 'static> Default for TabBarState<Id> {
     fn default() -> Self {
         Self {
+            overflow: Overflow::default(),
             scroll_offset: 0.0,
             max_scroll: 0.0,
             content_width: 0.0,
@@ -980,10 +983,12 @@ where
 
         let state = tree.state.downcast_mut::<TabBarState<Id>>();
 
-        state.content_width = content_width;
-        state.strip_width = strip_width;
-        state.max_scroll = (content_width - strip_width).max(0.0);
-        state.has_overflow = content_width > strip_width + 0.5;
+        state.overflow.offset = state.scroll_offset;
+        state.overflow.update_extents(content_width, strip_width);
+        state.content_width = state.overflow.content_extent;
+        state.strip_width = state.overflow.viewport_extent;
+        state.max_scroll = state.overflow.max_offset;
+        state.has_overflow = state.overflow.has_overflow;
 
         // Auto-reveal the active tab when it changed outside the visible
         // viewport. Minimum displacement: scroll just enough to reveal it.
@@ -998,14 +1003,15 @@ where
                 if let Some(bounds) = display_index.and_then(|index| viewport_tab_bounds.get(index))
                 {
                     if bounds.x < 0.0 {
-                        state.scroll_offset += bounds.x;
+                        state.overflow.offset += bounds.x;
                     } else if bounds.x + bounds.width > strip_width {
-                        state.scroll_offset += bounds.x + bounds.width - strip_width;
+                        state.overflow.offset += bounds.x + bounds.width - strip_width;
                     }
                 }
             }
         }
-        state.scroll_offset = state.scroll_offset.clamp(0.0, state.max_scroll);
+        state.overflow.clamp_offset();
+        state.scroll_offset = state.overflow.offset;
 
         translated_node
     }
@@ -1068,11 +1074,10 @@ where
             if !state.has_overflow {
                 return;
             }
-            let delta_x = match delta {
-                iced::mouse::ScrollDelta::Lines { x, .. } => *x * 24.0,
-                iced::mouse::ScrollDelta::Pixels { x, .. } => *x,
-            };
-            state.scroll_offset = (state.scroll_offset - delta_x).clamp(0.0, state.max_scroll);
+            let delta_x = wheel_delta(OverflowAxis::Horizontal, *delta);
+            state.overflow.offset = state.scroll_offset;
+            state.overflow.scroll_by(delta_x);
+            state.scroll_offset = state.overflow.offset;
             if delta_x != 0.0 {
                 shell.invalidate_layout();
                 shell.request_redraw();
@@ -1145,8 +1150,11 @@ where
                     PointerGestureKind::Clicked { .. },
                     TabRegion::ChevronLeft,
                 ) if state.has_overflow => {
-                    let step = CHEVRON_SCROLL_STEP_FACTOR * state.strip_width;
-                    state.scroll_offset = (state.scroll_offset - step).max(0.0);
+                    state.overflow.offset = state.scroll_offset;
+                    state
+                        .overflow
+                        .page_step(OverflowDirection::Backward, CHEVRON_SCROLL_STEP_FACTOR);
+                    state.scroll_offset = state.overflow.offset;
                     shell.invalidate_layout();
                     shell.request_redraw();
                     shell.capture_event();
@@ -1156,8 +1164,11 @@ where
                     PointerGestureKind::Clicked { .. },
                     TabRegion::ChevronRight,
                 ) if state.has_overflow => {
-                    let step = CHEVRON_SCROLL_STEP_FACTOR * state.strip_width;
-                    state.scroll_offset = (state.scroll_offset + step).min(state.max_scroll);
+                    state.overflow.offset = state.scroll_offset;
+                    state
+                        .overflow
+                        .page_step(OverflowDirection::Forward, CHEVRON_SCROLL_STEP_FACTOR);
+                    state.scroll_offset = state.overflow.offset;
                     shell.invalidate_layout();
                     shell.request_redraw();
                     shell.capture_event();
@@ -1941,20 +1952,23 @@ mod tabs_tests {
     #[test]
     fn chevron_scroll_offsets_clamped() {
         let mut state = TabBarState::<u8>::default();
-        state.has_overflow = true;
-        state.strip_width = 100.0;
-        state.max_scroll = 80.0;
-        state.scroll_offset = 5.0;
+        state.overflow.update_extents(180.0, 100.0);
+        state.overflow.offset = 5.0;
 
-        // Set scroll back by 80% strip width: 5 - 80 = -75 -> clamped to 0.
-        state.scroll_offset =
-            (state.scroll_offset - CHEVRON_SCROLL_STEP_FACTOR * state.strip_width).max(0.0);
+        state
+            .overflow
+            .page_step(OverflowDirection::Backward, CHEVRON_SCROLL_STEP_FACTOR);
+        state.scroll_offset = state.overflow.offset;
         assert_eq!(state.scroll_offset, 0.0);
+        assert!(!state.overflow.show_start_chevron());
+        assert!(state.overflow.show_end_chevron());
 
-        // Scroll forward by 80% strip width: 0 + 80 = 80, clamped to max_scroll 80.
-        state.scroll_offset = (state.scroll_offset
-            + CHEVRON_SCROLL_STEP_FACTOR * state.strip_width)
-            .min(state.max_scroll);
+        state
+            .overflow
+            .page_step(OverflowDirection::Forward, CHEVRON_SCROLL_STEP_FACTOR);
+        state.scroll_offset = state.overflow.offset;
         assert_eq!(state.scroll_offset, 80.0);
+        assert!(state.overflow.show_start_chevron());
+        assert!(!state.overflow.show_end_chevron());
     }
 }
