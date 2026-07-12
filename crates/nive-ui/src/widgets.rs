@@ -37,11 +37,13 @@ pub use feedback::{
 };
 pub use navigation::{
     command_palette_filter, command_palette_view, ActionGroup, CommandPaletteRow, DropdownMenu,
-    DropdownMenuItem, TabBar, TabCloseRequest, TabCloseTrigger, TabDrop, TabDropTarget, TabItem,
-    TabTearOff, Toolbar, ToolbarAction, ToolbarGroup,
+    DropdownMenuItem, RailSide, TabBar, TabCloseRequest, TabCloseTrigger, TabDrop, TabDropTarget,
+    TabItem, TabTearOff, Toolbar, ToolbarAction, ToolbarGroup, VerticalRail, VerticalRailItem,
 };
 pub use overlays::{
     Dialog, DialogActionFooter, DialogFooter, DialogHeader, DialogHost, Popover, PopoverCollision,
     PopoverPlacement, PopoverWidth, ToastHost, ToastPosition, ToastPresentation, ToastTone,
 };
-pub use primitives::{space, svg, ColorSwatch, Icon, IconGlyph, IconRole, IconSource, Separator};
+pub use primitives::{
+    space, svg, ColorSwatch, Icon, IconGlyph, IconRole, IconSource, Separator, ToneDot,
+};
