@@ -1,4 +1,7 @@
-use std::sync::{Mutex, MutexGuard};
+use std::{
+    cell::RefCell,
+    sync::{Mutex, MutexGuard},
+};
 
 use iced::Padding;
 
@@ -10,13 +13,35 @@ use super::spacing::{GapRole, PaddingRole, SpaceStep, SpacingScale};
 static ACTIVE_THEME: Mutex<Theme> = Mutex::new(Theme::Dark);
 static TEST_THEME_LOCK: Mutex<()> = Mutex::new(());
 
+thread_local! {
+    static TEST_THEME_OVERRIDE: RefCell<Option<Theme>> = const { RefCell::new(None) };
+}
+
 pub fn active() -> Theme {
+    if let Some(theme) = TEST_THEME_OVERRIDE.with(|override_theme| *override_theme.borrow()) {
+        return theme;
+    }
+
     *ACTIVE_THEME
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 pub(super) fn set_active(theme: Theme) {
+    let test_override_updated = TEST_THEME_OVERRIDE.with(|override_theme| {
+        let mut override_theme = override_theme.borrow_mut();
+        if override_theme.is_some() {
+            *override_theme = Some(theme);
+            true
+        } else {
+            false
+        }
+    });
+
+    if test_override_updated {
+        return;
+    }
+
     *ACTIVE_THEME
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = theme;
@@ -52,7 +77,7 @@ pub fn padding(role: PaddingRole) -> Padding {
 
 #[doc(hidden)]
 pub struct ThemeTestGuard {
-    previous: Theme,
+    previous: Option<Theme>,
     _lock: MutexGuard<'static, ()>,
 }
 
@@ -61,8 +86,8 @@ impl ThemeTestGuard {
         let lock = TEST_THEME_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let previous = active();
-        set_active(theme);
+        let previous =
+            TEST_THEME_OVERRIDE.with(|override_theme| override_theme.replace(Some(theme)));
 
         Self {
             previous,
@@ -73,6 +98,8 @@ impl ThemeTestGuard {
 
 impl Drop for ThemeTestGuard {
     fn drop(&mut self) {
-        set_active(self.previous);
+        TEST_THEME_OVERRIDE.with(|override_theme| {
+            override_theme.replace(self.previous);
+        });
     }
 }
