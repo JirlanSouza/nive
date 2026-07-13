@@ -2,9 +2,37 @@ use std::borrow::Cow;
 
 use iced::widget::{container, row, text, Space};
 use iced::{Alignment, Length, Padding};
-use nive_ui::theme::{self, SurfaceRole, TextRole, ToneRole};
-use nive_ui::widgets::{OperationStatusLine, ProgressBar, ToneDot};
+use nive_ui::theme::{self, ControlSize, SurfaceRole, TextRole, Theme, ToneRole};
+use nive_ui::widgets::{ProgressBar, Spinner, ToneDot};
 use nive_ui::{Element, IconRole};
+
+use crate::layout_probe;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct StatusBarMetrics {
+    height: f32,
+    horizontal_padding: f32,
+    item_gap: f32,
+    inline_gap: f32,
+    progress_gap: f32,
+}
+
+fn metrics(size: ControlSize) -> StatusBarMetrics {
+    metrics_for_theme(theme::active(), size)
+}
+
+fn metrics_for_theme(theme: Theme, size: ControlSize) -> StatusBarMetrics {
+    let control = theme.control_metrics(size);
+    let spacing = theme.spacing();
+
+    StatusBarMetrics {
+        height: control.height,
+        horizontal_padding: spacing.sm,
+        item_gap: spacing.md,
+        inline_gap: spacing.xxs,
+        progress_gap: spacing.xs,
+    }
+}
 
 /// One composable status-bar item.
 #[derive(Debug, Clone, PartialEq)]
@@ -113,24 +141,40 @@ impl<'a> StatusBar<'a> {
         &self.items
     }
 
-    /// Renders the status bar.
+    /// Renders the status bar with the standalone [`ControlSize::Sm`] default.
+    ///
+    /// [`WorkbenchShell`](crate::WorkbenchShell) uses a crate-private sized
+    /// path so its shared chrome size takes precedence. `StatusBar` intentionally
+    /// has no public independent size builder.
     pub fn view<Message>(self) -> Element<'a, Message>
     where
         Message: Clone + 'a,
     {
-        let spacing = theme::spacing();
+        self.view_with_size(ControlSize::Sm)
+    }
+
+    pub(crate) fn view_with_size<Message>(self, size: ControlSize) -> Element<'a, Message>
+    where
+        Message: Clone + 'a,
+    {
+        let metrics = metrics(size);
         let mut content = row![]
-            .spacing(spacing.md)
+            .spacing(metrics.item_gap)
             .align_y(Alignment::Center)
-            .width(Length::Fill);
+            .width(Length::Fill)
+            .height(Length::Fixed(metrics.height));
 
         for item in self.items {
-            content = content.push(status_item(item));
+            content = content.push(status_item(item, size, metrics));
         }
 
+        let content = layout_probe::probe("status_content", content);
+
         container(content)
-            .padding(Padding::ZERO.horizontal(spacing.sm).vertical(spacing.xs))
+            .padding(Padding::ZERO.horizontal(metrics.horizontal_padding))
             .width(Length::Fill)
+            .height(Length::Fixed(metrics.height))
+            .clip(true)
             .style(theme::surface::style(SurfaceRole::Chrome))
             .into()
     }
@@ -142,7 +186,11 @@ impl Default for StatusBar<'_> {
     }
 }
 
-fn status_item<'a, Message>(item: StatusItem<'a>) -> Element<'a, Message>
+fn status_item<'a, Message>(
+    item: StatusItem<'a>,
+    size: ControlSize,
+    metrics: StatusBarMetrics,
+) -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
@@ -154,36 +202,54 @@ where
             nive_ui::widgets::icon::role(icon),
             text(label).style(theme::text::style(TextRole::Muted))
         ]
-        .spacing(theme::spacing().xxs)
+        .spacing(metrics.inline_gap)
         .align_y(Alignment::Center)
         .into(),
         StatusItem::Severity { tone, label } => row![
-            ToneDot::new(tone).sm(),
+            ToneDot::new(tone).size(size),
             text(label).style(theme::text::style(TextRole::Muted))
         ]
-        .spacing(theme::spacing().xxs)
+        .spacing(metrics.inline_gap)
         .align_y(Alignment::Center)
         .into(),
         StatusItem::Progress { label, fraction } => row![
             text(label).style(theme::text::style(TextRole::Muted)),
             ProgressBar::percent(fraction)
                 .tone(ToneRole::Accent)
-                .xs()
+                .size(status_progress_size(size))
                 .width(Length::Fixed(72.0))
         ]
-        .spacing(theme::spacing().xs)
+        .spacing(metrics.progress_gap)
         .align_y(Alignment::Center)
         .into(),
         StatusItem::OperationSummary { active, label } => {
-            let status: Element<'a, Message> = if active == 0 {
-                OperationStatusLine::idle().into()
+            if active == 0 {
+                Space::new().width(Length::Fill).into()
             } else {
-                OperationStatusLine::running(format!("{label}: {active} active")).into()
-            };
-            status
+                container(
+                    Spinner::new()
+                        .neutral()
+                        .size(status_operation_size(size))
+                        .label(format!("{label}: {active} active")),
+                )
+                .width(Length::Fill)
+                .into()
+            }
         }
         StatusItem::Spacer => Space::new().width(Length::Fill).into(),
     }
+}
+
+fn status_progress_size(size: ControlSize) -> ControlSize {
+    match size {
+        ControlSize::Xs | ControlSize::Sm => ControlSize::Xs,
+        ControlSize::Md => ControlSize::Sm,
+        ControlSize::Lg => ControlSize::Md,
+    }
+}
+
+fn status_operation_size(size: ControlSize) -> ControlSize {
+    status_progress_size(size)
 }
 
 #[cfg(test)]
@@ -211,5 +277,37 @@ mod tests {
             .item(StatusItem::severity(ToneRole::Warning, "3 warnings"));
 
         assert_eq!(status.items().len(), 3);
+    }
+
+    #[test]
+    fn operation_summary_uses_a_role_derived_nested_size() {
+        assert_eq!(status_operation_size(ControlSize::Xs), ControlSize::Xs);
+        assert_eq!(status_operation_size(ControlSize::Sm), ControlSize::Xs);
+        assert_eq!(status_operation_size(ControlSize::Md), ControlSize::Sm);
+        assert_eq!(status_operation_size(ControlSize::Lg), ControlSize::Md);
+    }
+
+    #[test]
+    fn outer_height_matches_control_metrics_across_densities_and_sizes() {
+        for density in nive_ui::theme::ThemeDensity::ALL {
+            let theme = nive_ui::theme::Theme::builder(
+                "StatusBar metric test",
+                nive_ui::theme::ThemeMode::Dark,
+            )
+            .density(density)
+            .build();
+
+            for size in [
+                ControlSize::Xs,
+                ControlSize::Sm,
+                ControlSize::Md,
+                ControlSize::Lg,
+            ] {
+                assert_eq!(
+                    metrics_for_theme(theme, size).height,
+                    theme.control_metrics(size).height
+                );
+            }
+        }
     }
 }
