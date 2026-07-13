@@ -3,7 +3,7 @@ use nive::prelude::*;
 use super::{AppCommand, DocumentId, Message, PanelActionId, WorkbenchMonitor};
 
 impl WorkbenchMonitor {
-    pub(super) fn toolbar(&self) -> Element<'_, Message> {
+    pub(super) fn toolbar(&self) -> Toolbar<'_, Message> {
         let latest_alert = self
             .model
             .active_alerts()
@@ -11,7 +11,6 @@ impl WorkbenchMonitor {
             .map(|alert| Message::ShowAlert(alert.id));
 
         Toolbar::new()
-            .fill_width()
             .group(
                 ToolbarGroup::new()
                     .action(
@@ -55,7 +54,6 @@ impl WorkbenchMonitor {
                             .on_press(Message::ClearSelection),
                     ),
             )
-            .into()
     }
 
     pub(super) fn left_panels(

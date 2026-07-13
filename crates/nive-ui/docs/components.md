@@ -105,6 +105,16 @@ inline controls of the same size.
 `Toolbar` is a surface bar for application chrome. Its `size` configures the
 actions inside the bar; the toolbar itself may add surrounding chrome padding.
 
+`TabBar`, `VerticalRail`, `SectionHeader`, flat `SegmentedControl`, and toolbar
+actions derive their primary extent from the active theme's `ControlSize`
+metrics. A workbench shell applies one shared size to those managed regions
+rather than requiring callers to compensate with different per-widget sizes.
+
+`SplitPane` defaults to `ControlSize::Sm` and exposes the standard
+`size`/`xs`/`sm`/`md`/`lg` vocabulary. Its visual and layout divider remains one
+logical pixel while its centered resize target is derived from the selected
+control size, so interaction ergonomics do not change pane-ratio geometry.
+
 ## Bootstrap Template
 
 `BootstrapView` owns the generic loading and startup-failure composition,

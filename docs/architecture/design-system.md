@@ -195,7 +195,9 @@ do botão. Links terão controle dedicado quando a área de navegação precisar
 
 `ControlSize::Sm` é o default operacional denso do catálogo. `Xs`, `Md` e `Lg`
 são ajustes locais; `ThemeDensity` muda a compactness global mantendo o mesmo
-vocabulário de tamanho local.
+vocabulário de tamanho local. Em chrome composto de workbench,
+`WorkbenchShell::chrome_size(ControlSize)` escolhe uma única escala local para
+todas as regiões gerenciadas, sem criar knobs por região.
 
 ## 4. Density (`ThemeDensity`)
 
@@ -211,7 +213,7 @@ alturas de controle, tamanhos de ícone e chrome de widgets. Existem três varia
 | Conceito | Escopo | Semântica |
 | --- | --- | --- |
 | `ThemeDensity` | Global (tema) | Compactness global da UI: spacing, paddings, gaps, alturas de controle, ícones |
-| `ControlSize` | Local (widget) | Tamanho do componente individual: Xs, Sm, Md, Lg |
+| `ControlSize` | Local (widget ou shell composto) | Tamanho do componente individual ou da escala única de chrome: Xs, Sm, Md, Lg |
 
 Exemplo: um botão `ControlSize::Sm` em um tema `Compact` terá métricas menores
 do que um botão `ControlSize::Sm` em um tema `Comfortable`, porque a densidade
@@ -317,6 +319,19 @@ Use `TabBar` para coleções abertas de documentos ou views identificadas por
 IDs de domínio. O app controla a lista, a ordem, o item ativo, dirty state,
 pinning e política de fechamento; o widget emite intents para selecionar, fechar,
 abrir contexto, reordenar e tear-off sem mutar o modelo sozinho.
+
+### Métricas de chrome composto
+
+`TabBar`, `VerticalRail`, `SectionHeader`, `SegmentedControl` plano e as ações
+de `Toolbar` derivam a extensão primária de `ControlSize` e das métricas do
+tema ativo. Em um `WorkbenchShell`, uma única chamada a `chrome_size(...)`
+propaga essa escala para tabs, rails, cabeçalhos, seletor inferior, toolbar,
+status e split panes; apps não compensam alinhamento escolhendo tamanhos
+diferentes por região.
+
+`SplitPane` também usa `ControlSize`, mas separa o divisor visual/layout de um
+pixel lógico do alvo de interação maior e centralizado. O tamanho local ajusta
+o grip e o alvo de interação sem alterar a geometria de razão dos painéis.
 
 ### Layout grammar
 
