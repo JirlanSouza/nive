@@ -1,21 +1,29 @@
 use iced::{widget::container, Background, Border, Color, Rectangle, Shadow, Size};
 
 use crate::interaction::Orientation;
-use crate::theme::{self, BorderRole, SpaceStep, SurfaceRole};
+use crate::theme::{control_metrics, BorderRole, ControlMetrics, ControlSize, SurfaceRole};
 
 use super::{state::SnapConfig, SplitPaneConstraints};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) struct SplitPaneMetrics {
-    pub handle_size: f32,
+    pub visual_thickness: f32,
+    pub layout_thickness: f32,
+    pub hit_thickness: f32,
     pub grip_length: f32,
     pub grip_thickness: f32,
 }
 
-pub(super) fn metrics() -> SplitPaneMetrics {
+pub(super) fn metrics(size: ControlSize) -> SplitPaneMetrics {
+    metrics_for_control(control_metrics(size))
+}
+
+pub(super) fn metrics_for_control(control: ControlMetrics) -> SplitPaneMetrics {
     SplitPaneMetrics {
-        handle_size: theme::space(SpaceStep::Md),
-        grip_length: theme::space(SpaceStep::Xxl),
+        visual_thickness: 1.0,
+        layout_thickness: 1.0,
+        hit_thickness: 12.0_f32.max(control.icon_size),
+        grip_length: control.height,
         grip_thickness: 1.0,
     }
 }
@@ -73,6 +81,10 @@ pub(super) fn grip_style(theme: &crate::theme::Theme) -> container::Style {
     }
 }
 
+pub(super) fn focus_seam_color(theme: &crate::theme::Theme) -> Color {
+    theme.border(BorderRole::Focus).color
+}
+
 pub(super) fn minimum_ratio(constraints: SplitPaneConstraints, available: f32) -> f32 {
     if available <= 0.0 {
         return 0.05;
@@ -124,32 +136,79 @@ pub(super) fn apply_snap(ratio: f32, snap: Option<&SnapConfig>, minimum: f32, ma
 }
 
 pub(super) fn visible_grip_bounds(
-    handle_bounds: Rectangle,
+    divider_bounds: Rectangle,
     orientation: Orientation,
     metrics: SplitPaneMetrics,
 ) -> Rectangle {
     match orientation {
         Orientation::Horizontal => {
-            let height = metrics.grip_length.min(handle_bounds.height);
+            let height = metrics.grip_length.min(divider_bounds.height);
 
             Rectangle {
-                x: handle_bounds.center_x() - metrics.grip_thickness / 2.0,
-                y: handle_bounds.center_y() - height / 2.0,
+                x: divider_bounds.center_x() - metrics.grip_thickness / 2.0,
+                y: divider_bounds.center_y() - height / 2.0,
                 width: metrics.grip_thickness,
                 height,
             }
         }
         Orientation::Vertical => {
-            let width = metrics.grip_length.min(handle_bounds.width);
+            let width = metrics.grip_length.min(divider_bounds.width);
 
             Rectangle {
-                x: handle_bounds.center_x() - width / 2.0,
-                y: handle_bounds.center_y() - metrics.grip_thickness / 2.0,
+                x: divider_bounds.center_x() - width / 2.0,
+                y: divider_bounds.center_y() - metrics.grip_thickness / 2.0,
                 width,
                 height: metrics.grip_thickness,
             }
         }
     }
+}
+
+pub(super) fn visual_seam_bounds(
+    divider_bounds: Rectangle,
+    orientation: Orientation,
+    metrics: SplitPaneMetrics,
+) -> Rectangle {
+    match orientation {
+        Orientation::Horizontal => Rectangle {
+            x: divider_bounds.center_x() - metrics.visual_thickness / 2.0,
+            y: divider_bounds.y,
+            width: metrics.visual_thickness,
+            height: divider_bounds.height,
+        },
+        Orientation::Vertical => Rectangle {
+            x: divider_bounds.x,
+            y: divider_bounds.center_y() - metrics.visual_thickness / 2.0,
+            width: divider_bounds.width,
+            height: metrics.visual_thickness,
+        },
+    }
+}
+
+pub(super) fn hit_bounds(
+    divider_bounds: Rectangle,
+    container_bounds: Rectangle,
+    orientation: Orientation,
+    metrics: SplitPaneMetrics,
+) -> Rectangle {
+    let expanded = match orientation {
+        Orientation::Horizontal => Rectangle {
+            x: divider_bounds.center_x() - metrics.hit_thickness / 2.0,
+            y: divider_bounds.y,
+            width: metrics.hit_thickness,
+            height: divider_bounds.height,
+        },
+        Orientation::Vertical => Rectangle {
+            x: divider_bounds.x,
+            y: divider_bounds.center_y() - metrics.hit_thickness / 2.0,
+            width: divider_bounds.width,
+            height: metrics.hit_thickness,
+        },
+    };
+
+    expanded
+        .intersection(&container_bounds)
+        .unwrap_or(Rectangle::default())
 }
 
 pub(super) fn pane_sizes(

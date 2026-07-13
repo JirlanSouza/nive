@@ -1,6 +1,6 @@
 use iced::{
     advanced::widget::{operation, tree},
-    Point, Rectangle,
+    Point,
 };
 
 use crate::interaction::PointerGestureState;
@@ -10,7 +10,6 @@ pub(super) struct SplitPaneState {
     pub gestures: PointerGestureState<SplitPaneRegion>,
     pub drag: Option<DragSession>,
     pub focused: bool,
-    pub grip_bounds: Rectangle,
     pub available_length: f32,
 }
 
@@ -20,7 +19,6 @@ impl Default for SplitPaneState {
             gestures: PointerGestureState::new(),
             drag: None,
             focused: false,
-            grip_bounds: Rectangle::default(),
             available_length: 0.0,
         }
     }

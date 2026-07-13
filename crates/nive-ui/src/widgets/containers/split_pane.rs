@@ -5,7 +5,7 @@ mod widget;
 use iced::{widget::Id, Length};
 
 use crate::interaction::Orientation;
-use crate::theme::SurfaceRole;
+use crate::theme::{ControlSize, SurfaceRole};
 use crate::Element;
 
 use self::state::SnapConfig;
@@ -36,7 +36,9 @@ impl SplitPaneConstraints {
 /// builder `ratio` is the single source of truth. Pointer drag, touch drag,
 /// keyboard arrow adjustment, snap, and double-click reset emit candidate
 /// ratios through [`Self::on_change`]. The pane only resizes after the app feeds
-/// the emitted value back into [`Self::ratio`].
+/// the emitted value back into [`Self::ratio`]. It defaults to
+/// [`ControlSize::Sm`]; the selected control size derives the visible grip and
+/// resize target while the visual and layout divider remain one logical pixel.
 pub struct SplitPane<'a, Message> {
     leading: Element<'a, Message>,
     trailing: Element<'a, Message>,
@@ -48,6 +50,7 @@ pub struct SplitPane<'a, Message> {
     snap: Option<SnapConfig>,
     id: Option<Id>,
     handle_role: SurfaceRole,
+    size: ControlSize,
     width: Length,
     height: Length,
 }
@@ -71,6 +74,7 @@ where
             snap: None,
             id: None,
             handle_role: SurfaceRole::Canvas,
+            size: ControlSize::Sm,
             width: Length::Fill,
             height: Length::Fill,
         }
@@ -155,6 +159,35 @@ where
     pub fn handle_role(mut self, role: SurfaceRole) -> Self {
         self.handle_role = role;
         self
+    }
+
+    /// Sets the control size used to derive the splitter grip and hit target.
+    ///
+    /// This does not expose raw pixel metrics or change the one-pixel visual
+    /// and layout divider. The default is [`ControlSize::Sm`].
+    pub fn size(mut self, size: ControlSize) -> Self {
+        self.size = size;
+        self
+    }
+
+    /// Uses the extra-small splitter size.
+    pub fn xs(self) -> Self {
+        self.size(ControlSize::Xs)
+    }
+
+    /// Uses the small splitter size.
+    pub fn sm(self) -> Self {
+        self.size(ControlSize::Sm)
+    }
+
+    /// Uses the medium splitter size.
+    pub fn md(self) -> Self {
+        self.size(ControlSize::Md)
+    }
+
+    /// Uses the large splitter size.
+    pub fn lg(self) -> Self {
+        self.size(ControlSize::Lg)
     }
 
     crate::impl_layout_builders!(

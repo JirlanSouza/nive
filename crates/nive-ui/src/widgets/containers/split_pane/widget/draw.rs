@@ -6,7 +6,10 @@ use iced::{
 use crate::interaction::Orientation;
 use crate::theme::SurfaceRole;
 
-use super::super::helpers::{grip_style, handle_style, metrics, visible_grip_bounds};
+use super::super::helpers::{
+    focus_seam_color, grip_style, handle_style, visible_grip_bounds, visual_seam_bounds,
+    SplitPaneMetrics,
+};
 
 pub(super) fn draw_grip(
     renderer: &mut iced::Renderer,
@@ -14,21 +17,37 @@ pub(super) fn draw_grip(
     bounds: Rectangle,
     orientation: Orientation,
     role: SurfaceRole,
+    metrics: SplitPaneMetrics,
+    focused: bool,
 ) {
-    let handle = handle_style(theme, role);
+    let seam = visual_seam_bounds(bounds, orientation, metrics);
 
-    renderer.fill_quad(
-        renderer::Quad {
-            bounds,
-            border: handle.border,
-            shadow: handle.shadow,
-            snap: true,
-        },
-        background_color(handle.background),
-    );
+    if focused {
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: seam,
+                border: iced::Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            focus_seam_color(theme),
+        );
+    } else {
+        let handle = handle_style(theme, role);
+
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: seam,
+                border: handle.border,
+                shadow: handle.shadow,
+                snap: true,
+            },
+            background_color(handle.background),
+        );
+    }
 
     let grip = grip_style(theme);
-    let visible = visible_grip_bounds(bounds, orientation, metrics());
+    let visible = visible_grip_bounds(bounds, orientation, metrics);
 
     renderer.fill_quad(
         renderer::Quad {
@@ -37,7 +56,11 @@ pub(super) fn draw_grip(
             shadow: Shadow::default(),
             snap: true,
         },
-        background_color(grip.background),
+        if focused {
+            focus_seam_color(theme)
+        } else {
+            background_color(grip.background)
+        },
     );
 }
 
