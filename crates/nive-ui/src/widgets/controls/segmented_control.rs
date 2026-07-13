@@ -318,4 +318,28 @@ mod segmented_control_tests {
             metrics.height
         );
     }
+
+    #[test]
+    fn flat_height_matches_control_metrics_across_densities_and_sizes() {
+        for density in crate::theme::ThemeDensity::ALL {
+            let theme = crate::theme::Theme::builder(
+                "SegmentedControl metric test",
+                crate::theme::ThemeMode::Dark,
+            )
+            .density(density)
+            .build();
+
+            for size in [
+                ControlSize::Xs,
+                ControlSize::Sm,
+                ControlSize::Md,
+                ControlSize::Lg,
+            ] {
+                assert_eq!(
+                    theme_segmented_control::metrics_for_theme(theme, size).height,
+                    theme.control_metrics(size).height
+                );
+            }
+        }
+    }
 }
