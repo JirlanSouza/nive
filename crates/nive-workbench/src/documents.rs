@@ -2,10 +2,13 @@ use std::borrow::Cow;
 
 use iced::Point;
 use nive_ui::interaction::{ContextRequest, ContextTarget};
+use nive_ui::theme::ControlSize;
 use nive_ui::widgets::{
     TabBar, TabCloseRequest, TabCloseTrigger, TabDrop, TabDropTarget, TabItem, TabTearOff,
 };
 use nive_ui::{Element, IconRole};
+
+use crate::layout_probe;
 
 /// Metadata for one controlled workbench document tab.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -227,7 +230,11 @@ where
 
     /// Renders the document tab area.
     pub fn view(self) -> Element<'a, Message> {
-        let mut bar = TabBar::new(self.active).tabs(
+        self.view_with_size(ControlSize::Sm)
+    }
+
+    pub(crate) fn view_with_size(self, size: ControlSize) -> Element<'a, Message> {
+        let mut bar = TabBar::new(self.active).size(size).tabs(
             self.documents
                 .into_iter()
                 .map(WorkbenchDocument::into_tab_item),
@@ -251,7 +258,7 @@ where
             bar = bar.on_tear_off(move |tear_off| tear_off_mapper(map_tear_off(tear_off)));
         }
 
-        bar.into()
+        layout_probe::probe("document_tabs", Element::from(bar))
     }
 }
 

@@ -37,6 +37,7 @@
 //!
 //! ```
 //! use iced::widget::{text, Space};
+//! use nive_ui::widgets::Toolbar;
 //! use nive_workbench::prelude::*;
 //!
 //! #[derive(Clone)]
@@ -48,9 +49,12 @@
 //!     WorkbenchLayoutState::<&'static str, &'static str>::default()
 //!         .with_active_document("overview");
 //! let _shell = WorkbenchShell::new(state, Message::Workbench)
+//!     .chrome_size(ControlSize::Sm)
+//!     .toolbar(Toolbar::new())
 //!     .left_panels([WorkbenchPanel::new("files", "Files", Space::new())])
 //!     .documents([WorkbenchDocument::new("overview", "Overview.md")])
 //!     .document_content(text("App-owned document content"))
+//!     .status(StatusBar::new())
 //!     .view();
 //! ```
 //!
@@ -94,6 +98,7 @@ pub mod documents;
 pub mod explorer;
 pub mod inspector;
 pub mod layout;
+mod layout_probe;
 pub mod panels;
 pub mod prelude;
 pub mod problems;
