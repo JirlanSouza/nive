@@ -5,7 +5,9 @@ use iced::{
 
 use crate::interaction::{Orientation, PointerButton, PointerGesture, PointerGestureKind};
 
-use super::super::helpers::{apply_snap, clamp_ratio, maximum_ratio, minimum_ratio};
+use super::super::helpers::{
+    apply_snap, clamp_ratio, hit_bounds, maximum_ratio, minimum_ratio, SplitPaneMetrics,
+};
 use super::super::state::{DragSession, SnapConfig, SplitPaneRegion, SplitPaneState};
 use super::super::SplitPaneConstraints;
 
@@ -103,19 +105,39 @@ pub(super) fn publish_ratio<Message>(
     }
 }
 
-pub(super) fn primary_press_outside_grip(
-    event: &Event,
-    cursor: mouse::Cursor,
-    grip_bounds: Rectangle,
-) -> bool {
-    matches!(
-        event,
-        Event::Mouse(iced::mouse::Event::ButtonPressed(iced::mouse::Button::Left))
-    ) && !cursor.is_over(grip_bounds)
+pub(super) fn has_primary_gesture(gestures: &[PointerGesture<SplitPaneRegion>]) -> bool {
+    gestures
+        .iter()
+        .any(|gesture| gesture.button == PointerButton::Primary)
 }
 
-pub(super) fn current_grip_bounds(layout: Layout<'_>) -> Option<Rectangle> {
+pub(super) fn primary_press_outside_hit(
+    event: &Event,
+    cursor: mouse::Cursor,
+    hit_bounds: Rectangle,
+) -> bool {
+    match event {
+        Event::Mouse(iced::mouse::Event::ButtonPressed(iced::mouse::Button::Left)) => {
+            !cursor.is_over(hit_bounds)
+        }
+        Event::Touch(iced::touch::Event::FingerPressed { position, .. }) => {
+            !hit_bounds.contains(*position)
+        }
+        _ => false,
+    }
+}
+
+pub(super) fn current_divider_bounds(layout: Layout<'_>) -> Option<Rectangle> {
     layout.children().nth(1).map(|layout| layout.bounds())
+}
+
+pub(super) fn current_hit_bounds(
+    layout: Layout<'_>,
+    orientation: Orientation,
+    metrics: SplitPaneMetrics,
+) -> Option<Rectangle> {
+    current_divider_bounds(layout)
+        .map(|divider_bounds| hit_bounds(divider_bounds, layout.bounds(), orientation, metrics))
 }
 
 pub(super) fn resize_interaction(orientation: Orientation) -> mouse::Interaction {

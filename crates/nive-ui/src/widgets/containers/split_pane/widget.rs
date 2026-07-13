@@ -6,13 +6,10 @@ use iced::{
         widget::{operation, tree, Tree},
         Clipboard, Layout, Shell, Widget,
     },
-    border::Radius,
     Event, Length, Point, Rectangle, Size, Vector,
 };
 
-use crate::advanced::pressable::draw_focus_ring;
 use crate::interaction::{Orientation, StepAdjustment};
-use crate::widgets::controls::button::ButtonFocusRing;
 
 use super::helpers::{clamp_ratio, cross_length, main_length, metrics, pane_sizes};
 use super::state::{SplitPaneRegion, SplitPaneState};
@@ -20,8 +17,8 @@ use super::SplitPane;
 
 use self::draw::draw_grip;
 use self::event::{
-    current_grip_bounds, handle_pointer_gestures, primary_press_outside_grip, publish_ratio,
-    resize_interaction,
+    current_divider_bounds, current_hit_bounds, handle_pointer_gestures, has_primary_gesture,
+    primary_press_outside_hit, publish_ratio, resize_interaction,
 };
 
 mod draw;
@@ -66,12 +63,12 @@ where
         renderer: &iced::Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        let metrics = metrics();
+        let metrics = metrics(self.size);
         let size = limits.resolve(self.width, self.height, Size::ZERO);
         let main_length = main_length(self.orientation, size);
         let cross_length = cross_length(self.orientation, size);
-        let handle_length = metrics.handle_size.min(main_length);
-        let available_length = (main_length - handle_length).max(0.0);
+        let divider_length = metrics.layout_thickness.min(main_length);
+        let available_length = (main_length - divider_length).max(0.0);
         let ratio = clamp_ratio(self.ratio, self.constraints, available_length);
         let leading_length = available_length * ratio;
         let trailing_length = (available_length - leading_length).max(0.0);
@@ -82,8 +79,8 @@ where
             trailing_length,
         );
         let grip_size = match self.orientation {
-            Orientation::Horizontal => Size::new(handle_length, size.height),
-            Orientation::Vertical => Size::new(size.width, handle_length),
+            Orientation::Horizontal => Size::new(divider_length, size.height),
+            Orientation::Vertical => Size::new(size.width, divider_length),
         };
 
         let leading = self
@@ -103,8 +100,8 @@ where
         let grip = layout::Node::new(grip_size).move_to(grip_origin);
 
         let trailing_origin = match self.orientation {
-            Orientation::Horizontal => Point::new(leading_length + handle_length, 0.0),
-            Orientation::Vertical => Point::new(0.0, leading_length + handle_length),
+            Orientation::Horizontal => Point::new(leading_length + divider_length, 0.0),
+            Orientation::Vertical => Point::new(0.0, leading_length + divider_length),
         };
         let trailing = self
             .trailing
@@ -117,7 +114,6 @@ where
             .move_to(trailing_origin);
 
         let state = tree.state.downcast_mut::<SplitPaneState>();
-        state.grip_bounds = Rectangle::new(grip_origin, grip_size);
         state.available_length = available_length;
 
         layout::Node::with_children(size, vec![leading, grip, trailing])
@@ -132,7 +128,9 @@ where
     ) {
         let state = tree.state.downcast_mut::<SplitPaneState>();
 
-        operation.focusable(self.id.as_ref(), layout.bounds(), state);
+        if let Some(hit_bounds) = current_hit_bounds(layout, self.orientation, metrics(self.size)) {
+            operation.focusable(self.id.as_ref(), hit_bounds, state);
+        }
 
         let mut layouts = layout.children();
         let Some(leading_layout) = layouts.next() else {
@@ -168,17 +166,18 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
+        let hit_bounds = current_hit_bounds(layout, self.orientation, metrics(self.size));
+
         {
             let state = tree.state.downcast_mut::<SplitPaneState>();
-            let grip_bounds = current_grip_bounds(layout).unwrap_or(state.grip_bounds);
 
-            state.grip_bounds = grip_bounds;
-
-            if primary_press_outside_grip(event, cursor, grip_bounds) {
-                state.drag = None;
-                if state.focused {
-                    state.focused = false;
-                    shell.request_redraw();
+            if let Some(hit_bounds) = hit_bounds {
+                if primary_press_outside_hit(event, cursor, hit_bounds) {
+                    state.drag = None;
+                    if state.focused {
+                        state.focused = false;
+                        shell.request_redraw();
+                    }
                 }
             }
 
@@ -187,32 +186,34 @@ where
             }
 
             if !self.locked {
-                let gestures = state
-                    .gestures
-                    .handle_event(event, Instant::now(), |position| {
-                        grip_bounds
-                            .contains(position)
-                            .then_some(SplitPaneRegion::Grip)
-                    });
+                if let Some(hit_bounds) = hit_bounds {
+                    let gestures = state
+                        .gestures
+                        .handle_event(event, Instant::now(), |position| {
+                            hit_bounds
+                                .contains(position)
+                                .then_some(SplitPaneRegion::Grip)
+                        });
 
-                if !gestures.is_empty() {
-                    let ratios = handle_pointer_gestures(
-                        state,
-                        &gestures,
-                        self.orientation,
-                        self.ratio,
-                        self.constraints,
-                        self.snap.as_ref(),
-                        false,
-                    );
+                    if has_primary_gesture(&gestures) {
+                        let ratios = handle_pointer_gestures(
+                            state,
+                            &gestures,
+                            self.orientation,
+                            self.ratio,
+                            self.constraints,
+                            self.snap.as_ref(),
+                            false,
+                        );
 
-                    for ratio in ratios {
-                        publish_ratio(self.on_change.as_deref(), ratio, shell);
+                        for ratio in ratios {
+                            publish_ratio(self.on_change.as_deref(), ratio, shell);
+                        }
+
+                        shell.capture_event();
+                        shell.request_redraw();
+                        return;
                     }
-
-                    shell.capture_event();
-                    shell.request_redraw();
-                    return;
                 }
             }
         }
@@ -266,9 +267,12 @@ where
         renderer: &iced::Renderer,
     ) -> mouse::Interaction {
         let state = tree.state.downcast_ref::<SplitPaneState>();
-        let grip_bounds = current_grip_bounds(layout).unwrap_or(state.grip_bounds);
+        let hit_bounds = current_hit_bounds(layout, self.orientation, metrics(self.size));
 
-        if !self.locked && (state.drag.is_some() || cursor.is_over(grip_bounds)) {
+        if !self.locked
+            && (state.drag.is_some()
+                || hit_bounds.is_some_and(|hit_bounds| cursor.is_over(hit_bounds)))
+        {
             return resize_interaction(self.orientation);
         }
 
@@ -310,6 +314,7 @@ where
         cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
+        let divider_bounds = current_divider_bounds(layout);
         let mut layouts = layout.children();
         let Some(leading_layout) = layouts.next() else {
             return;
@@ -331,12 +336,16 @@ where
             viewport,
         );
 
+        let state = tree.state.downcast_ref::<SplitPaneState>();
+
         draw_grip(
             renderer,
             theme,
-            grip_layout.bounds(),
+            divider_bounds.unwrap_or(grip_layout.bounds()),
             self.orientation,
             self.handle_role,
+            metrics(self.size),
+            state.focused,
         );
 
         self.trailing.as_widget().draw(
@@ -348,18 +357,6 @@ where
             cursor,
             viewport,
         );
-
-        let state = tree.state.downcast_ref::<SplitPaneState>();
-
-        if state.focused {
-            draw_focus_ring(
-                renderer,
-                theme,
-                grip_layout.bounds(),
-                Radius::from(2.0),
-                ButtonFocusRing::Default,
-            );
-        }
     }
 
     fn overlay<'b>(
