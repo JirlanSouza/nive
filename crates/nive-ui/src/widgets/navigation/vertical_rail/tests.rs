@@ -1,11 +1,11 @@
-use crate::theme::{ControlSize, ToneRole};
+use crate::theme::{ControlSize, Theme, ThemeDensity, ThemeMode, ToneRole};
 use crate::widgets::navigation::overflow::{Overflow, OverflowDirection};
 use crate::widgets::primitives::IconRole;
 
 use super::content::item_tooltip;
 use super::item::{VerticalRailBadge, VerticalRailItem};
 use super::label::rotation_radians;
-use super::layout::{ellipsize_label, item_layout, RailMetrics};
+use super::layout::{ellipsize_label, item_layout, metrics_for_theme, RailMetrics};
 use super::widget::{VerticalRail, CHEVRON_SCROLL_STEP_FACTOR};
 use super::RailSide;
 
@@ -159,4 +159,25 @@ fn overflow_state_clamps_offsets_and_chevrons_transition() {
     assert_eq!(overflow.offset, 80.0);
     assert!(overflow.show_start_chevron());
     assert!(!overflow.show_end_chevron());
+}
+
+#[test]
+fn width_matches_control_metrics_across_densities_and_sizes() {
+    for density in ThemeDensity::ALL {
+        let theme = Theme::builder("VerticalRail metric test", ThemeMode::Dark)
+            .density(density)
+            .build();
+
+        for size in [
+            ControlSize::Xs,
+            ControlSize::Sm,
+            ControlSize::Md,
+            ControlSize::Lg,
+        ] {
+            assert_eq!(
+                metrics_for_theme(theme, size).width,
+                theme.control_metrics(size).height
+            );
+        }
+    }
 }

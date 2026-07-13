@@ -1,8 +1,6 @@
 use iced::{widget::container, Background, Shadow};
 
-use crate::theme::{
-    self, control_metrics, BorderRole, ControlRole, ControlSize, ControlState, SurfaceRole,
-};
+use crate::theme::{self, BorderRole, ControlRole, ControlSize, ControlState, SurfaceRole, Theme};
 
 use crate::advanced::control_style::{border_with_radius, transparent_border};
 
@@ -26,8 +24,12 @@ pub struct ToolbarMetrics {
 }
 
 pub fn metrics(size: ControlSize) -> ToolbarMetrics {
-    let control = control_metrics(size);
-    let spacing = theme::spacing();
+    metrics_for_theme(theme::active(), size)
+}
+
+fn metrics_for_theme(theme: Theme, size: ControlSize) -> ToolbarMetrics {
+    let control = theme.control_metrics(size);
+    let spacing = theme.spacing();
     let toolbar_padding_v = spacing.xs;
     let group_padding = spacing.xxs;
 
@@ -106,8 +108,30 @@ mod toolbar_tests {
     fn metrics_follow_control_size() {
         assert_eq!(
             metrics(ControlSize::Sm).action_height,
-            control_metrics(ControlSize::Sm).height
+            theme::control_metrics(ControlSize::Sm).height
         );
         assert!(metrics(ControlSize::Xs).height < metrics(ControlSize::Lg).height);
+    }
+
+    #[test]
+    fn action_height_matches_control_metrics_across_densities_and_sizes() {
+        for density in crate::theme::ThemeDensity::ALL {
+            let theme =
+                crate::theme::Theme::builder("Toolbar metric test", crate::theme::ThemeMode::Dark)
+                    .density(density)
+                    .build();
+
+            for size in [
+                ControlSize::Xs,
+                ControlSize::Sm,
+                ControlSize::Md,
+                ControlSize::Lg,
+            ] {
+                assert_eq!(
+                    metrics_for_theme(theme, size).action_height,
+                    theme.control_metrics(size).height
+                );
+            }
+        }
     }
 }

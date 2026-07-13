@@ -3,7 +3,7 @@ use iced::{
     Rectangle, Size, Vector,
 };
 
-use crate::theme::{self, ControlSize, TypographyRole};
+use crate::theme::{self, ControlSize, Theme, TypographyRole};
 
 use super::item::VerticalRailItem;
 
@@ -35,8 +35,12 @@ pub(super) struct ItemLayout {
 }
 
 pub(super) fn metrics(size: ControlSize) -> RailMetrics {
-    let control = theme::control_metrics(size);
-    let label = theme::typography(TypographyRole::Label);
+    metrics_for_theme(theme::active(), size)
+}
+
+pub(super) fn metrics_for_theme(theme: Theme, size: ControlSize) -> RailMetrics {
+    let control = theme.control_metrics(size);
+    let label = theme.typography(TypographyRole::Label);
 
     RailMetrics {
         size,
