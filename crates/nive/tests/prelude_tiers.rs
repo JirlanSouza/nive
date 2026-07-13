@@ -225,6 +225,28 @@ mod app_icon_contract {
     }
 }
 
+mod workbench_chrome_prelude_contract {
+    use nive::workbench::prelude::*;
+
+    fn map_workbench_event(_: WorkbenchEvent<&'static str, &'static str, &'static str>) {}
+
+    pub(super) fn _assert_workbench_prelude_exposes_chrome_size() {
+        let state = WorkbenchLayoutState::<&str, &str>::default();
+        let _shell = WorkbenchShell::new(state, map_workbench_event).chrome_size(ControlSize::Lg);
+    }
+}
+
+mod umbrella_workbench_chrome_prelude_contract {
+    use nive::prelude::*;
+
+    fn map_workbench_event(_: WorkbenchEvent<&'static str, &'static str, &'static str>) {}
+
+    pub(super) fn _assert_umbrella_prelude_exposes_chrome_size() {
+        let state = WorkbenchLayoutState::<&str, &str>::default();
+        let _shell = WorkbenchShell::new(state, map_workbench_event).chrome_size(ControlSize::Md);
+    }
+}
+
 #[test]
 fn minimal_prelude_compiles_counter_template() {
     minimal_tier_counter::_assert_application_compiles_with_only_minimal_prelude();
@@ -238,4 +260,14 @@ fn extended_prelude_compiles_dashboard_template() {
 #[test]
 fn generated_app_icon_source_compiles_with_icon_widget() {
     app_icon_contract::_assert_app_icon_source_compiles_with_icon_widget();
+}
+
+#[test]
+fn workbench_prelude_exposes_chrome_size() {
+    workbench_chrome_prelude_contract::_assert_workbench_prelude_exposes_chrome_size();
+}
+
+#[test]
+fn umbrella_prelude_exposes_chrome_size() {
+    umbrella_workbench_chrome_prelude_contract::_assert_umbrella_prelude_exposes_chrome_size();
 }
