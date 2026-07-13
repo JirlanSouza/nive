@@ -2,7 +2,7 @@ use iced::{widget::container, Background, Shadow};
 
 use crate::advanced::control_style::border_with_radius;
 
-use crate::theme::{self, control_metrics, BorderRole, ControlRole, ControlSize, ControlState};
+use crate::theme::{self, BorderRole, ControlRole, ControlSize, ControlState, Theme};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SegmentedControlMetrics {
@@ -16,8 +16,12 @@ pub struct SegmentedControlMetrics {
 }
 
 pub fn metrics(size: ControlSize) -> SegmentedControlMetrics {
-    let control = control_metrics(size);
-    let spacing = theme::spacing();
+    metrics_for_theme(theme::active(), size)
+}
+
+pub(super) fn metrics_for_theme(theme: Theme, size: ControlSize) -> SegmentedControlMetrics {
+    let control = theme.control_metrics(size);
+    let spacing = theme.spacing();
 
     SegmentedControlMetrics {
         height: control.height,
