@@ -481,7 +481,7 @@ where
     ) -> Element<'_, Message> {
         button::icon(role)
             .width(Length::Fixed(if visible {
-                metrics.tab_height
+                metrics.close_side
             } else {
                 HIDDEN_AFFORDANCE_WIDTH
             }))

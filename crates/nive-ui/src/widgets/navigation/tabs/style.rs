@@ -3,7 +3,7 @@ use iced::{widget::container, Background, Shadow};
 use crate::advanced::control_group::{radius_for_position, SlotPosition};
 use crate::advanced::control_style::{border_with_radius, transparent_border_with_radius};
 
-use crate::theme::{self, control_metrics, ControlRole, ControlSize, ControlState, SurfaceRole};
+use crate::theme::{self, ControlRole, ControlSize, ControlState, SurfaceRole, Theme};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TabPart {
@@ -31,13 +31,17 @@ pub struct TabBarMetrics {
 }
 
 pub fn metrics(size: ControlSize) -> TabBarMetrics {
-    let control = control_metrics(size);
-    let spacing = theme::spacing();
-    let bar_padding_v = spacing.xs;
+    metrics_for_theme(theme::active(), size)
+}
+
+fn metrics_for_theme(theme: Theme, size: ControlSize) -> TabBarMetrics {
+    let control = theme.control_metrics(size);
+    let spacing = theme.spacing();
+    let bar_padding_v = 0.0;
 
     TabBarMetrics {
         size,
-        height: control.height + bar_padding_v * 2.0,
+        height: control.height,
         tab_height: control.height,
         radius: control.radius,
         font_size: control.font_size,
@@ -110,10 +114,42 @@ mod tabs_tests {
     #[test]
     fn metrics_follow_control_size() {
         assert_eq!(
-            metrics(ControlSize::Sm).tab_height,
-            control_metrics(ControlSize::Sm).height
+            metrics(ControlSize::Sm).height,
+            theme::control_metrics(ControlSize::Sm).height
         );
+        assert_eq!(
+            metrics(ControlSize::Sm).tab_height,
+            theme::control_metrics(ControlSize::Sm).height
+        );
+        assert_eq!(metrics(ControlSize::Sm).bar_padding_v, 0.0);
         assert!(metrics(ControlSize::Xs).height < metrics(ControlSize::Lg).height);
+    }
+
+    #[test]
+    fn outer_height_matches_control_metrics_across_densities_and_sizes() {
+        for density in crate::theme::ThemeDensity::ALL {
+            let theme =
+                crate::theme::Theme::builder("TabBar metric test", crate::theme::ThemeMode::Dark)
+                    .density(density)
+                    .build();
+
+            for size in [
+                ControlSize::Xs,
+                ControlSize::Sm,
+                ControlSize::Md,
+                ControlSize::Lg,
+            ] {
+                assert_eq!(
+                    metrics_for_theme(theme, size).height,
+                    theme.control_metrics(size).height
+                );
+                assert_eq!(
+                    metrics_for_theme(theme, size).tab_height,
+                    theme.control_metrics(size).height
+                );
+                assert_eq!(metrics_for_theme(theme, size).bar_padding_v, 0.0);
+            }
+        }
     }
 
     #[test]
