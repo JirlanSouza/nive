@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::rc::Rc;
 
-use nive_ui::theme::ToneRole;
+use nive_ui::theme::{ControlSize, ToneRole};
 use nive_ui::widgets::{SectionHeader, SectionHeaderAction, SectionHeaderStatus};
 use nive_ui::{Element, IconRole};
 
@@ -41,7 +41,18 @@ where
     where
         Message: Clone + 'a,
     {
-        let mut header = SectionHeader::new(self.title).sm();
+        self.view_with_size(mapper, ControlSize::Sm)
+    }
+
+    pub(crate) fn view_with_size<Message>(
+        self,
+        mapper: Rc<dyn Fn(WorkbenchPanelEvent<PanelId, ActionId>) -> Message + 'a>,
+        size: ControlSize,
+    ) -> Element<'a, Message>
+    where
+        Message: Clone + 'a,
+    {
+        let mut header = SectionHeader::new(self.title).size(size);
         if let Some(icon) = self.icon {
             header = header.icon(icon);
         }

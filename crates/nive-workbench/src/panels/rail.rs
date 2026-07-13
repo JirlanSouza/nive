@@ -1,3 +1,4 @@
+use nive_ui::theme::ControlSize;
 use nive_ui::widgets::{RailSide, VerticalRail, VerticalRailItem};
 use nive_ui::Element;
 
@@ -28,8 +29,12 @@ where
 
     /// Renders the side rail.
     pub fn view(self) -> Element<'a, Message> {
+        self.view_with_size(ControlSize::Sm)
+    }
+
+    pub(crate) fn view_with_size(self, size: ControlSize) -> Element<'a, Message> {
         let mut rail = VerticalRail::new(self.side)
-            .sm()
+            .size(size)
             .on_select_maybe(self.on_select);
 
         for item in self.items {

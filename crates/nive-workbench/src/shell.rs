@@ -3,14 +3,16 @@ use std::rc::Rc;
 use iced::widget::{column, container, row, scrollable, Column, Space};
 use iced::{Length, Padding};
 use nive_ui::interaction::Orientation;
-use nive_ui::theme::{self, SurfaceRole};
-use nive_ui::widgets::{Panel, SplitPane};
+use nive_ui::theme::{self, ControlSize, SurfaceRole};
+use nive_ui::widgets::{Panel, SplitPane, Toolbar};
 use nive_ui::Element;
 
 use crate::documents::{DocumentArea, WorkbenchDocument, WorkbenchDocumentEvent};
 use crate::layout::{WorkbenchLayoutChange, WorkbenchLayoutState, WorkbenchRegion};
+use crate::layout_probe;
 use crate::panels::{
-    panel_host, PanelHostMode, WorkbenchPanel, WorkbenchPanelEvent, WorkbenchPanelHostState,
+    panel_host_with_size, PanelHostMode, WorkbenchPanel, WorkbenchPanelEvent,
+    WorkbenchPanelHostState,
 };
 use crate::status::StatusBar;
 
@@ -73,13 +75,14 @@ where
 
 /// Root workbench builder.
 pub struct WorkbenchShell<'a, DocumentId, PanelId, ActionId, Message> {
-    toolbar: Option<Element<'a, Message>>,
+    toolbar: Option<Toolbar<'a, Message>>,
     left_panels: Vec<WorkbenchPanel<'a, PanelId, ActionId, Message>>,
     documents: Vec<WorkbenchDocument<'a, DocumentId>>,
     document_content: Option<Element<'a, Message>>,
     right_panels: Vec<WorkbenchPanel<'a, PanelId, ActionId, Message>>,
     bottom_panels: Vec<WorkbenchPanel<'a, PanelId, ActionId, Message>>,
-    status_bar: Option<Element<'a, Message>>,
+    status_bar: Option<StatusBar<'a>>,
+    chrome_size: ControlSize,
     state: WorkbenchLayoutState<DocumentId, PanelId>,
     on_event: EventMapper<'a, DocumentId, PanelId, ActionId, Message>,
 }
@@ -104,14 +107,31 @@ impl<'a, DocumentId, PanelId, ActionId, Message>
             right_panels: Vec::new(),
             bottom_panels: Vec::new(),
             status_bar: None,
+            chrome_size: ControlSize::Sm,
             state,
             on_event: Rc::new(on_event),
         }
     }
 
-    /// Sets toolbar content.
-    pub fn toolbar(mut self, toolbar: impl Into<Element<'a, Message>>) -> Self {
-        self.toolbar = Some(toolbar.into());
+    /// Sets the shared control size for framework-managed workbench chrome.
+    ///
+    /// The default is [`ControlSize::Sm`]. The selected size is applied at
+    /// render time to the typed toolbar, status bar, document tabs, side rails,
+    /// panel headers, bottom selector, and split panes. It is independent from
+    /// the global [`nive_ui::theme::ThemeDensity`] setting and is not persisted
+    /// in layout state.
+    pub fn chrome_size(mut self, size: ControlSize) -> Self {
+        self.chrome_size = size;
+        self
+    }
+
+    /// Sets typed toolbar content.
+    ///
+    /// The shell retains the [`Toolbar`] until rendering, then applies its
+    /// final [`Self::chrome_size`] value. That value takes precedence over a
+    /// size previously set on `toolbar`, regardless of builder order.
+    pub fn toolbar(mut self, toolbar: Toolbar<'a, Message>) -> Self {
+        self.toolbar = Some(toolbar);
         self
     }
 
@@ -157,18 +177,13 @@ impl<'a, DocumentId, PanelId, ActionId, Message>
         self
     }
 
-    /// Sets status bar content.
-    pub fn status_bar(mut self, status_bar: impl Into<Element<'a, Message>>) -> Self {
-        self.status_bar = Some(status_bar.into());
-        self
-    }
-
-    /// Sets a composable workbench status bar.
-    pub fn status(mut self, status: StatusBar<'a>) -> Self
-    where
-        Message: Clone + 'a,
-    {
-        self.status_bar = Some(status.view());
+    /// Sets a typed workbench status bar.
+    ///
+    /// The shell retains the [`StatusBar`] until rendering so it can apply the
+    /// final shared chrome size. Arbitrary status elements are intentionally
+    /// not accepted by the shell API.
+    pub fn status(mut self, status: StatusBar<'a>) -> Self {
+        self.status_bar = Some(status);
         self
     }
 }
@@ -183,7 +198,7 @@ where
 {
     /// Renders the fixed-region shell.
     pub fn view(mut self) -> Element<'a, Message> {
-        let spacing = theme::spacing();
+        let chrome_size = self.chrome_size;
         let mut root = Column::new()
             .spacing(0.0)
             .width(Length::Fill)
@@ -192,23 +207,27 @@ where
         let toolbar = self.toolbar.take();
         let status_bar = self.status_bar.take();
         if let Some(toolbar) = toolbar {
-            let toolbar = scrollable(toolbar)
+            let toolbar = scrollable(toolbar.size(chrome_size))
                 .horizontal()
                 .height(Length::Shrink)
                 .width(Length::Fill);
-            root = root.push(
+            root = root.push(layout_probe::probe(
+                "toolbar",
                 container(toolbar)
-                    .padding(Padding::ZERO.horizontal(spacing.sm).vertical(spacing.xs))
+                    .padding(Padding::ZERO)
                     .width(Length::Fill)
                     .style(theme::surface::style(SurfaceRole::Chrome)),
-            );
+            ));
         }
 
-        let body = self.body();
+        let body = layout_probe::probe("body", self.body());
         root = root.push(body);
 
         if let Some(status_bar) = status_bar {
-            root = root.push(status_bar);
+            root = root.push(layout_probe::probe(
+                "status",
+                status_bar.view_with_size(chrome_size),
+            ));
         }
 
         root.into()
@@ -220,7 +239,7 @@ where
                 let state = WorkbenchPanelHostState::new(maximized.region)
                     .active_panel(maximized.panel_id)
                     .mode(PanelHostMode::Maximized);
-                return panel_host(state, [panel], self.panel_mapper());
+                return panel_host_with_size(state, [panel], self.panel_mapper(), self.chrome_size);
             }
         }
 
@@ -242,13 +261,14 @@ where
         } else {
             DocumentArea::new(active, std::mem::take(&mut self.documents))
                 .on_event(self.document_mapper())
-                .view()
+                .view_with_size(self.chrome_size)
         };
 
         let content = self
             .document_content
             .take()
             .unwrap_or_else(|| Space::new().width(Length::Fill).height(Length::Fill).into());
+        let content = layout_probe::probe("document_content", content);
 
         Panel::new(column![tabs, content].height(Length::Fill))
             .role(SurfaceRole::Canvas)
@@ -265,10 +285,14 @@ where
             content = if left_collapsed {
                 row![left, content].height(Length::Fill).into()
             } else {
-                SplitPane::new(left, content)
-                    .ratio(self.state.split_ratios().left)
-                    .on_change(self.layout_ratio_mapper(WorkbenchRegion::Left))
-                    .into()
+                SplitPane::new(
+                    layout_probe::probe("left_split_leading", left),
+                    layout_probe::probe("left_split_trailing", content),
+                )
+                .size(self.chrome_size)
+                .ratio(self.state.split_ratios().left)
+                .on_change(self.layout_ratio_mapper(WorkbenchRegion::Left))
+                .into()
             };
         }
 
@@ -279,10 +303,14 @@ where
             content = if right_collapsed {
                 row![content, right].height(Length::Fill).into()
             } else {
-                SplitPane::new(content, right)
-                    .ratio(self.state.split_ratios().right)
-                    .on_change(self.layout_ratio_mapper(WorkbenchRegion::Right))
-                    .into()
+                SplitPane::new(
+                    layout_probe::probe("right_split_leading", content),
+                    layout_probe::probe("right_split_trailing", right),
+                )
+                .size(self.chrome_size)
+                .ratio(self.state.split_ratios().right)
+                .on_change(self.layout_ratio_mapper(WorkbenchRegion::Right))
+                .into()
             };
         }
 
@@ -296,11 +324,15 @@ where
 
         let panels = std::mem::take(&mut self.bottom_panels);
         let bottom = self.panel_region(WorkbenchRegion::Bottom, panels, false);
-        SplitPane::new(content, bottom)
-            .orientation(Orientation::Vertical)
-            .ratio(self.state.split_ratios().bottom)
-            .on_change(self.layout_ratio_mapper(WorkbenchRegion::Bottom))
-            .into()
+        SplitPane::new(
+            layout_probe::probe("bottom_split_leading", content),
+            layout_probe::probe("bottom_split_trailing", bottom),
+        )
+        .size(self.chrome_size)
+        .orientation(Orientation::Vertical)
+        .ratio(self.state.split_ratios().bottom)
+        .on_change(self.layout_ratio_mapper(WorkbenchRegion::Bottom))
+        .into()
     }
 
     fn panel_region(
@@ -314,7 +346,7 @@ where
             state = state.active_panel(active);
         }
 
-        panel_host(state, panels, self.panel_mapper())
+        panel_host_with_size(state, panels, self.panel_mapper(), self.chrome_size)
     }
 
     fn take_panel(

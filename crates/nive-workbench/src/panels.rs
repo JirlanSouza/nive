@@ -5,6 +5,7 @@ mod rail;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use host::panel_host_with_size;
 pub use host::{
     bottom_panel_slot, logs_panel_slot, operations_panel_slot, output_panel_slot, panel_host,
 };

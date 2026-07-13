@@ -1,6 +1,6 @@
 //! Common imports for building workbench shells.
 
-pub use nive_ui::theme::ToneRole;
+pub use nive_ui::theme::{ControlSize, ToneRole};
 
 pub use crate::commands::{
     CommandPaletteState, WorkbenchCommand, WorkbenchCommandPalette, WorkbenchCommandPaletteEvent,

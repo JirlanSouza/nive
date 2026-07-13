@@ -2267,6 +2267,8 @@ name = "nive-workbench"
 version = "0.1.0-alpha.1"
 dependencies = [
  "iced",
+ "iced_renderer",
+ "iced_tiny_skia",
  "nive-runtime",
  "nive-ui",
  "serde",
