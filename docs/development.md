@@ -96,6 +96,14 @@ The v0.1 "API ergonomics" change rewrote several public-contract surfaces.
 Apps written against the pre-v0.1 snapshot need the updates below. New apps
 scaffolded via `nive new my-app` already use the new defaults.
 
+### Workbench chrome metrics
+
+The workbench shell now accepts typed toolbar and status inputs and applies one
+shared `ControlSize` through `WorkbenchShell::chrome_size`. See the
+[workbench chrome metrics migration](migrations/workbench-chrome-metrics.md)
+for the intentional API break, direct-consumer import requirements, and
+SplitPane sizing guidance.
+
 ### `Application` trait
 
 - `type Window` and `type Bootstrap` are no longer trait-defaulted (that
