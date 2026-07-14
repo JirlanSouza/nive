@@ -24,3 +24,28 @@ LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ```
+
+## Inter
+
+The static `Inter-Regular.ttf` and `Inter-SemiBold.ttf` faces bundled under
+`assets/fonts/inter/` (embedded via `src/fonts.rs` behind the `bundled-fonts`
+feature) are built from the
+[Inter](https://github.com/rsms/inter) typeface (v4.1), distributed under the
+SIL Open Font License, Version 1.1. The SemiBold face's family/subfamily name
+records were relabeled from the upstream `Inter SemiBold` distinct-family
+naming to a single `Inter` family with a `SemiBold` weight, so font matching
+can select it by `(family = "Inter", weight = Semibold)`; no glyph or outline
+data was modified. See `assets/fonts/inter/OFL.txt` for the full license text.
+
+## Geist Mono
+
+The static `GeistMono-Regular.ttf` and `GeistMono-Medium.ttf` faces bundled
+under `assets/fonts/geist-mono/` (embedded via `src/fonts.rs` behind the
+`bundled-fonts` feature) are sourced from the
+[Geist](https://github.com/vercel/geist-font) typeface project, distributed
+under the SIL Open Font License, Version 1.1. The Medium face's
+family/subfamily name records were relabeled from the upstream
+`Geist Mono Medium` distinct-family naming to a single `Geist Mono` family
+with a `Medium` weight, so font matching can select it by
+`(family = "Geist Mono", weight = Medium)`; no glyph or outline data was
+modified. See `assets/fonts/geist-mono/OFL.txt` for the full license text.
