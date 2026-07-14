@@ -4,7 +4,7 @@ use iced::{
 };
 
 use crate::theme::{self, surface as theme_surface};
-use crate::theme::{gap, GapRole, ShapeSize, SurfaceRole};
+use crate::theme::{gap, BorderRole, GapRole, ShapeSize, SurfaceRole};
 use crate::Element;
 
 /// Panel surface with optional header and configurable shape.
@@ -17,6 +17,7 @@ pub struct Panel<'a, Message> {
     width: Option<iced::Length>,
     height: Option<iced::Length>,
     center: Option<iced::Length>,
+    border: bool,
 }
 
 impl<'a, Message> Panel<'a, Message>
@@ -33,7 +34,15 @@ where
             width: None,
             height: None,
             center: None,
+            border: false,
         }
+    }
+
+    /// Opts into an explicit border. Surfaces render fill + shadow only by
+    /// default; a panel asks for a border explicitly when it needs one.
+    pub fn bordered(mut self) -> Self {
+        self.border = true;
+        self
     }
 
     pub fn header(mut self, header: impl Into<Element<'a, Message>>) -> Self {
@@ -115,10 +124,19 @@ where
             None => self.content,
         };
 
-        let mut panel = container(body).style(theme_surface::style_with_radius(
-            self.role,
-            self.radius.into(),
-        ));
+        let style: Box<dyn Fn(&crate::theme::Theme) -> container::Style> = if self.border {
+            Box::new(theme_surface::style_with_border(
+                self.role,
+                self.radius.into(),
+                BorderRole::Default,
+            ))
+        } else {
+            Box::new(theme_surface::style_with_radius(
+                self.role,
+                self.radius.into(),
+            ))
+        };
+        let mut panel = container(body).style(style);
 
         if let Some(padding) = self.padding {
             panel = panel.padding(padding);
@@ -153,6 +171,15 @@ where
 mod panel_tests {
     use super::*;
     use crate::tokens::radius as token_radius;
+
+    #[test]
+    fn border_is_opt_in() {
+        let default = Panel::<()>::new(iced::widget::Space::new());
+        let bordered = Panel::<()>::new(iced::widget::Space::new()).bordered();
+
+        assert!(!default.border);
+        assert!(bordered.border);
+    }
 
     #[test]
     fn shape_builders_resolve_panel_radius() {

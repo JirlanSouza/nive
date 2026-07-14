@@ -1,6 +1,6 @@
 use iced::{widget::container, Length, Padding};
 
-use crate::theme::{self, surface as theme_surface, ShapeSize, SurfaceRole};
+use crate::theme::{self, surface as theme_surface, BorderRole, ShapeSize, SurfaceRole};
 use crate::Element;
 
 /// Content surface with configurable shape.
@@ -11,6 +11,7 @@ pub struct Card<'a, Message> {
     padding: Option<Padding>,
     width: Option<Length>,
     height: Option<Length>,
+    border: bool,
 }
 
 impl<'a, Message> Card<'a, Message>
@@ -25,7 +26,15 @@ where
             padding: None,
             width: None,
             height: None,
+            border: false,
         }
+    }
+
+    /// Opts into an explicit border. Surfaces render fill + shadow only by
+    /// default; a card asks for a border explicitly when it needs one.
+    pub fn bordered(mut self) -> Self {
+        self.border = true;
+        self
     }
 
     /// Sets the card shape from the theme scale.
@@ -89,10 +98,19 @@ where
     );
 
     fn into_container(self) -> container::Container<'a, Message, crate::theme::Theme> {
-        let mut card = container(self.content).style(theme_surface::style_with_radius(
-            self.role,
-            self.radius.into(),
-        ));
+        let style: Box<dyn Fn(&crate::theme::Theme) -> container::Style> = if self.border {
+            Box::new(theme_surface::style_with_border(
+                self.role,
+                self.radius.into(),
+                BorderRole::Default,
+            ))
+        } else {
+            Box::new(theme_surface::style_with_radius(
+                self.role,
+                self.radius.into(),
+            ))
+        };
+        let mut card = container(self.content).style(style);
 
         if let Some(padding) = self.padding {
             card = card.padding(padding);
@@ -123,6 +141,15 @@ where
 mod card_tests {
     use super::*;
     use crate::tokens::radius as token_radius;
+
+    #[test]
+    fn border_is_opt_in() {
+        let default = Card::<()>::new(iced::widget::Space::new());
+        let bordered = Card::<()>::new(iced::widget::Space::new()).bordered();
+
+        assert!(!default.border);
+        assert!(bordered.border);
+    }
 
     #[test]
     fn shape_builders_resolve_card_radius() {

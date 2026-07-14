@@ -1,7 +1,11 @@
 use iced::{border::Radius, widget::container, Background, Border};
 
-use crate::theme::{BorderSpec, ShapeSize, SurfaceRole, SurfaceSpec};
+use crate::theme::{BorderRole, BorderSpec, ShapeSize, SurfaceRole, SurfaceSpec};
 
+/// Resolves a surface fill and shadow without emitting an automatic border.
+///
+/// Composing regions own structural seams. Use [`style_with_border`] when a
+/// card or panel explicitly opts into an outline.
 pub fn style(role: SurfaceRole) -> impl Fn(&crate::theme::Theme) -> container::Style {
     move |theme: &crate::theme::Theme| {
         let spec = theme.surface(role);
@@ -16,6 +20,22 @@ pub fn style_with_radius(
     move |theme: &crate::theme::Theme| {
         let spec = theme.surface(role);
         container_style(spec, radius)
+    }
+}
+
+/// Explicit, widget-owned opt-in for a surface border (e.g. a `Card`/`Panel`
+/// that asks for one). Surfaces never emit a border on their own — see
+/// [`style`]/[`style_with_radius`].
+pub fn style_with_border(
+    role: SurfaceRole,
+    radius: Radius,
+    border_role: BorderRole,
+) -> impl Fn(&crate::theme::Theme) -> container::Style {
+    move |theme: &crate::theme::Theme| {
+        let spec = theme.surface(role);
+        let mut style = container_style(spec, radius);
+        style.border = border(theme.border(border_role), radius);
+        style
     }
 }
 
@@ -68,6 +88,33 @@ mod surface_tests {
         let style = style(SurfaceRole::Popover)(&theme);
 
         assert_eq!(style.border.radius, theme.shape(ShapeSize::Lg).radius());
+    }
+
+    #[test]
+    fn structural_surfaces_render_without_an_automatic_border() {
+        let theme = Theme::Dark;
+
+        for role in [
+            SurfaceRole::App,
+            SurfaceRole::Chrome,
+            SurfaceRole::Sidebar,
+            SurfaceRole::Canvas,
+            SurfaceRole::Panel,
+            SurfaceRole::Elevated,
+        ] {
+            let style = style(role)(&theme);
+
+            assert_eq!(style.border.width, 0.0, "{role:?} should have no border");
+        }
+    }
+
+    #[test]
+    fn style_with_border_opts_into_an_explicit_border() {
+        let theme = Theme::Dark;
+        let style = style_with_border(SurfaceRole::Panel, 0.0.into(), BorderRole::Default)(&theme);
+
+        assert_eq!(style.border.color, theme.border(BorderRole::Default).color);
+        assert!(style.border.width > 0.0);
     }
 
     fn background_color(style: &container::Style) -> iced::Color {

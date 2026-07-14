@@ -29,6 +29,7 @@ pub struct TreeItem<'a, Message> {
     expanded: Option<bool>,
     selected: bool,
     disabled: bool,
+    focused: bool,
     leading_icon: Option<IconRole>,
     tone: Option<ToneRole>,
     trailing_text: Option<Cow<'a, str>>,
@@ -52,6 +53,7 @@ where
             expanded: None,
             selected: false,
             disabled: false,
+            focused: false,
             leading_icon: None,
             tone: None,
             trailing_text: None,
@@ -91,6 +93,13 @@ where
     /// Sets disabled styling and suppresses row and toggle messages.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
+        self
+    }
+
+    /// Marks the row as holding tree model focus. Renders a layout-neutral
+    /// focus-visible affordance independent of `selected`.
+    pub fn focused(mut self, focused: bool) -> Self {
+        self.focused = focused;
         self
     }
 
@@ -221,12 +230,13 @@ where
         row = row.push(self.indent_button(metrics));
         let selected = self.selected;
         let disabled = self.disabled;
+        let focused = self.focused;
 
         row = row.push(self.expander(metrics));
         row = row.push(self.main_button(metrics));
 
         container(row)
-            .style(theme_tree_item::row_style(selected, disabled))
+            .style(theme_tree_item::row_style(selected, disabled, focused))
             .width(Length::Fill)
             .height(Length::Fixed(metrics.height))
             .into()
@@ -323,7 +333,7 @@ where
         }
 
         if let Some(icon) = self.leading_icon {
-            content = content.push(icon_widget::role(icon).size(metrics.icon_size));
+            content = content.push(icon_widget::role(icon).custom_size(metrics.icon_size));
         }
 
         content = content.push(
@@ -354,7 +364,7 @@ fn expander_content<'a, Message>(icon: IconRole, icon_size: f32) -> Element<'a, 
 where
     Message: 'a,
 {
-    container(icon_widget::role(icon).size(icon_size))
+    container(icon_widget::role(icon).custom_size(icon_size))
         .align_x(Alignment::Center)
         .align_y(Alignment::Center)
         .width(Length::Fill)

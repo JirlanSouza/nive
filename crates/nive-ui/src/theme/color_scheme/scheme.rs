@@ -6,6 +6,12 @@ use super::super::{
     BorderRole, ControlRole, ControlState, SurfaceRole, TextRole, ThemeMode, ToneRole,
 };
 
+/// Combined-selected-state alpha ladder for [`ColorScheme::selected_control_spec`].
+/// Centralized here so no widget scales these fills locally.
+const SELECTED_HOVER_ALPHA: f32 = 1.20;
+const SELECTED_PRESSED_ALPHA: f32 = 0.88;
+const DISABLED_SELECTED_ALPHA: f32 = 0.60;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BorderSpec {
     pub color: Color,
@@ -133,28 +139,33 @@ impl ColorScheme {
             rgb(0x2563EB)
         };
 
+        // Dark ramp widened to a perceptually-separated spacing
+        // (App/Chrome/Sidebar/Canvas/Panel/Elevated/Popover), guarded by the
+        // ΔL* adjacency invariant test below. The top end (Panel/Popover) is
+        // capped by the Accent-tone and Secondary-text contrast floors
+        // asserted elsewhere in this module's test suite.
         let (chrome, sidebar, surface, surface_elevated, surface_overlay, canvas) = if is_dark {
             (
-                mix(app, foreground, 0.02),
-                mix(app, foreground, 0.04),
-                mix(app, foreground, 0.08),
-                mix(app, foreground, 0.12),
-                mix(app, foreground, 0.16),
-                mix(app, foreground, 0.06),
+                mix(app, foreground, 0.025),
+                mix(app, foreground, 0.05),
+                mix(app, foreground, 0.09),
+                mix(app, foreground, 0.15),
+                mix(app, foreground, 0.21),
+                mix(app, foreground, 0.07),
             )
         } else {
             (
-                mix(app, foreground, 0.04),
-                mix(app, foreground, 0.03),
+                mix(app, foreground, 0.05),
+                mix(app, foreground, 0.035),
+                Color::WHITE,
+                mix(app, foreground, 0.025),
                 Color::WHITE,
                 mix(app, foreground, 0.02),
-                Color::WHITE,
-                mix(app, foreground, 0.015),
             )
         };
 
         let text_secondary = mix(foreground, app, if is_dark { 0.22 } else { 0.32 });
-        let text_muted = mix(foreground, app, if is_dark { 0.55 } else { 0.58 });
+        let text_muted = mix(foreground, app, if is_dark { 0.42 } else { 0.46 });
         let border_subtle = mix(app, foreground, if is_dark { 0.08 } else { 0.12 });
         let border = mix(app, foreground, if is_dark { 0.14 } else { 0.18 });
         let border_strong = mix(app, foreground, if is_dark { 0.22 } else { 0.28 });
@@ -247,41 +258,38 @@ impl ColorScheme {
         self.is_dark
     }
 
+    /// Resolves a surface's fill and shadow. Borders are a separate,
+    /// explicit concern (see [`BorderRole`] and each widget's own opt-in
+    /// border builder) — no [`SurfaceRole`] auto-emits one here.
     pub fn surface(&self, role: SurfaceRole) -> SurfaceSpec {
         match role {
             SurfaceRole::App => {
                 self.surface_spec(self.surface.app, BorderSpec::none(), shadow::NONE)
             }
-            SurfaceRole::Chrome => self.surface_spec(
-                self.surface.chrome,
-                self.border(BorderRole::Subtle),
-                shadow::NONE,
-            ),
-            SurfaceRole::Sidebar => self.surface_spec(
-                self.surface.sidebar,
-                self.border(BorderRole::Subtle),
-                shadow::NONE,
-            ),
-            SurfaceRole::Panel | SurfaceRole::Dialog => self.surface_spec(
-                self.surface.panel,
-                self.border(BorderRole::Default),
-                shadow::NONE,
-            ),
-            SurfaceRole::Canvas => self.surface_spec(
-                self.surface.canvas,
-                self.border(BorderRole::Default),
-                shadow::NONE,
-            ),
-            SurfaceRole::Elevated => self.surface_spec(
-                self.surface.elevated,
-                self.border(BorderRole::Default),
-                shadow::NONE,
-            ),
-            SurfaceRole::Popover => self.surface_spec(
-                self.surface.overlay,
-                self.border(BorderRole::Default),
-                shadow::POPOVER,
-            ),
+            SurfaceRole::Chrome => {
+                self.surface_spec(self.surface.chrome, BorderSpec::none(), shadow::NONE)
+            }
+            SurfaceRole::Sidebar => {
+                self.surface_spec(self.surface.sidebar, BorderSpec::none(), shadow::NONE)
+            }
+            SurfaceRole::Panel => {
+                self.surface_spec(self.surface.panel, BorderSpec::none(), shadow::NONE)
+            }
+            SurfaceRole::Canvas => {
+                self.surface_spec(self.surface.canvas, BorderSpec::none(), shadow::NONE)
+            }
+            SurfaceRole::Elevated => {
+                self.surface_spec(self.surface.elevated, BorderSpec::none(), shadow::ELEVATED)
+            }
+            SurfaceRole::Popover => {
+                self.surface_spec(self.surface.overlay, BorderSpec::none(), shadow::POPOVER)
+            }
+            // Dialog is its own top-of-stack modal surface: the topmost
+            // (Popover-tier) fill, paired with the strongest shadow in the
+            // elevation ramp, rather than sharing the Panel surface.
+            SurfaceRole::Dialog => {
+                self.surface_spec(self.surface.overlay, BorderSpec::none(), shadow::DIALOG)
+            }
             SurfaceRole::Scrim => {
                 self.surface_spec(self.surface.scrim, BorderSpec::none(), shadow::NONE)
             }
@@ -310,23 +318,26 @@ impl ColorScheme {
         }
     }
 
+    /// Resolves the complete combined `selected × hover/pressed/focus ×
+    /// disabled` control state in one place. Widgets consume this instead of
+    /// scaling semantic colors locally: selection stays persistently
+    /// distinguishable, hover/pressed intensify it, disabled is resolved
+    /// once (suppressing hover/pressed and dimming selection by a single
+    /// canonical amount, never a widget-local alpha), and focus-visible is a
+    /// layout-neutral border swap independent of selection. Category-owned
+    /// visual projection — which of these fields a widget actually paints —
+    /// remains with the caller.
     pub fn control(&self, role: ControlRole, state: ControlState) -> ControlSpec {
+        if state.selected {
+            return self.selected_control_spec(state);
+        }
+
         if !state.enabled {
             return self.control_spec(
                 self.control.disabled,
                 self.text.disabled,
                 self.border(BorderRole::Subtle),
             );
-        }
-
-        if state.selected {
-            let border = if state.interaction.focused {
-                self.border(BorderRole::Focus)
-            } else {
-                self.border(BorderRole::Accent)
-            };
-
-            return self.control_spec(self.control.selected, self.tone.primary.color, border);
         }
 
         let background = if state.interaction.pressed || state.interaction.dragged {
@@ -348,6 +359,36 @@ impl ColorScheme {
         };
 
         self.control_spec(background, self.text.primary, border)
+    }
+
+    fn selected_control_spec(&self, state: ControlState) -> ControlSpec {
+        let border = if state.interaction.focused {
+            self.border(BorderRole::Focus)
+        } else {
+            self.border(BorderRole::Accent)
+        };
+
+        if !state.enabled {
+            // Disabled + selected is resolved once, here: a single canonical
+            // dimming of the selected fill, never a widget-local alpha.
+            return self.control_spec(
+                self.control.selected.scale_alpha(DISABLED_SELECTED_ALPHA),
+                self.tone.primary.color.scale_alpha(DISABLED_SELECTED_ALPHA),
+                border,
+            );
+        }
+
+        // Disabled is checked first, so hover/pressed feedback never reaches
+        // a disabled control.
+        let background = if state.interaction.pressed || state.interaction.dragged {
+            self.control.selected.scale_alpha(SELECTED_PRESSED_ALPHA)
+        } else if state.interaction.hovered {
+            self.control.selected.scale_alpha(SELECTED_HOVER_ALPHA)
+        } else {
+            self.control.selected
+        };
+
+        self.control_spec(background, self.tone.primary.color, border)
     }
 
     pub fn tone(&self, tone: ToneRole) -> ToneSpec {
@@ -492,6 +533,14 @@ mod color_scheme_tests {
         SurfaceRole::Dialog,
         SurfaceRole::Popover,
     ];
+    const MUTED_FLOOR_SURFACES: [SurfaceRole; 5] = [
+        SurfaceRole::App,
+        SurfaceRole::Chrome,
+        SurfaceRole::Sidebar,
+        SurfaceRole::Canvas,
+        SurfaceRole::Panel,
+    ];
+    const MUTED_CONTRAST_FLOOR: f32 = 3.0;
     const TEXT_ROLE_CASES: [(TextRole, f32); 4] = [
         (TextRole::Primary, 4.5),
         (TextRole::Secondary, 4.5),
@@ -527,6 +576,83 @@ mod color_scheme_tests {
             theme.surface(SurfaceRole::Sidebar).background,
             theme.surface(SurfaceRole::Chrome).background
         );
+    }
+
+    const ORDERED_STRUCTURAL_SURFACES: [SurfaceRole; 7] = [
+        SurfaceRole::App,
+        SurfaceRole::Chrome,
+        SurfaceRole::Sidebar,
+        SurfaceRole::Canvas,
+        SurfaceRole::Panel,
+        SurfaceRole::Elevated,
+        SurfaceRole::Popover,
+    ];
+    const MIN_ADJACENT_DELTA_L: f32 = 1.5;
+
+    fn shadow_prominence(shadow: Shadow) -> f32 {
+        shadow.color.a * shadow.blur_radius
+    }
+
+    #[test]
+    fn dialog_no_longer_shares_the_panel_fill() {
+        let theme = Theme::Dark;
+
+        assert_ne!(
+            theme.surface(SurfaceRole::Dialog).background,
+            theme.surface(SurfaceRole::Panel).background
+        );
+    }
+
+    #[test]
+    fn elevation_shadow_ramp_increases_toward_dialog() {
+        let theme = Theme::Dark;
+
+        let elevated = shadow_prominence(theme.surface(SurfaceRole::Elevated).shadow);
+        let popover = shadow_prominence(theme.surface(SurfaceRole::Popover).shadow);
+        let dialog = shadow_prominence(theme.surface(SurfaceRole::Dialog).shadow);
+
+        assert!(
+            elevated < popover,
+            "Elevated should be less prominent than Popover"
+        );
+        assert!(
+            popover < dialog,
+            "Popover should be less prominent than Dialog"
+        );
+    }
+
+    #[test]
+    fn dark_surface_ramp_preserves_semantic_lightness_order() {
+        let theme = Theme::Dark;
+        let lightness = |role: SurfaceRole| {
+            crate::theme::color::perceptual_lightness(theme.surface(role).background)
+        };
+
+        for pair in ORDERED_STRUCTURAL_SURFACES.windows(2) {
+            let (a, b) = (pair[0], pair[1]);
+            assert!(
+                lightness(a) < lightness(b),
+                "expected {a:?} lightness to be less than {b:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn dark_surface_ramp_clears_the_adjacency_floor() {
+        let theme = Theme::Dark;
+        let lightness = |role: SurfaceRole| {
+            crate::theme::color::perceptual_lightness(theme.surface(role).background)
+        };
+
+        for pair in ORDERED_STRUCTURAL_SURFACES.windows(2) {
+            let (a, b) = (pair[0], pair[1]);
+            let delta = lightness(b) - lightness(a);
+
+            assert!(
+                delta >= MIN_ADJACENT_DELTA_L,
+                "{a:?} -> {b:?} ΔL* {delta:.2} is below the {MIN_ADJACENT_DELTA_L:.2} floor"
+            );
+        }
     }
 
     #[test]
@@ -584,15 +710,99 @@ mod color_scheme_tests {
     }
 
     #[test]
-    fn disabled_control_ignores_selection_and_interaction() {
+    fn disabled_unselected_control_ignores_interaction() {
         let theme = Theme::Dark;
         let disabled = theme.control(ControlRole::Standard, ControlState::DISABLED);
         let combined = ControlState::new()
-            .selected()
             .disabled()
             .interaction(InteractionState::PRESSED.hovered().focused());
 
-        assert_eq!(theme.control(ControlRole::Selectable, combined), disabled);
+        assert_eq!(theme.control(ControlRole::Standard, combined), disabled);
+    }
+
+    #[test]
+    fn disabled_selected_control_suppresses_hover_and_pressed() {
+        let theme = Theme::Dark;
+        let idle_disabled_selected = theme.control(
+            ControlRole::Selectable,
+            ControlState::new().selected().disabled(),
+        );
+        let combined = ControlState::new()
+            .selected()
+            .disabled()
+            .interaction(InteractionState::PRESSED.hovered());
+
+        assert_eq!(
+            theme.control(ControlRole::Selectable, combined),
+            idle_disabled_selected
+        );
+    }
+
+    #[test]
+    fn disabled_selected_control_uses_a_canonical_dimmed_selected_fill() {
+        let theme = Theme::Dark;
+        let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
+        let disabled_selected = theme.control(
+            ControlRole::Selectable,
+            ControlState::new().selected().disabled(),
+        );
+
+        assert_eq!(
+            disabled_selected.background,
+            selected.background.scale_alpha(0.60)
+        );
+        assert_eq!(
+            disabled_selected.foreground,
+            selected.foreground.scale_alpha(0.60)
+        );
+        assert_ne!(
+            disabled_selected,
+            theme.control(ControlRole::Standard, ControlState::DISABLED)
+        );
+    }
+
+    #[test]
+    fn selected_hover_and_pressed_intensify_the_selected_fill_centrally() {
+        let theme = Theme::Dark;
+        let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
+        let selected_hovered = theme.control(
+            ControlRole::Selectable,
+            ControlState::new()
+                .selected()
+                .interaction(InteractionState::HOVERED),
+        );
+        let selected_pressed = theme.control(
+            ControlRole::Selectable,
+            ControlState::new()
+                .selected()
+                .interaction(InteractionState::PRESSED),
+        );
+
+        assert_eq!(
+            selected_hovered.background,
+            selected.background.scale_alpha(1.20)
+        );
+        assert_eq!(
+            selected_pressed.background,
+            selected.background.scale_alpha(0.88)
+        );
+        assert_eq!(selected_hovered.foreground, selected.foreground);
+        assert_eq!(selected_pressed.foreground, selected.foreground);
+    }
+
+    #[test]
+    fn selected_focus_and_selected_idle_are_visually_distinguishable() {
+        let theme = Theme::Dark;
+        let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
+        let selected_focused = theme.control(
+            ControlRole::Selectable,
+            ControlState::new()
+                .selected()
+                .interaction(InteractionState::FOCUSED),
+        );
+
+        assert_ne!(selected.border, selected_focused.border);
+        assert_eq!(selected_focused.background, selected.background);
     }
 
     #[test]
@@ -640,6 +850,45 @@ mod color_scheme_tests {
     }
 
     #[test]
+    fn muted_text_clears_the_3_to_1_floor_on_base_surfaces() {
+        for mode in [ThemeMode::Light, ThemeMode::Dark] {
+            let theme = Theme::from_mode(mode);
+            let muted = theme.text(TextRole::Muted).color;
+
+            for surface_role in MUTED_FLOOR_SURFACES {
+                let background = theme.surface(surface_role).background;
+                assert_contrast_at_least(
+                    format!("{mode:?} Muted over {surface_role:?}"),
+                    muted,
+                    background,
+                    MUTED_CONTRAST_FLOOR,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn muted_text_stays_below_secondary_contrast() {
+        for mode in [ThemeMode::Light, ThemeMode::Dark] {
+            let theme = Theme::from_mode(mode);
+            let muted = theme.text(TextRole::Muted).color;
+            let secondary = theme.text(TextRole::Secondary).color;
+
+            for surface_role in MUTED_FLOOR_SURFACES {
+                let background = theme.surface(surface_role).background;
+                let muted_contrast = crate::theme::color::contrast_ratio(muted, background);
+                let secondary_contrast = crate::theme::color::contrast_ratio(secondary, background);
+
+                assert!(
+                    muted_contrast < secondary_contrast,
+                    "{mode:?} Muted over {surface_role:?} contrast {muted_contrast:.2} \
+                     should stay below Secondary contrast {secondary_contrast:.2}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn tone_roles_keep_readable_foreground_background_contrast() {
         for mode in [ThemeMode::Light, ThemeMode::Dark] {
             let theme = Theme::from_mode(mode);
@@ -675,35 +924,12 @@ mod color_scheme_tests {
     }
 
     fn assert_contrast_at_least(label: String, foreground: Color, background: Color, minimum: f32) {
-        let contrast = contrast_ratio(foreground, background);
+        let contrast = crate::theme::color::contrast_ratio(foreground, background);
 
         assert!(
             contrast >= minimum,
             "{label} contrast {contrast:.2} is below {minimum:.2}"
         );
-    }
-
-    fn contrast_ratio(first: Color, second: Color) -> f32 {
-        let first_luminance = relative_luminance(first);
-        let second_luminance = relative_luminance(second);
-        let lighter = first_luminance.max(second_luminance);
-        let darker = first_luminance.min(second_luminance);
-
-        (lighter + 0.05) / (darker + 0.05)
-    }
-
-    fn relative_luminance(color: Color) -> f32 {
-        0.2126 * linear_channel(color.r)
-            + 0.7152 * linear_channel(color.g)
-            + 0.0722 * linear_channel(color.b)
-    }
-
-    fn linear_channel(value: f32) -> f32 {
-        if value <= 0.03928 {
-            value / 12.92
-        } else {
-            ((value + 0.055) / 1.055).powf(2.4)
-        }
     }
 
     fn color_distance(first: Color, second: Color) -> f32 {

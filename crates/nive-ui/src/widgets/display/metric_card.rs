@@ -4,8 +4,8 @@ use iced::{
 };
 
 use crate::{
-    theme::{self, GapRole, TypographyRole},
-    widgets::primitives::text::{text_muted, text_secondary},
+    theme::{self, GapRole, TextStyle, TypographyRole},
+    widgets::primitives::text::{text_primary, text_secondary},
     Element,
 };
 
@@ -29,9 +29,15 @@ impl<'a, Message: Clone + 'a> MetricCard<'a, Message> {
         let value = format_metric_value(self.value);
 
         column![
-            text(value).size(metrics.value_size).style(value_style()),
+            text(value)
+                .font(metrics.value_style.font)
+                .size(metrics.value_style.size)
+                .line_height(metrics.value_style.line_height)
+                .style(value_style()),
             text(self.label)
-                .size(metrics.label_size)
+                .font(metrics.label_style.font)
+                .size(metrics.label_style.size)
+                .line_height(metrics.label_style.line_height)
                 .style(label_style()),
         ]
         .spacing(metrics.gap)
@@ -53,24 +59,24 @@ where
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Metrics {
     gap: f32,
-    value_size: f32,
-    label_size: f32,
+    value_style: TextStyle,
+    label_style: TextStyle,
 }
 
 fn metrics() -> Metrics {
     Metrics {
         gap: theme::gap(GapRole::Tight),
-        value_size: theme::typography(TypographyRole::Title).size,
-        label_size: theme::typography(TypographyRole::BodySmall).size,
+        value_style: theme::typography(TypographyRole::Title),
+        label_style: theme::typography(TypographyRole::BodySmall),
     }
 }
 
 fn value_style() -> impl Fn(&crate::theme::Theme) -> text::Style {
-    text_secondary()
+    text_primary()
 }
 
 fn label_style() -> impl Fn(&crate::theme::Theme) -> text::Style {
-    text_muted()
+    text_secondary()
 }
 
 fn format_metric_value(value: i128) -> String {
@@ -84,5 +90,17 @@ mod metric_card_tests {
     #[test]
     fn formats_zero_as_a_valid_metric_value() {
         assert_eq!(format_metric_value(0), "0");
+    }
+
+    #[test]
+    fn value_uses_primary_text_role_at_the_title_style() {
+        let theme = theme::active();
+        let metrics = metrics();
+
+        assert_eq!(metrics.value_style, theme.typography(TypographyRole::Title));
+        assert_eq!(
+            value_style()(&theme).color,
+            Some(theme.text(crate::theme::TextRole::Primary).color)
+        );
     }
 }
