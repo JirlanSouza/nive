@@ -6,7 +6,7 @@ pub(crate) mod tone_dot;
 
 pub use crate::icons::{IconGlyph, IconRole, IconSource};
 pub use color_swatch::ColorSwatch;
-pub use icon::Icon;
+pub use icon::{Icon, IconSize, Rotation};
 pub use separator::Separator;
 pub use tone_dot::ToneDot;
 

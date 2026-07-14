@@ -13,6 +13,60 @@ use crate::icons::{IconGlyph, IconRole, IconSource};
 use crate::Element;
 use crate::Theme;
 
+/// Semantic size scale for standalone icons.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum IconSize {
+    /// 12 px.
+    Xs,
+    /// 14 px.
+    Sm,
+    /// 16 px, the default.
+    #[default]
+    Md,
+    /// 20 px.
+    Lg,
+    /// 24 px.
+    Xl,
+}
+
+impl IconSize {
+    /// Resolves the semantic size to physical pixels.
+    pub const fn pixels(self) -> f32 {
+        match self {
+            Self::Xs => 12.0,
+            Self::Sm => 14.0,
+            Self::Md => 16.0,
+            Self::Lg => 20.0,
+            Self::Xl => 24.0,
+        }
+    }
+}
+
+/// Static icon rotation restricted to quarter turns.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum Rotation {
+    /// 0°.
+    #[default]
+    None,
+    /// 90° clockwise.
+    Quarter,
+    /// 180°.
+    Half,
+    /// 270° clockwise.
+    ThreeQuarter,
+}
+
+impl Rotation {
+    const fn radians(self) -> Radians {
+        match self {
+            Self::None => Radians(0.0),
+            Self::Quarter => Radians(std::f32::consts::FRAC_PI_2),
+            Self::Half => Radians(std::f32::consts::PI),
+            Self::ThreeQuarter => Radians(std::f32::consts::PI * 1.5),
+        }
+    }
+}
+
 pub fn new<S>(icon: S) -> Icon<S>
 where
     S: IconSource,
@@ -46,6 +100,11 @@ enum IconKind<S> {
     Glyph(IconGlyph),
 }
 
+/// Decorative, monochrome icon primitive.
+///
+/// Icons inherit the host text color by default and are not independent focus
+/// or accessibility targets. The hosting control owns the accessible name and
+/// semantic meaning. Use a dedicated SVG/brand path for multicolor marks.
 pub struct Icon<S = IconGlyph> {
     icon: IconKind<S>,
     size: f32,
@@ -77,34 +136,45 @@ impl Icon {
 }
 
 impl<S> Icon<S> {
-    const DEFAULT_SIZE: f32 = 16.0;
-
     fn from_kind(icon: IconKind<S>) -> Self {
         Self {
             icon,
-            size: Self::DEFAULT_SIZE,
+            size: IconSize::default().pixels(),
             color: None,
             rotation: Radians(0.0),
         }
     }
 
     pub fn xs(self) -> Self {
-        self.size(12.0)
+        self.size(IconSize::Xs)
     }
 
     pub fn sm(self) -> Self {
-        self.size(14.0)
+        self.size(IconSize::Sm)
     }
 
     pub fn md(self) -> Self {
-        self.size(16.0)
+        self.size(IconSize::Md)
     }
 
     pub fn lg(self) -> Self {
-        self.size(20.0)
+        self.size(IconSize::Lg)
     }
 
-    pub fn size(mut self, size: f32) -> Self {
+    pub fn xl(self) -> Self {
+        self.size(IconSize::Xl)
+    }
+
+    pub fn size(mut self, size: IconSize) -> Self {
+        self.size = size.pixels();
+        self
+    }
+
+    /// Sets a non-semantic pixel size.
+    ///
+    /// Prefer [`Self::size`] for standalone icons. Control-owned icons use
+    /// this escape hatch with their resolved `control.icon_size` metric.
+    pub fn custom_size(mut self, size: f32) -> Self {
         self.size = size;
         self
     }
@@ -119,8 +189,15 @@ impl<S> Icon<S> {
         self
     }
 
-    pub fn rotation(mut self, rotation: impl Into<Radians>) -> Self {
-        self.rotation = rotation.into();
+    /// Applies a static quarter-turn rotation.
+    pub fn rotation(mut self, rotation: Rotation) -> Self {
+        self.rotation = rotation.radians();
+        self
+    }
+
+    /// Applies a continuous rotation produced by an animation.
+    pub fn animated_rotation(mut self, rotation: Radians) -> Self {
+        self.rotation = rotation;
         self
     }
 
@@ -197,5 +274,42 @@ where
 {
     fn from(icon: Icon<S>) -> Self {
         Element::new(icon)
+    }
+}
+
+#[cfg(test)]
+mod icon_tests {
+    use super::*;
+    use crate::icons::IconRole;
+
+    #[test]
+    fn semantic_sizes_and_builders_map_to_the_public_scale() {
+        assert_eq!(IconSize::default(), IconSize::Md);
+        assert_eq!(IconSize::Xl.pixels(), 24.0);
+        assert_eq!(Icon::role(IconRole::EditFind).size, 16.0);
+        assert_eq!(Icon::role(IconRole::EditFind).xs().size, 12.0);
+        assert_eq!(Icon::role(IconRole::EditFind).sm().size, 14.0);
+        assert_eq!(Icon::role(IconRole::EditFind).md().size, 16.0);
+        assert_eq!(Icon::role(IconRole::EditFind).lg().size, 20.0);
+        assert_eq!(Icon::role(IconRole::EditFind).xl().size, 24.0);
+    }
+
+    #[test]
+    fn custom_size_is_the_raw_pixel_escape_hatch() {
+        assert_eq!(Icon::role(IconRole::EditFind).custom_size(18.0).size, 18.0);
+    }
+
+    #[test]
+    fn static_rotations_map_to_quarter_turns() {
+        assert_eq!(Rotation::None.radians(), Radians(0.0));
+        assert_eq!(
+            Rotation::Quarter.radians(),
+            Radians(std::f32::consts::FRAC_PI_2)
+        );
+        assert_eq!(Rotation::Half.radians(), Radians(std::f32::consts::PI));
+        assert_eq!(
+            Rotation::ThreeQuarter.radians(),
+            Radians(std::f32::consts::PI * 1.5)
+        );
     }
 }

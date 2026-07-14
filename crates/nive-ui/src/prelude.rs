@@ -9,6 +9,7 @@ pub use crate::animation::{
 };
 pub use crate::icons::{IconCatalog, IconCatalogEntry, IconGlyph, IconRole, IconSource};
 pub use crate::theme::{self, ThemePreference};
+pub use crate::widgets::primitives::{IconSize, Rotation};
 pub use crate::widgets::*;
 pub use crate::{
     BootstrapError, BootstrapView, Element, Renderer, Theme, ThemeBuilder, ThemeCatalog, ThemeData,
