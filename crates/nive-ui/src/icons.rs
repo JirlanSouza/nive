@@ -2,6 +2,11 @@ mod generated;
 pub mod lucide;
 
 /// A semantic icon role resolved through the active theme catalog.
+///
+/// Directional roles such as [`Self::GoNext`], [`Self::GoPrevious`], and the
+/// disclosure roles resolve left-to-right today. They are the locale-aware
+/// extension point for future direction-aware catalogs; callers should use
+/// them instead of rotating a physical arrow.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum IconRole {
@@ -134,6 +139,11 @@ impl IconGlyph {
 }
 
 /// Concrete app or framework icon data that can be rendered directly.
+///
+/// Custom sources must use a 24×24 view box, stroke width 2, rounded line caps
+/// and joins, consistent optical margins, and monochrome `currentColor`
+/// rendering. The `nive-cli` authoring/codegen workflow vets this geometry;
+/// the runtime primitive trusts generated sources.
 pub trait IconSource: Copy + 'static {
     fn svg_bytes(self) -> &'static [u8];
 
