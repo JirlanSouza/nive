@@ -16,6 +16,8 @@
 //! - `icons` — semantic `IconRole` values, resolved `IconGlyph` bytes,
 //!   theme-owned `IconCatalog` values, and the `IconSource` contract used by
 //!   generated app `IconSymbol` enums.
+//! - `fonts` — bundled Inter/Geist Mono font bytes (behind the default-on
+//!   `bundled-fonts` feature) and the default application font.
 //! - `advanced` — internals for authoring custom widgets (layout math,
 //!   border/style helpers, `Shell` propagation), mirroring `iced::advanced`.
 //!   Not needed to assemble screens from `widgets`.
@@ -51,6 +53,7 @@ pub mod advanced;
 pub mod animation;
 pub mod bootstrap;
 pub mod focus_trap;
+pub mod fonts;
 pub mod graphics;
 pub mod icons;
 pub mod interaction;
@@ -195,6 +198,7 @@ pub use tokens::radius;
 pub use tokens::shadow;
 pub use tokens::spacing;
 pub use tokens::typography;
+pub use widgets::primitives::{IconSize, Rotation};
 
 pub type Renderer = iced::Renderer;
 pub type Element<'a, Message> = iced::Element<'a, Message, Theme, Renderer>;

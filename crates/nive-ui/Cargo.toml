@@ -15,7 +15,8 @@ categories = ["gui"]
 workspace = true
 
 [features]
-default = []
+default = ["bundled-fonts"]
+bundled-fonts = []
 
 [dependencies]
 iced = { workspace = true }
