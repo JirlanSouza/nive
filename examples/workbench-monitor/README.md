@@ -18,6 +18,19 @@ Its shell receives typed `Toolbar` and `StatusBar` values. The shell retains
 them until rendering so its selected chrome size takes precedence over any
 toolbar size chosen by the caller.
 
+## Visual foundations review
+
+The monitor receives Inter Regular/SemiBold and Geist Mono Regular/Medium from
+`nive-runtime`; it intentionally performs no app-local font registration.
+Runtime defaults the application font to Inter.
+
+Use the monitor to review both light and dark themes after foundation changes.
+Check that document titles remain visually stronger than 12 px section
+headers, adjacent shell surfaces remain distinct without full outlines,
+selection persists through hover/press, and keyboard focus remains visible
+independently of selection. Icons inherit their host color and control-owned
+icons follow the active `ControlSize` metrics.
+
 Run it:
 
 ```sh
