@@ -105,6 +105,13 @@ shared `ControlSize` through `WorkbenchShell::chrome_size`. See the
 for the intentional API break, direct-consumer import requirements, and
 SplitPane sizing guidance.
 
+### Visual foundations
+
+The default font, typography hierarchy, surface borders, combined control
+states, and icon sizing/rotation contracts changed together. See the
+[visual foundations migration](migrations/visual-foundations.md) for the new
+defaults and direct API replacements.
+
 ### `Application` trait
 
 - `type Window` and `type Bootstrap` are no longer trait-defaulted (that
