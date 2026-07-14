@@ -94,7 +94,7 @@ where
                 if spec.loading {
                     row = row.push(loading_indicator_slot(icon_size));
                 } else if let Some(icon) = spec.leading_icon {
-                    row = row.push(icon_widget::role(icon).size(icon_size));
+                    row = row.push(icon_widget::role(icon).custom_size(icon_size));
                 } else if spec.reserve_loading_indicator {
                     row = row.push(Space::new().width(Length::Fixed(icon_size)));
                 }
@@ -102,7 +102,7 @@ where
                 row = row.push(label);
 
                 if let Some(icon) = spec.trailing_icon {
-                    row = row.push(icon_widget::role(icon).size(icon_size));
+                    row = row.push(icon_widget::role(icon).custom_size(icon_size));
                 }
 
                 container(row).into()
@@ -114,7 +114,7 @@ where
             if spec.loading {
                 loading_indicator_slot(icon_size)
             } else {
-                icon_widget::role(app_icon).size(icon_size).into()
+                icon_widget::role(app_icon).custom_size(icon_size).into()
             }
         }
         Content::Custom(content) => content,

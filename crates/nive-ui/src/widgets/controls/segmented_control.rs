@@ -232,7 +232,8 @@ impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
         let mut content = Row::new().spacing(spacing.xxs).align_y(Alignment::Center);
 
         if let Some(icon) = self.icon {
-            content = content.push(crate::widgets::primitives::icon::role(icon));
+            content = content
+                .push(crate::widgets::primitives::icon::role(icon).custom_size(metrics.icon_size));
         }
         content = content.push(text(self.label));
         if let Some(status) = self.status {
@@ -306,6 +307,10 @@ mod segmented_control_tests {
         assert_eq!(
             item_height_for_variant(SegmentedControlVariant::Default, metrics),
             metrics.height - metrics.outer_padding * 2.0
+        );
+        assert_eq!(
+            metrics.icon_size,
+            crate::theme::control_metrics(ControlSize::Sm).icon_size
         );
     }
 

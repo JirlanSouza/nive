@@ -64,7 +64,7 @@ where
         )),
         ButtonChrome::Grouped(spec) => match spec.kind {
             GroupedItemKind::Embedded => {
-                button_widget.style(theme_button::embedded_style(spec.radius))
+                button_widget.style(theme_button::embedded_style(spec.selected, spec.radius))
             }
             GroupedItemKind::Selectable => button_widget.style(theme_button::selectable_style(
                 spec.selected,

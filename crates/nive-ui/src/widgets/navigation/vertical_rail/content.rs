@@ -103,7 +103,7 @@ where
         if let Some(icon) = item.icon {
             content = content.push(
                 icon_widget::role(icon)
-                    .size(metrics.icon_size)
+                    .custom_size(metrics.icon_size)
                     .color_maybe(None),
             );
         }
@@ -117,6 +117,8 @@ where
                 side: self.side,
                 font_size: metrics.font_size,
                 line_height: metrics.line_height,
+                selected: item.selected,
+                disabled: item.disabled,
             })
             .width(Length::Fixed(metrics.width))
             .height(Length::Fixed(layout.label_track)),

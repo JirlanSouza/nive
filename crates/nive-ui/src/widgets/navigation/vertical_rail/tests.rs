@@ -4,10 +4,65 @@ use crate::widgets::primitives::IconRole;
 
 use super::content::item_tooltip;
 use super::item::{VerticalRailBadge, VerticalRailItem};
-use super::label::rotation_radians;
+use super::label::{rotation_radians, RailLabelCanvas};
 use super::layout::{ellipsize_label, item_layout, metrics_for_theme, RailMetrics};
 use super::widget::{VerticalRail, CHEVRON_SCROLL_STEP_FACTOR};
 use super::RailSide;
+use crate::theme::TextRole;
+
+fn test_label(selected: bool, disabled: bool) -> RailLabelCanvas {
+    RailLabelCanvas {
+        text: "Explorer".to_string(),
+        side: RailSide::Left,
+        font_size: 12.0,
+        line_height: 14.0,
+        selected,
+        disabled,
+    }
+}
+
+#[test]
+fn active_label_reads_secondary() {
+    let theme = Theme::Dark;
+    let label = test_label(false, false);
+
+    assert_eq!(
+        label.label_color(&theme),
+        theme.text(TextRole::Secondary).color
+    );
+}
+
+#[test]
+fn selected_label_reflects_selected_state() {
+    let theme = Theme::Dark;
+    let label = test_label(true, false);
+    let selected = theme.control(
+        crate::theme::ControlRole::Selectable,
+        crate::theme::ControlState::SELECTED,
+    );
+
+    assert_eq!(label.label_color(&theme), selected.foreground);
+    assert_ne!(
+        label.label_color(&theme),
+        theme.text(TextRole::Secondary).color
+    );
+}
+
+#[test]
+fn disabled_label_reflects_disabled_state() {
+    let theme = Theme::Dark;
+    let label = test_label(false, true);
+    let disabled = theme.control(
+        crate::theme::ControlRole::Selectable,
+        crate::theme::ControlState::DISABLED,
+    );
+
+    assert_eq!(label.label_color(&theme), disabled.foreground);
+    assert_ne!(
+        label.label_color(&theme),
+        theme.text(TextRole::Secondary).color
+    );
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Message {

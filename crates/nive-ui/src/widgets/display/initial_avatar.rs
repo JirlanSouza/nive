@@ -4,9 +4,7 @@ use iced::{
 };
 
 use crate::{
-    theme::{
-        self, BorderRole, BorderSpec, ShapeSize, SurfaceRole, TextRole, ToneRole, TypographyRole,
-    },
+    theme::{self, BorderSpec, ShapeSize, TextRole, ToneRole, TypographyRole},
     Element,
 };
 
@@ -113,12 +111,15 @@ fn style(class: AvatarClass, radius: f32) -> impl Fn(&crate::theme::Theme) -> co
     move |theme| {
         let theme = *theme;
         let (background, text_color, border) = match class {
+            // Neutral tone fill, not `SurfaceRole::Elevated` (reserved for
+            // genuine elevation) — see surface-hierarchy's "Elevated is
+            // reserved for genuine elevation".
             AvatarClass::Surface => {
-                let surface = theme.surface(SurfaceRole::Elevated);
+                let neutral = theme.tone(ToneRole::Neutral);
                 (
-                    surface.background,
+                    neutral.container,
                     theme.text(TextRole::Secondary).color,
-                    theme.border(BorderRole::Subtle),
+                    neutral.border,
                 )
             }
             AvatarClass::Accent => {

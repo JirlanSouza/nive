@@ -559,11 +559,12 @@ where
             .height(Length::Shrink);
 
         if let Some(icon) = tab.icon {
-            content = content.push(icon_widget::role(icon).size(metrics.icon_size));
+            content = content.push(icon_widget::role(icon).custom_size(metrics.icon_size));
         }
 
         if tab.pinned {
-            content = content.push(icon_widget::role(IconRole::TabPinned).size(metrics.icon_size));
+            content =
+                content.push(icon_widget::role(IconRole::TabPinned).custom_size(metrics.icon_size));
         }
 
         content = content.push(label);
