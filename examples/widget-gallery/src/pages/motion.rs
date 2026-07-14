@@ -27,8 +27,8 @@ fn animated_visual() -> Element<'static, Message> {
             "Rotation",
             AnimatedVisual::new(|frame| {
                 Icon::role(IconRole::ViewRefresh)
-                    .size(28.0)
-                    .rotation(Radians(frame.turns() * std::f32::consts::TAU))
+                    .custom_size(28.0)
+                    .animated_rotation(Radians(frame.turns() * std::f32::consts::TAU))
                     .into()
             })
             .animation(Animation::linear(Duration::from_millis(1500)).repeat()),
@@ -38,7 +38,7 @@ fn animated_visual() -> Element<'static, Message> {
             AnimatedVisual::new(|frame| {
                 let alpha = 0.35 + frame.progress() * 0.65;
                 Icon::role(IconRole::DialogInformation)
-                    .size(28.0)
+                    .custom_size(28.0)
                     .color(
                         theme::active()
                             .tone(ToneRole::Info)
@@ -81,7 +81,7 @@ fn animated_layout() -> Element<'static, Message> {
                         .rest(0.2)
                         .activity(frame, index);
                     Icon::role(IconRole::DialogSuccess)
-                        .size(18.0)
+                        .custom_size(18.0)
                         .color(
                             theme::active()
                                 .tone(ToneRole::Accent)

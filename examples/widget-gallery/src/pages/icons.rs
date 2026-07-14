@@ -75,7 +75,7 @@ fn sizes() -> Element<'static, Message> {
                 Icon::role(IconRole::EditFind).sm().into(),
                 Icon::role(IconRole::EditFind).md().into(),
                 Icon::role(IconRole::EditFind).lg().into(),
-                Icon::role(IconRole::EditFind).size(28.0).into(),
+                Icon::role(IconRole::EditFind).custom_size(28.0).into(),
             ]),
         ),
         example_cell(
