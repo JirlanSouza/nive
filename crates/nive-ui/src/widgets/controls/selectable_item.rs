@@ -189,7 +189,7 @@ where
         }
 
         if let Some(icon) = self.leading_icon {
-            content = content.push(icon::role(icon).size(metrics.icon_size));
+            content = content.push(icon::role(icon).custom_size(metrics.icon_size));
         }
 
         content = content.push(label);
@@ -254,7 +254,7 @@ fn metrics(size: ControlSize) -> SelectableItemMetrics {
             ControlSize::Sm | ControlSize::Md => 10.0,
             ControlSize::Lg => 12.0,
         },
-        icon_size: control.font_size,
+        icon_size: control.icon_size,
         gap: match size {
             ControlSize::Lg => spacing.sm,
             _ => spacing.xs,
@@ -263,23 +263,35 @@ fn metrics(size: ControlSize) -> SelectableItemMetrics {
     }
 }
 
+/// Resolves the combined selected×hover/pressed×disabled×focus state once,
+/// centrally, so `content_color`/`default_style`/`selected_style` share it
+/// instead of each reimplementing an alpha ladder.
+fn resolved_control(
+    theme: crate::theme::Theme,
+    variant: SelectableItemVariant,
+    status: Status,
+) -> crate::theme::color_scheme::ControlSpec {
+    let mut state = button_control_state(status);
+    if matches!(variant, SelectableItemVariant::Selected) {
+        state = state.selected();
+    }
+    theme.control(ControlRole::Selectable, state)
+}
+
 fn content_color(
     theme: &crate::theme::Theme,
     variant: SelectableItemVariant,
     status: Status,
 ) -> Color {
     let theme = *theme;
+    let control = resolved_control(theme, variant, status);
 
     match (variant, status) {
-        (_, Status::Disabled) => disabled_alpha(theme.text(TextRole::Muted).color),
-        (SelectableItemVariant::Selected, _) => {
-            theme
-                .control(ControlRole::Selectable, ControlState::SELECTED)
-                .foreground
-        }
+        (SelectableItemVariant::Selected, _) => control.foreground,
         (SelectableItemVariant::Default, Status::Hovered | Status::Pressed) => {
             theme.text(TextRole::Primary).color
         }
+        (SelectableItemVariant::Default, Status::Disabled) => control.foreground,
         (SelectableItemVariant::Default, Status::Active) => theme.text(TextRole::Muted).color,
     }
 }
@@ -315,7 +327,7 @@ fn color_square_style(
 
 fn default_style(theme: &crate::theme::Theme, status: Status) -> button::Style {
     let theme = *theme;
-    let control = theme.control(ControlRole::Standard, button_control_state(status));
+    let control = resolved_control(theme, SelectableItemVariant::Default, status);
     let background = match status {
         Status::Active | Status::Disabled => Color::TRANSPARENT,
         Status::Hovered | Status::Pressed => control.background,
@@ -332,16 +344,10 @@ fn default_style(theme: &crate::theme::Theme, status: Status) -> button::Style {
 
 fn selected_style(theme: &crate::theme::Theme, status: Status) -> button::Style {
     let theme = *theme;
-    let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
-    let background = match status {
-        Status::Active => selected.background,
-        Status::Hovered => selected.background.scale_alpha(1.20),
-        Status::Pressed => selected.background.scale_alpha(0.88),
-        Status::Disabled => selected.background.scale_alpha(0.55),
-    };
+    let control = resolved_control(theme, SelectableItemVariant::Selected, status);
 
     button::Style {
-        background: Some(Background::Color(background)),
+        background: Some(Background::Color(control.background)),
         text_color: content_color(&theme, SelectableItemVariant::Selected, status),
         border: transparent_border(),
         shadow: Shadow::default(),
@@ -356,10 +362,6 @@ fn button_control_state(status: Status) -> ControlState {
         Status::Pressed => ControlState::PRESSED,
         Status::Disabled => ControlState::DISABLED,
     }
-}
-
-fn disabled_alpha(color: Color) -> Color {
-    color.scale_alpha(0.55)
 }
 
 fn transparent_border() -> Border {
@@ -384,6 +386,10 @@ mod selectable_item_tests {
         let content = SelectableItem::<TestMessage>::new("Project").content(metrics);
 
         assert_eq!(content.as_widget().size().height, Length::Fill);
+        assert_eq!(
+            metrics.icon_size,
+            crate::theme::control_metrics(ControlSize::Sm).icon_size
+        );
     }
 
     #[test]
@@ -394,6 +400,25 @@ mod selectable_item_tests {
 
         assert_eq!(background_color(&style), selected.background);
         assert_eq!(style.text_color, selected.foreground);
+    }
+
+    #[test]
+    fn disabled_selected_item_uses_the_shared_resolver_not_a_local_alpha() {
+        let theme = Theme::Dark;
+        let style = style(SelectableItemVariant::Selected, 6.0)(&theme, Status::Disabled);
+        let disabled_selected = theme.control(
+            ControlRole::Selectable,
+            ControlState::new().selected().disabled(),
+        );
+
+        assert_eq!(background_color(&style), disabled_selected.background);
+        assert_eq!(style.text_color, disabled_selected.foreground);
+        // Same canonical dimming button/style.rs uses — no widget-local 0.55.
+        let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
+        assert_eq!(
+            background_color(&style),
+            selected.background.scale_alpha(0.60)
+        );
     }
 
     fn background_color(style: &button::Style) -> Color {

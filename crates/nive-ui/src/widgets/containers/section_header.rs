@@ -19,6 +19,11 @@ use crate::Element;
 
 use self::style as theme_section_header;
 
+/// Compact panel or content-section heading.
+///
+/// Titles resolve to [`crate::theme::TypographyRole::SectionLabel`] (12 px
+/// semibold) with [`TextRole::Primary`]. Compose a principal document title
+/// separately with [`crate::theme::TypographyRole::Heading`].
 pub struct SectionHeader<'a, Message> {
     title: Cow<'a, str>,
     icon: Option<IconRole>,
@@ -122,15 +127,16 @@ where
     fn into_element(self) -> Element<'a, Message> {
         let metrics = theme_section_header::metrics(self.size);
         let title = text(self.title)
-            .size(metrics.title_size)
-            .line_height(metrics.title_line_height)
-            .style(theme::text::style(TextRole::Muted));
+            .font(metrics.title_style.font)
+            .size(metrics.title_style.size)
+            .line_height(metrics.title_style.line_height)
+            .style(theme::text::style(TextRole::Primary));
         let mut leading = row![]
             .spacing(metrics.status_gap)
             .align_y(Alignment::Center)
             .width(Length::Fill);
         if let Some(icon) = self.icon {
-            leading = leading.push(icon::role(icon).size(metrics.icon_size));
+            leading = leading.push(icon::role(icon).custom_size(metrics.icon_size));
         }
         leading = leading.push(title);
         if let Some(badge) = self.badge {
@@ -240,7 +246,7 @@ where
                 .ghost()
                 .padding(Padding::ZERO.horizontal(metrics.action_gap)),
             (Some(icon), Some(label)) => {
-                let content = row![icon::role(icon).size(metrics.icon_size), text(label)]
+                let content = row![icon::role(icon).custom_size(metrics.icon_size), text(label)]
                     .spacing(metrics.status_gap)
                     .align_y(Alignment::Center);
                 button::Button::custom(content.into())
@@ -351,15 +357,16 @@ impl<'a> SectionHeaderStatus<'a> {
                 row![
                     AnimatedVisual::new(move |frame| -> Element<'a, Message> {
                         icon::role(IconRole::ViewRefresh)
-                            .size(icon_size)
+                            .custom_size(icon_size)
                             .color(color)
-                            .rotation(Radians(frame.turns() * std::f32::consts::TAU))
+                            .animated_rotation(Radians(frame.turns() * std::f32::consts::TAU))
                             .into()
                     })
                     .animation(Animation::linear(Duration::from_millis(1500)).repeat()),
                     text(label)
-                        .size(metrics.status_size)
-                        .line_height(metrics.status_line_height)
+                        .font(metrics.status_style.font)
+                        .size(metrics.status_style.size)
+                        .line_height(metrics.status_style.line_height)
                         .style(theme::text::style(TextRole::Muted)),
                 ]
                 .spacing(metrics.status_gap)
@@ -371,10 +378,11 @@ impl<'a> SectionHeaderStatus<'a> {
                 let color = theme::active().tone(tone).color;
 
                 row![
-                    icon::role(icon).size(metrics.icon_size).color(color),
+                    icon::role(icon).custom_size(metrics.icon_size).color(color),
                     text(label)
-                        .size(metrics.status_size)
-                        .line_height(metrics.status_line_height)
+                        .font(metrics.status_style.font)
+                        .size(metrics.status_style.size)
+                        .line_height(metrics.status_style.line_height)
                         .style(theme::text::tone(tone)),
                 ]
                 .spacing(metrics.status_gap)

@@ -78,9 +78,29 @@ pub fn style(
 }
 
 pub(crate) fn embedded_style(
+    selected: bool,
     radius: Radius,
 ) -> impl Fn(&crate::theme::Theme, Status) -> button::Style {
     move |theme: &crate::theme::Theme, status: Status| {
+        // Embedded/flat chrome keeps its own subtler unselected hover/pressed
+        // treatment (category-owned visual identity); selected state routes
+        // through the same shared resolver `selectable_style` uses, so a
+        // flat `SegmentedControl` doesn't lose its selected item's active
+        // state the way it did when this branch was missing entirely.
+        if selected {
+            let theme = *theme;
+            let state = button_control_state(status).selected();
+            let control = theme.control(ControlRole::Selectable, state);
+
+            return button::Style {
+                background: Some(Background::Color(control.background)),
+                text_color: control.foreground,
+                border: border_with_radius(control.border, radius),
+                shadow: Shadow::default(),
+                ..button::Style::default()
+            };
+        }
+
         let class = ButtonClass::Embedded;
         let mut style = <crate::theme::Theme as button::Catalog>::style(theme, &class, status);
         style.border.radius = radius;
@@ -95,9 +115,6 @@ pub(crate) fn selectable_style(
 ) -> impl Fn(&crate::theme::Theme, Status) -> button::Style {
     move |theme: &crate::theme::Theme, status: Status| {
         let theme = *theme;
-        let control = theme.control(ControlRole::Standard, button_control_state(status));
-        let selected_control = theme.control(ControlRole::Selectable, ControlState::SELECTED);
-        let disabled_control = theme.control(ControlRole::Standard, ControlState::DISABLED);
         let danger = theme.tone(ToneRole::Danger);
 
         if destructive {
@@ -121,23 +138,35 @@ pub(crate) fn selectable_style(
             };
         }
 
-        let background = match (selected, status) {
-            (true, Status::Hovered) => selected_control.background.scale_alpha(1.20),
-            (true, Status::Pressed) => selected_control.background.scale_alpha(0.88),
-            (true, Status::Disabled) => selected_control.background.scale_alpha(0.60),
-            (true, _) => selected_control.background,
-            (false, Status::Hovered | Status::Pressed) => control.background,
-            (false, _) => Color::TRANSPARENT,
+        // The combined selected×hover/pressed×disabled×focus state is
+        // resolved once by the theme; this category only decides how much
+        // of it to paint (unselected idle/disabled stays transparent chrome,
+        // matching this widget's flat/ghost identity).
+        let mut state = button_control_state(status);
+        if selected {
+            state = state.selected();
+        }
+        let control = theme.control(ControlRole::Selectable, state);
+
+        let background = if selected {
+            control.background
+        } else {
+            match status {
+                Status::Hovered | Status::Pressed => control.background,
+                Status::Active | Status::Disabled => Color::TRANSPARENT,
+            }
         };
-        let text_color = match (selected, status) {
-            (true, Status::Disabled) => selected_control.foreground.scale_alpha(0.60),
-            (true, _) => selected_control.foreground,
-            (false, Status::Hovered | Status::Pressed) => theme.text(TextRole::Primary).color,
-            (false, Status::Disabled) => disabled_control.foreground,
-            (false, _) => theme.text(TextRole::Secondary).color,
+        let text_color = if selected {
+            control.foreground
+        } else {
+            match status {
+                Status::Hovered | Status::Pressed => theme.text(TextRole::Primary).color,
+                Status::Disabled => control.foreground,
+                Status::Active => theme.text(TextRole::Secondary).color,
+            }
         };
         let border = if selected {
-            selected_control.border
+            control.border
         } else {
             BorderSpec::none()
         };
@@ -309,6 +338,35 @@ mod button_tests {
             selected.background.scale_alpha(0.60)
         );
         assert_eq!(style.text_color, selected.foreground.scale_alpha(0.60));
+    }
+
+    #[test]
+    fn embedded_selected_keeps_the_active_selected_state() {
+        let theme = Theme::Dark;
+        let selected = embedded_style(true, Radius::new(6.0))(&theme, Status::Active);
+        let unselected = embedded_style(false, Radius::new(6.0))(&theme, Status::Active);
+        let resolved = theme.control(ControlRole::Selectable, ControlState::SELECTED);
+
+        assert_eq!(background_color(&selected), resolved.background);
+        assert_eq!(selected.text_color, resolved.foreground);
+        assert_ne!(background_color(&selected), background_color(&unselected));
+    }
+
+    #[test]
+    fn embedded_selected_hover_and_pressed_use_the_shared_resolver() {
+        let theme = Theme::Dark;
+        let hovered = embedded_style(true, Radius::new(6.0))(&theme, Status::Hovered);
+        let pressed = embedded_style(true, Radius::new(6.0))(&theme, Status::Pressed);
+        let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
+
+        assert_eq!(
+            background_color(&hovered),
+            selected.background.scale_alpha(1.20)
+        );
+        assert_eq!(
+            background_color(&pressed),
+            selected.background.scale_alpha(0.88)
+        );
     }
 
     fn background_color(style: &button::Style) -> Color {

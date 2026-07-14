@@ -5,11 +5,11 @@ mod separator;
 mod style;
 
 use iced::{
-    widget::{container, Row},
+    widget::{column, container, rule, Row},
     Alignment, Length, Padding,
 };
 
-use crate::theme::{ControlSize, SurfaceRole};
+use crate::theme::{BorderRole, ControlSize, SurfaceRole};
 use crate::Element;
 
 use self::style as theme_toolbar;
@@ -101,7 +101,27 @@ where
             toolbar = toolbar.width(width);
         }
 
-        toolbar.into()
+        // The toolbar owns its bottom edge: a single hairline separates it
+        // from the content below, rather than the surface auto-emitting a
+        // border on every side. `Rule` is message-agnostic, unlike the
+        // `Separator` primitive, so it composes without forcing `Message:
+        // 'static` on every `Toolbar` consumer.
+        let edge = rule::horizontal(1).style(bottom_edge_style);
+        let mut with_edge = column![toolbar, edge];
+        if let Some(width) = self.width {
+            with_edge = with_edge.width(width);
+        }
+
+        with_edge.into()
+    }
+}
+
+fn bottom_edge_style(theme: &crate::theme::Theme) -> rule::Style {
+    rule::Style {
+        color: theme.border(BorderRole::Subtle).color,
+        radius: 0.0.into(),
+        fill_mode: rule::FillMode::Full,
+        snap: true,
     }
 }
 

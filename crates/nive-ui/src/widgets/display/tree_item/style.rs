@@ -10,7 +10,8 @@ use crate::advanced::control_style::{
 use crate::widgets::controls::button::button_control_state;
 
 use crate::theme::{
-    self, control_metrics, BorderSpec, ControlRole, ControlSize, ControlState, TextRole,
+    self, control_metrics, BorderRole, BorderSpec, ControlRole, ControlSize, ControlState,
+    InteractionState, TextRole,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -172,25 +173,42 @@ pub fn indent_style(
 pub fn row_style(
     selected: bool,
     disabled: bool,
+    focused: bool,
 ) -> impl Fn(&crate::theme::Theme) -> container::Style {
     move |theme: &crate::theme::Theme| {
         let theme = *theme;
-        let selected_control = theme.control(ControlRole::Selectable, ControlState::SELECTED);
+
+        // Selected×disabled is resolved once, centrally (no widget-local
+        // alpha); model focus renders a layout-neutral affordance
+        // independent of selection.
+        let mut state = ControlState::new().interaction(if focused {
+            InteractionState::FOCUSED
+        } else {
+            InteractionState::NONE
+        });
+        if selected {
+            state = state.selected();
+        }
+        if disabled {
+            state = state.disabled();
+        }
+        let control = theme.control(ControlRole::Selectable, state);
 
         let background = if selected {
-            if disabled {
-                selected_control.background.scale_alpha(0.55)
-            } else {
-                selected_control.background
-            }
+            control.background
         } else {
             Color::TRANSPARENT
+        };
+        let border = if focused {
+            border_with_radius(theme.border(BorderRole::Focus), 0.0)
+        } else {
+            transparent_border()
         };
 
         container::Style {
             text_color: None,
             background: Some(Background::Color(background)),
-            border: transparent_border(),
+            border,
             shadow: Shadow::default(),
             ..container::Style::default()
         }
@@ -220,7 +238,7 @@ mod tree_item_tests {
     #[test]
     fn selected_item_uses_app_selected_control_background() {
         let theme = Theme::Dark;
-        let item = row_style(true, false)(&theme);
+        let item = row_style(true, false, false)(&theme);
 
         assert_eq!(
             background_color(&item),
@@ -230,6 +248,33 @@ mod tree_item_tests {
         );
         assert_eq!(item.border.width, 0.0);
         assert_eq!(item.border.radius, Radius::default());
+    }
+
+    #[test]
+    fn disabled_selected_row_uses_the_shared_resolver_not_a_local_alpha() {
+        let theme = Theme::Dark;
+        let item = row_style(true, true, false)(&theme);
+        let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
+
+        // Same canonical dimming button/style.rs and selectable_item.rs use
+        // — no widget-local 0.55.
+        assert_eq!(
+            background_color(&item),
+            selected.background.scale_alpha(0.60)
+        );
+    }
+
+    #[test]
+    fn focused_row_renders_the_focus_border_independent_of_selection() {
+        let theme = Theme::Dark;
+        let unfocused = row_style(false, false, false)(&theme);
+        let focused = row_style(false, false, true)(&theme);
+
+        assert_eq!(unfocused.border.width, 0.0);
+        assert_eq!(focused.border.color, theme.border(BorderRole::Focus).color);
+        assert!(focused.border.width > 0.0);
+        // Focus is layout-neutral: it doesn't change the resolved background.
+        assert_eq!(background_color(&focused), background_color(&unfocused));
     }
 
     #[test]
