@@ -16,7 +16,7 @@ fn role_icon_lg(role: IconRole) -> Element<'static, Message> {
 }
 
 fn role_icon_32(role: IconRole) -> Element<'static, Message> {
-    Icon::role(role).size(32.0).into()
+    Icon::role(role).custom_size(32.0).into()
 }
 
 fn role_icon_color(role: IconRole, color: Color) -> Element<'static, Message> {
