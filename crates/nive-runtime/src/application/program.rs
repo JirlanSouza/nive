@@ -149,6 +149,10 @@ where
     .subscription(Program::<A, P>::subscription)
     .default_font(default_font);
 
+    for font in nive_ui::fonts::bundled() {
+        daemon = daemon.font(*font);
+    }
+
     for font in fonts {
         daemon = daemon.font(font);
     }

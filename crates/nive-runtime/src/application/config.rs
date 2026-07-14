@@ -28,6 +28,11 @@ pub struct WindowRegistration<K> {
 }
 
 impl<K> ApplicationConfig<K, ()> {
+    /// Creates an application config that defaults to bundled Inter.
+    ///
+    /// The runtime registers every face from [`nive_ui::fonts::bundled`]
+    /// automatically. Use [`ApplicationConfig::default_font`] to override the
+    /// default family and [`ApplicationConfig::font`] for additional faces.
     pub fn new(app_id: impl Into<String>) -> Self {
         let app_id = app_id.into();
         Self {
@@ -41,7 +46,7 @@ impl<K> ApplicationConfig<K, ()> {
             bootstrap: None,
             immediate_bootstrap: Some(()),
             fonts: Vec::new(),
-            default_font: Font::DEFAULT,
+            default_font: nive_ui::fonts::default_font(),
             window_icon: None,
             settings: None,
         }
@@ -115,6 +120,8 @@ impl<K, B> ApplicationConfig<K, B> {
         self
     }
 
+    /// Overrides the Inter application default. Bundled Nive faces remain
+    /// registered by the runtime.
     pub fn default_font(mut self, font: Font) -> Self {
         self.default_font = font;
         self
@@ -163,5 +170,29 @@ impl<K, B> ApplicationConfig<K, B> {
 
     pub fn configured_settings(&self) -> Option<&SettingsConfig> {
         self.settings.as_ref()
+    }
+}
+
+#[cfg(test)]
+mod config_font_tests {
+    use super::*;
+
+    #[test]
+    fn default_font_is_inter_without_app_setup() {
+        let config: ApplicationConfig<(), ()> = ApplicationConfig::new("test-app");
+
+        assert_eq!(
+            config.configured_default_font(),
+            nive_ui::fonts::default_font()
+        );
+    }
+
+    #[test]
+    fn default_font_override_is_honored() {
+        let custom = Font::with_name("Custom");
+        let config: ApplicationConfig<(), ()> =
+            ApplicationConfig::new("test-app").default_font(custom);
+
+        assert_eq!(config.configured_default_font(), custom);
     }
 }
