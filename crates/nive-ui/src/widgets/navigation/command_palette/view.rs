@@ -1,11 +1,12 @@
 use iced::{
     widget::{column, container, row, scrollable, text, Space},
-    Alignment, Length,
+    Alignment, Background, Length,
 };
 
 use super::CommandPaletteRow;
 use crate::theme::{
-    self, spacing::SpacingScale, text as theme_text, SurfaceRole, TextRole, TypographyRole,
+    self, spacing::SpacingScale, text as theme_text, ControlRole, ControlState, SurfaceRole,
+    TextRole, TypographyRole,
 };
 use crate::widgets::{Input, Panel};
 use crate::Element;
@@ -123,16 +124,29 @@ where
         .width(Length::Fill)
         .padding([spacing.xs, spacing.md]);
 
-    let row_role = if is_highlighted {
-        SurfaceRole::Elevated
-    } else {
-        SurfaceRole::Popover
-    };
-
     container(content)
-        .style(theme::surface::style(row_role))
+        .style(row_style(is_highlighted))
         .width(Length::Fill)
         .into()
+}
+
+/// Highlighted rows use the accent/selection fill, not `SurfaceRole::Elevated`
+/// (reserved for genuine elevation, e.g. floating cards) — see
+/// `surface-hierarchy`'s "Elevated is reserved for genuine elevation".
+fn row_style(is_highlighted: bool) -> impl Fn(&crate::theme::Theme) -> container::Style {
+    move |theme: &crate::theme::Theme| {
+        if is_highlighted {
+            let control = theme.control(ControlRole::Selectable, ControlState::SELECTED);
+
+            container::Style {
+                text_color: Some(control.foreground),
+                background: Some(Background::Color(control.background)),
+                ..container::Style::default()
+            }
+        } else {
+            theme::surface::style(SurfaceRole::Popover)(theme)
+        }
+    }
 }
 
 fn empty_state<'a, M>(query: &str, spacing: SpacingScale) -> Element<'a, M>

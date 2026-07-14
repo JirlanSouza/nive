@@ -274,6 +274,7 @@ where
             rows = rows.push(match entry {
                 VisibleTreeEntry::Row(row) => {
                     let selected = state.is_selected(&row.id);
+                    let focused = state.is_focused(&row.id);
                     let press = self.row_event(state, &row.id, row.expanded, row.disabled);
                     let toggle = self.toggle_event(row.id.clone(), row.expanded, row.disabled);
 
@@ -281,6 +282,7 @@ where
                         .depth(row.depth)
                         .selected(selected)
                         .disabled(row.disabled)
+                        .focused(focused)
                         .size(self.size)
                         .on_press_maybe(press)
                         .on_toggle_maybe(toggle);

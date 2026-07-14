@@ -224,7 +224,7 @@ impl<'a, Message: Clone + 'a> DropdownMenuItem<'a, Message> {
             .height(Length::Shrink);
 
         if let Some(icon) = self.icon {
-            left = left.push(icon_widget::role(icon).size(metrics.icon_size));
+            left = left.push(icon_widget::role(icon).custom_size(metrics.icon_size));
         }
 
         left = left.push(

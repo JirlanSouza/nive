@@ -13,7 +13,7 @@ pub fn title<'a>(content: impl text::IntoFragment<'a>) -> text::Text<'a, crate::
 pub fn section_label<'a>(
     content: impl text::IntoFragment<'a>,
 ) -> text::Text<'a, crate::theme::Theme> {
-    with_role(content, TypographyRole::SectionLabel, TextRole::Muted)
+    with_role(content, TypographyRole::SectionLabel, TextRole::Primary)
 }
 
 pub fn body<'a>(content: impl text::IntoFragment<'a>) -> text::Text<'a, crate::theme::Theme> {

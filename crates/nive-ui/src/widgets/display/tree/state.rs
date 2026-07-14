@@ -161,6 +161,11 @@ where
         self.selection.selected.contains(id)
     }
 
+    /// Returns whether `id` holds model focus (see [`Self::focused`]).
+    pub fn is_focused(&self, id: &Id) -> bool {
+        self.selection.focused.as_ref() == Some(id)
+    }
+
     /// Expands all loaded ancestors of `id` and focuses it when found.
     pub fn reveal(&mut self, roots: &[TreeNode<'_, Id>], id: &Id) -> bool {
         let mut ancestors = Vec::new();

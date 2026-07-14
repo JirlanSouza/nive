@@ -227,7 +227,7 @@ where
             .align_y(Alignment::Center)
             .into(),
             InputGroupSlot::Icon(icon) => {
-                container(icon_widget::role(icon).size(metrics.icon_size))
+                container(icon_widget::role(icon).custom_size(metrics.icon_size))
                     .style(theme_input_group::slot_style(radius, disabled))
                     .padding(Padding::ZERO.horizontal(metrics.slot_padding_h))
                     .height(Length::Fill)

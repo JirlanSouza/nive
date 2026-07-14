@@ -68,9 +68,11 @@ where
         let icon: Element<'a, Message> = if self.loading {
             Spinner::new().md().into()
         } else {
-            container(icon::role(self.icon.unwrap_or(IconRole::MailInbox)).size(metrics.icon_size))
-                .style(icon_container_style())
-                .into()
+            container(
+                icon::role(self.icon.unwrap_or(IconRole::MailInbox)).custom_size(metrics.icon_size),
+            )
+            .style(icon_container_style())
+            .into()
         };
 
         let mut state_content = column![
