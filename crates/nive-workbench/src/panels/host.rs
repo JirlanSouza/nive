@@ -186,7 +186,7 @@ where
     let content = layout_probe::probe(panel_content_probe(region), content);
     Panel::new(content)
         .header(header)
-        .role(SurfaceRole::Panel)
+        .role(SurfaceRole::Sidebar)
         .fill()
         .into()
 }
@@ -279,7 +279,7 @@ where
     let content = layout_probe::probe("bottom_content", content);
     Panel::new(content)
         .header(header)
-        .role(SurfaceRole::Panel)
+        .role(SurfaceRole::Sidebar)
         .fill()
         .into()
 }

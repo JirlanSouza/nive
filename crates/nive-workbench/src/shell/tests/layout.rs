@@ -35,6 +35,7 @@ struct LayoutSnapshot {
     viewport: Rectangle,
     primary_extent: f32,
     toolbar_extent: f32,
+    status_extent: f32,
     content_gap: f32,
     tight_gap: f32,
     probes: BTreeMap<&'static str, Rectangle>,
@@ -64,7 +65,15 @@ fn snapshot(
         .density(density)
         .build();
     let primary_extent = theme.control_metrics(size).height;
-    let toolbar_extent = primary_extent + theme.spacing().xxs * 2.0 + theme.spacing().xs * 2.0;
+    // `Toolbar` owns its bottom edge: a 1px hairline is appended below the
+    // fixed-height toolbar content (see `widgets::navigation::toolbar`).
+    const TOOLBAR_BOTTOM_EDGE: f32 = 1.0;
+    let toolbar_extent =
+        primary_extent + theme.spacing().xxs * 2.0 + theme.spacing().xs * 2.0 + TOOLBAR_BOTTOM_EDGE;
+    // `StatusBar` owns its top edge: a 1px hairline is prepended above the
+    // fixed-height status content (see `crate::status`).
+    const STATUS_TOP_EDGE: f32 = 1.0;
+    let status_extent = primary_extent + STATUS_TOP_EDGE;
     let content_gap = theme.gap(GapRole::Content);
     let tight_gap = theme.spacing().xs;
     let _theme_guard = ThemeTestGuard::activate(theme);
@@ -95,6 +104,7 @@ fn snapshot(
         viewport,
         primary_extent,
         toolbar_extent,
+        status_extent,
         content_gap,
         tight_gap,
         probes: layout_probe::snapshot(),
@@ -357,7 +367,7 @@ fn assert_common_expanded_geometry(snapshot: &LayoutSnapshot) {
     );
 
     let status_content = snapshot.probe("status_content");
-    assert_eq!(status.height, snapshot.primary_extent);
+    assert_eq!(status.height, snapshot.status_extent);
     assert!(status_content.x >= status.x);
     assert!(status_content.y >= status.y);
     assert!(status_content.y + status_content.height <= status.y + status.height);
@@ -455,7 +465,7 @@ fn collapsed_regions_omit_only_their_split_without_expanding_the_shell() {
         assert_in_viewport(snapshot.probe("toolbar"), snapshot.viewport, "toolbar");
         assert_in_viewport(snapshot.probe("body"), snapshot.viewport, "body");
         assert_in_viewport(snapshot.probe("status"), snapshot.viewport, "status");
-        assert_eq!(snapshot.probe("status").height, snapshot.primary_extent);
+        assert_eq!(snapshot.probe("status").height, snapshot.status_extent);
 
         match region {
             WorkbenchRegion::Left => {
@@ -495,7 +505,7 @@ fn maximized_panel_preserves_toolbar_status_and_viewport_bounds() {
     assert_in_viewport(snapshot.probe("toolbar"), snapshot.viewport, "toolbar");
     assert_in_viewport(snapshot.probe("body"), snapshot.viewport, "body");
     assert_in_viewport(snapshot.probe("status"), snapshot.viewport, "status");
-    assert_eq!(snapshot.probe("status").height, snapshot.primary_extent);
+    assert_eq!(snapshot.probe("status").height, snapshot.status_extent);
     assert_in_viewport(
         snapshot.probe("left_panel_header"),
         snapshot.viewport,

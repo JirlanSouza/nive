@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
-use iced::widget::{container, row, text, Space};
+use iced::widget::{column, container, row, rule, text, Space};
 use iced::{Alignment, Length, Padding};
-use nive_ui::theme::{self, ControlSize, SurfaceRole, TextRole, Theme, ToneRole};
+use nive_ui::theme::{self, BorderRole, ControlSize, SurfaceRole, TextRole, Theme, ToneRole};
 use nive_ui::widgets::{ProgressBar, Spinner, ToneDot};
 use nive_ui::{Element, IconRole};
 
@@ -170,13 +170,29 @@ impl<'a> StatusBar<'a> {
 
         let content = layout_probe::probe("status_content", content);
 
-        container(content)
+        let bar = container(content)
             .padding(Padding::ZERO.horizontal(metrics.horizontal_padding))
             .width(Length::Fill)
             .height(Length::Fixed(metrics.height))
             .clip(true)
-            .style(theme::surface::style(SurfaceRole::Chrome))
-            .into()
+            .style(theme::surface::style(SurfaceRole::Chrome));
+
+        // The status bar owns its top edge: a single hairline separates it
+        // from the content above, rather than surfaces auto-emitting a
+        // border. `Rule` is message-agnostic, so it composes without forcing
+        // `Message: 'static`.
+        let edge = rule::horizontal(1).style(top_edge_style);
+
+        column![edge, bar].width(Length::Fill).into()
+    }
+}
+
+fn top_edge_style(theme: &Theme) -> rule::Style {
+    rule::Style {
+        color: theme.border(BorderRole::Subtle).color,
+        radius: 0.0.into(),
+        fill_mode: rule::FillMode::Full,
+        snap: true,
     }
 }
 

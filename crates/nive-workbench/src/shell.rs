@@ -207,6 +207,9 @@ where
         let toolbar = self.toolbar.take();
         let status_bar = self.status_bar.take();
         if let Some(toolbar) = toolbar {
+            // `Toolbar` already applies the `Chrome` surface (and owns its
+            // bottom hairline); this wrapper only adds horizontal scrolling
+            // and must not paint `Chrome` a second time.
             let toolbar = scrollable(toolbar.size(chrome_size))
                 .horizontal()
                 .height(Length::Shrink)
@@ -215,8 +218,7 @@ where
                 "toolbar",
                 container(toolbar)
                     .padding(Padding::ZERO)
-                    .width(Length::Fill)
-                    .style(theme::surface::style(SurfaceRole::Chrome)),
+                    .width(Length::Fill),
             ));
         }
 
