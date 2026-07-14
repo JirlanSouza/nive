@@ -765,8 +765,87 @@ fn validate_custom_svg_path(paths: &IconPaths, relative: &str) -> Result<PathBuf
     if !contents.trim_start().starts_with("<svg") && !contents.contains("<svg") {
         return Err(format!("{} does not contain an SVG root", display_path(&path)).into());
     }
+    validate_custom_svg_contract(&contents).map_err(|error| {
+        format!(
+            "{} violates the Nive custom icon contract: {error}",
+            display_path(&path)
+        )
+    })?;
 
     Ok(path)
+}
+
+fn validate_custom_svg_contract(source: &str) -> Result<()> {
+    let start = source.find("<svg").ok_or("SVG root not found")?;
+    let root_end = source[start..]
+        .find('>')
+        .map(|index| start + index)
+        .ok_or("SVG root is not closed")?;
+    let root = &source[start..=root_end];
+
+    for (attribute, value) in [
+        ("viewBox", "0 0 24 24"),
+        ("fill", "none"),
+        ("stroke", "currentColor"),
+        ("stroke-width", "2"),
+        ("stroke-linecap", "round"),
+        ("stroke-linejoin", "round"),
+    ] {
+        let double_quoted = format!(r#"{attribute}="{value}""#);
+        let single_quoted = format!("{attribute}='{value}'");
+        if !root.contains(&double_quoted) && !root.contains(&single_quoted) {
+            return Err(format!(
+                "expected `{attribute}=\"{value}\"` on the SVG root (24×24, stroke-2, rounded, monochrome currentColor)"
+            )
+            .into());
+        }
+    }
+
+    validate_monochrome_attribute(source, "fill", &["none", "currentColor"])?;
+    validate_monochrome_attribute(source, "stroke", &["none", "currentColor"])?;
+    validate_attribute_values(source, "stroke-width", &["2"])?;
+    validate_attribute_values(source, "stroke-linecap", &["round"])?;
+    validate_attribute_values(source, "stroke-linejoin", &["round"])?;
+
+    Ok(())
+}
+
+fn validate_monochrome_attribute(source: &str, attribute: &str, allowed: &[&str]) -> Result<()> {
+    validate_attribute_values(source, attribute, allowed).map_err(|_| {
+        format!("`{attribute}` must be monochrome (`none` or `currentColor`), not a fixed paint")
+            .into()
+    })
+}
+
+fn validate_attribute_values(source: &str, attribute: &str, allowed: &[&str]) -> Result<()> {
+    let needle = format!("{attribute}=");
+    let mut remainder = source;
+
+    while let Some(index) = remainder.find(&needle) {
+        let after_equals = &remainder[index + needle.len()..];
+        let Some(quote) = after_equals.chars().next() else {
+            break;
+        };
+        if quote != '"' && quote != '\'' {
+            return Err(format!("`{attribute}` must use a quoted value").into());
+        }
+        let value_start = quote.len_utf8();
+        let value_tail = &after_equals[value_start..];
+        let value_end = value_tail
+            .find(quote)
+            .ok_or_else(|| format!("`{attribute}` has an unterminated value"))?;
+        let value = &value_tail[..value_end];
+        if !allowed.contains(&value) {
+            return Err(format!(
+                "`{attribute}` must be one of {}, found `{value}`",
+                allowed.join(", ")
+            )
+            .into());
+        }
+        remainder = &value_tail[value_end + quote.len_utf8()..];
+    }
+
+    Ok(())
 }
 
 fn validate_manifest_relative_svg_path(relative: &str) -> Result<()> {
@@ -1581,7 +1660,15 @@ mod tests {
 
     fn write_svg(path: &Path) {
         fs::create_dir_all(path.parent().unwrap()).expect("create svg parent");
-        fs::write(path, "<svg><path d=\"M1 1\" /></svg>\n").expect("write svg");
+        fs::write(
+            path,
+            concat!(
+                "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" ",
+                "stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">",
+                "<path d=\"M4 4L20 20\" /></svg>\n"
+            ),
+        )
+        .expect("write svg");
     }
 
     #[test]
@@ -1689,6 +1776,31 @@ mod tests {
 
         assert!(
             error.to_string().contains("cannot contain `..`"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn custom_svg_contract_rejects_non_monochrome_source_offline() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let paths = IconPaths::from_root(tempdir.path());
+        let source = tempdir.path().join("assets/icons/custom/bad.svg");
+        fs::create_dir_all(source.parent().unwrap()).expect("create custom icon parent");
+        fs::write(
+            &source,
+            concat!(
+                "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" ",
+                "stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">",
+                "<path fill=\"#ff0000\" d=\"M4 4H20V20H4Z\" /></svg>\n"
+            ),
+        )
+        .expect("write invalid custom icon");
+
+        let error = validate_custom_svg_path(&paths, "assets/icons/custom/bad.svg")
+            .expect_err("fixed-color custom icon should fail");
+
+        assert!(
+            error.to_string().contains("monochrome"),
             "unexpected error: {error}"
         );
     }
