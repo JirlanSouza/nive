@@ -10,5 +10,5 @@ pub use dropdown_menu::{DropdownMenu, DropdownMenuItem};
 pub use tabs::{
     TabBar, TabCloseRequest, TabCloseTrigger, TabDrop, TabDropTarget, TabItem, TabTearOff,
 };
-pub use toolbar::{ActionGroup, Toolbar, ToolbarAction, ToolbarGroup};
+pub use toolbar::{Toolbar, ToolbarAction, ToolbarGroup};
 pub use vertical_rail::{RailSide, VerticalRail, VerticalRailBadge, VerticalRailItem};
