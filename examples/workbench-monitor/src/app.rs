@@ -106,7 +106,15 @@ impl Application for WorkbenchMonitor {
             Self {
                 model: Simulation::seeded(),
                 layout,
-                documents: vec![DocumentId::Dashboard("fleet"), DocumentId::Service("api")],
+                documents: vec![
+                    DocumentId::Dashboard("fleet"),
+                    DocumentId::Dashboard(
+                        "Regional capacity forecast with an intentionally long document label",
+                    ),
+                    DocumentId::Service("api"),
+                    DocumentId::Service("billing"),
+                    DocumentId::Service("search"),
+                ],
                 selected: Selection::Service("api"),
                 inspector_loading_until: None,
                 palette: CommandPaletteState::new(),
