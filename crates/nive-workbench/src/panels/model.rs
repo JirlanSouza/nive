@@ -169,7 +169,11 @@ pub struct PanelRail<'a, PanelId, Message> {
     pub(super) on_select: Option<Box<dyn Fn(PanelId) -> Message + 'a>>,
 }
 
-/// Metadata for one bottom header tab.
+/// Metadata for one controlled bottom-panel header tab.
+///
+/// The workbench renders this through its private content-sized, horizontally
+/// contained selector. Panel ids and selection remain app-owned; disabled tabs
+/// stay visible and status metadata remains adjacent to the label.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BottomHeaderTab<'a, PanelId> {
     /// Panel id.

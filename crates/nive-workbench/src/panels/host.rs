@@ -6,10 +6,11 @@ use iced::{
 };
 use nive_ui::{
     theme::{self, ControlSize, SurfaceRole},
-    widgets::{Panel, RailSide, SegmentedControl, SegmentedItem, VerticalRailBadge},
+    widgets::{Panel, RailSide, VerticalRailBadge},
     Element, IconRole,
 };
 
+use super::bottom_tab_track::BottomPanelTabTrack;
 use super::header::{trailing_controls, TrailingControlFlags};
 use super::model::{
     BottomHeaderTab, PanelAction, PanelHeaderBar, PanelHostMode, PanelRail, PanelRailItem,
@@ -207,29 +208,16 @@ where
     ActionId: Clone + 'a,
     Message: Clone + 'a,
 {
-    let mut tabs = SegmentedControl::new().flat().size(size).fill_width();
+    let mut tabs = BottomPanelTabTrack::new(size, active_index);
 
-    for (index, panel) in panels.iter().enumerate() {
+    for panel in &panels {
         let tab = BottomHeaderTab::from(panel);
-        let active = index == active_index;
-        let mut item = SegmentedItem::new(tab.label)
-            .selected(active)
-            .disabled(tab.disabled)
-            .tooltip_maybe(tab.tooltip.clone());
-        if let Some(icon) = tab.icon {
-            item = item.icon(icon);
-        }
-        if let Some(badge) = tab.badge {
-            item = item.badge(badge);
-        }
-        if let Some(status) = tab.status {
-            item = item.status(status);
-        }
+        let disabled = tab.disabled;
         let event = WorkbenchPanelEvent::Selected {
             region,
-            panel_id: tab.panel_id,
+            panel_id: tab.panel_id.clone(),
         };
-        tabs = tabs.push(item.on_press_maybe((!tab.disabled).then(|| mapper(event))));
+        tabs = tabs.push(tab, (!disabled).then(|| mapper(event)));
     }
 
     let active = panels.remove(active_index);
