@@ -12,7 +12,7 @@ use super::{
     ButtonClass, CheckboxClass, ContainerClass, FieldValidation, MenuClass, PickListClass,
     ProgressBarClass, RuleClass, ScrollableClass, TextClass, TextInputClass, TogglerClass,
 };
-use crate::theme::{BorderRole, ControlRole, ControlState, SurfaceRole, Theme, ToneRole};
+use crate::theme::{BorderRole, ControlRole, ControlState, SurfaceRole, TextRole, Theme, ToneRole};
 use crate::widgets::{ButtonIntent, ButtonVariant};
 
 type ButtonStyleFn = fn(&Theme, button::Status) -> button::Style;
@@ -290,7 +290,7 @@ fn default_progress_bar_uses_semantic_primary_bar() {
 }
 
 #[test]
-fn default_scrollable_hover_uses_primary_scroller() {
+fn default_scrollable_states_are_transparent_and_axis_independent() {
     let theme = Theme::Dark;
     let class = <Theme as scrollable::Catalog>::default();
     let style = <Theme as scrollable::Catalog>::style(
@@ -304,9 +304,34 @@ fn default_scrollable_hover_uses_primary_scroller() {
         },
     );
 
+    assert!(style.vertical_rail.background.is_none());
+    assert!(style.horizontal_rail.background.is_none());
     assert_eq!(
         background_color(Some(style.vertical_rail.scroller.background)),
+        theme.text(TextRole::Secondary).color.scale_alpha(0.78)
+    );
+    assert_eq!(
+        background_color(Some(style.horizontal_rail.scroller.background)),
+        theme.text(TextRole::Muted).color.scale_alpha(0.50)
+    );
+
+    let dragged = <Theme as scrollable::Catalog>::style(
+        &theme,
+        &class,
+        scrollable::Status::Dragged {
+            is_horizontal_scrollbar_dragged: true,
+            is_vertical_scrollbar_dragged: false,
+            is_horizontal_scrollbar_disabled: false,
+            is_vertical_scrollbar_disabled: false,
+        },
+    );
+    assert_eq!(
+        background_color(Some(dragged.horizontal_rail.scroller.background)),
         theme.tone(ToneRole::Accent).color
+    );
+    assert_eq!(
+        background_color(Some(dragged.vertical_rail.scroller.background)),
+        theme.text(TextRole::Muted).color.scale_alpha(0.50)
     );
 }
 

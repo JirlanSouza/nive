@@ -49,7 +49,11 @@ where
         empty_state(query, spacing)
     } else {
         let list = list_content(&collected, highlighted, spacing);
-        scrollable(list).into()
+        scrollable(list)
+            .direction(scrollable::Direction::Vertical(
+                crate::widgets::overlay_scrollbar(),
+            ))
+            .into()
     };
 
     let content = column![input, list].spacing(spacing.xs).padding(spacing.sm);

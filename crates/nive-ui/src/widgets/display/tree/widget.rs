@@ -324,7 +324,12 @@ where
         let content: Element<'a, Message> = bg_button.into();
 
         if self.scroll {
-            let mut scrollable = scrollable(content).width(self.width).height(self.height);
+            let mut scrollable = scrollable(content)
+                .direction(scrollable::Direction::Vertical(
+                    crate::widgets::overlay_scrollbar(),
+                ))
+                .width(self.width)
+                .height(self.height);
             if let Some(id) = self.id.clone() {
                 scrollable = scrollable.id(id);
             }

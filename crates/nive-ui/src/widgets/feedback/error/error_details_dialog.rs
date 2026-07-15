@@ -42,9 +42,12 @@ where
             scrollable(
                 Panel::new(text::code(self.detail).width(Length::Fill))
                     .role(SurfaceRole::Elevated)
-                    .padding(theme::padding(PaddingRole::Content))
+                    .body_padding(theme::padding(PaddingRole::Content))
                     .width(Length::Fill),
             )
+            .direction(scrollable::Direction::Vertical(
+                crate::widgets::overlay_scrollbar(),
+            ))
             .height(Length::Shrink),
             DialogFooter::new(
                 row![Space::new().width(Length::Fill), close]

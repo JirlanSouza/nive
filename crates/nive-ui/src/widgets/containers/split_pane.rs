@@ -5,7 +5,7 @@ mod widget;
 use iced::{widget::Id, Length};
 
 use crate::interaction::Orientation;
-use crate::theme::{ControlSize, SurfaceRole};
+use crate::theme::ControlSize;
 use crate::Element;
 
 use self::state::SnapConfig;
@@ -28,6 +28,14 @@ impl SplitPaneConstraints {
     pub fn clamp_ratio(self, ratio: f32, available: f32) -> f32 {
         helpers::clamp_ratio(ratio, self, available)
     }
+
+    /// Returns finite, non-negative minimum sizes.
+    pub fn normalized(self) -> Self {
+        Self {
+            leading_min: helpers::normalize_minimum(self.leading_min),
+            trailing_min: helpers::normalize_minimum(self.trailing_min),
+        }
+    }
 }
 
 /// A two-pane splitter with app-owned ratio state.
@@ -49,7 +57,6 @@ pub struct SplitPane<'a, Message> {
     locked: bool,
     snap: Option<SnapConfig>,
     id: Option<Id>,
-    handle_role: SurfaceRole,
     size: ControlSize,
     width: Length,
     height: Length,
@@ -73,7 +80,6 @@ where
             locked: false,
             snap: None,
             id: None,
-            handle_role: SurfaceRole::Canvas,
             size: ControlSize::Sm,
             width: Length::Fill,
             height: Length::Fill,
@@ -119,8 +125,8 @@ where
 
     /// Emits app-owned ratio updates from drag, touch, keyboard, and reset.
     ///
-    /// Without this callback, interactive input is normalized and focusable, but
-    /// no ratio message is emitted and the pane does not resize.
+    /// Without this callback, the splitter is display-only: it is not focusable,
+    /// does not claim resize gestures, and presents no resize affordance.
     pub fn on_change(mut self, message: impl Fn(f32) -> Message + 'a) -> Self {
         self.on_change = Some(Box::new(message));
         self
@@ -153,11 +159,6 @@ where
     /// Sets an id for app-driven focus operations.
     pub fn id(mut self, id: impl Into<Id>) -> Self {
         self.id = Some(id.into());
-        self
-    }
-
-    pub fn handle_role(mut self, role: SurfaceRole) -> Self {
-        self.handle_role = role;
         self
     }
 

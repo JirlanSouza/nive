@@ -33,7 +33,7 @@ pub(super) fn color_picker_content<'a>(
 fn panel_surface<'a>(content: Element<'a, ColorPickerEvent>) -> Element<'a, ColorPickerEvent> {
     Panel::new(content)
         .role(SurfaceRole::Popover)
-        .padding(theme::padding(PaddingRole::Content))
+        .body_padding(theme::padding(PaddingRole::Content))
         .width(Length::Shrink)
         .into()
 }

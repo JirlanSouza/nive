@@ -1,7 +1,7 @@
 use iced::{widget::container, Background, Border, Color, Rectangle, Shadow, Size};
 
 use crate::interaction::Orientation;
-use crate::theme::{control_metrics, BorderRole, ControlMetrics, ControlSize, SurfaceRole};
+use crate::theme::{control_metrics, BorderRole, ControlMetrics, ControlSize};
 
 use super::{state::SnapConfig, SplitPaneConstraints};
 
@@ -29,10 +29,25 @@ pub(super) fn metrics_for_control(control: ControlMetrics) -> SplitPaneMetrics {
 }
 
 pub(super) fn normalize_ratio(ratio: f32) -> f32 {
-    ratio.clamp(0.05, 0.95)
+    if ratio.is_finite() {
+        ratio.clamp(0.05, 0.95)
+    } else {
+        0.5
+    }
+}
+
+pub(super) fn normalize_minimum(minimum: f32) -> f32 {
+    if minimum.is_finite() {
+        minimum.max(0.0)
+    } else {
+        0.0
+    }
 }
 
 pub(super) fn clamp_ratio(ratio: f32, constraints: SplitPaneConstraints, available: f32) -> f32 {
+    let constraints = constraints.normalized();
+    let ratio = normalize_ratio(ratio);
+    let available = normalize_minimum(available);
     if available <= 0.0 {
         return normalize_ratio(ratio);
     }
@@ -47,22 +62,6 @@ pub(super) fn clamp_ratio(ratio: f32, constraints: SplitPaneConstraints, availab
         minimum_ratio(constraints, available),
         maximum_ratio(constraints, available),
     )
-}
-
-pub(super) fn handle_style(theme: &crate::theme::Theme, role: SurfaceRole) -> container::Style {
-    let surface = theme.surface(role);
-
-    container::Style {
-        text_color: Some(surface.foreground),
-        background: Some(Background::Color(surface.background)),
-        border: Border {
-            color: Color::TRANSPARENT,
-            width: 0.0,
-            radius: 0.0.into(),
-        },
-        shadow: Shadow::default(),
-        ..container::Style::default()
-    }
 }
 
 pub(super) fn grip_style(theme: &crate::theme::Theme) -> container::Style {
@@ -85,7 +84,13 @@ pub(super) fn focus_seam_color(theme: &crate::theme::Theme) -> Color {
     theme.border(BorderRole::Focus).color
 }
 
+pub(super) fn seam_color(theme: &crate::theme::Theme, role: BorderRole) -> Color {
+    theme.border(role).color
+}
+
 pub(super) fn minimum_ratio(constraints: SplitPaneConstraints, available: f32) -> f32 {
+    let constraints = constraints.normalized();
+    let available = normalize_minimum(available);
     if available <= 0.0 {
         return 0.05;
     }
@@ -100,6 +105,8 @@ pub(super) fn minimum_ratio(constraints: SplitPaneConstraints, available: f32) -
 }
 
 pub(super) fn maximum_ratio(constraints: SplitPaneConstraints, available: f32) -> f32 {
+    let constraints = constraints.normalized();
+    let available = normalize_minimum(available);
     if available <= 0.0 {
         return 0.95;
     }
@@ -277,5 +284,31 @@ mod split_pane_helper_tests {
         let snap = SnapConfig::new(0.05, vec![0.25]);
 
         assert_eq!(apply_snap(0.24, Some(&snap), 0.3, 0.9), 0.24);
+    }
+
+    #[test]
+    fn invalid_constraints_and_candidates_always_resolve_finitely() {
+        let constraints = SplitPaneConstraints::new(f32::NAN, f32::INFINITY);
+
+        assert_eq!(
+            constraints.normalized(),
+            SplitPaneConstraints::new(0.0, 0.0)
+        );
+        assert_eq!(clamp_ratio(f32::NAN, constraints, 100.0), 0.5);
+        assert_eq!(
+            clamp_ratio(0.2, SplitPaneConstraints::new(-20.0, -1.0), 100.0),
+            0.2
+        );
+        assert_eq!(clamp_ratio(0.7, constraints, 0.0), 0.7);
+        assert_eq!(clamp_ratio(0.7, constraints, f32::NAN), 0.7);
+    }
+
+    #[test]
+    fn impossible_and_zero_available_constraints_are_deterministic() {
+        let constraints = SplitPaneConstraints::new(300.0, 100.0);
+
+        assert_eq!(clamp_ratio(0.1, constraints, 200.0), 0.75);
+        assert_eq!(clamp_ratio(0.9, constraints, 200.0), 0.75);
+        assert_eq!(clamp_ratio(0.0, constraints, 0.0), 0.05);
     }
 }

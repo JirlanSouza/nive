@@ -15,7 +15,7 @@ use super::helpers::{clamp_ratio, cross_length, main_length, metrics, pane_sizes
 use super::state::{SplitPaneRegion, SplitPaneState};
 use super::SplitPane;
 
-use self::draw::draw_grip;
+use self::draw::{draw_grip, resolve_visual_state};
 use self::event::{
     current_divider_bounds, current_hit_bounds, handle_pointer_gestures, has_primary_gesture,
     primary_press_outside_hit, publish_ratio, resize_interaction,
@@ -128,8 +128,15 @@ where
     ) {
         let state = tree.state.downcast_mut::<SplitPaneState>();
 
-        if let Some(hit_bounds) = current_hit_bounds(layout, self.orientation, metrics(self.size)) {
-            operation.focusable(self.id.as_ref(), hit_bounds, state);
+        if self.interactive() {
+            if let Some(hit_bounds) =
+                current_hit_bounds(layout, self.orientation, metrics(self.size))
+            {
+                operation.focusable(self.id.as_ref(), hit_bounds, state);
+            }
+        } else {
+            state.focused = false;
+            state.drag = None;
         }
 
         let mut layouts = layout.children();
@@ -181,11 +188,17 @@ where
                 }
             }
 
-            if !self.locked && self.forward_keyboard(state, event, shell) {
+            if !self.interactive() && (state.focused || state.drag.is_some()) {
+                state.focused = false;
+                state.drag = None;
+                shell.request_redraw();
+            }
+
+            if self.interactive() && self.forward_keyboard(state, event, shell) {
                 return;
             }
 
-            if !self.locked {
+            if self.interactive() {
                 if let Some(hit_bounds) = hit_bounds {
                     let gestures = state
                         .gestures
@@ -269,7 +282,7 @@ where
         let state = tree.state.downcast_ref::<SplitPaneState>();
         let hit_bounds = current_hit_bounds(layout, self.orientation, metrics(self.size));
 
-        if !self.locked
+        if self.interactive()
             && (state.drag.is_some()
                 || hit_bounds.is_some_and(|hit_bounds| cursor.is_over(hit_bounds)))
         {
@@ -338,14 +351,20 @@ where
 
         let state = tree.state.downcast_ref::<SplitPaneState>();
 
+        let hit_bounds = current_hit_bounds(layout, self.orientation, metrics(self.size));
+        let visual_state = resolve_visual_state(
+            self.interactive(),
+            state.drag.is_some() || state.focused,
+            hit_bounds.is_some_and(|bounds| cursor.is_over(bounds)),
+        );
+
         draw_grip(
             renderer,
             theme,
             divider_bounds.unwrap_or(grip_layout.bounds()),
             self.orientation,
-            self.handle_role,
             metrics(self.size),
-            state.focused,
+            visual_state,
         );
 
         self.trailing.as_widget().draw(
@@ -396,5 +415,11 @@ where
         }
 
         (!overlays.is_empty()).then(|| overlay::Group::with_children(overlays).overlay())
+    }
+}
+
+impl<Message> SplitPane<'_, Message> {
+    fn interactive(&self) -> bool {
+        !self.locked && self.on_change.is_some()
     }
 }

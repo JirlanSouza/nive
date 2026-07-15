@@ -1,10 +1,10 @@
 use iced::{
-    widget::{column, container},
+    widget::{column, container, rule, stack},
     Length, Padding,
 };
 
 use crate::theme::{self, surface as theme_surface};
-use crate::theme::{gap, BorderRole, GapRole, ShapeSize, SurfaceRole};
+use crate::theme::{BorderRole, ShapeSize, SurfaceRole};
 use crate::Element;
 
 /// Panel surface with optional header and configurable shape.
@@ -13,7 +13,7 @@ pub struct Panel<'a, Message> {
     content: Element<'a, Message>,
     role: SurfaceRole,
     radius: f32,
-    padding: Option<Padding>,
+    body_padding: Option<Padding>,
     width: Option<iced::Length>,
     height: Option<iced::Length>,
     center: Option<iced::Length>,
@@ -30,7 +30,7 @@ where
             content: content.into(),
             role: SurfaceRole::Panel,
             radius: theme::active().shape(ShapeSize::None).radius_value(),
-            padding: None,
+            body_padding: None,
             width: None,
             height: None,
             center: None,
@@ -96,9 +96,19 @@ where
         self
     }
 
-    pub fn padding(mut self, padding: impl Into<Padding>) -> Self {
-        self.padding = Some(padding.into());
+    /// Insets only the panel body, leaving the header and seam unchanged.
+    pub fn body_padding(mut self, padding: impl Into<Padding>) -> Self {
+        self.body_padding = Some(padding.into());
         self
+    }
+
+    /// Insets only the panel body.
+    ///
+    /// This previously behaved as outer panel padding. Use
+    /// [`Panel::body_padding`] and let headers own their own inset.
+    #[deprecated(since = "0.1.0", note = "use Panel::body_padding")]
+    pub fn padding(self, padding: impl Into<Padding>) -> Self {
+        self.body_padding(padding)
     }
 
     crate::impl_layout_builders!(
@@ -116,12 +126,27 @@ where
     }
 
     fn into_container(self) -> container::Container<'a, Message, crate::theme::Theme> {
-        let body = match self.header {
-            Some(header) => column![header, self.content]
-                .spacing(gap(GapRole::Content))
-                .width(Length::Fill)
-                .into(),
-            None => self.content,
+        let mut content = container(self.content)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .clip(true);
+        if let Some(padding) = self.body_padding {
+            content = content.padding(padding);
+        }
+
+        let body: Element<'a, Message> = match self.header {
+            Some(header) => {
+                let seam = rule::horizontal(1).style(header_seam_style);
+                let body = stack![content, seam]
+                    .width(Length::Fill)
+                    .height(Length::Fill);
+                column![header, body]
+                    .spacing(0.0)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .into()
+            }
+            None => content.into(),
         };
 
         let style: Box<dyn Fn(&crate::theme::Theme) -> container::Style> = if self.border {
@@ -136,11 +161,7 @@ where
                 self.radius.into(),
             ))
         };
-        let mut panel = container(body).style(style);
-
-        if let Some(padding) = self.padding {
-            panel = panel.padding(padding);
-        }
+        let mut panel = container(body).style(style).clip(true);
 
         if let Some(width) = self.width {
             panel = panel.width(width);
@@ -155,6 +176,15 @@ where
         }
 
         panel
+    }
+}
+
+fn header_seam_style(theme: &crate::theme::Theme) -> rule::Style {
+    rule::Style {
+        color: theme.border(BorderRole::Subtle).color,
+        radius: 0.0.into(),
+        fill_mode: rule::FillMode::Full,
+        snap: true,
     }
 }
 
@@ -191,5 +221,15 @@ mod panel_tests {
         assert_eq!(default.radius, 0.0);
         assert_eq!(square.radius, none.radius);
         assert_eq!(full.radius, token_radius::FULL);
+    }
+
+    #[test]
+    fn body_padding_is_independent_from_header() {
+        let panel = Panel::<()>::new(iced::widget::Space::new())
+            .header(iced::widget::Space::new())
+            .body_padding(12);
+
+        assert_eq!(panel.body_padding, Some(Padding::new(12.0)));
+        assert!(panel.header.is_some());
     }
 }
