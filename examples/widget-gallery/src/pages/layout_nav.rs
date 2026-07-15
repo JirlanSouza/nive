@@ -14,6 +14,8 @@ pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
         PageId::LayoutNav,
         column![
             section("Tabs and section headers", tabs(app)),
+            section("Toolbar structure and overflow", toolbars()),
+            section("Panels, scrollbars, and separators", structural_widgets()),
             section("Vertical rails", vertical_rails(app)),
             section("SplitPane", split_pane(app)),
             section("Trees", trees(app)),
@@ -52,7 +54,12 @@ fn tabs(app: &WidgetGallery) -> Element<'_, Message> {
         ),
         example_cell(
             "SectionHeader",
-            SectionHeader::new("Resources")
+            SectionHeader::new(
+                "Resources with an intentionally long title that yields before controls",
+            )
+                .title_tooltip(
+                    "Resources with an intentionally long title that yields before controls",
+                )
                 .status(SectionHeaderStatus::refreshing("Refreshing").tone(ToneRole::Info))
                 .action(
                     SectionHeaderAction::icon(IconRole::ViewRefresh)
@@ -76,6 +83,79 @@ fn tabs(app: &WidgetGallery) -> Element<'_, Message> {
                 .xs(),
         ),
     ])
+}
+
+fn toolbars() -> Element<'static, Message> {
+    Toolbar::new()
+        .group(
+            ToolbarGroup::new()
+                .action(
+                    ToolbarAction::icon_label(IconRole::ViewRefresh, "Refresh")
+                        .on_press(Message::Noop),
+                )
+                .action(
+                    ToolbarAction::icon_label(IconRole::EditFind, "Selected")
+                        .selected(true)
+                        .on_press(Message::Noop),
+                ),
+        )
+        .separator()
+        .group(
+            ToolbarGroup::new()
+                .action(ToolbarAction::icon_label(IconRole::ViewMore, "Loading").loading(true))
+                .action(
+                    ToolbarAction::icon_label(IconRole::EditDelete, "Delete")
+                        .destructive()
+                        .on_press(Message::Noop),
+                )
+                .action(
+                    ToolbarAction::icon_label(IconRole::PreferencesSystem, "Preferences")
+                        .on_press(Message::Noop),
+                ),
+        )
+        .width(360)
+        .into()
+}
+
+fn structural_widgets() -> Element<'static, Message> {
+    let overflow = column(
+        (0..12).map(|index| ntext::body(format!("Scrollable row {index}")).into()),
+    )
+    .spacing(6)
+    .padding(12);
+    let scroll = scrollable(overflow)
+        .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
+        .height(110);
+
+    column![
+        row![
+            Panel::new(ntext::body("Structural body inset"))
+                .header(SectionHeader::new("Panel anatomy"))
+                .body_padding(14)
+                .role(SurfaceRole::Sidebar)
+                .fill_width(),
+            Panel::new(scroll)
+                .header(SectionHeader::new("Edge-aligned scrollbar"))
+                .shape_md()
+                .bordered()
+                .role(SurfaceRole::Elevated)
+                .fill_width(),
+        ]
+        .spacing(12),
+        Separator::horizontal().subtle(),
+        Separator::horizontal().section().inset(24.0, 12.0),
+        Separator::horizontal().text_column(40.0),
+        row![
+            Separator::vertical().subtle(),
+            ntext::body_small("Subtle vertical"),
+            Separator::vertical().section().inset(8.0, 8.0),
+            ntext::body_small("Section vertical"),
+        ]
+        .spacing(12)
+        .height(56),
+    ]
+    .spacing(12)
+    .into()
 }
 
 fn vertical_rails(app: &WidgetGallery) -> Element<'_, Message> {
@@ -137,7 +217,7 @@ fn vertical_rails(app: &WidgetGallery) -> Element<'_, Message> {
                     .spacing(8)
                 )
                 .role(SurfaceRole::Panel)
-                .padding(14)
+                .body_padding(14)
                 .width(Length::Fill),
                 right,
             ]
@@ -157,10 +237,10 @@ fn split_pane(app: &WidgetGallery) -> Element<'_, Message> {
         .spacing(8),
         SplitPane::new(
             Panel::new(ntext::body("Navigation pane"))
-                .padding(14)
+                .body_padding(14)
                 .role(SurfaceRole::Canvas),
             Panel::new(ntext::body("Content pane"))
-                .padding(14)
+                .body_padding(14)
                 .role(SurfaceRole::Elevated),
         )
         .orientation(Orientation::Horizontal)
@@ -170,13 +250,26 @@ fn split_pane(app: &WidgetGallery) -> Element<'_, Message> {
         .snap(0.05)
         .height(160),
         SplitPane::new(
-            Panel::new(ntext::body("Top")).padding(12),
-            Panel::new(ntext::body("Bottom")).padding(12),
+            Panel::new(ntext::body("Top")).body_padding(12),
+            Panel::new(ntext::body("Bottom")).body_padding(12),
         )
         .orientation(Orientation::Vertical)
         .ratio(app.layout.vertical_split_ratio)
         .on_change(Message::VerticalSplitRatioChanged)
         .height(180),
+        row![
+            SplitPane::<Message>::new(ntext::body_small("Locked"), ntext::body_small("Inert"))
+                .locked(true)
+                .on_change(Message::SplitRatioChanged)
+                .height(72),
+            SplitPane::<Message>::new(
+                ntext::body_small("Display-only"),
+                ntext::body_small("No callback")
+            )
+            .min_sizes(f32::NAN, f32::INFINITY)
+            .height(72),
+        ]
+        .spacing(12),
     ]
     .spacing(12)
     .into()
@@ -258,11 +351,11 @@ fn trees(app: &WidgetGallery) -> Element<'_, Message> {
             .spacing(10)
         )
         .role(SurfaceRole::Panel)
-        .padding(14)
+        .body_padding(14)
         .width(Length::FillPortion(2)),
         Panel::new(column![ntext::caption("TreeItem primitive"), tree_item_rows].spacing(10))
             .role(SurfaceRole::Panel)
-            .padding(14)
+            .body_padding(14)
             .width(Length::FillPortion(1)),
     ]
     .spacing(12)

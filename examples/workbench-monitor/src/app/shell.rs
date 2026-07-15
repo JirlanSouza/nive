@@ -25,6 +25,7 @@ impl WorkbenchMonitor {
                             .on_press(Message::OpenPalette),
                     ),
             )
+            .separator()
             .group(
                 ToolbarGroup::new()
                     .action(
@@ -39,6 +40,7 @@ impl WorkbenchMonitor {
                             .on_press(Message::ToggleTheme),
                     ),
             )
+            .separator()
             .group(
                 ToolbarGroup::new()
                     .action(
@@ -161,21 +163,24 @@ impl WorkbenchMonitor {
 
     pub(super) fn status_bar(&self) -> StatusBar<'static> {
         StatusBar::new()
-            .item(StatusItem::text("Workbench monitor"))
-            .item(StatusItem::severity(
+            .leading(StatusItem::text("Workbench monitor"))
+            .leading(StatusItem::context(format!(
+                "env: {}",
+                self.model.environment_label()
+            )))
+            .leading(StatusItem::severity(
                 self.overall_tone(),
-                format!("env: {}", self.model.environment_label()),
+                "fleet health",
             ))
-            .item(StatusItem::severity(
+            .leading(StatusItem::severity(
                 self.alert_tone(),
                 format!("{} active alerts", self.active_alert_count()),
             ))
-            .item(StatusItem::operation_summary(
+            .trailing(StatusItem::operation_summary(
                 self.model.running_jobs(),
                 "jobs",
             ))
-            .item(StatusItem::Spacer)
-            .item(StatusItem::severity(self.connection_tone(), "connected"))
+            .trailing(StatusItem::severity(self.connection_tone(), "connected"))
     }
 
     fn document_label(&self, id: DocumentId) -> String {

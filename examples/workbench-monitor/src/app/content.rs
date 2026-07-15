@@ -21,7 +21,9 @@ impl WorkbenchMonitor {
                 .into()
         });
 
-        scrollable(column(rows).spacing(8).padding(12)).into()
+        scrollable(column(rows).spacing(8).padding(12))
+            .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
+            .into()
     }
 
     pub(super) fn hosts_view(&self) -> Element<'_, Message> {
@@ -37,7 +39,9 @@ impl WorkbenchMonitor {
                 .into()
         });
 
-        scrollable(column(rows).spacing(8).padding(12)).into()
+        scrollable(column(rows).spacing(8).padding(12))
+            .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
+            .into()
     }
 
     pub(super) fn alerts_left_view(&self) -> Element<'_, Message> {
@@ -50,7 +54,9 @@ impl WorkbenchMonitor {
                 .into()
         });
 
-        scrollable(column(rows).spacing(8).padding(12)).into()
+        scrollable(column(rows).spacing(8).padding(12))
+            .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
+            .into()
     }
 
     pub(super) fn dashboards_view(&self) -> Element<'_, Message> {
@@ -123,16 +129,6 @@ impl WorkbenchMonitor {
         ]
         .spacing(12);
 
-        let status = if active_alerts > 0 {
-            SectionHeaderStatus::icon_label(
-                IconRole::DialogWarning,
-                format!("{active_alerts} active"),
-                self.alert_tone(),
-            )
-        } else {
-            SectionHeaderStatus::icon_label(IconRole::DialogSuccess, "healthy", ToneRole::Success)
-        };
-
         let alert_summary: Element<'_, Message> = if let Some(alert) =
             self.model.active_alerts().next()
         {
@@ -165,16 +161,18 @@ impl WorkbenchMonitor {
         container(
             scrollable(
                 column![
-                    SectionHeader::new("Fleet overview")
+                    DocumentHeader::new("Fleet overview")
                         .icon(IconRole::DialogInformation)
-                        .status(status)
-                        .action(
-                            SectionHeaderAction::icon_text(
-                                IconRole::ViewRefresh,
-                                "Run health check"
+                        .title_tooltip("Fleet overview")
+                        .trailing(
+                            ActionGroup::new().action(
+                                ToolbarAction::icon_label(
+                                    IconRole::ViewRefresh,
+                                    "Run health check"
+                                )
+                                .tooltip("Run fleet health check")
+                                .on_press(Message::Command(AppCommand::RunHealthCheck))
                             )
-                            .tooltip("Run fleet health check")
-                            .on_press(Message::Command(AppCommand::RunHealthCheck))
                         ),
                     cards,
                     alert_summary,
@@ -233,6 +231,7 @@ impl WorkbenchMonitor {
                 .spacing(16)
                 .padding(24),
             )
+            .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
             .height(Length::Fill),
         )
         .width(Length::Fill)
@@ -268,13 +267,10 @@ impl WorkbenchMonitor {
 
         container(
             column![
-                SectionHeader::new(service.name)
+                DocumentHeader::new(service.name)
                     .icon(IconRole::Folder)
-                    .status(SectionHeaderStatus::icon_label(
-                        service_health_icon(service.health),
-                        tone_label(service.health),
-                        service.health,
-                    )),
+                    .title_tooltip(service.name)
+                    .trailing(ToneDot::new(service.health).sm()),
                 cards,
                 Card::new(
                     KeyValueList::new()
@@ -317,7 +313,9 @@ impl WorkbenchMonitor {
             .logs
             .iter()
             .map(|line| nive_text::code_small(line).into());
-        scrollable(column(lines).spacing(4).padding(12)).into()
+        scrollable(column(lines).spacing(4).padding(12))
+            .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
+            .into()
     }
 
     pub(super) fn events_view(&self) -> Element<'_, Message> {
@@ -328,7 +326,9 @@ impl WorkbenchMonitor {
                 .into()
         });
 
-        scrollable(column(rows).spacing(8).padding(12)).into()
+        scrollable(column(rows).spacing(8).padding(12))
+            .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
+            .into()
     }
 
     pub(super) fn jobs_view(&self) -> Element<'_, Message> {
@@ -363,15 +363,8 @@ impl WorkbenchMonitor {
             .into()
         });
 
-        scrollable(column(rows).spacing(12).padding(12)).into()
-    }
-}
-
-const fn service_health_icon(tone: ToneRole) -> IconRole {
-    match tone {
-        ToneRole::Success => IconRole::DialogSuccess,
-        ToneRole::Warning => IconRole::DialogWarning,
-        ToneRole::Danger => IconRole::DialogError,
-        ToneRole::Info | ToneRole::Accent | ToneRole::Neutral => IconRole::DialogInformation,
+        scrollable(column(rows).spacing(12).padding(12))
+            .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
+            .into()
     }
 }
