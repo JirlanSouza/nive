@@ -6,6 +6,7 @@ pub mod feedback;
 pub mod navigation;
 pub mod overlays;
 pub mod primitives;
+pub mod scrollable;
 
 // Namespace modules for the iced-style `button::primary(...)` call idiom.
 pub use controls::{button, input};
@@ -46,5 +47,7 @@ pub use overlays::{
     PopoverPlacement, PopoverWidth, ToastHost, ToastPosition, ToastPresentation, ToastTone,
 };
 pub use primitives::{
-    space, svg, ColorSwatch, Icon, IconGlyph, IconRole, IconSource, Separator, ToneDot,
+    space, svg, ColorSwatch, Icon, IconGlyph, IconRole, IconSource, Separator, SeparatorExtent,
+    SeparatorStrength, ToneDot,
 };
+pub use scrollable::overlay_scrollbar;

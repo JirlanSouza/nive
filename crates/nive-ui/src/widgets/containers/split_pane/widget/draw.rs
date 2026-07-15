@@ -4,46 +4,65 @@ use iced::{
 };
 
 use crate::interaction::Orientation;
-use crate::theme::SurfaceRole;
+use crate::theme::BorderRole;
 
 use super::super::helpers::{
-    focus_seam_color, grip_style, handle_style, visible_grip_bounds, visual_seam_bounds,
+    focus_seam_color, grip_style, seam_color, visible_grip_bounds, visual_seam_bounds,
     SplitPaneMetrics,
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum DividerVisualState {
+    Inert,
+    Idle,
+    Hovered,
+    Engaged,
+}
+
+pub(super) fn resolve_visual_state(
+    interactive: bool,
+    dragged_or_focused: bool,
+    hovered: bool,
+) -> DividerVisualState {
+    if !interactive {
+        DividerVisualState::Inert
+    } else if dragged_or_focused {
+        DividerVisualState::Engaged
+    } else if hovered {
+        DividerVisualState::Hovered
+    } else {
+        DividerVisualState::Idle
+    }
+}
 
 pub(super) fn draw_grip(
     renderer: &mut iced::Renderer,
     theme: &crate::theme::Theme,
     bounds: Rectangle,
     orientation: Orientation,
-    role: SurfaceRole,
     metrics: SplitPaneMetrics,
-    focused: bool,
+    state: DividerVisualState,
 ) {
     let seam = visual_seam_bounds(bounds, orientation, metrics);
+    let seam_color = match state {
+        DividerVisualState::Inert | DividerVisualState::Idle => {
+            seam_color(theme, BorderRole::Subtle)
+        }
+        DividerVisualState::Hovered => seam_color(theme, BorderRole::Strong),
+        DividerVisualState::Engaged => focus_seam_color(theme),
+    };
+    renderer.fill_quad(
+        renderer::Quad {
+            bounds: seam,
+            border: iced::Border::default(),
+            shadow: Shadow::default(),
+            snap: true,
+        },
+        seam_color,
+    );
 
-    if focused {
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: seam,
-                border: iced::Border::default(),
-                shadow: Shadow::default(),
-                snap: true,
-            },
-            focus_seam_color(theme),
-        );
-    } else {
-        let handle = handle_style(theme, role);
-
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: seam,
-                border: handle.border,
-                shadow: handle.shadow,
-                snap: true,
-            },
-            background_color(handle.background),
-        );
+    if matches!(state, DividerVisualState::Inert | DividerVisualState::Idle) {
+        return;
     }
 
     let grip = grip_style(theme);
@@ -56,7 +75,7 @@ pub(super) fn draw_grip(
             shadow: Shadow::default(),
             snap: true,
         },
-        if focused {
+        if matches!(state, DividerVisualState::Engaged) {
             focus_seam_color(theme)
         } else {
             background_color(grip.background)

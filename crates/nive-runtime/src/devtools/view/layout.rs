@@ -81,7 +81,7 @@ where
     )
     .header(header)
     .role(SurfaceRole::App)
-    .padding(devtools_window_padding())
+    .body_padding(devtools_window_padding())
     .width(Length::Fill)
     .height(Length::Fill)
     .into()

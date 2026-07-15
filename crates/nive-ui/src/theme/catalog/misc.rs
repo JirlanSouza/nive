@@ -35,23 +35,19 @@ pub(super) fn default_progress_bar(theme: &Theme) -> progress_bar::Style {
 
 pub(super) fn default_scrollable(theme: &Theme, status: scrollable::Status) -> scrollable::Style {
     let theme = *theme;
-    let rail_color = theme.border(BorderRole::Subtle).color.scale_alpha(0.35);
-    let scroller_color = theme.text(TextRole::Muted).color.scale_alpha(0.50);
-    let active_rail = scrollable::Rail {
-        background: Some(Background::Color(rail_color)),
+    let idle_color = theme.text(TextRole::Muted).color.scale_alpha(0.50);
+    let hover_color = theme.text(TextRole::Secondary).color.scale_alpha(0.78);
+    let rail = |scroller_color| scrollable::Rail {
+        background: None,
         border: border_with_radius(BorderSpec::none(), theme.shape(ShapeSize::Xs).radius()),
         scroller: scrollable::Scroller {
             background: Background::Color(scroller_color),
             border: border_with_radius(BorderSpec::none(), theme.shape(ShapeSize::Xs).radius()),
         },
     };
-    let primary_rail = scrollable::Rail {
-        scroller: scrollable::Scroller {
-            background: Background::Color(theme.tone(ToneRole::Accent).color),
-            ..active_rail.scroller
-        },
-        ..active_rail
-    };
+    let active_rail = rail(idle_color);
+    let hover_rail = rail(hover_color);
+    let drag_rail = rail(theme.tone(ToneRole::Accent).color);
     let popover = theme.surface(SurfaceRole::Popover);
     let auto_scroll = scrollable::AutoScroll {
         background: Background::Color(popover.background.scale_alpha(0.90)),
@@ -68,12 +64,12 @@ pub(super) fn default_scrollable(theme: &Theme, status: scrollable::Status) -> s
             ..
         } => (
             if is_vertical_scrollbar_hovered {
-                primary_rail
+                hover_rail
             } else {
                 active_rail
             },
             if is_horizontal_scrollbar_hovered {
-                primary_rail
+                hover_rail
             } else {
                 active_rail
             },
@@ -84,12 +80,12 @@ pub(super) fn default_scrollable(theme: &Theme, status: scrollable::Status) -> s
             ..
         } => (
             if is_vertical_scrollbar_dragged {
-                primary_rail
+                drag_rail
             } else {
                 active_rail
             },
             if is_horizontal_scrollbar_dragged {
-                primary_rail
+                drag_rail
             } else {
                 active_rail
             },

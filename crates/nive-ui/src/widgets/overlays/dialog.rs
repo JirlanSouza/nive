@@ -39,7 +39,7 @@ where
 
         Panel::new(self.content)
             .role(SurfaceRole::Dialog)
-            .padding(metrics.padding)
+            .body_padding(metrics.padding)
             .width(metrics.width)
             .into()
     }
