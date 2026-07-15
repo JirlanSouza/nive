@@ -129,14 +129,14 @@ where
             .tooltip_maybe(tooltip)
             .on_press_maybe(self.item_activation(item));
 
-        button.into_grouped_item(GroupedItemSpec {
+        button.into_grouped_item_inset(GroupedItemSpec {
             size: metrics.size,
-            radius: metrics.radius.into(),
+            radius: 0.0.into(),
             height: layout.height,
             padding_h: 0.0,
-            selected: item.selected,
+            selected: false,
             destructive: false,
-            kind: GroupedItemKind::Selectable,
+            kind: GroupedItemKind::Embedded,
         })
     }
 }
