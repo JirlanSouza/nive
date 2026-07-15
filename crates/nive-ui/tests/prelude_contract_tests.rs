@@ -53,6 +53,15 @@ fn widget_taxonomy_exposes_category_facades() {
                 .badge(navigation::VerticalRailBadge::new("3").description("3 open explorers")),
         )
         .into();
+    let _: Element<'_, ()> = navigation::TabBar::new("overview")
+        .tab(navigation::TabItem::new("overview", "Overview").closable(true))
+        .active_role(theme::SurfaceRole::Canvas)
+        .on_select(|_: &str| ())
+        .into();
+    let _: Element<'_, ()> = controls::SelectableItem::new("Result")
+        .selected(true)
+        .trailing_text("12")
+        .into();
     let _: Element<'_, ()> = overlays::Dialog::new(text("Dialog")).into();
     let _: Element<'_, ()> = primitives::Separator::horizontal().into();
     let _: Element<'_, ()> = primitives::ToneDot::new(theme::roles::ToneRole::Accent)
