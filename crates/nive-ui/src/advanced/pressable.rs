@@ -27,6 +27,7 @@ pub(crate) enum FocusRingPlacement {
     #[default]
     Outset,
     Inset,
+    CardInset,
 }
 
 #[derive(Debug, Default)]
@@ -87,6 +88,22 @@ where
         match on_press {
             Some(message) => Self::new(content, message, None, radius, ring)
                 .focus_placement(FocusRingPlacement::Inset)
+                .into(),
+            None => content,
+        }
+    }
+
+    pub(crate) fn maybe_card_inset(
+        content: impl Into<Element<'a, Message>>,
+        on_press: Option<Message>,
+        radius: Radius,
+        ring: ButtonFocusRing,
+    ) -> Element<'a, Message> {
+        let content = content.into();
+
+        match on_press {
+            Some(message) => Self::new(content, message, None, radius, ring)
+                .focus_placement(FocusRingPlacement::CardInset)
                 .into(),
             None => content,
         }
@@ -299,9 +316,15 @@ pub(crate) fn draw_focus_ring_with_placement(
     ring: ButtonFocusRing,
     placement: FocusRingPlacement,
 ) {
-    let width = border_width(theme);
+    let width = match placement {
+        FocusRingPlacement::CardInset => 2.0,
+        FocusRingPlacement::Outset | FocusRingPlacement::Inset => border_width(theme),
+    };
     let (bounds, radius) = focus_ring_geometry(bounds, radius, width, placement);
-    let border = theme_button::focus_ring(theme, ring, radius);
+    let mut border = theme_button::focus_ring(theme, ring, radius);
+    if placement == FocusRingPlacement::CardInset {
+        border.width = width;
+    }
 
     if border.width <= 0.0 || border.color.a <= 0.0 {
         return;
@@ -327,6 +350,10 @@ fn focus_ring_geometry(
     match placement {
         FocusRingPlacement::Outset => (outset_bounds(bounds, width), outset_radius(radius, width)),
         FocusRingPlacement::Inset => (bounds, clamp_radius(radius, bounds)),
+        FocusRingPlacement::CardInset => {
+            let bounds = inset_bounds(bounds, width);
+            (bounds, inset_radius(radius, width, bounds))
+        }
     }
 }
 
@@ -361,6 +388,27 @@ fn outset_radius(radius: Radius, width: f32) -> Radius {
         bottom_right: radius.bottom_right + width,
         bottom_left: radius.bottom_left + width,
     }
+}
+
+fn inset_bounds(bounds: Rectangle, inset: f32) -> Rectangle {
+    Rectangle {
+        x: bounds.x + inset,
+        y: bounds.y + inset,
+        width: (bounds.width - inset * 2.0).max(0.0),
+        height: (bounds.height - inset * 2.0).max(0.0),
+    }
+}
+
+fn inset_radius(radius: Radius, inset: f32, bounds: Rectangle) -> Radius {
+    clamp_radius(
+        Radius {
+            top_left: (radius.top_left - inset).max(0.0),
+            top_right: (radius.top_right - inset).max(0.0),
+            bottom_right: (radius.bottom_right - inset).max(0.0),
+            bottom_left: (radius.bottom_left - inset).max(0.0),
+        },
+        bounds,
+    )
 }
 
 pub fn is_keyboard_activation(event: &Event) -> bool {
@@ -460,6 +508,19 @@ mod pressable_tests {
         assert_eq!(
             focus_ring_geometry(bounds, Radius::new(20.0), 2.0, FocusRingPlacement::Inset),
             (bounds, Radius::new(4.0))
+        );
+    }
+
+    #[test]
+    fn card_focus_ring_is_two_pixels_inside_the_perimeter() {
+        let bounds = Rectangle::new(Point::new(10.0, 20.0), Size::new(30.0, 40.0));
+
+        assert_eq!(
+            focus_ring_geometry(bounds, Radius::new(8.0), 2.0, FocusRingPlacement::CardInset),
+            (
+                Rectangle::new(Point::new(12.0, 22.0), Size::new(26.0, 36.0)),
+                Radius::new(6.0)
+            )
         );
     }
 }
