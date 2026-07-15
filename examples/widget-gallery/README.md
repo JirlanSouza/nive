@@ -27,6 +27,13 @@ The gallery exercises:
   disabled, long-label, overflow/menu, keyboard, context, reorder, and tear-off
   behavior; both physical VerticalRail sides with metadata and overflow; and
   SelectableItem size/selection/disabled/trailing-content comparisons
+- Card/ActionCard/SelectableCard filled, outlined, elevated, and ghost
+  comparisons on Canvas, including 48 px targets, callback absence,
+  controlled selected/disabled combinations, selection indicator, keyboard
+  focus, and long leading/title/description/trailing content
+- surface-free and externally framed MetricCard values with baseline units,
+  status, and trend; ContentAction label/icon/loading/destructive/disabled
+  states plus whole-control wrapping and the oversized-action clipping fallback
 - opt-in devtools inspection for sample `Resource` and `Operation` fields
 - module-public helper coverage for `nive::ui::widgets::skeleton`, which is not
   re-exported from `crates/nive-ui/src/widgets.rs`
@@ -72,7 +79,9 @@ For visual review, inspect light and dark themes at wide, narrow, and low
 window sizes. Exercise toolbar overflow, long-title tooltips, scrollbar
 hover/drag, TabBar wheel/menu/keyboard/drag/cancellation, both rail sides,
 SelectableItem focus, and SplitPane hover, drag, focus, locked, and display-only
-states.
+states. On the Actions page, traverse cards and content actions with Tab,
+Enter, and Space; compare all three densities and constrain the window until
+ActionGroup wraps without splitting a control.
 
 With devtools enabled, open the panel with Cmd+Option+I on macOS or Ctrl+Alt+I
 on other platforms to force the inspected feedback sample states.

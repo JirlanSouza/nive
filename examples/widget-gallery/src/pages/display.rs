@@ -102,12 +102,11 @@ fn surfaces() -> Element<'static, Message> {
             "Card",
             Card::new(
                 column![
-                    ntext::label_strong("Card"),
-                    ntext::body_small("Compact content")
+                    ntext::body_strong("Card"),
+                    ntext::body("Compact content")
                 ]
                 .spacing(4),
-            )
-            .padding(14),
+            ),
         ),
         example_cell(
             "Panel",
@@ -121,7 +120,12 @@ fn surfaces() -> Element<'static, Message> {
             .body_padding(14)
             .width(Length::Fill),
         ),
-        example_cell("MetricCard", MetricCard::new("Open issues", 128)),
+        example_cell(
+            "MetricCard · surface-free",
+            MetricCard::new("Open issues", 128)
+                .status(Badge::new("review").warning())
+                .trend(ntext::body_small("+12 this week")),
+        ),
     ])
 }
 
@@ -149,8 +153,12 @@ fn metadata() -> Element<'static, Message> {
         example_cell(
             "Compact cards",
             row![
-                Card::new(MetricCard::new("Files", 24)).shape_md().padding(10),
-                Card::new(MetricCard::new("Errors", 0)).shape_md().padding(10),
+                Card::new(MetricCard::new("Files", 24).unit("items")),
+                Card::new(
+                    MetricCard::new("Error rate", "0.8")
+                        .unit("%")
+                        .status(Badge::new("healthy").success())
+                ),
             ]
             .spacing(8),
         ),

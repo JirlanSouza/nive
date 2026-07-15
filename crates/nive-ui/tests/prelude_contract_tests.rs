@@ -17,6 +17,25 @@ fn prelude_exposes_common_widget_contracts() {
     let _: ButtonIntent = ButtonIntent::Suggested;
     let _: ButtonVariant = ButtonVariant::Solid;
     let _: Element<'_, ()> = Card::new(text("Card")).into();
+    let _: CardVariant = CardVariant::Outlined;
+    let _: Element<'_, ()> = Card::new(text("Card")).outlined().into();
+    let _: Element<'_, ()> = ActionCard::new(text("Open")).elevated().into();
+    let _: Element<'_, ()> = SelectableCard::new(text("Object"))
+        .ghost()
+        .selection_indicator(true)
+        .into();
+    let _: theme::TypographyRole = theme::TypographyRole::BodyStrong;
+    let _: Element<'_, ()> = nive_ui::widgets::text::body_strong("Card title").into();
+    let _: Element<'_, ()> = MetricCard::new("Latency", "18.4")
+        .unit("ms")
+        .status(text("healthy"))
+        .trend(text("-2.1%"))
+        .into();
+    let _: Element<'_, ()> = ActionGroup::new()
+        .sm()
+        .wrap()
+        .action(ContentAction::label("Refresh"))
+        .into();
     let _: Element<'_, ()> = Field::new(text_input("Name", "")).label("Name").into();
     let _: Element<'_, ()> = Dialog::new(text("Dialog")).into();
     let _: Element<'_, ()> = EmptyState::new("No results").into();
@@ -61,6 +80,12 @@ fn widget_taxonomy_exposes_category_facades() {
     let _: Element<'_, ()> = controls::SelectableItem::new("Result")
         .selected(true)
         .trailing_text("12")
+        .into();
+    let _: Element<'_, ()> = controls::ActionGroup::new()
+        .action(controls::ContentAction::icon(
+            primitives::IconRole::ViewRefresh,
+            "Refresh",
+        ))
         .into();
     let _: Element<'_, ()> = overlays::Dialog::new(text("Dialog")).into();
     let _: Element<'_, ()> = primitives::Separator::horizontal().into();

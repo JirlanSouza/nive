@@ -147,6 +147,24 @@ Não há `shape_full()`/`pill()`; o spelling raro é `shape(ShapeSize::Full)`.
 `InitialAvatar::sm()`/`lg()` é a exceção documentada aos atalhos nus, porque
 tamanho é o conceito central do avatar.
 
+### Família de cards
+
+`Card`, `ActionCard` e `SelectableCard` compartilham um frame privado com
+`ShapeSize::Md` e `PaddingRole::Content`. O eixo público `CardVariant` limita a
+apresentação a `Filled` (Panel, sem borda), `Outlined` (transparente, borda de
+1 px), `Elevated` (fill e shadow Elevated) e `Ghost` (transparente). Roles
+estruturais não são um eixo livre de cards.
+
+`Card` é passivo; `ActionCard` representa uma ação imediata na superfície
+inteira; `SelectableCard` representa seleção persistente controlada pelo app.
+Os dois últimos têm alvo mínimo de 48 px e foco interno, mas não recebem
+`ControlSize` nem podem conter outro alvo interativo. Títulos recomendados
+usam `TypographyRole::BodyStrong` completo, 14 px semibold e line-height 1.5.
+
+`MetricCard` permanece display sem superfície: label secundária primeiro,
+valor primário de 20 px, unidade muted na mesma baseline e status/trend
+separados. O host `Card` é o único dono do chrome.
+
 ### Tone scale
 
 `ToneRole` usa `Accent` para a cor de marca/sistema. `Primary` fica reservado
@@ -164,7 +182,8 @@ para hierarquia de texto (`TextRole::Primary`) e para ação sugerida em botões
 Widgets que expõem `tone(ToneRole)` também expõem
 `neutral()`, `accent()`, `info()`, `success()`, `warning()` e `danger()`.
 `danger()` é linguagem de status. Ações que podem destruir dados usam
-`destructive()` em `Button`, `DropdownMenuItem` e `ToolbarAction`; esses
+`destructive()` em `Button`, `DropdownMenuItem`, `ToolbarAction` e
+`ContentAction`; esses
 widgets não expõem `danger()`. `ToolbarAction` também não tem `suggested()`
 para evitar hierarquia visual forte dentro de toolbars.
 
@@ -260,6 +279,8 @@ flowchart TB
         FieldGroup
         InputGroup
         PathInput
+        ActionGroup
+        ContentAction
     end
     subgraph display["Display"]
         Badge
@@ -351,6 +372,7 @@ Principais defaults:
 | Superfícies (`Card`, `Panel`, `ActionCard`, `SelectableCard`) | shrink both |
 | Viewports (`SplitPane`, `Tree`) | fill both |
 | Strips (`Toolbar`, `TabBar`) | shrink width; apps optam por `fill_width()` |
+| Ações de conteúdo (`ActionGroup`) | shrink width; `wrap()` é opt-in e não estica itens |
 
 ### Interaction vocabulary
 
