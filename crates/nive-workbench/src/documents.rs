@@ -31,6 +31,10 @@ pub struct WorkbenchDocument<'a, Id> {
 ///
 /// If no mapper is configured with [`DocumentArea::on_event`], the document
 /// tabs render from metadata but do not emit interactive workbench messages.
+/// Applications retain ownership of the active id, order, and metadata. The
+/// shell-sized path fills the center lane and delegates its strip surface,
+/// bounded labels, overflow/menu, roving manual-activation focus, and drag
+/// presentation to `nive_ui::widgets::TabBar` without wrapper chrome.
 pub struct DocumentArea<'a, Id, Message> {
     active: Option<Id>,
     documents: Vec<WorkbenchDocument<'a, Id>>,
@@ -234,15 +238,22 @@ where
 
     /// Renders the document tab area.
     pub fn view(self) -> Element<'a, Message> {
-        self.view_with_size(ControlSize::Sm)
+        self.view_configured(ControlSize::Sm, false)
     }
 
     pub(crate) fn view_with_size(self, size: ControlSize) -> Element<'a, Message> {
+        self.view_configured(size, true)
+    }
+
+    fn view_configured(self, size: ControlSize, fill_width: bool) -> Element<'a, Message> {
         let mut bar = TabBar::new(self.active).size(size).tabs(
             self.documents
                 .into_iter()
                 .map(WorkbenchDocument::into_tab_item),
         );
+        if fill_width {
+            bar = bar.fill_width();
+        }
 
         if let Some(mapper) = self.on_event {
             let mapper = std::rc::Rc::new(mapper);
