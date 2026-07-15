@@ -20,6 +20,13 @@ pub fn body<'a>(content: impl text::IntoFragment<'a>) -> text::Text<'a, crate::t
     with_role(content, TypographyRole::Body, TextRole::Primary)
 }
 
+/// Emphasized 14 px ordinary content, suitable for card titles.
+pub fn body_strong<'a>(
+    content: impl text::IntoFragment<'a>,
+) -> text::Text<'a, crate::theme::Theme> {
+    with_role(content, TypographyRole::BodyStrong, TextRole::Primary)
+}
+
 pub fn body_small<'a>(content: impl text::IntoFragment<'a>) -> text::Text<'a, crate::theme::Theme> {
     with_role(content, TypographyRole::BodySmall, TextRole::Secondary)
 }
@@ -119,6 +126,34 @@ mod text_wrapper_tests {
             theme_text::line_height_for_role(TypographyRole::Body)
         );
         assert_eq!(state.raw().shaping, advanced_text::Shaping::Auto);
+    }
+
+    #[test]
+    fn body_strong_applies_the_complete_semantic_text_style() {
+        let mut widget = styled_text::<RecordingRenderer>(
+            "Card title",
+            TypographyRole::BodyStrong,
+            TextRole::Primary,
+        );
+        let mut tree =
+            widget::Tree::new(&widget as &dyn Widget<(), crate::theme::Theme, RecordingRenderer>);
+        let renderer = RecordingRenderer;
+
+        let _node = <text::Text<'_, crate::theme::Theme, RecordingRenderer> as Widget<
+            (),
+            crate::theme::Theme,
+            RecordingRenderer,
+        >>::layout(&mut widget, &mut tree, &renderer, &layout::Limits::NONE);
+
+        let state = tree.state.downcast_ref::<text::State<RecordingParagraph>>();
+        let expected = crate::theme::typography(TypographyRole::BodyStrong);
+
+        assert_eq!(state.raw().font, expected.font);
+        assert_eq!(state.raw().size, Pixels(expected.size));
+        assert_eq!(
+            state.raw().line_height,
+            text::LineHeight::Relative(expected.line_height)
+        );
     }
 
     #[derive(Debug, Default)]

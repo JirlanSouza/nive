@@ -6,6 +6,8 @@ use crate::tokens::typography as token_typography;
 pub enum TypographyRole {
     /// Standard content text.
     Body,
+    /// Emphasized ordinary content, such as a card title.
+    BodyStrong,
     /// Compact content text, never below the 12 px structural floor.
     BodySmall,
     /// Ordinary control or navigation label.
@@ -45,6 +47,7 @@ pub struct TypographyScale {
     pub title: TextStyle,
     pub heading: TextStyle,
     pub body: TextStyle,
+    pub body_strong: TextStyle,
     pub body_small: TextStyle,
     pub label: TextStyle,
     pub label_strong: TextStyle,
@@ -59,6 +62,7 @@ pub fn scale() -> TypographyScale {
         title: typography(TypographyRole::Title),
         heading: typography(TypographyRole::Heading),
         body: typography(TypographyRole::Body),
+        body_strong: typography(TypographyRole::BodyStrong),
         body_small: typography(TypographyRole::BodySmall),
         label: typography(TypographyRole::Label),
         label_strong: typography(TypographyRole::LabelStrong),
@@ -73,6 +77,11 @@ pub fn typography(role: TypographyRole) -> TextStyle {
     match role {
         TypographyRole::Body => spec(
             token_typography::UI.normal(),
+            token_typography::TEXT_BASE,
+            token_typography::LEADING_NORMAL,
+        ),
+        TypographyRole::BodyStrong => spec(
+            token_typography::UI.semibold(),
             token_typography::TEXT_BASE,
             token_typography::LEADING_NORMAL,
         ),
@@ -130,6 +139,7 @@ impl TypographyScale {
             TypographyRole::Title => self.title,
             TypographyRole::Heading => self.heading,
             TypographyRole::Body => self.body,
+            TypographyRole::BodyStrong => self.body_strong,
             TypographyRole::BodySmall => self.body_small,
             TypographyRole::Label => self.label,
             TypographyRole::LabelStrong => self.label_strong,
@@ -192,6 +202,16 @@ mod typography_tests {
     }
 
     #[test]
+    fn body_strong_is_a_complete_14px_semibold_content_style() {
+        let style = typography(TypographyRole::BodyStrong);
+
+        assert_eq!(style.size, 14.0);
+        assert_eq!(style.font, token_typography::UI.semibold());
+        assert_eq!(style.line_height, token_typography::LEADING_NORMAL);
+        assert_eq!(scale().get(TypographyRole::BodyStrong), style);
+    }
+
+    #[test]
     fn title_display_and_section_label_share_the_tight_line_height_tier() {
         for role in [
             TypographyRole::Title,
@@ -216,6 +236,7 @@ mod typography_tests {
     fn content_and_code_roles_share_the_normal_line_height_tier() {
         for role in [
             TypographyRole::Body,
+            TypographyRole::BodyStrong,
             TypographyRole::BodySmall,
             TypographyRole::Caption,
             TypographyRole::Code,
@@ -235,6 +256,7 @@ mod typography_tests {
             TypographyRole::Heading,
             TypographyRole::SectionLabel,
             TypographyRole::Body,
+            TypographyRole::BodyStrong,
             TypographyRole::BodySmall,
             TypographyRole::Label,
             TypographyRole::LabelStrong,
@@ -266,6 +288,7 @@ mod typography_tests {
             TypographyRole::Title,
             TypographyRole::Heading,
             TypographyRole::Body,
+            TypographyRole::BodyStrong,
             TypographyRole::BodySmall,
             TypographyRole::Label,
             TypographyRole::LabelStrong,
@@ -275,6 +298,25 @@ mod typography_tests {
             TypographyRole::CodeSmall,
         ] {
             assert_eq!(scale.get(role).letter_spacing, 0.0);
+        }
+    }
+
+    #[test]
+    fn custom_scale_preserves_body_strong_projection() {
+        for mode in [
+            crate::theme::ThemeMode::Light,
+            crate::theme::ThemeMode::Dark,
+        ] {
+            let mut custom = scale();
+            custom.body_strong.size = 15.0;
+            let theme = crate::theme::ThemeBuilder::new("Custom body strong", mode)
+                .typography(custom)
+                .build();
+
+            assert_eq!(
+                theme.typography(TypographyRole::BodyStrong),
+                custom.body_strong
+            );
         }
     }
 }
