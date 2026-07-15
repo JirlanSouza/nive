@@ -18,6 +18,12 @@ Its shell receives typed `Toolbar` and `StatusBar` values. The shell retains
 them until rendering so its selected chrome size takes precedence over any
 toolbar size chosen by the caller.
 
+The reference composition uses `DocumentHeader` for principal service and
+dashboard titles, `SectionHeader` for compact sections, explicit StatusBar
+lanes, transparent toolbar groups, Panel-owned internal seams with body-owned
+inset, 12/6 overlay scrollbars, dedicated bottom controls, and public
+`WorkbenchPaneConstraints`.
+
 ## Visual foundations review
 
 The monitor receives Inter Regular/SemiBold and Geist Mono Regular/Medium from
@@ -30,6 +36,11 @@ headers, adjacent shell surfaces remain distinct without full outlines,
 selection persists through hover/press, and keyboard focus remains visible
 independently of selection. Icons inherit their host color and control-owned
 icons follow the active `ControlSize` metrics.
+
+Review wide, narrow, and low viewports in both themes. Exercise toolbar and tab
+overflow, long title tooltips, scrollbar hover/drag, SplitPane hover/drag/focus,
+collapsed side and bottom regions, and maximized panels. Fixed chrome extents,
+protected trailing controls, and all region bounds should remain contained.
 
 Run it:
 

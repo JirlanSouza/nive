@@ -39,6 +39,30 @@ The individual `theme::*` and `widgets::*` submodules remain public for advanced
 composition and tests, but apps should prefer the root/prelude/widget reexports
 unless a lower-level style function or widget state helper is needed.
 
+## Structural widget contracts
+
+- `SectionHeader` is a transparent 12 px semibold section heading. Its
+  single-line title fills and clips before protected status/actions; use
+  `title_tooltip` to expose the full title. Principal workbench document titles
+  belong to `nive-workbench::DocumentHeader`.
+- `Toolbar` owns its surface, inset, bottom seam, and horizontal overflow.
+  `ToolbarGroup` and toolbar-style `ActionGroup` are transparent spacing groups;
+  use `Toolbar::separator()` only when spacing is not a sufficient boundary.
+- `Panel` is square and borderless by default. Header and body are adjacent,
+  the header/body seam is overlaid by `Panel`, and `body_padding` affects only
+  body content. Rounded, bordered, or elevated standalone treatment is opt-in.
+- `overlay_scrollbar()` supplies native floating 12 px lanes with a fixed 6 px
+  thumb and no reserved content width. Rails are transparent; hover strengthens
+  neutral color and drag uses accent. Iced does not expose state-dependent
+  native thumb width, so all states remain 6 px.
+- `Separator` accepts only `Subtle` or `Section` strength and full or logical
+  inset extent. Until direction plumbing lands, leading/trailing map to
+  left/right for horizontal rules and top/bottom for vertical rules.
+- `SplitPane` keeps a one-pixel seam and a `ControlSize`-derived hit target.
+  Hover/focus/drag presentation is geometry-neutral; locked and callback-free
+  panes are fully inert. Invalid minima normalize to zero and impossible minima
+  use deterministic proportional allocation.
+
 ## Usage (monorepo path dependency)
 
 ```toml

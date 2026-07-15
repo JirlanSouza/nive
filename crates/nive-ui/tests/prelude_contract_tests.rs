@@ -21,6 +21,16 @@ fn prelude_exposes_common_widget_contracts() {
     let _: Element<'_, ()> = Dialog::new(text("Dialog")).into();
     let _: Element<'_, ()> = EmptyState::new("No results").into();
     let _: Element<'_, ()> = Separator::horizontal().into();
+    let _: Element<'_, ()> = Separator::horizontal()
+        .strength(SeparatorStrength::Section)
+        .extent(SeparatorExtent::Inset {
+            leading: 12.0,
+            trailing: 4.0,
+        })
+        .into();
+    let _: Element<'_, ()> = SectionHeader::new("A long section")
+        .title_tooltip("A long section")
+        .into();
     let _: Element<'_, ()> = ToneDot::new(theme::roles::ToneRole::Success).sm().into();
 }
 
