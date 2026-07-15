@@ -60,7 +60,7 @@
 //!
 //! [`DragSession`]: crate::interaction::dnd
 
-use std::borrow::Cow;
+use std::{borrow::Cow, time::Duration};
 
 use iced::{
     advanced::{
@@ -70,10 +70,11 @@ use iced::{
         Clipboard, Renderer as _, Shell, Widget,
     },
     keyboard,
-    widget::{container, row, text, Row, Space},
-    Alignment, Event, Length, Padding, Point, Rectangle, Shadow, Size, Vector,
+    widget::{container, stack, text, Row, Space},
+    window, Alignment, Event, Length, Padding, Point, Rectangle, Shadow, Size, Vector,
 };
 
+use crate::advanced::pressable::{draw_focus_ring_with_placement, FocusRingPlacement};
 use crate::interaction::dnd::{DragSession, DragSessionFeedback, DragSessionOutcome};
 use crate::interaction::{
     CollectionTransferPayload, ContextInvocation, ContextPosition, ContextRequest, ContextTarget,
@@ -83,13 +84,13 @@ use crate::interaction::{
 use crate::theme::{ControlSize, SurfaceRole};
 use crate::Element;
 
-use self::style::{self as theme_tabs, TabPart};
+use self::style as theme_tabs;
 use super::overflow::{wheel_delta, Overflow, OverflowAxis, OverflowDirection};
 
 mod style;
 #[cfg(test)]
 mod widget_tests;
-use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec};
+use crate::widgets::controls::button::{self, ButtonFocusRing, GroupedItemKind, GroupedItemSpec};
 use crate::widgets::navigation::dropdown_menu::{DropdownMenu, DropdownMenuItem};
 use crate::widgets::overlays::popover::{
     PopoverCollision, PopoverOverlay, PopoverPlacement, PopoverWidth,
@@ -114,6 +115,7 @@ pub struct TabBar<'a, Id, Message> {
     tabs: Vec<TabItem<'a, Id>>,
     size: ControlSize,
     role: SurfaceRole,
+    active_role: SurfaceRole,
     width: Option<Length>,
     on_select: Option<SelectCallback<'a, Id, Message>>,
     on_close_request: Option<CloseCallback<'a, Id, Message>>,
@@ -201,6 +203,16 @@ struct TabBarState<Id: Clone + Eq + 'static> {
     dragged_id: Option<Id>,
     insertion_target: Option<TabDropTarget<Id>>,
     tab_bounds: Vec<(Id, Rectangle, bool)>,
+    close_bounds: Vec<(Id, Rectangle)>,
+    hovered_id: Option<Id>,
+    focused_id: Option<Id>,
+    previous_focus_order: Vec<Id>,
+    focused: bool,
+    pressed_id: Option<Id>,
+    invalid_target: bool,
+    edge_scroll: Option<OverflowDirection>,
+    last_redraw: Option<iced::time::Instant>,
+    strip_bounds: Option<Rectangle>,
     left_chevron: Option<Rectangle>,
     right_chevron: Option<Rectangle>,
     all_tabs_button: Option<Rectangle>,
@@ -212,10 +224,19 @@ struct TabBarState<Id: Clone + Eq + 'static> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TabRegion {
     Tab(usize),
+    Close(usize),
     ChevronLeft,
     ChevronRight,
     AllTabsButton,
     Empty,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FocusMovement {
+    Previous,
+    Next,
+    First,
+    Last,
 }
 
 #[derive(Debug, Clone)]
@@ -232,6 +253,17 @@ struct DisplayTab<Id> {
     original_index: usize,
     id: Id,
     pinned: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AllTabsMenuEntry<'a, Id> {
+    id: Id,
+    label: Cow<'a, str>,
+    icon: Option<IconRole>,
+    active: bool,
+    dirty: bool,
+    pinned: bool,
+    disabled: bool,
 }
 
 /// Internal messages produced by the all-tabs dropdown overlay.
@@ -253,6 +285,7 @@ where
             tabs: Vec::new(),
             size: ControlSize::Sm,
             role: SurfaceRole::Chrome,
+            active_role: SurfaceRole::Canvas,
             width: None,
             on_select: None,
             on_close_request: None,
@@ -389,6 +422,15 @@ where
         self
     }
 
+    /// Sets the adjacent-content surface painted inside the active tab.
+    ///
+    /// The default is [`SurfaceRole::Canvas`]. The paint remains contained by
+    /// the tab and does not create another host surface or structural seam.
+    pub fn active_role(mut self, role: SurfaceRole) -> Self {
+        self.active_role = role;
+        self
+    }
+
     crate::impl_layout_builders!(width_opt, fill_width_opt, shrink_width_opt);
 
     fn displayed_tabs<'b>(&'b self) -> Vec<DisplayedTab<'b, 'a, Id>> {
@@ -424,13 +466,23 @@ where
             metrics,
             IconRole::NiveDisclosureLeft,
             state.overflow.show_start_chevron(),
+            state.has_overflow,
+            "Scroll tabs toward start",
         );
         let right_chevron = self.chevron_button(
             metrics,
             IconRole::NiveDisclosureRight,
             state.overflow.show_end_chevron(),
+            state.has_overflow,
+            "Scroll tabs toward end",
         );
-        let all_tabs_button = self.chevron_button(metrics, IconRole::ViewMore, state.has_overflow);
+        let all_tabs_button = self.chevron_button(
+            metrics,
+            IconRole::ViewMore,
+            state.has_overflow,
+            state.has_overflow,
+            "Show all tabs",
+        );
 
         let mut tabs_row = Row::new()
             .spacing(metrics.tab_gap)
@@ -438,7 +490,7 @@ where
             .width(Length::Shrink)
             .height(Length::Fixed(metrics.tab_height));
         for displayed in visible {
-            tabs_row = tabs_row.push(self.tab_element(displayed, metrics, close_enabled));
+            tabs_row = tabs_row.push(self.tab_element(displayed, metrics, close_enabled, state));
         }
 
         // Wrap the tab strip in a horizontal clip so the scroll offset exposes
@@ -477,23 +529,32 @@ where
         &self,
         metrics: theme_tabs::TabBarMetrics,
         role: IconRole,
-        visible: bool,
+        actionable: bool,
+        reserve: bool,
+        tooltip: &'static str,
     ) -> Element<'_, Message> {
-        button::icon(role)
-            .width(Length::Fixed(if visible {
-                metrics.close_side
-            } else {
-                HIDDEN_AFFORDANCE_WIDTH
-            }))
-            .into_grouped_item(GroupedItemSpec {
-                size: metrics.size,
-                radius: theme_tabs::part_radius(TabPart::Full, metrics.radius),
-                height: metrics.tab_height,
-                padding_h: 0.0,
-                selected: false,
-                destructive: false,
-                kind: GroupedItemKind::Embedded,
-            })
+        button::Button::custom(
+            icon_widget::role(role)
+                .custom_size(metrics.icon_size)
+                .color_maybe((!actionable).then_some(iced::Color::TRANSPARENT))
+                .into(),
+        )
+        .disabled(!actionable)
+        .tooltip(tooltip)
+        .width(Length::Fixed(if reserve {
+            metrics.close_side
+        } else {
+            HIDDEN_AFFORDANCE_WIDTH
+        }))
+        .into_grouped_item(GroupedItemSpec {
+            size: metrics.size,
+            radius: metrics.radius.into(),
+            height: metrics.tab_height,
+            padding_h: 0.0,
+            selected: false,
+            destructive: false,
+            kind: GroupedItemKind::Embedded,
+        })
     }
 
     fn tab_element<'b>(
@@ -501,62 +562,71 @@ where
         displayed: DisplayedTab<'b, 'a, Id>,
         metrics: theme_tabs::TabBarMetrics,
         close_enabled: bool,
+        state: &TabBarState<Id>,
     ) -> Element<'b, Message> {
         let tab = displayed.item;
         let selected = self.active.as_ref().is_some_and(|active| active == &tab.id);
         let has_close = tab.closable && close_enabled;
-        let main_part = if has_close {
-            TabPart::Leading
+        let show_close = has_close
+            && (selected
+                || state.hovered_id.as_ref().is_some_and(|id| id == &tab.id)
+                || state.focused_id.as_ref().is_some_and(|id| id == &tab.id));
+        let mut content = self.main_content(tab, metrics);
+        let status_side = if has_close {
+            metrics.close_side
         } else {
-            TabPart::Full
-        };
-        let main = self.main_button(tab, metrics, main_part, selected);
-        let content: Element<'_, Message> = if has_close {
-            let close = button::icon(IconRole::WindowClose)
-                .disabled(tab.disabled)
-                .on_press_maybe(self.on_close_request.as_ref().map(|on_close| {
-                    on_close(TabCloseRequest {
-                        id: tab.id.clone(),
-                        trigger: TabCloseTrigger::CloseButton,
-                    })
-                }))
-                .into_grouped_item(GroupedItemSpec {
-                    size: metrics.size,
-                    radius: theme_tabs::part_radius(TabPart::Trailing, metrics.radius),
-                    height: metrics.tab_height,
-                    padding_h: 0.0,
-                    selected,
-                    destructive: false,
-                    kind: GroupedItemKind::Selectable,
-                });
-            row![main, close]
-                .spacing(0)
-                .align_y(Alignment::Center)
-                .into()
-        } else {
-            main
+            metrics.status_side
         };
 
-        match tab.tooltip.as_deref() {
-            Some(label) => tooltip_widget::bottom(content, label),
-            None => content,
-        }
+        let close = container(
+            icon_widget::role(IconRole::WindowClose)
+                .custom_size(metrics.close_icon_size)
+                .color_maybe((!show_close).then_some(iced::Color::TRANSPARENT)),
+        )
+        .center_x(Length::Fill)
+        .center_y(Length::Fill);
+        let dirty = container(Space::new())
+            .style(theme_tabs::status_indicator_style(
+                metrics.dirty_size,
+                tab.dirty && !show_close,
+            ))
+            .width(Length::Fixed(metrics.dirty_size))
+            .height(Length::Fixed(metrics.dirty_size))
+            .center_x(Length::Fill)
+            .center_y(Length::Fill);
+        let status: Element<'_, Message> = container(stack![dirty, close])
+            .width(Length::Fixed(status_side))
+            .height(Length::Fixed(metrics.tab_height))
+            .into();
+        content = content.push(status);
+
+        let content: Element<'_, Message> = container(content)
+            .style(theme_tabs::tab_content_style(selected, tab.disabled))
+            .padding(Padding::ZERO.horizontal(metrics.padding_h))
+            .height(Length::Fixed(metrics.tab_height))
+            .clip(true)
+            .into();
+
+        tooltip_widget::bottom(
+            content,
+            tab.tooltip.as_deref().unwrap_or(tab.label.as_ref()),
+        )
     }
 
-    fn main_button<'b>(
+    fn main_content<'b>(
         &'b self,
         tab: &'b TabItem<'a, Id>,
         metrics: theme_tabs::TabBarMetrics,
-        part: TabPart,
-        selected: bool,
-    ) -> Element<'b, Message> {
+    ) -> Row<'b, Message, crate::theme::Theme, iced::Renderer> {
         let label = text(tab.label.as_ref())
             .size(metrics.font_size)
-            .shaping(text::Shaping::Auto);
+            .shaping(text::Shaping::Auto)
+            .wrapping(text::Wrapping::None);
         let mut content = Row::new()
             .spacing(metrics.gap)
             .align_y(Alignment::Center)
-            .height(Length::Shrink);
+            .height(Length::Fill)
+            .width(Length::Shrink);
 
         if let Some(icon) = tab.icon {
             content = content.push(icon_widget::role(icon).custom_size(metrics.icon_size));
@@ -568,48 +638,23 @@ where
         }
 
         content = content.push(label);
-
-        if tab.dirty {
-            let dot = container(Space::new().width(Length::Fixed(metrics.dirty_size)))
-                .style(theme_tabs::dirty_indicator_style(metrics.dirty_size))
-                .width(Length::Fixed(metrics.dirty_size))
-                .height(Length::Fixed(metrics.dirty_size));
-
-            content = content.push(dot);
-        }
-
-        let activation = if tab.disabled {
-            None
-        } else {
-            self.on_select
-                .as_ref()
-                .map(|on_select| on_select(tab.id.clone()))
-        };
-        button::Button::custom(content.into())
-            .width(Length::Shrink)
-            .on_press_maybe(activation)
-            .disabled(tab.disabled)
-            .into_grouped_item(GroupedItemSpec {
-                size: metrics.size,
-                radius: theme_tabs::part_radius(part, metrics.radius),
-                height: metrics.tab_height,
-                padding_h: metrics.padding_h,
-                selected,
-                destructive: false,
-                kind: GroupedItemKind::Selectable,
-            })
+        content
     }
 
-    fn menu_entries(&self) -> Vec<(Id, Cow<'a, str>, bool)> {
-        self.tabs
-            .iter()
-            .filter(|tab| !tab.disabled)
-            .map(|tab| {
-                (
-                    tab.id.clone(),
-                    tab.label.clone(),
-                    self.active.as_ref().is_some_and(|active| active == &tab.id),
-                )
+    fn menu_entries(&self) -> Vec<AllTabsMenuEntry<'a, Id>> {
+        self.displayed_tabs()
+            .into_iter()
+            .map(|displayed| {
+                let tab = displayed.item;
+                AllTabsMenuEntry {
+                    id: tab.id.clone(),
+                    label: tab.label.clone(),
+                    icon: tab.icon,
+                    active: self.active.as_ref().is_some_and(|active| active == &tab.id),
+                    dirty: tab.dirty,
+                    pinned: tab.pinned,
+                    disabled: tab.disabled,
+                }
             })
             .collect()
     }
@@ -617,10 +662,17 @@ where
     /// Returns the dropdown overlay content tree for the all-tabs menu.
     fn build_menu(&self) -> Element<'a, MenuMessage<Id>> {
         let mut menu = DropdownMenu::<'a, MenuMessage<Id>>::new();
-        for (id, label, selected) in self.menu_entries() {
-            let item = DropdownMenuItem::new(label)
-                .selected(selected)
-                .on_press(MenuMessage::Select(id));
+        for entry in self.menu_entries() {
+            let mut item = DropdownMenuItem::new(entry.label)
+                .selected(entry.active)
+                .disabled(entry.disabled)
+                .on_press_maybe((!entry.disabled).then(|| MenuMessage::Select(entry.id)));
+            if let Some(icon) = entry.icon.or(entry.pinned.then_some(IconRole::TabPinned)) {
+                item = item.icon(icon);
+            }
+            if entry.dirty {
+                item = item.trailing("●");
+            }
             menu = menu.push(item);
         }
         menu.into()
@@ -665,6 +717,82 @@ where
             id: tab.id.clone(),
             trigger: TabCloseTrigger::MiddleClick,
         })
+    }
+
+    fn close_button_request(&self, close_index: usize) -> Option<TabCloseRequest<Id>> {
+        let tab = self
+            .displayed_tabs()
+            .into_iter()
+            .filter(|displayed| {
+                displayed.item.closable
+                    && !displayed.item.disabled
+                    && self.on_close_request.is_some()
+            })
+            .nth(close_index)?
+            .item;
+
+        Some(TabCloseRequest {
+            id: tab.id.clone(),
+            trigger: TabCloseTrigger::CloseButton,
+        })
+    }
+
+    fn enabled_focus_order(&self) -> Vec<Id> {
+        self.displayed_tabs()
+            .into_iter()
+            .filter(|displayed| !displayed.item.disabled)
+            .map(|displayed| displayed.item.id.clone())
+            .collect()
+    }
+
+    fn reconcile_focus(&self, state: &mut TabBarState<Id>) {
+        let enabled = self.enabled_focus_order();
+        let focused_is_valid = state
+            .focused_id
+            .as_ref()
+            .is_some_and(|focused| enabled.contains(focused));
+
+        if !focused_is_valid {
+            state.focused_id = self
+                .active
+                .as_ref()
+                .filter(|active| enabled.contains(active))
+                .cloned()
+                .or_else(|| {
+                    state.focused_id.as_ref().and_then(|removed| {
+                        let old_index = state
+                            .previous_focus_order
+                            .iter()
+                            .position(|id| id == removed)?;
+                        enabled
+                            .get(old_index.min(enabled.len().saturating_sub(1)))
+                            .cloned()
+                    })
+                })
+                .or_else(|| enabled.first().cloned());
+        }
+
+        state.previous_focus_order = enabled;
+    }
+
+    fn move_focus(&self, state: &mut TabBarState<Id>, movement: FocusMovement) {
+        let enabled = self.enabled_focus_order();
+        if enabled.is_empty() {
+            state.focused_id = None;
+            return;
+        }
+        let current = state
+            .focused_id
+            .as_ref()
+            .and_then(|focused| enabled.iter().position(|id| id == focused))
+            .unwrap_or(0);
+        let target = match movement {
+            FocusMovement::Previous => current.saturating_sub(1),
+            FocusMovement::Next => (current + 1).min(enabled.len() - 1),
+            FocusMovement::First => 0,
+            FocusMovement::Last => enabled.len() - 1,
+        };
+        state.focused_id = Some(enabled[target].clone());
     }
 
     /// Probe a per-segment reorder decision for the dragged tab id at `pointer`.
@@ -732,6 +860,7 @@ where
 
 fn snapshot_tab_region<Id>(
     tab_bounds: &[(Id, Rectangle, bool)],
+    close_bounds: &[(Id, Rectangle)],
     left_chevron: Option<Rectangle>,
     right_chevron: Option<Rectangle>,
     all_tabs_button: Option<Rectangle>,
@@ -752,6 +881,11 @@ fn snapshot_tab_region<Id>(
             return TabRegion::AllTabsButton;
         }
     }
+    for (index, (_, bounds)) in close_bounds.iter().enumerate() {
+        if bounds.contains(position) {
+            return TabRegion::Close(index);
+        }
+    }
     for (index, (_, bounds, _)) in tab_bounds.iter().enumerate() {
         if bounds.contains(position) {
             return TabRegion::Tab(index);
@@ -763,18 +897,22 @@ fn snapshot_tab_region<Id>(
 #[derive(Debug, Clone)]
 struct HitGeometry<Id> {
     tab_bounds: Vec<(Id, Rectangle, bool)>,
+    close_bounds: Vec<(Id, Rectangle)>,
     left_chevron: Option<Rectangle>,
     right_chevron: Option<Rectangle>,
     all_tabs_button: Option<Rectangle>,
+    strip_bounds: Option<Rectangle>,
 }
 
 impl<Id> Default for HitGeometry<Id> {
     fn default() -> Self {
         Self {
             tab_bounds: Vec::new(),
+            close_bounds: Vec::new(),
             left_chevron: None,
             right_chevron: None,
             all_tabs_button: None,
+            strip_bounds: None,
         }
     }
 }
@@ -782,6 +920,8 @@ impl<Id> Default for HitGeometry<Id> {
 fn hit_geometry<Id: Clone + Eq>(
     layout: Layout<'_>,
     displayed: &[DisplayedTab<'_, '_, Id>],
+    close_enabled: bool,
+    close_side: f32,
 ) -> HitGeometry<Id> {
     let Some(bar_row) = layout.children().next() else {
         return HitGeometry::default();
@@ -793,7 +933,7 @@ fn hit_geometry<Id: Clone + Eq>(
     let right_chevron = bar_children.next();
     let all_tabs_button = bar_children.next();
 
-    let tab_bounds = strip
+    let tab_bounds: Vec<(Id, Rectangle, bool)> = strip
         .and_then(|strip| strip.children().next())
         .map(|tabs_row| {
             tabs_row
@@ -810,12 +950,32 @@ fn hit_geometry<Id: Clone + Eq>(
                 .collect()
         })
         .unwrap_or_default();
+    let close_bounds = tab_bounds
+        .iter()
+        .filter_map(|(id, bounds, _)| {
+            let item = displayed
+                .iter()
+                .find(|displayed| displayed.item.id == *id)?
+                .item;
+            (close_enabled && item.closable && !item.disabled).then_some((
+                id.clone(),
+                Rectangle {
+                    x: bounds.x + bounds.width - close_side,
+                    y: bounds.y,
+                    width: close_side,
+                    height: bounds.height,
+                },
+            ))
+        })
+        .collect();
 
     HitGeometry {
         tab_bounds,
+        close_bounds,
         left_chevron: visible_slot_bounds(left_chevron),
         right_chevron: visible_slot_bounds(right_chevron),
         all_tabs_button: visible_slot_bounds(all_tabs_button),
+        strip_bounds: strip.map(|layout| layout.bounds()),
     }
 }
 
@@ -823,6 +983,33 @@ fn visible_slot_bounds(layout: Option<Layout<'_>>) -> Option<Rectangle> {
     layout
         .map(|layout| layout.bounds())
         .filter(|bounds| bounds.width > 0.5)
+}
+
+fn edge_scroll_direction(
+    pointer: Point,
+    strip: Rectangle,
+    zone: f32,
+    offset: f32,
+    max_offset: f32,
+) -> Option<OverflowDirection> {
+    if !strip.contains(pointer) {
+        return None;
+    }
+    if pointer.x <= strip.x + zone && offset > 0.0 {
+        Some(OverflowDirection::Backward)
+    } else if pointer.x >= strip.x + strip.width - zone && offset < max_offset {
+        Some(OverflowDirection::Forward)
+    } else {
+        None
+    }
+}
+
+fn autoscroll_step(direction: OverflowDirection, elapsed: Duration) -> f32 {
+    let distance = 360.0 * elapsed.min(Duration::from_millis(50)).as_secs_f32();
+    match direction {
+        OverflowDirection::Backward => -distance,
+        OverflowDirection::Forward => distance,
+    }
 }
 
 impl<'a, Id, Message> Default for TabBar<'a, Id, Message>
@@ -848,6 +1035,16 @@ impl<Id: Clone + Eq + 'static> Default for TabBarState<Id> {
             dragged_id: None,
             insertion_target: None,
             tab_bounds: Vec::new(),
+            close_bounds: Vec::new(),
+            hovered_id: None,
+            focused_id: None,
+            previous_focus_order: Vec::new(),
+            focused: false,
+            pressed_id: None,
+            invalid_target: false,
+            edge_scroll: None,
+            last_redraw: None,
+            strip_bounds: None,
             left_chevron: None,
             right_chevron: None,
             all_tabs_button: None,
@@ -855,6 +1052,21 @@ impl<Id: Clone + Eq + 'static> Default for TabBarState<Id> {
             gestures: PointerGestureState::default(),
             drag_session: DragSession::default(),
         }
+    }
+}
+
+impl<Id: Clone + Eq + 'static> operation::Focusable for TabBarState<Id> {
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
+
+    fn focus(&mut self) {
+        self.focused = true;
+    }
+
+    fn unfocus(&mut self) {
+        self.focused = false;
+        self.pressed_id = None;
     }
 }
 
@@ -978,9 +1190,15 @@ where
         // are: [left_chevron_slot, strip_container, right_chevron_slot,
         // all_tabs_button_slot].
         let metrics = theme_tabs::metrics(self.size);
-        let min_tab_width = (metrics.tab_height * 3.0).max(72.0);
+        let min_tab_width = metrics.min_tab_width;
         let (content_width, strip_width, translated_node, viewport_tab_bounds) =
-            measure_and_translate(node, state.scroll_offset, min_tab_width, metrics.tab_gap);
+            measure_and_translate(
+                node,
+                state.scroll_offset,
+                min_tab_width,
+                metrics.max_tab_width,
+                metrics.tab_gap,
+            );
 
         let state = tree.state.downcast_mut::<TabBarState<Id>>();
 
@@ -1013,6 +1231,7 @@ where
         }
         state.overflow.clamp_offset();
         state.scroll_offset = state.overflow.offset;
+        self.reconcile_focus(state);
 
         translated_node
     }
@@ -1024,6 +1243,8 @@ where
         renderer: &iced::Renderer,
         operation: &mut dyn operation::Operation,
     ) {
+        let state = tree.state.downcast_mut::<TabBarState<Id>>();
+        operation.focusable(None, layout.bounds(), state);
         let state = tree.state.downcast_ref::<TabBarState<Id>>();
         let mut content = self.content_element(state);
         content
@@ -1064,12 +1285,104 @@ where
         }
 
         let displayed = self.displayed_tabs();
-        let hit_geometry = hit_geometry(layout, &displayed);
+        let metrics = theme_tabs::metrics(self.size);
+        let hit_geometry = hit_geometry(
+            layout,
+            &displayed,
+            self.on_close_request.is_some(),
+            metrics.close_side,
+        );
         let state = tree.state.downcast_mut::<TabBarState<Id>>();
         state.tab_bounds = hit_geometry.tab_bounds;
+        state.close_bounds = hit_geometry.close_bounds;
         state.left_chevron = hit_geometry.left_chevron;
         state.right_chevron = hit_geometry.right_chevron;
         state.all_tabs_button = hit_geometry.all_tabs_button;
+        state.strip_bounds = hit_geometry.strip_bounds;
+        state.hovered_id = cursor.position().and_then(|position| {
+            state
+                .tab_bounds
+                .iter()
+                .find(|(_, bounds, _)| bounds.contains(position))
+                .map(|(id, _, _)| id.clone())
+        });
+        self.reconcile_focus(state);
+
+        if let Event::Window(window::Event::RedrawRequested(now)) = event {
+            if state.dragged_id.is_some() {
+                if let Some(direction) = state.edge_scroll {
+                    let elapsed = state
+                        .last_redraw
+                        .map_or(Duration::ZERO, |last| now.saturating_duration_since(last));
+                    state.last_redraw = Some(*now);
+                    state.overflow.offset = state.scroll_offset;
+                    let step = autoscroll_step(direction, elapsed);
+                    state.overflow.offset =
+                        (state.overflow.offset + step).clamp(0.0, state.max_scroll);
+                    state.scroll_offset = state.overflow.offset;
+                    shell.invalidate_layout();
+                    shell.request_redraw();
+                    return;
+                }
+            }
+        }
+
+        if matches!(event, Event::Window(window::Event::Unfocused)) && state.dragged_id.is_some() {
+            state.dragged_id = None;
+            state.insertion_target = None;
+            state.invalid_target = false;
+            state.edge_scroll = None;
+            state.last_redraw = None;
+            state.drag_session.cancel();
+            shell.request_redraw();
+            return;
+        }
+
+        match event {
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
+                state.pressed_id = state.hovered_id.clone();
+            }
+            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
+            | Event::Mouse(mouse::Event::CursorLeft) => state.pressed_id = None,
+            _ => {}
+        }
+
+        if state.focused {
+            if let Event::Keyboard(keyboard::Event::KeyPressed {
+                key: keyboard::Key::Named(named),
+                repeat: false,
+                ..
+            }) = event
+            {
+                let movement = match named {
+                    keyboard::key::Named::ArrowLeft => Some(FocusMovement::Previous),
+                    keyboard::key::Named::ArrowRight => Some(FocusMovement::Next),
+                    keyboard::key::Named::Home => Some(FocusMovement::First),
+                    keyboard::key::Named::End => Some(FocusMovement::Last),
+                    _ => None,
+                };
+
+                if let Some(movement) = movement {
+                    self.move_focus(state, movement);
+                    shell.invalidate_layout();
+                    shell.request_redraw();
+                    shell.capture_event();
+                    return;
+                }
+
+                if matches!(
+                    named,
+                    keyboard::key::Named::Enter | keyboard::key::Named::Space
+                ) {
+                    if let (Some(on_select), Some(focused)) = (&self.on_select, &state.focused_id) {
+                        shell.publish(on_select(focused.clone()));
+                        shell.capture_event();
+                        shell.request_redraw();
+                    }
+                    return;
+                }
+            }
+        }
 
         if let Event::Mouse(iced::mouse::Event::WheelScrolled { delta }) = event {
             if !state.has_overflow {
@@ -1085,6 +1398,25 @@ where
                 shell.capture_event();
             }
             return;
+        }
+
+        if let Event::Keyboard(keyboard::Event::KeyPressed {
+            key: keyboard::Key::Named(keyboard::key::Named::Escape),
+            ..
+        }) = event
+        {
+            if state.dragged_id.is_some() {
+                state.dragged_id = None;
+                state.insertion_target = None;
+                state.pressed_id = None;
+                state.invalid_target = false;
+                state.edge_scroll = None;
+                state.last_redraw = None;
+                state.drag_session.cancel();
+                shell.request_redraw();
+                shell.capture_event();
+                return;
+            }
         }
 
         // Esc closes the open all-tabs menu.
@@ -1106,6 +1438,7 @@ where
         // borrow `state` (which `handle_event` mutably borrows through the
         // gesture state).
         let tab_bounds = state.tab_bounds.clone();
+        let close_bounds = state.close_bounds.clone();
         let left_chevron = state.left_chevron;
         let right_chevron = state.right_chevron;
         let all_tabs_button = state.all_tabs_button;
@@ -1115,6 +1448,7 @@ where
                 if bounds_for_gestures.contains(point) {
                     Some(snapshot_tab_region(
                         &tab_bounds,
+                        &close_bounds,
                         left_chevron,
                         right_chevron,
                         all_tabs_button,
@@ -1143,6 +1477,38 @@ where
                         if let Some(request) = self.close_request(region) {
                             shell.publish(on_close(request));
                             shell.capture_event();
+                        }
+                    }
+                }
+                (
+                    PointerButton::Primary,
+                    PointerGestureKind::Clicked { .. },
+                    TabRegion::Close(close_index),
+                ) => {
+                    if let (Some(on_close), Some(request)) = (
+                        &self.on_close_request,
+                        self.close_button_request(close_index),
+                    ) {
+                        shell.publish(on_close(request));
+                        shell.capture_event();
+                    }
+                }
+                (
+                    PointerButton::Primary,
+                    PointerGestureKind::Clicked { .. },
+                    TabRegion::Tab(display_index),
+                ) => {
+                    if let Some(tab) = self
+                        .displayed_tabs()
+                        .get(display_index)
+                        .map(|item| item.item)
+                    {
+                        if !tab.disabled {
+                            state.focused_id = Some(tab.id.clone());
+                            if let Some(on_select) = &self.on_select {
+                                shell.publish(on_select(tab.id.clone()));
+                                shell.capture_event();
+                            }
                         }
                     }
                 }
@@ -1192,6 +1558,9 @@ where
                     let Some(displayed) = displayed_tabs.get(display_index) else {
                         continue;
                     };
+                    if displayed.item.disabled {
+                        continue;
+                    }
                     let dragged_id = displayed.item.id.clone();
                     state.dragged_id = Some(dragged_id.clone());
 
@@ -1241,12 +1610,25 @@ where
                     );
 
                     if let DragSessionOutcome::Feedback(feedback) = outcome {
-                        state.insertion_target =
-                            if matches!(feedback, DragSessionFeedback::Accepted(_)) {
-                                probed_target
-                            } else {
-                                None
-                            };
+                        let accepted = matches!(feedback, DragSessionFeedback::Accepted(_));
+                        state.insertion_target = accepted.then_some(probed_target).flatten();
+                        state.invalid_target = !accepted;
+                        let direction = state.strip_bounds.and_then(|strip| {
+                            edge_scroll_direction(
+                                gesture.position,
+                                strip,
+                                theme_tabs::metrics(self.size).height,
+                                state.scroll_offset,
+                                state.max_scroll,
+                            )
+                        });
+                        if direction != state.edge_scroll {
+                            state.last_redraw = None;
+                        }
+                        state.edge_scroll = direction;
+                        if direction.is_some() {
+                            shell.request_redraw();
+                        }
                         shell.request_redraw();
                     }
                 }
@@ -1273,6 +1655,9 @@ where
                         }
                         state.dragged_id = None;
                         state.insertion_target = None;
+                        state.invalid_target = false;
+                        state.edge_scroll = None;
+                        state.last_redraw = None;
                         state.drag_session.cancel();
                         continue;
                     }
@@ -1280,6 +1665,9 @@ where
                     if !strip_outer.contains(gesture.position) {
                         state.dragged_id = None;
                         state.insertion_target = None;
+                        state.invalid_target = false;
+                        state.edge_scroll = None;
+                        state.last_redraw = None;
                         state.drag_session.cancel();
                         continue;
                     }
@@ -1288,6 +1676,9 @@ where
                     if !self.tabs.iter().any(|tab| tab.id == dragged_id) {
                         state.dragged_id = None;
                         state.insertion_target = None;
+                        state.invalid_target = false;
+                        state.edge_scroll = None;
+                        state.last_redraw = None;
                         state.drag_session.cancel();
                         continue;
                     }
@@ -1317,10 +1708,16 @@ where
                     }
                     state.dragged_id = None;
                     state.insertion_target = None;
+                    state.invalid_target = false;
+                    state.edge_scroll = None;
+                    state.last_redraw = None;
                 }
                 (PointerButton::Primary, PointerGestureKind::DragCancelled, _) => {
                     state.dragged_id = None;
                     state.insertion_target = None;
+                    state.invalid_target = false;
+                    state.edge_scroll = None;
+                    state.last_redraw = None;
                     state.drag_session.cancel();
                 }
                 _ => {}
@@ -1347,7 +1744,7 @@ where
         );
 
         if state.dragged_id.is_some() {
-            return mouse::Interaction::Grabbing;
+            return state.drag_session.mouse_interaction();
         }
 
         if interaction != mouse::Interaction::None {
@@ -1368,6 +1765,64 @@ where
         viewport: &Rectangle,
     ) {
         let state = tree.state.downcast_ref::<TabBarState<Id>>();
+        let bounds = layout.bounds();
+        let metrics = theme_tabs::metrics(self.size);
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds,
+                border: iced::Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            theme_tabs::strip_background(theme, self.role),
+        );
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: bounds.x,
+                    y: bounds.y + bounds.height - metrics.seam_width,
+                    width: bounds.width,
+                    height: metrics.seam_width,
+                },
+                border: iced::Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            theme_tabs::strip_divider(theme, self.role),
+        );
+        for (id, tab_bounds, _) in &state.tab_bounds {
+            let Some(tab) = self.tabs.iter().find(|tab| &tab.id == id) else {
+                continue;
+            };
+            let selected = self.active.as_ref().is_some_and(|active| active == id);
+            let hovered = state
+                .hovered_id
+                .as_ref()
+                .is_some_and(|hovered| hovered == id);
+            let pressed = state
+                .pressed_id
+                .as_ref()
+                .is_some_and(|pressed| pressed == id);
+            let background = theme_tabs::tab_background(
+                theme,
+                self.active_role,
+                selected,
+                hovered,
+                pressed,
+                tab.disabled,
+            );
+            if background.a > 0.0 {
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: *tab_bounds,
+                        border: iced::Border::default(),
+                        shadow: Shadow::default(),
+                        snap: true,
+                    },
+                    background,
+                );
+            }
+        }
         let content = self.content_element(state);
         content.as_widget().draw(
             &tree.children[0],
@@ -1378,6 +1833,58 @@ where
             cursor,
             viewport,
         );
+
+        if let Some(dragged) = &state.dragged_id {
+            if let Some((_, bounds, _)) = state.tab_bounds.iter().find(|(id, _, _)| id == dragged) {
+                let mut subdued = theme_tabs::strip_background(theme, self.role);
+                subdued.a = 0.45;
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: *bounds,
+                        border: iced::Border::default(),
+                        shadow: Shadow::default(),
+                        snap: true,
+                    },
+                    subdued,
+                );
+            }
+        }
+
+        if state.focused {
+            if let Some(focused) = &state.focused_id {
+                if let Some((_, bounds, _)) =
+                    state.tab_bounds.iter().find(|(id, _, _)| id == focused)
+                {
+                    draw_focus_ring_with_placement(
+                        renderer,
+                        theme,
+                        *bounds,
+                        metrics.radius.into(),
+                        ButtonFocusRing::Default,
+                        FocusRingPlacement::Inset,
+                    );
+                }
+            }
+        }
+
+        if let Some(active) = &self.active {
+            if let Some((_, bounds, _)) = state.tab_bounds.iter().find(|(id, _, _)| id == active) {
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: Rectangle {
+                            x: bounds.x,
+                            y: bounds.y,
+                            width: bounds.width,
+                            height: metrics.indicator_width,
+                        },
+                        border: iced::Border::default(),
+                        shadow: Shadow::default(),
+                        snap: true,
+                    },
+                    theme_tabs::active_indicator(theme),
+                );
+            }
+        }
 
         if state.dragged_id.is_some() {
             if let Some(target) = &state.insertion_target {
@@ -1535,6 +2042,7 @@ fn measure_and_translate(
     node: Node,
     scroll_offset: f32,
     min_tab_width: f32,
+    max_tab_width: f32,
     tab_gap: f32,
 ) -> (f32, f32, Node, Vec<Rectangle>) {
     let root_size = node.size();
@@ -1559,7 +2067,7 @@ fn measure_and_translate(
     let mut next_x = row_x;
     for tab in tabs_row.children() {
         let tab_bounds = tab.bounds();
-        let width = tab_bounds.width.max(min_tab_width);
+        let width = tab_bounds.width.clamp(min_tab_width, max_tab_width);
         let mut tab =
             Node::with_children(Size::new(width, tab_bounds.height), tab.children().to_vec())
                 .move_to(Point::new(next_x, tab_bounds.y));
@@ -1906,19 +2414,90 @@ mod tabs_tests {
         assert_eq!(
             entries,
             vec![
-                (1, Cow::Borrowed("tab"), false),
-                (2, Cow::Borrowed("tab"), true)
+                AllTabsMenuEntry {
+                    id: 1,
+                    label: Cow::Borrowed("tab"),
+                    icon: None,
+                    active: false,
+                    dirty: false,
+                    pinned: false,
+                    disabled: false,
+                },
+                AllTabsMenuEntry {
+                    id: 2,
+                    label: Cow::Borrowed("tab"),
+                    icon: None,
+                    active: true,
+                    dirty: false,
+                    pinned: false,
+                    disabled: false,
+                }
             ]
         );
     }
 
     #[test]
-    fn menu_entries_skip_disabled() {
+    fn menu_entries_keep_disabled_items_visible_and_inert() {
         let entries = TabBar::<'_, u8, Message>::new(1)
             .tabs([item(1), item(2).disabled(true)])
             .menu_entries();
 
-        assert_eq!(entries, vec![(1, Cow::Borrowed("tab"), true)]);
+        assert_eq!(entries.len(), 2);
+        assert!(entries[0].active);
+        assert!(entries[1].disabled);
+    }
+
+    #[test]
+    fn composite_focus_starts_active_and_skips_disabled_items() {
+        let bar: TabBar<'_, u8, Message> =
+            TabBar::new(2).tabs([item(1), item(2), item(3).disabled(true), item(4)]);
+        let mut state = state();
+
+        bar.reconcile_focus(&mut state);
+        assert_eq!(state.focused_id, Some(2));
+
+        bar.move_focus(&mut state, FocusMovement::Next);
+        assert_eq!(state.focused_id, Some(4));
+        bar.move_focus(&mut state, FocusMovement::Last);
+        assert_eq!(state.focused_id, Some(4));
+        bar.move_focus(&mut state, FocusMovement::First);
+        assert_eq!(state.focused_id, Some(1));
+    }
+
+    #[test]
+    fn composite_focus_survives_reorder_by_id_and_recovers_after_removal() {
+        let mut state = state();
+        state.focused_id = Some(2);
+        state.previous_focus_order = vec![1, 2, 3];
+
+        let reordered: TabBar<'_, u8, Message> = TabBar::new(1).tabs([item(3), item(2), item(1)]);
+        reordered.reconcile_focus(&mut state);
+        assert_eq!(state.focused_id, Some(2));
+
+        let removed: TabBar<'_, u8, Message> = TabBar::new(3).tabs([item(3), item(1)]);
+        removed.reconcile_focus(&mut state);
+        assert_eq!(state.focused_id, Some(3));
+    }
+
+    #[test]
+    fn menu_entries_are_pinned_first_and_preserve_metadata() {
+        let entries = TabBar::<'_, u8, Message>::new(2)
+            .tabs([
+                item(1).dirty(true),
+                item(2).pinned(true).icon(IconRole::Folder),
+                item(3).disabled(true),
+            ])
+            .menu_entries();
+
+        assert_eq!(
+            entries.iter().map(|entry| entry.id).collect::<Vec<_>>(),
+            vec![2, 1, 3]
+        );
+        assert!(entries[0].active);
+        assert!(entries[0].pinned);
+        assert_eq!(entries[0].icon, Some(IconRole::Folder));
+        assert!(entries[1].dirty);
+        assert!(entries[2].disabled);
     }
 
     #[test]
@@ -1937,15 +2516,15 @@ mod tabs_tests {
         ];
 
         assert_eq!(
-            snapshot_tab_region(&tab_bounds, None, None, None, Point::new(20.0, 10.0)),
+            snapshot_tab_region(&tab_bounds, &[], None, None, None, Point::new(20.0, 10.0)),
             TabRegion::Tab(0)
         );
         assert_eq!(
-            snapshot_tab_region(&tab_bounds, None, None, None, Point::new(80.0, 10.0)),
+            snapshot_tab_region(&tab_bounds, &[], None, None, None, Point::new(80.0, 10.0)),
             TabRegion::Tab(1)
         );
         assert_eq!(
-            snapshot_tab_region(&tab_bounds, None, None, None, Point::new(200.0, 10.0)),
+            snapshot_tab_region(&tab_bounds, &[], None, None, None, Point::new(200.0, 10.0)),
             TabRegion::Empty
         );
     }
@@ -1971,5 +2550,35 @@ mod tabs_tests {
         assert_eq!(state.scroll_offset, 80.0);
         assert!(state.overflow.show_start_chevron());
         assert!(!state.overflow.show_end_chevron());
+    }
+
+    #[test]
+    fn edge_autoscroll_direction_respects_zone_and_endpoints() {
+        let strip = Rectangle::new(Point::new(10.0, 20.0), Size::new(200.0, 28.0));
+
+        assert_eq!(
+            edge_scroll_direction(Point::new(15.0, 30.0), strip, 28.0, 40.0, 100.0),
+            Some(OverflowDirection::Backward)
+        );
+        assert_eq!(
+            edge_scroll_direction(Point::new(205.0, 30.0), strip, 28.0, 40.0, 100.0),
+            Some(OverflowDirection::Forward)
+        );
+        assert_eq!(
+            edge_scroll_direction(Point::new(15.0, 30.0), strip, 28.0, 0.0, 100.0),
+            None
+        );
+    }
+
+    #[test]
+    fn edge_autoscroll_step_clamps_suspended_frames_to_fifty_ms() {
+        assert_eq!(
+            autoscroll_step(OverflowDirection::Forward, Duration::from_millis(500)),
+            18.0
+        );
+        assert_eq!(
+            autoscroll_step(OverflowDirection::Backward, Duration::from_millis(50)),
+            -18.0
+        );
     }
 }
