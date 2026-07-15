@@ -24,6 +24,13 @@ lanes, transparent toolbar groups, Panel-owned internal seams with body-owned
 inset, 12/6 overlay scrollbars, dedicated bottom controls, and public
 `WorkbenchPaneConstraints`.
 
+Document tabs use the refined controlled `TabBar`; side selectors use public
+edge-rail presentation; service and Inspector choices use semantic
+`SelectableItem` rows. Bottom panels use content-sized leading tabs with
+contained wheel overflow and a protected trailing action lane instead of an
+equal-width segmented selector. Labels, counts, ordering, ratios, and sample
+status data remain local to this example.
+
 ## Visual foundations review
 
 The monitor receives Inter Regular/SemiBold and Geist Mono Regular/Medium from
@@ -39,8 +46,10 @@ icons follow the active `ControlSize` metrics.
 
 Review wide, narrow, and low viewports in both themes. Exercise toolbar and tab
 overflow, long title tooltips, scrollbar hover/drag, SplitPane hover/drag/focus,
-collapsed side and bottom regions, and maximized panels. Fixed chrome extents,
-protected trailing controls, and all region bounds should remain contained.
+document menu/keyboard/disabled/dirty/pinned/close/drag/cancellation states,
+side rails, constrained bottom-tab wheel overflow, collapsed side and bottom
+regions, and maximized panels. Fixed chrome extents, protected trailing
+controls, and all region bounds should remain contained.
 
 Run it:
 
