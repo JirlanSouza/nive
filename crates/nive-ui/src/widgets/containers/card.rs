@@ -1,17 +1,26 @@
 use iced::{widget::container, Length, Padding};
 
-use crate::theme::{self, surface as theme_surface, BorderRole, ShapeSize, SurfaceRole};
+use crate::theme::{self, ShapeSize};
 use crate::Element;
 
-/// Content surface with configurable shape.
+use super::card_frame::{self, CardVariant};
+
+/// Passive content surface with a card-owned variant and frame.
+///
+/// Structural surface roles are not valid card variants:
+///
+/// ```compile_fail
+/// use nive_ui::{theme::SurfaceRole, widgets::Card};
+///
+/// let _ = Card::<()>::new(iced::widget::Space::new()).role(SurfaceRole::App);
+/// ```
 pub struct Card<'a, Message> {
     content: Element<'a, Message>,
-    role: SurfaceRole,
+    variant: CardVariant,
     radius: f32,
-    padding: Option<Padding>,
+    padding: Padding,
     width: Option<Length>,
     height: Option<Length>,
-    border: bool,
 }
 
 impl<'a, Message> Card<'a, Message>
@@ -21,20 +30,44 @@ where
     pub fn new(content: impl Into<Element<'a, Message>>) -> Self {
         Self {
             content: content.into(),
-            role: SurfaceRole::Panel,
-            radius: theme::active().shape(ShapeSize::Xl).radius_value(),
-            padding: None,
+            variant: CardVariant::Filled,
+            radius: card_frame::metrics(theme::active()).radius,
+            padding: card_frame::metrics(theme::active()).padding,
             width: None,
             height: None,
-            border: false,
         }
     }
 
-    /// Opts into an explicit border. Surfaces render fill + shadow only by
-    /// default; a card asks for a border explicitly when it needs one.
-    pub fn bordered(mut self) -> Self {
-        self.border = true;
+    /// Deprecated migration alias for [`Card::outlined`].
+    #[deprecated(since = "0.1.0", note = "use `outlined()`")]
+    pub fn bordered(self) -> Self {
+        self.outlined()
+    }
+
+    /// Sets the card-owned visual variant.
+    pub fn variant(mut self, variant: CardVariant) -> Self {
+        self.variant = variant;
         self
+    }
+
+    /// Uses the default Panel-filled frame.
+    pub fn filled(self) -> Self {
+        self.variant(CardVariant::Filled)
+    }
+
+    /// Uses a transparent frame with one semantic perimeter.
+    pub fn outlined(self) -> Self {
+        self.variant(CardVariant::Outlined)
+    }
+
+    /// Uses the semantic elevated fill and shadow.
+    pub fn elevated(self) -> Self {
+        self.variant(CardVariant::Elevated)
+    }
+
+    /// Uses a transparent frame without perimeter or shadow.
+    pub fn ghost(self) -> Self {
+        self.variant(CardVariant::Ghost)
     }
 
     /// Sets the card shape from the theme scale.
@@ -78,13 +111,8 @@ where
         self
     }
 
-    pub fn role(mut self, role: SurfaceRole) -> Self {
-        self.role = role;
-        self
-    }
-
     pub fn padding(mut self, padding: impl Into<Padding>) -> Self {
-        self.padding = Some(padding.into());
+        self.padding = padding.into();
         self
     }
 
@@ -98,23 +126,9 @@ where
     );
 
     fn into_container(self) -> container::Container<'a, Message, crate::theme::Theme> {
-        let style: Box<dyn Fn(&crate::theme::Theme) -> container::Style> = if self.border {
-            Box::new(theme_surface::style_with_border(
-                self.role,
-                self.radius.into(),
-                BorderRole::Default,
-            ))
-        } else {
-            Box::new(theme_surface::style_with_radius(
-                self.role,
-                self.radius.into(),
-            ))
-        };
-        let mut card = container(self.content).style(style);
-
-        if let Some(padding) = self.padding {
-            card = card.padding(padding);
-        }
+        let mut card = container(self.content)
+            .style(card_frame::base_style(self.variant, self.radius))
+            .padding(self.padding);
 
         if let Some(width) = self.width {
             card = card.width(width);
@@ -141,14 +155,17 @@ where
 mod card_tests {
     use super::*;
     use crate::tokens::radius as token_radius;
+    use crate::widgets::containers::card_test_support::{CardHarness, Message};
+    use iced::Size;
 
     #[test]
-    fn border_is_opt_in() {
+    #[allow(deprecated)]
+    fn bordered_is_an_alias_for_outlined() {
         let default = Card::<()>::new(iced::widget::Space::new());
         let bordered = Card::<()>::new(iced::widget::Space::new()).bordered();
 
-        assert!(!default.border);
-        assert!(bordered.border);
+        assert_eq!(default.variant, CardVariant::Filled);
+        assert_eq!(bordered.variant, CardVariant::Outlined);
     }
 
     #[test]
@@ -158,8 +175,92 @@ mod card_tests {
         let none = Card::<()>::new(iced::widget::Space::new()).shape(ShapeSize::None);
         let full = Card::<()>::new(iced::widget::Space::new()).shape(ShapeSize::Full);
 
-        assert_eq!(default.radius, token_radius::XL);
+        assert_eq!(default.radius, token_radius::MD);
         assert_eq!(square.radius, none.radius);
         assert_eq!(full.radius, token_radius::FULL);
+        assert_eq!(
+            Card::<()>::new(iced::widget::Space::new())
+                .shape_xs()
+                .radius,
+            token_radius::XS
+        );
+        assert_eq!(
+            Card::<()>::new(iced::widget::Space::new())
+                .shape_sm()
+                .radius,
+            token_radius::SM
+        );
+        assert_eq!(
+            Card::<()>::new(iced::widget::Space::new())
+                .shape_md()
+                .radius,
+            token_radius::MD
+        );
+        assert_eq!(
+            Card::<()>::new(iced::widget::Space::new())
+                .shape_lg()
+                .radius,
+            token_radius::LG
+        );
+        assert_eq!(
+            Card::<()>::new(iced::widget::Space::new())
+                .shape_xl()
+                .radius,
+            token_radius::XL
+        );
+        assert_eq!(
+            Card::<()>::new(iced::widget::Space::new())
+                .shape_xxl()
+                .radius,
+            token_radius::XXL
+        );
+        assert_eq!(
+            Card::<()>::new(iced::widget::Space::new())
+                .radius(7.5)
+                .radius,
+            7.5
+        );
+        assert_eq!(
+            Card::<()>::new(iced::widget::Space::new())
+                .padding(3)
+                .padding,
+            Padding::new(3.0)
+        );
+    }
+
+    #[test]
+    fn passive_card_shrinks_without_an_interactive_minimum_and_fill_is_explicit() {
+        let shrink = CardHarness::new(
+            Card::<Message>::new(
+                iced::widget::Space::new()
+                    .width(Length::Fixed(20.0))
+                    .height(Length::Fixed(10.0)),
+            )
+            .into(),
+            Size::new(240.0, 100.0),
+        );
+        let fill = CardHarness::new(
+            Card::<Message>::new(iced::widget::Space::new())
+                .fill_width()
+                .into(),
+            Size::new(240.0, 100.0),
+        );
+        let fill_both = CardHarness::new(
+            Card::<Message>::new(iced::widget::Space::new())
+                .fill()
+                .into(),
+            Size::new(240.0, 100.0),
+        );
+        let flush = CardHarness::new(
+            Card::<Message>::new(iced::widget::Space::new().height(Length::Fixed(10.0)))
+                .padding(0)
+                .into(),
+            Size::new(240.0, 100.0),
+        );
+
+        assert!(shrink.size().height < 48.0);
+        assert_eq!(fill.size().width, 240.0);
+        assert_eq!(fill_both.size(), Size::new(240.0, 100.0));
+        assert_eq!(flush.size().height, 10.0);
     }
 }
