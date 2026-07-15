@@ -1,8 +1,10 @@
 use std::borrow::Cow;
 
-use iced::widget::{column, container, row, rule, text, Space};
+use iced::widget::{container, row, rule, stack, text};
 use iced::{Alignment, Length, Padding};
-use nive_ui::theme::{self, BorderRole, ControlSize, SurfaceRole, TextRole, Theme, ToneRole};
+use nive_ui::theme::{
+    self, BorderRole, ControlSize, SurfaceRole, TextRole, Theme, ToneRole, TypographyRole,
+};
 use nive_ui::widgets::{ProgressBar, Spinner, ToneDot};
 use nive_ui::{Element, IconRole};
 
@@ -40,6 +42,8 @@ fn metrics_for_theme(theme: Theme, size: ControlSize) -> StatusBarMetrics {
 pub enum StatusItem<'a> {
     /// Plain text item.
     Text(Cow<'a, str>),
+    /// Muted optional environment or application context.
+    Context(Cow<'a, str>),
     /// Icon plus text item.
     IconText {
         /// Icon role.
@@ -68,20 +72,24 @@ pub enum StatusItem<'a> {
         /// Optional label.
         label: Cow<'a, str>,
     },
-    /// Flexible spacer.
-    Spacer,
 }
 
 /// Compact workbench status bar.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StatusBar<'a> {
-    items: Vec<StatusItem<'a>>,
+    leading_items: Vec<StatusItem<'a>>,
+    trailing_items: Vec<StatusItem<'a>>,
 }
 
 impl<'a> StatusItem<'a> {
     /// Creates a text item.
     pub fn text(label: impl Into<Cow<'a, str>>) -> Self {
         Self::Text(label.into())
+    }
+
+    /// Creates muted optional context.
+    pub fn context(label: impl Into<Cow<'a, str>>) -> Self {
+        Self::Context(label.into())
     }
 
     /// Creates an icon/text item.
@@ -120,25 +128,47 @@ impl<'a> StatusItem<'a> {
 impl<'a> StatusBar<'a> {
     /// Builds an empty status bar.
     pub fn new() -> Self {
-        Self { items: Vec::new() }
+        Self {
+            leading_items: Vec::new(),
+            trailing_items: Vec::new(),
+        }
     }
 
     /// Builds a status bar from items.
     pub fn with_items(items: impl IntoIterator<Item = StatusItem<'a>>) -> Self {
         Self {
-            items: items.into_iter().collect(),
+            leading_items: items.into_iter().collect(),
+            trailing_items: Vec::new(),
         }
     }
 
-    /// Adds one item.
+    /// Adds one item to the leading lane.
+    #[deprecated(since = "0.1.0", note = "use StatusBar::leading")]
     pub fn item(mut self, item: StatusItem<'a>) -> Self {
-        self.items.push(item);
+        self.leading_items.push(item);
         self
     }
 
-    /// Returns items.
-    pub fn items(&self) -> &[StatusItem<'a>] {
-        &self.items
+    /// Adds one item to the flexible leading lane.
+    pub fn leading(mut self, item: StatusItem<'a>) -> Self {
+        self.leading_items.push(item);
+        self
+    }
+
+    /// Adds one item to the protected trailing lane.
+    pub fn trailing(mut self, item: StatusItem<'a>) -> Self {
+        self.trailing_items.push(item);
+        self
+    }
+
+    /// Returns the leading lane items.
+    pub fn leading_items(&self) -> &[StatusItem<'a>] {
+        &self.leading_items
+    }
+
+    /// Returns the trailing lane items.
+    pub fn trailing_items(&self) -> &[StatusItem<'a>] {
+        &self.trailing_items
     }
 
     /// Renders the status bar with the standalone [`ControlSize::Sm`] default.
@@ -158,15 +188,32 @@ impl<'a> StatusBar<'a> {
         Message: Clone + 'a,
     {
         let metrics = metrics(size);
-        let mut content = row![]
+        let mut leading = row![]
+            .spacing(metrics.item_gap)
+            .align_y(Alignment::Center)
+            .height(Length::Fixed(metrics.height));
+        for item in self.leading_items {
+            if let Some(item) = status_item(item, size, metrics) {
+                leading = leading.push(item);
+            }
+        }
+        let leading = container(leading).width(Length::Fill).clip(true);
+
+        let mut trailing = row![]
+            .spacing(metrics.item_gap)
+            .align_y(Alignment::Center)
+            .height(Length::Fixed(metrics.height));
+        for item in self.trailing_items {
+            if let Some(item) = status_item(item, size, metrics) {
+                trailing = trailing.push(item);
+            }
+        }
+
+        let content = row![leading, trailing]
             .spacing(metrics.item_gap)
             .align_y(Alignment::Center)
             .width(Length::Fill)
             .height(Length::Fixed(metrics.height));
-
-        for item in self.items {
-            content = content.push(status_item(item, size, metrics));
-        }
 
         let content = layout_probe::probe("status_content", content);
 
@@ -177,13 +224,15 @@ impl<'a> StatusBar<'a> {
             .clip(true)
             .style(theme::surface::style(SurfaceRole::Chrome));
 
-        // The status bar owns its top edge: a single hairline separates it
-        // from the content above, rather than surfaces auto-emitting a
-        // border. `Rule` is message-agnostic, so it composes without forcing
-        // `Message: 'static`.
         let edge = rule::horizontal(1).style(top_edge_style);
+        let edge = container(edge)
+            .height(Length::Fill)
+            .align_y(Alignment::Start);
 
-        column![edge, bar].width(Length::Fill).into()
+        stack![bar, edge]
+            .width(Length::Fill)
+            .height(Length::Fixed(metrics.height))
+            .into()
     }
 }
 
@@ -206,54 +255,75 @@ fn status_item<'a, Message>(
     item: StatusItem<'a>,
     size: ControlSize,
     metrics: StatusBarMetrics,
-) -> Element<'a, Message>
+) -> Option<Element<'a, Message>>
 where
     Message: Clone + 'a,
 {
     match item {
-        StatusItem::Text(label) => text(label)
-            .style(theme::text::style(TextRole::Muted))
+        StatusItem::Text(label) => Some(status_text(label, TextRole::Secondary)),
+        StatusItem::Context(label) => Some(status_text(label, TextRole::Muted)),
+        StatusItem::IconText { icon, label } => Some(
+            row![
+                nive_ui::widgets::icon::role(icon)
+                    .color(theme::active().text(TextRole::Secondary).color),
+                status_text(label, TextRole::Secondary)
+            ]
+            .spacing(metrics.inline_gap)
+            .align_y(Alignment::Center)
             .into(),
-        StatusItem::IconText { icon, label } => row![
-            nive_ui::widgets::icon::role(icon),
-            text(label).style(theme::text::style(TextRole::Muted))
-        ]
-        .spacing(metrics.inline_gap)
-        .align_y(Alignment::Center)
-        .into(),
-        StatusItem::Severity { tone, label } => row![
-            ToneDot::new(tone).size(size),
-            text(label).style(theme::text::style(TextRole::Muted))
-        ]
-        .spacing(metrics.inline_gap)
-        .align_y(Alignment::Center)
-        .into(),
-        StatusItem::Progress { label, fraction } => row![
-            text(label).style(theme::text::style(TextRole::Muted)),
-            ProgressBar::percent(fraction)
-                .tone(ToneRole::Accent)
-                .size(status_progress_size(size))
-                .width(Length::Fixed(72.0))
-        ]
-        .spacing(metrics.progress_gap)
-        .align_y(Alignment::Center)
-        .into(),
+        ),
+        StatusItem::Severity { tone, label } => Some(
+            row![
+                ToneDot::new(tone).size(size),
+                status_text(label, TextRole::Secondary)
+            ]
+            .spacing(metrics.inline_gap)
+            .align_y(Alignment::Center)
+            .into(),
+        ),
+        StatusItem::Progress { label, fraction } => Some(
+            row![
+                status_text(label, TextRole::Secondary),
+                ProgressBar::percent(fraction)
+                    .tone(ToneRole::Accent)
+                    .size(status_progress_size(size))
+                    .width(Length::Fixed(72.0))
+            ]
+            .spacing(metrics.progress_gap)
+            .align_y(Alignment::Center)
+            .into(),
+        ),
         StatusItem::OperationSummary { active, label } => {
             if active == 0 {
-                Space::new().width(Length::Fill).into()
+                None
             } else {
-                container(
-                    Spinner::new()
-                        .neutral()
-                        .size(status_operation_size(size))
-                        .label(format!("{label}: {active} active")),
+                Some(
+                    container(
+                        Spinner::new()
+                            .neutral()
+                            .size(status_operation_size(size))
+                            .label(format!("{label}: {active} active")),
+                    )
+                    .width(Length::Shrink)
+                    .into(),
                 )
-                .width(Length::Fill)
-                .into()
             }
         }
-        StatusItem::Spacer => Space::new().width(Length::Fill).into(),
     }
+}
+
+fn status_text<'a, Message>(label: Cow<'a, str>, role: TextRole) -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    let style = theme::typography(TypographyRole::BodySmall);
+    text(label)
+        .font(style.font)
+        .size(style.size)
+        .line_height(style.line_height)
+        .wrapping(text::Wrapping::None)
+        .style(theme::text::style(role))
+        .into()
 }
 
 fn status_progress_size(size: ControlSize) -> ControlSize {
@@ -288,11 +358,27 @@ mod tests {
     #[test]
     fn status_bar_composes_items() {
         let status = StatusBar::new()
-            .item(StatusItem::text("Ready"))
-            .item(StatusItem::Spacer)
-            .item(StatusItem::severity(ToneRole::Warning, "3 warnings"));
+            .leading(StatusItem::text("Ready"))
+            .leading(StatusItem::context("main"))
+            .trailing(StatusItem::severity(ToneRole::Warning, "3 warnings"));
 
-        assert_eq!(status.items().len(), 3);
+        assert_eq!(status.leading_items().len(), 2);
+        assert_eq!(status.trailing_items().len(), 1);
+    }
+
+    #[test]
+    fn zero_operation_summary_is_omitted() {
+        assert!(status_item::<()>(
+            StatusItem::operation_summary(0, "Operations"),
+            ControlSize::Sm,
+            metrics(ControlSize::Sm),
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn status_typography_is_body_small_twelve_pixels() {
+        assert_eq!(theme::typography(TypographyRole::BodySmall).size, 12.0);
     }
 
     #[test]

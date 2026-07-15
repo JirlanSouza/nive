@@ -1,10 +1,10 @@
 use std::rc::Rc;
 
-use iced::widget::{column, container, row, scrollable, Column, Space};
+use iced::widget::{column, container, row, Column, Space};
 use iced::{Length, Padding};
 use nive_ui::interaction::Orientation;
 use nive_ui::theme::{self, ControlSize, SurfaceRole};
-use nive_ui::widgets::{Panel, SplitPane, Toolbar};
+use nive_ui::widgets::{Panel, SplitPane, SplitPaneConstraints, Toolbar};
 use nive_ui::Element;
 
 use crate::documents::{DocumentArea, WorkbenchDocument, WorkbenchDocumentEvent};
@@ -29,6 +29,80 @@ pub enum WorkbenchEvent<DocumentId, PanelId, ActionId> {
     Document(WorkbenchDocumentEvent<DocumentId>),
     /// Panel event.
     Panel(WorkbenchPanelEvent<PanelId, ActionId>),
+}
+
+/// Non-persisted minimum sizes for expanded workbench regions.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WorkbenchPaneConstraints {
+    left: f32,
+    center: f32,
+    right: f32,
+    upper: f32,
+    bottom: f32,
+}
+
+impl WorkbenchPaneConstraints {
+    /// Creates normalized logical-pixel minima for every shell split.
+    pub fn new(left: f32, center: f32, right: f32, upper: f32, bottom: f32) -> Self {
+        Self {
+            left: pane_minimum(left),
+            center: pane_minimum(center),
+            right: pane_minimum(right),
+            upper: pane_minimum(upper),
+            bottom: pane_minimum(bottom),
+        }
+    }
+
+    pub const fn left(self) -> f32 {
+        self.left
+    }
+    pub const fn center(self) -> f32 {
+        self.center
+    }
+    pub const fn right(self) -> f32 {
+        self.right
+    }
+    pub const fn upper(self) -> f32 {
+        self.upper
+    }
+    pub const fn bottom(self) -> f32 {
+        self.bottom
+    }
+
+    pub fn left_min(mut self, minimum: f32) -> Self {
+        self.left = pane_minimum(minimum);
+        self
+    }
+    pub fn center_min(mut self, minimum: f32) -> Self {
+        self.center = pane_minimum(minimum);
+        self
+    }
+    pub fn right_min(mut self, minimum: f32) -> Self {
+        self.right = pane_minimum(minimum);
+        self
+    }
+    pub fn upper_min(mut self, minimum: f32) -> Self {
+        self.upper = pane_minimum(minimum);
+        self
+    }
+    pub fn bottom_min(mut self, minimum: f32) -> Self {
+        self.bottom = pane_minimum(minimum);
+        self
+    }
+}
+
+impl Default for WorkbenchPaneConstraints {
+    fn default() -> Self {
+        Self::new(160.0, 240.0, 160.0, 160.0, 96.0)
+    }
+}
+
+fn pane_minimum(value: f32) -> f32 {
+    if value.is_finite() {
+        value.max(0.0)
+    } else {
+        0.0
+    }
 }
 
 impl<DocumentId, PanelId, ActionId> WorkbenchEvent<DocumentId, PanelId, ActionId>
@@ -83,6 +157,7 @@ pub struct WorkbenchShell<'a, DocumentId, PanelId, ActionId, Message> {
     bottom_panels: Vec<WorkbenchPanel<'a, PanelId, ActionId, Message>>,
     status_bar: Option<StatusBar<'a>>,
     chrome_size: ControlSize,
+    pane_constraints: WorkbenchPaneConstraints,
     state: WorkbenchLayoutState<DocumentId, PanelId>,
     on_event: EventMapper<'a, DocumentId, PanelId, ActionId, Message>,
 }
@@ -108,6 +183,7 @@ impl<'a, DocumentId, PanelId, ActionId, Message>
             bottom_panels: Vec::new(),
             status_bar: None,
             chrome_size: ControlSize::Sm,
+            pane_constraints: WorkbenchPaneConstraints::default(),
             state,
             on_event: Rc::new(on_event),
         }
@@ -122,6 +198,12 @@ impl<'a, DocumentId, PanelId, ActionId, Message>
     /// in layout state.
     pub fn chrome_size(mut self, size: ControlSize) -> Self {
         self.chrome_size = size;
+        self
+    }
+
+    /// Sets non-persisted minimum sizes for expanded side and bottom regions.
+    pub fn pane_constraints(mut self, constraints: WorkbenchPaneConstraints) -> Self {
+        self.pane_constraints = constraints;
         self
     }
 
@@ -207,13 +289,9 @@ where
         let toolbar = self.toolbar.take();
         let status_bar = self.status_bar.take();
         if let Some(toolbar) = toolbar {
-            // `Toolbar` already applies the `Chrome` surface (and owns its
-            // bottom hairline); this wrapper only adds horizontal scrolling
-            // and must not paint `Chrome` a second time.
-            let toolbar = scrollable(toolbar.size(chrome_size))
-                .horizontal()
-                .height(Length::Shrink)
-                .width(Length::Fill);
+            // `Toolbar` owns its Chrome surface, inset, bottom hairline, and
+            // horizontal overflow. The shell only supplies final size/width.
+            let toolbar = toolbar.size(chrome_size).fill_width();
             root = root.push(layout_probe::probe(
                 "toolbar",
                 container(toolbar)
@@ -293,6 +371,10 @@ where
                 )
                 .size(self.chrome_size)
                 .ratio(self.state.split_ratios().left)
+                .constraints(SplitPaneConstraints::new(
+                    self.pane_constraints.left,
+                    self.pane_constraints.center,
+                ))
                 .on_change(self.layout_ratio_mapper(WorkbenchRegion::Left))
                 .into()
             };
@@ -311,6 +393,10 @@ where
                 )
                 .size(self.chrome_size)
                 .ratio(self.state.split_ratios().right)
+                .constraints(SplitPaneConstraints::new(
+                    self.pane_constraints.center,
+                    self.pane_constraints.right,
+                ))
                 .on_change(self.layout_ratio_mapper(WorkbenchRegion::Right))
                 .into()
             };
@@ -333,6 +419,10 @@ where
         .size(self.chrome_size)
         .orientation(Orientation::Vertical)
         .ratio(self.state.split_ratios().bottom)
+        .constraints(SplitPaneConstraints::new(
+            self.pane_constraints.upper,
+            self.pane_constraints.bottom,
+        ))
         .on_change(self.layout_ratio_mapper(WorkbenchRegion::Bottom))
         .into()
     }

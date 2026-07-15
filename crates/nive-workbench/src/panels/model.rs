@@ -193,6 +193,7 @@ pub struct PanelHeaderBar<'a, PanelId, ActionId> {
     pub(super) region: WorkbenchRegion,
     pub(super) panel_id: PanelId,
     pub(super) title: Cow<'a, str>,
+    pub(super) tooltip: Option<Cow<'a, str>>,
     pub(super) icon: Option<IconRole>,
     pub(super) badge: Option<Cow<'a, str>>,
     pub(super) status: Option<ToneRole>,

@@ -10,6 +10,7 @@ use nive_ui::{
     Element, IconRole,
 };
 
+use super::header::{trailing_controls, TrailingControlFlags};
 use super::model::{
     BottomHeaderTab, PanelAction, PanelHeaderBar, PanelHostMode, PanelRail, PanelRailItem,
     PanelSelectorPlacement, WorkbenchPanel, WorkbenchPanelEvent, WorkbenchPanelHostState,
@@ -157,6 +158,7 @@ where
     let WorkbenchPanel {
         id,
         title,
+        tooltip,
         icon,
         badge,
         status,
@@ -172,6 +174,7 @@ where
         region,
         panel_id: id,
         title,
+        tooltip,
         icon,
         badge,
         status,
@@ -249,20 +252,19 @@ where
         closable,
         size,
     );
-    let controls = PanelHeaderBar {
+    let controls = trailing_controls(
         region,
-        panel_id: id,
-        title: Cow::Borrowed(""),
-        icon: None,
-        badge: None,
-        status: None,
+        id,
         actions,
-        collapsible,
-        restorable,
-        maximizable,
-        closable,
-    }
-    .view_with_size(mapper, size);
+        TrailingControlFlags {
+            restorable,
+            maximizable,
+            collapsible,
+            closable,
+        },
+        mapper,
+        size,
+    );
     let tabs = layout_probe::probe("bottom_tab_track", Element::from(tabs));
     let tabs = container(tabs).width(Length::Fill).clip(true);
     let tabs = layout_probe::probe("bottom_selector", tabs);

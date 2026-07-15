@@ -6,7 +6,8 @@ pub use crate::commands::{
     CommandPaletteState, WorkbenchCommand, WorkbenchCommandPalette, WorkbenchCommandPaletteEvent,
 };
 pub use crate::documents::{
-    DocumentArea, WorkbenchDocument, WorkbenchDocumentDropTarget, WorkbenchDocumentEvent,
+    DocumentArea, DocumentHeader, WorkbenchDocument, WorkbenchDocumentDropTarget,
+    WorkbenchDocumentEvent,
 };
 pub use crate::explorer::{explorer_panel, ExplorerPanel};
 pub use crate::inspector::{inspector_panel, InspectorState};
@@ -23,7 +24,7 @@ pub use crate::problems::{Problem, ProblemLocation, ProblemSeverity, ProblemsPan
 pub use crate::session::{
     DocumentSession, LayoutSession, PanelRegionSession, PanelSession, WorkbenchSession,
 };
-pub use crate::shell::{Workbench, WorkbenchEvent, WorkbenchShell};
+pub use crate::shell::{Workbench, WorkbenchEvent, WorkbenchPaneConstraints, WorkbenchShell};
 pub use crate::status::{StatusBar, StatusItem};
 
 #[cfg(feature = "runtime")]

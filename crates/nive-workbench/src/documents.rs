@@ -10,6 +10,10 @@ use nive_ui::{Element, IconRole};
 
 use crate::layout_probe;
 
+mod header;
+
+pub use header::DocumentHeader;
+
 /// Metadata for one controlled workbench document tab.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkbenchDocument<'a, Id> {
