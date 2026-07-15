@@ -1,6 +1,6 @@
 use iced::{widget::container, Background, Shadow};
 
-use crate::theme::{self, BorderRole, ControlRole, ControlSize, ControlState, SurfaceRole, Theme};
+use crate::theme::{self, BorderRole, ControlSize, SurfaceRole, Theme};
 
 use crate::advanced::control_style::{border_with_radius, transparent_border};
 
@@ -31,11 +31,9 @@ fn metrics_for_theme(theme: Theme, size: ControlSize) -> ToolbarMetrics {
     let control = theme.control_metrics(size);
     let spacing = theme.spacing();
     let toolbar_padding_v = spacing.xs;
-    let group_padding = spacing.xxs;
-
     ToolbarMetrics {
         size,
-        height: control.height + group_padding * 2.0 + toolbar_padding_v * 2.0,
+        height: control.height + toolbar_padding_v * 2.0,
         action_height: control.height,
         radius: control.radius,
         font_size: control.font_size,
@@ -49,7 +47,7 @@ fn metrics_for_theme(theme: Theme, size: ControlSize) -> ToolbarMetrics {
         },
         toolbar_padding_h: spacing.md,
         toolbar_padding_v,
-        group_padding,
+        group_padding: 0.0,
         group_gap: spacing.md,
         item_gap: spacing.xxs,
         separator_height: control.height - spacing.md,
@@ -66,21 +64,6 @@ pub fn toolbar_style(role: SurfaceRole) -> impl Fn(&crate::theme::Theme) -> cont
             background: Some(Background::Color(surface.background)),
             border: border_with_radius(surface.border, 0.0),
             shadow: surface.shadow,
-            ..container::Style::default()
-        }
-    }
-}
-
-pub fn group_style(radius: f32) -> impl Fn(&crate::theme::Theme) -> container::Style {
-    move |theme: &crate::theme::Theme| {
-        let theme = *theme;
-        let control = theme.control(ControlRole::Standard, ControlState::ENABLED);
-
-        container::Style {
-            text_color: Some(control.foreground),
-            background: Some(Background::Color(control.background)),
-            border: border_with_radius(control.border, radius),
-            shadow: Shadow::default(),
             ..container::Style::default()
         }
     }
@@ -111,6 +94,12 @@ mod toolbar_tests {
             theme::control_metrics(ControlSize::Sm).height
         );
         assert!(metrics(ControlSize::Xs).height < metrics(ControlSize::Lg).height);
+        assert_eq!(metrics(ControlSize::Sm).group_padding, 0.0);
+        assert_eq!(
+            metrics(ControlSize::Sm).height,
+            metrics(ControlSize::Sm).action_height
+                + metrics(ControlSize::Sm).toolbar_padding_v * 2.0
+        );
     }
 
     #[test]

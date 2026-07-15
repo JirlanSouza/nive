@@ -1,7 +1,4 @@
-use iced::{
-    widget::{container, Row},
-    Alignment, Length,
-};
+use iced::{widget::Row, Alignment, Length};
 
 use crate::Element;
 
@@ -32,6 +29,14 @@ impl<'a, Message: Clone + 'a> ToolbarGroup<'a, Message> {
         self.push(action)
     }
 
+    /// Adds a separator inside this group.
+    ///
+    /// Prefer [`super::Toolbar::separator`] between groups so the toolbar owns
+    /// semantic group boundaries.
+    #[deprecated(
+        since = "0.1.0",
+        note = "use Toolbar::separator() between ToolbarGroup values"
+    )]
     pub fn separator(mut self) -> Self {
         self.items.push(ToolbarItem::Separator);
         self
@@ -53,13 +58,7 @@ impl<'a, Message: Clone + 'a> ToolbarGroup<'a, Message> {
             });
         }
 
-        container(items)
-            .style(theme_toolbar::group_style(metrics.radius))
-            .padding(metrics.group_padding)
-            .height(Length::Fixed(
-                metrics.action_height + metrics.group_padding * 2.0,
-            ))
-            .into()
+        items.into()
     }
 }
 

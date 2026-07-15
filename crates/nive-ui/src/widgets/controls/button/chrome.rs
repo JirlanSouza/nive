@@ -71,6 +71,11 @@ where
                 spec.destructive,
                 spec.radius,
             )),
+            GroupedItemKind::Toolbar => button_widget.style(theme_button::toolbar_style(
+                spec.selected,
+                spec.destructive,
+                spec.radius,
+            )),
         },
     };
 

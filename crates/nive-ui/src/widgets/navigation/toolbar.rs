@@ -5,7 +5,7 @@ mod separator;
 mod style;
 
 use iced::{
-    widget::{column, container, rule, Row},
+    widget::{container, rule, scrollable, stack, Row},
     Alignment, Length, Padding,
 };
 
@@ -19,10 +19,15 @@ pub use action_group::ActionGroup;
 pub use group::ToolbarGroup;
 
 pub struct Toolbar<'a, Message> {
-    groups: Vec<ToolbarGroup<'a, Message>>,
+    items: Vec<ToolbarItem<'a, Message>>,
     size: ControlSize,
     role: SurfaceRole,
     width: Option<Length>,
+}
+
+enum ToolbarItem<'a, Message> {
+    Group(ToolbarGroup<'a, Message>),
+    Separator,
 }
 
 impl<'a, Message> Toolbar<'a, Message>
@@ -31,7 +36,7 @@ where
 {
     pub fn new() -> Self {
         Self {
-            groups: Vec::new(),
+            items: Vec::new(),
             size: ControlSize::Sm,
             role: SurfaceRole::Chrome,
             width: None,
@@ -39,12 +44,18 @@ where
     }
 
     pub fn push(mut self, group: ToolbarGroup<'a, Message>) -> Self {
-        self.groups.push(group);
+        self.items.push(ToolbarItem::Group(group));
         self
     }
 
     pub fn group(self, group: ToolbarGroup<'a, Message>) -> Self {
         self.push(group)
+    }
+
+    /// Adds an explicit semantic boundary between toolbar groups.
+    pub fn separator(mut self) -> Self {
+        self.items.push(ToolbarItem::Separator);
+        self
     }
 
     pub fn size(mut self, size: ControlSize) -> Self {
@@ -80,13 +91,25 @@ where
         let mut groups = Row::new()
             .spacing(metrics.group_gap)
             .align_y(Alignment::Center)
-            .height(Length::Fixed(
-                metrics.action_height + metrics.group_padding * 2.0,
-            ));
+            .height(Length::Fixed(metrics.action_height));
 
-        for group in self.groups {
-            groups = groups.push(group.into_element(metrics));
+        for item in self.items {
+            groups = groups.push(match item {
+                ToolbarItem::Group(group) => group.into_element(metrics),
+                ToolbarItem::Separator => self::separator::separator(metrics),
+            });
         }
+
+        let groups: Element<'a, Message> = match self.width {
+            Some(width) => scrollable(groups)
+                .direction(scrollable::Direction::Horizontal(
+                    scrollable::Scrollbar::hidden(),
+                ))
+                .width(width)
+                .height(Length::Fixed(metrics.action_height))
+                .into(),
+            None => groups.into(),
+        };
 
         let mut toolbar = container(groups)
             .style(theme_toolbar::toolbar_style(self.role))
@@ -101,13 +124,9 @@ where
             toolbar = toolbar.width(width);
         }
 
-        // The toolbar owns its bottom edge: a single hairline separates it
-        // from the content below, rather than the surface auto-emitting a
-        // border on every side. `Rule` is message-agnostic, unlike the
-        // `Separator` primitive, so it composes without forcing `Message:
-        // 'static` on every `Toolbar` consumer.
         let edge = rule::horizontal(1).style(bottom_edge_style);
-        let mut with_edge = column![toolbar, edge];
+        let edge = container(edge).height(Length::Fill).align_y(Alignment::End);
+        let mut with_edge = stack![toolbar, edge].height(Length::Fixed(metrics.height));
         if let Some(width) = self.width {
             with_edge = with_edge.width(width);
         }
