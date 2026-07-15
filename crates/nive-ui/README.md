@@ -41,6 +41,17 @@ unless a lower-level style function or widget state helper is needed.
 
 ## Structural widget contracts
 
+- `TabBar` is the controlled document/view collection: a borderless Chrome
+  strip with Canvas-connected active tabs, bounded one-line labels, stable
+  dirty/close geometry, pinned-first overflow menu, horizontal or mapped
+  vertical-wheel navigation, manual-activation roving focus, and id-based drag
+  intents. Use `SegmentedControl` for fixed equal-choice sets instead.
+- `VerticalRail` is compact edge navigation with a panel-facing seam and local
+  selected indicator; left/right currently map to physical window edges.
+  `SelectableItem` is the form-compatible list row with whole-row selection,
+  inset focus, and operational `trailing_text`; caller-styled `trailing(...)`
+  retains semantic tone.
+
 - `SectionHeader` is a transparent 12 px semibold section heading. Its
   single-line title fills and clips before protected status/actions; use
   `title_tooltip` to expose the full title. Principal workbench document titles

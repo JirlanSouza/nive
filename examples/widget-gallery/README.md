@@ -23,6 +23,10 @@ The gallery exercises:
   groups and contained overflow, adjacent Panel header/body anatomy, 12/6
   overlay scrollbars, the complete semantic Separator matrix, and interactive,
   locked, display-only, invalid-minimum, and constrained SplitPane states
+- controlled TabBar states for active, inactive, dirty, pinned, closable,
+  disabled, long-label, overflow/menu, keyboard, context, reorder, and tear-off
+  behavior; both physical VerticalRail sides with metadata and overflow; and
+  SelectableItem size/selection/disabled/trailing-content comparisons
 - opt-in devtools inspection for sample `Resource` and `Operation` fields
 - module-public helper coverage for `nive::ui::widgets::skeleton`, which is not
   re-exported from `crates/nive-ui/src/widgets.rs`
@@ -66,7 +70,9 @@ cargo check
 
 For visual review, inspect light and dark themes at wide, narrow, and low
 window sizes. Exercise toolbar overflow, long-title tooltips, scrollbar
-hover/drag, and SplitPane hover, drag, focus, locked, and display-only states.
+hover/drag, TabBar wheel/menu/keyboard/drag/cancellation, both rail sides,
+SelectableItem focus, and SplitPane hover, drag, focus, locked, and display-only
+states.
 
 With devtools enabled, open the panel with Cmd+Option+I on macOS or Ctrl+Alt+I
 on other platforms to force the inspected feedback sample states.

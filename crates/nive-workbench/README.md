@@ -28,6 +28,16 @@ Chrome surfaces and outer seams, Panel owns its internal header/body seam,
 SplitPane owns region seams, side/bottom hosts use Sidebar, document content
 uses Canvas, and shell wrappers remain transparent without compensating inset.
 
+`DocumentArea` delegates controlled document ids, metadata, overflow,
+keyboard focus, close/context/reorder, and tear-off intents to `TabBar`; the
+shell-sized path fills the center host without adding another surface or seam.
+Side selectors compose public `VerticalRail` items at the shared Chrome size.
+The bottom host uses private content-sized panel tabs with one roving focus
+entry, contained horizontal/mapped-wheel overflow, and an active bottom
+indicator immediately above the Panel-owned seam. The leading track cannot
+resize or clip the protected trailing controls lane established by the shell
+anatomy baseline.
+
 `WorkbenchPaneConstraints` configures non-persisted expanded-region minima.
 Defaults are 160/240/160 logical pixels for left/center/right and 160/96 for
 upper/bottom. Layout clamps current rendering without rewriting app-owned or
