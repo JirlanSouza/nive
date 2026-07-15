@@ -19,6 +19,14 @@ pub struct Pressable<'a, Message> {
     id: Option<Id>,
     radius: Radius,
     ring: ButtonFocusRing,
+    focus_placement: FocusRingPlacement,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum FocusRingPlacement {
+    #[default]
+    Outset,
+    Inset,
 }
 
 #[derive(Debug, Default)]
@@ -40,7 +48,13 @@ impl<'a, Message> Pressable<'a, Message> {
             id,
             radius,
             ring,
+            focus_placement: FocusRingPlacement::Outset,
         }
+    }
+
+    pub(crate) fn focus_placement(mut self, placement: FocusRingPlacement) -> Self {
+        self.focus_placement = placement;
+        self
     }
 }
 
@@ -58,6 +72,22 @@ where
 
         match on_press {
             Some(message) => Self::new(content, message, None, radius, ring).into(),
+            None => content,
+        }
+    }
+
+    pub(crate) fn maybe_inset(
+        content: impl Into<Element<'a, Message>>,
+        on_press: Option<Message>,
+        radius: Radius,
+        ring: ButtonFocusRing,
+    ) -> Element<'a, Message> {
+        let content = content.into();
+
+        match on_press {
+            Some(message) => Self::new(content, message, None, radius, ring)
+                .focus_placement(FocusRingPlacement::Inset)
+                .into(),
             None => content,
         }
     }
@@ -192,7 +222,14 @@ where
         let state = tree.state.downcast_ref::<PressableState>();
 
         if state.focused {
-            draw_focus_ring(renderer, theme, layout.bounds(), self.radius, self.ring);
+            draw_focus_ring_with_placement(
+                renderer,
+                theme,
+                layout.bounds(),
+                self.radius,
+                self.ring,
+                self.focus_placement,
+            );
         }
     }
 
@@ -244,7 +281,27 @@ pub fn draw_focus_ring(
     radius: Radius,
     ring: ButtonFocusRing,
 ) {
-    let border = theme_button::focus_ring(theme, ring, outset_radius(radius, border_width(theme)));
+    draw_focus_ring_with_placement(
+        renderer,
+        theme,
+        bounds,
+        radius,
+        ring,
+        FocusRingPlacement::Outset,
+    );
+}
+
+pub(crate) fn draw_focus_ring_with_placement(
+    renderer: &mut iced::Renderer,
+    theme: &crate::theme::Theme,
+    bounds: Rectangle,
+    radius: Radius,
+    ring: ButtonFocusRing,
+    placement: FocusRingPlacement,
+) {
+    let width = border_width(theme);
+    let (bounds, radius) = focus_ring_geometry(bounds, radius, width, placement);
+    let border = theme_button::focus_ring(theme, ring, radius);
 
     if border.width <= 0.0 || border.color.a <= 0.0 {
         return;
@@ -252,13 +309,36 @@ pub fn draw_focus_ring(
 
     renderer.fill_quad(
         renderer::Quad {
-            bounds: outset_bounds(bounds, border.width),
+            bounds,
             border,
             shadow: Shadow::default(),
             snap: true,
         },
         Color::TRANSPARENT,
     );
+}
+
+fn focus_ring_geometry(
+    bounds: Rectangle,
+    radius: Radius,
+    width: f32,
+    placement: FocusRingPlacement,
+) -> (Rectangle, Radius) {
+    match placement {
+        FocusRingPlacement::Outset => (outset_bounds(bounds, width), outset_radius(radius, width)),
+        FocusRingPlacement::Inset => (bounds, clamp_radius(radius, bounds)),
+    }
+}
+
+fn clamp_radius(radius: Radius, bounds: Rectangle) -> Radius {
+    let maximum = (bounds.width.min(bounds.height) / 2.0).max(0.0);
+
+    Radius {
+        top_left: radius.top_left.clamp(0.0, maximum),
+        top_right: radius.top_right.clamp(0.0, maximum),
+        bottom_right: radius.bottom_right.clamp(0.0, maximum),
+        bottom_left: radius.bottom_left.clamp(0.0, maximum),
+    }
 }
 
 fn border_width(theme: &crate::theme::Theme) -> f32 {
@@ -301,6 +381,7 @@ mod pressable_tests {
         key::{Code, Named, Physical},
         Key, Location, Modifiers,
     };
+    use iced::Point;
 
     fn key_pressed(key: Key) -> Event {
         Event::Keyboard(keyboard::Event::KeyPressed {
@@ -356,5 +437,29 @@ mod pressable_tests {
     #[test]
     fn focus_ring_radius_follows_theme_border_width() {
         assert_eq!(outset_radius(Radius::new(4.0), 2.0), Radius::new(6.0));
+    }
+
+    #[test]
+    fn focus_ring_placement_preserves_outset_default_and_supports_inset() {
+        let bounds = Rectangle::new(Point::new(10.0, 20.0), Size::new(30.0, 40.0));
+
+        assert_eq!(
+            focus_ring_geometry(bounds, Radius::new(4.0), 2.0, FocusRingPlacement::Outset),
+            (outset_bounds(bounds, 2.0), Radius::new(6.0))
+        );
+        assert_eq!(
+            focus_ring_geometry(bounds, Radius::new(4.0), 2.0, FocusRingPlacement::Inset),
+            (bounds, Radius::new(4.0))
+        );
+    }
+
+    #[test]
+    fn inset_focus_ring_clamps_radius_to_complete_bounds() {
+        let bounds = Rectangle::new(Point::ORIGIN, Size::new(12.0, 8.0));
+
+        assert_eq!(
+            focus_ring_geometry(bounds, Radius::new(20.0), 2.0, FocusRingPlacement::Inset),
+            (bounds, Radius::new(4.0))
+        );
     }
 }
