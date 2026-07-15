@@ -5,7 +5,7 @@ use iced::{
     Alignment, Background, Border, Color, Length, Shadow,
 };
 
-use crate::theme::{self, control_metrics, ControlRole, ControlSize, ControlState, TextRole};
+use crate::theme::{self, ControlRole, ControlSize, ControlState, TextRole};
 use crate::Element;
 
 use super::button::ButtonFocusRing;
@@ -30,6 +30,10 @@ struct SelectableItemMetrics {
     height: f32,
 }
 
+/// Form-compatible selectable list row with app-owned selection state.
+///
+/// The row defaults to [`ControlSize::Sm`] and fill width. Selection uses a
+/// subtle whole-row surface; focus is inset and independent from selection.
 pub struct SelectableItem<'a, Message> {
     label: &'a str,
     selected: bool,
@@ -79,11 +83,16 @@ where
         self
     }
 
+    /// Adds operational trailing text that follows the row interaction state.
+    ///
+    /// Use [`SelectableItem::trailing`] with an explicitly styled element for
+    /// semantic status or muted optional metadata.
     pub fn trailing_text(mut self, trailing: &'a str) -> Self {
         self.trailing_text = Some(trailing);
         self
     }
 
+    /// Adds caller-styled trailing content without overriding its semantic tone.
     pub fn trailing(mut self, trailing: impl Into<Element<'a, Message>>) -> Self {
         self.trailing = Some(trailing.into());
         self
@@ -161,7 +170,7 @@ where
         item = item.height(metrics.height);
         let item = item.on_press_maybe(activation.clone());
 
-        let item = Pressable::maybe(
+        let item = Pressable::maybe_inset(
             item,
             activation,
             metrics.radius.into(),
@@ -231,8 +240,12 @@ where
 }
 
 fn metrics(size: ControlSize) -> SelectableItemMetrics {
-    let control = control_metrics(size);
-    let spacing = theme::spacing();
+    metrics_for_theme(theme::active(), size)
+}
+
+fn metrics_for_theme(theme: crate::theme::Theme, size: ControlSize) -> SelectableItemMetrics {
+    let control = theme.control_metrics(size);
+    let spacing = theme.spacing();
 
     SelectableItemMetrics {
         font_size: control.font_size,
@@ -292,7 +305,7 @@ fn content_color(
             theme.text(TextRole::Primary).color
         }
         (SelectableItemVariant::Default, Status::Disabled) => control.foreground,
-        (SelectableItemVariant::Default, Status::Active) => theme.text(TextRole::Muted).color,
+        (SelectableItemVariant::Default, Status::Active) => theme.text(TextRole::Secondary).color,
     }
 }
 
@@ -419,6 +432,37 @@ mod selectable_item_tests {
             background_color(&style),
             selected.background.scale_alpha(0.60)
         );
+    }
+
+    #[test]
+    fn idle_content_uses_secondary_emphasis_without_border() {
+        let theme = Theme::Dark;
+        let style = style(SelectableItemVariant::Default, 6.0)(&theme, Status::Active);
+
+        assert_eq!(style.text_color, theme.text(TextRole::Secondary).color);
+        assert_eq!(style.border.width, 0.0);
+        assert_eq!(background_color(&style), Color::TRANSPARENT);
+    }
+
+    #[test]
+    fn every_size_and_density_uses_control_height_and_radius() {
+        for density in crate::theme::ThemeDensity::ALL {
+            let theme = Theme::builder("SelectableItem metrics", crate::theme::ThemeMode::Dark)
+                .density(density)
+                .build();
+            for size in [
+                ControlSize::Xs,
+                ControlSize::Sm,
+                ControlSize::Md,
+                ControlSize::Lg,
+            ] {
+                let metrics = metrics_for_theme(theme, size);
+                let control = theme.control_metrics(size);
+                assert_eq!(metrics.height, control.height);
+                assert_eq!(metrics.radius, control.radius);
+                assert_eq!(metrics.icon_size, control.icon_size);
+            }
+        }
     }
 
     fn background_color(style: &button::Style) -> Color {
