@@ -62,6 +62,7 @@ pub enum ButtonVariant {
 pub enum ButtonFocusRing {
     Default,
     OnPrimary,
+    Danger,
 }
 
 pub fn style(
@@ -241,6 +242,7 @@ pub fn focus_ring(theme: &crate::theme::Theme, ring: ButtonFocusRing, radius: Ra
     let color = match ring {
         ButtonFocusRing::Default => focus.color,
         ButtonFocusRing::OnPrimary => theme.tone(ToneRole::Accent).on_color,
+        ButtonFocusRing::Danger => theme.tone(ToneRole::Danger).color,
     };
 
     border_with_radius(BorderSpec::new(color, focus.width), radius)
