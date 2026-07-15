@@ -1,5 +1,4 @@
 mod action;
-mod action_group;
 mod group;
 mod separator;
 mod style;
@@ -15,7 +14,6 @@ use crate::Element;
 use self::style as theme_toolbar;
 
 pub use action::ToolbarAction;
-pub use action_group::ActionGroup;
 pub use group::ToolbarGroup;
 
 pub struct Toolbar<'a, Message> {

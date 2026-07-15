@@ -14,14 +14,14 @@ pub use overlays::tooltip;
 pub use primitives::{icon, text};
 
 pub use containers::{
-    ActionCard, Card, Panel, SectionHeader, SectionHeaderAction, SectionHeaderStatus,
+    ActionCard, Card, CardVariant, Panel, SectionHeader, SectionHeaderAction, SectionHeaderStatus,
     SelectableCard, SplitPane, SplitPaneConstraints,
 };
 pub use controls::{
-    Autocomplete, AutocompleteMessage, Button, ButtonIntent, ButtonVariant, Checkbox, ColorInput,
-    ColorPicker, Field, FieldError, FieldGroup, FieldHint, FieldLabel, FieldValidation, Input,
-    InputGroup, InputGroupVariant, PathInput, RgbHexColor, SegmentedControl, SegmentedItem, Select,
-    SelectableItem, Switch, TextInputAppearance,
+    ActionGroup, Autocomplete, AutocompleteMessage, Button, ButtonIntent, ButtonVariant, Checkbox,
+    ColorInput, ColorPicker, ContentAction, Field, FieldError, FieldGroup, FieldHint, FieldLabel,
+    FieldValidation, Input, InputGroup, InputGroupVariant, PathInput, RgbHexColor,
+    SegmentedControl, SegmentedItem, Select, SelectableItem, Switch, TextInputAppearance,
 };
 pub use display::{
     reveal, row_height, scroll_offset_to, visible_index_of, AvatarClass, AvatarSize, Badge,
@@ -37,7 +37,7 @@ pub use feedback::{
     SkeletonControl, Spinner,
 };
 pub use navigation::{
-    command_palette_filter, command_palette_view, ActionGroup, CommandPaletteRow, DropdownMenu,
+    command_palette_filter, command_palette_view, CommandPaletteRow, DropdownMenu,
     DropdownMenuItem, RailSide, TabBar, TabCloseRequest, TabCloseTrigger, TabDrop, TabDropTarget,
     TabItem, TabTearOff, Toolbar, ToolbarAction, ToolbarGroup, VerticalRail, VerticalRailBadge,
     VerticalRailItem,
