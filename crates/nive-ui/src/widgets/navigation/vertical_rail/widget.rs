@@ -3,9 +3,9 @@ use iced::{
         layout::{self, Layout},
         mouse, renderer,
         widget::{operation, tree, Tree},
-        Clipboard, Shell, Widget,
+        Clipboard, Renderer as _, Shell, Widget,
     },
-    Event, Length, Rectangle, Size,
+    Event, Length, Rectangle, Shadow, Size,
 };
 
 use crate::theme::ControlSize;
@@ -21,6 +21,35 @@ use super::RailSide;
 pub(super) type SelectCallback<'a, Id, Message> = Box<dyn Fn(Id) -> Message + 'a>;
 
 pub(super) const CHEVRON_SCROLL_STEP_FACTOR: f32 = 0.8;
+
+pub(super) fn seam_bounds(bounds: Rectangle, side: RailSide) -> Rectangle {
+    Rectangle {
+        x: match side {
+            RailSide::Left => bounds.x + bounds.width - 1.0,
+            RailSide::Right => bounds.x,
+        },
+        y: bounds.y,
+        width: 1.0,
+        height: bounds.height,
+    }
+}
+
+pub(super) fn selected_indicator_bounds(
+    item_bounds: Rectangle,
+    side: RailSide,
+    length: f32,
+) -> Rectangle {
+    let height = length.min(item_bounds.height);
+    Rectangle {
+        x: match side {
+            RailSide::Left => item_bounds.x + item_bounds.width - 2.0,
+            RailSide::Right => item_bounds.x,
+        },
+        y: item_bounds.y + (item_bounds.height - height) / 2.0,
+        width: 2.0,
+        height,
+    }
+}
 
 /// A narrow vertical rail for left and right window edges.
 ///
@@ -47,6 +76,7 @@ pub(super) struct VerticalRailState {
     scroll_offset: f32,
     up_chevron: Option<Rectangle>,
     down_chevron: Option<Rectangle>,
+    item_bounds: Vec<Rectangle>,
 }
 
 impl<'a, Id, Message> VerticalRail<'a, Id, Message>
@@ -184,7 +214,7 @@ where
         state.overflow.offset = state.scroll_offset;
         state.overflow.update_extents(content_height, strip_height);
         state.scroll_offset = state.overflow.offset;
-        let _ = item_bounds;
+        state.item_bounds = item_bounds;
 
         translated_node
     }
@@ -330,6 +360,39 @@ where
         viewport: &Rectangle,
     ) {
         let state = tree.state.downcast_ref::<VerticalRailState>();
+        let bounds = layout.bounds();
+        let metrics = metrics(self.size);
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds,
+                border: iced::Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            super::style::rail_background(theme),
+        );
+        for (item, item_bounds) in self.items.iter().zip(&state.item_bounds) {
+            if item.selected {
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: *item_bounds,
+                        border: iced::Border::default(),
+                        shadow: Shadow::default(),
+                        snap: true,
+                    },
+                    super::style::selected_item_background(theme, item.disabled),
+                );
+            }
+        }
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: seam_bounds(bounds, self.side),
+                border: iced::Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            super::style::seam_color(theme),
+        );
         let content = self.content_element(state);
         content.as_widget().draw(
             &tree.children[0],
@@ -340,5 +403,18 @@ where
             cursor,
             viewport,
         );
+        for (item, item_bounds) in self.items.iter().zip(&state.item_bounds) {
+            if item.selected {
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: selected_indicator_bounds(*item_bounds, self.side, metrics.width),
+                        border: iced::Border::default(),
+                        shadow: Shadow::default(),
+                        snap: true,
+                    },
+                    super::style::selected_indicator_color(theme),
+                );
+            }
+        }
     }
 }

@@ -6,9 +6,12 @@ use super::content::item_tooltip;
 use super::item::{VerticalRailBadge, VerticalRailItem};
 use super::label::{rotation_radians, RailLabelCanvas};
 use super::layout::{ellipsize_label, item_layout, metrics_for_theme, RailMetrics};
-use super::widget::{VerticalRail, CHEVRON_SCROLL_STEP_FACTOR};
+use super::widget::{
+    seam_bounds, selected_indicator_bounds, VerticalRail, CHEVRON_SCROLL_STEP_FACTOR,
+};
 use super::RailSide;
 use crate::theme::TextRole;
+use iced::Rectangle;
 
 fn test_label(selected: bool, disabled: bool) -> RailLabelCanvas {
     RailLabelCanvas {
@@ -196,6 +199,25 @@ fn badge_description_composes_item_tooltip() {
     assert_eq!(
         item_tooltip(&item, false).as_deref(),
         Some("Problems — 3 errors")
+    );
+}
+
+#[test]
+fn seam_and_selected_indicator_follow_panel_facing_side() {
+    let rail = Rectangle::new(iced::Point::new(10.0, 20.0), iced::Size::new(32.0, 300.0));
+    let item = Rectangle::new(iced::Point::new(10.0, 40.0), iced::Size::new(32.0, 80.0));
+
+    assert_eq!(seam_bounds(rail, RailSide::Left).x, 41.0);
+    assert_eq!(seam_bounds(rail, RailSide::Right).x, 10.0);
+    let left = selected_indicator_bounds(item, RailSide::Left, 32.0);
+    let right = selected_indicator_bounds(item, RailSide::Right, 32.0);
+    assert_eq!(
+        left,
+        Rectangle::new(iced::Point::new(40.0, 64.0), iced::Size::new(2.0, 32.0))
+    );
+    assert_eq!(
+        right,
+        Rectangle::new(iced::Point::new(10.0, 64.0), iced::Size::new(2.0, 32.0))
     );
 }
 
