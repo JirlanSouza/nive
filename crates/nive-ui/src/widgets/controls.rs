@@ -1,3 +1,4 @@
+pub mod action_group;
 pub mod autocomplete;
 pub mod button;
 pub mod checkbox;
@@ -12,6 +13,7 @@ pub mod select;
 pub mod selectable_item;
 pub mod switch;
 
+pub use action_group::{ActionGroup, ContentAction};
 pub use autocomplete::{Autocomplete, AutocompleteMessage};
 pub use button::{Button, ButtonIntent, ButtonVariant};
 pub use checkbox::Checkbox;
