@@ -45,6 +45,7 @@ pub struct Button<'a, Message> {
 pub(crate) enum GroupedItemKind {
     Embedded,
     Selectable,
+    Toolbar,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

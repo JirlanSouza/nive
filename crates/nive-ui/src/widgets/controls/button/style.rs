@@ -181,6 +181,56 @@ pub(crate) fn selectable_style(
     }
 }
 
+pub(crate) fn toolbar_style(
+    selected: bool,
+    destructive: bool,
+    radius: Radius,
+) -> impl Fn(&crate::theme::Theme, Status) -> button::Style {
+    move |theme: &crate::theme::Theme, status: Status| {
+        let theme = *theme;
+        let interacting = matches!(status, Status::Hovered | Status::Pressed);
+
+        if destructive && interacting {
+            let danger = theme.tone(ToneRole::Danger);
+            return button::Style {
+                background: Some(Background::Color(match status {
+                    Status::Pressed => danger.container.scale_alpha(1.18),
+                    _ => danger.container,
+                })),
+                text_color: danger.color,
+                border: transparent_border_with_radius(radius),
+                shadow: Shadow::default(),
+                ..button::Style::default()
+            };
+        }
+
+        let mut state = button_control_state(status);
+        if selected {
+            state = state.selected();
+        }
+        let control = theme.control(ControlRole::Selectable, state);
+        let background = if selected || interacting {
+            control.background
+        } else {
+            Color::TRANSPARENT
+        };
+        let text_color = match status {
+            Status::Disabled => control.foreground,
+            Status::Hovered | Status::Pressed => theme.text(TextRole::Primary).color,
+            Status::Active if selected => control.foreground,
+            Status::Active => theme.text(TextRole::Secondary).color,
+        };
+
+        button::Style {
+            background: Some(Background::Color(background)),
+            text_color,
+            border: transparent_border_with_radius(radius),
+            shadow: Shadow::default(),
+            ..button::Style::default()
+        }
+    }
+}
+
 pub(crate) fn button_class(intent: ButtonIntent, variant: ButtonVariant) -> ButtonClass<'static> {
     ButtonClass::Standard { intent, variant }
 }
@@ -366,6 +416,33 @@ mod button_tests {
         assert_eq!(
             background_color(&pressed),
             selected.background.scale_alpha(0.88)
+        );
+    }
+
+    #[test]
+    fn toolbar_states_are_flat_and_semantic() {
+        let theme = Theme::Dark;
+        let radius = Radius::new(6.0);
+        let idle = toolbar_style(false, false, radius)(&theme, Status::Active);
+        let hovered = toolbar_style(false, false, radius)(&theme, Status::Hovered);
+        let selected = toolbar_style(true, false, radius)(&theme, Status::Active);
+        let destructive_idle = toolbar_style(false, true, radius)(&theme, Status::Active);
+        let destructive_hover = toolbar_style(false, true, radius)(&theme, Status::Hovered);
+
+        assert_eq!(background_color(&idle), Color::TRANSPARENT);
+        assert_eq!(idle.text_color, theme.text(TextRole::Secondary).color);
+        assert_eq!(idle.border.width, 0.0);
+        assert_ne!(background_color(&hovered), Color::TRANSPARENT);
+        assert_eq!(hovered.text_color, theme.text(TextRole::Primary).color);
+        assert_ne!(background_color(&selected), Color::TRANSPARENT);
+        assert_eq!(selected.border.width, 0.0);
+        assert_eq!(
+            destructive_idle.text_color,
+            theme.text(TextRole::Secondary).color
+        );
+        assert_eq!(
+            destructive_hover.text_color,
+            theme.tone(ToneRole::Danger).color
         );
     }
 

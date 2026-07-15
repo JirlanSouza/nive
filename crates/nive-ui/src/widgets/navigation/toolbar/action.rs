@@ -130,7 +130,7 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
             padding_h: metrics.action_padding_h,
             selected: self.selected,
             destructive: self.destructive,
-            kind: GroupedItemKind::Selectable,
+            kind: GroupedItemKind::Toolbar,
         })
     }
 }

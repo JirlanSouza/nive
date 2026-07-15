@@ -1,7 +1,4 @@
-use iced::{
-    widget::{container, Row},
-    Alignment, Length,
-};
+use iced::{widget::Row, Alignment, Length};
 
 use crate::theme::ControlSize;
 use crate::Element;
@@ -87,13 +84,7 @@ where
             });
         }
 
-        let mut group = container(items)
-            .style(theme_toolbar::group_style(metrics.radius))
-            .height(Length::Fixed(metrics.action_height));
-
-        group = group.width(self.width);
-
-        group.into()
+        items.width(self.width).into()
     }
 }
 
