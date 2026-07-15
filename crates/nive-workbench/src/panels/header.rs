@@ -1,13 +1,22 @@
 use std::borrow::Cow;
 use std::rc::Rc;
 
-use nive_ui::theme::{ControlSize, ToneRole};
+use iced::{widget::container, Length, Padding};
+use nive_ui::theme::{self, ControlSize, ToneRole};
 use nive_ui::widgets::{SectionHeader, SectionHeaderAction, SectionHeaderStatus};
 use nive_ui::{Element, IconRole};
 
 use super::model::PanelHeaderBar;
 use crate::layout::WorkbenchRegion;
 use crate::panels::model::WorkbenchPanelEvent;
+
+#[derive(Debug, Clone, Copy)]
+pub(super) struct TrailingControlFlags {
+    pub(super) restorable: bool,
+    pub(super) maximizable: bool,
+    pub(super) collapsible: bool,
+    pub(super) closable: bool,
+}
 
 impl<'a, PanelId, ActionId> PanelHeaderBar<'a, PanelId, ActionId> {
     /// Builds a header bar directly from metadata.
@@ -16,6 +25,7 @@ impl<'a, PanelId, ActionId> PanelHeaderBar<'a, PanelId, ActionId> {
             region,
             panel_id,
             title: title.into(),
+            tooltip: None,
             icon: None,
             badge: None,
             status: None,
@@ -52,7 +62,9 @@ where
     where
         Message: Clone + 'a,
     {
-        let mut header = SectionHeader::new(self.title).size(size);
+        let mut header = SectionHeader::new(self.title)
+            .title_tooltip_maybe(self.tooltip)
+            .size(size);
         if let Some(icon) = self.icon {
             header = header.icon(icon);
         }
@@ -60,78 +72,114 @@ where
             header = header.badge(badge);
         }
         if let Some(status) = self.status {
-            header = header.status(SectionHeaderStatus::icon_label(
+            header = header.status(SectionHeaderStatus::icon(
                 tone_icon(status),
-                tone_label(status),
                 status,
+                tone_label(status),
             ));
         }
+        header = header.trailing(trailing_controls(
+            self.region,
+            self.panel_id,
+            self.actions,
+            TrailingControlFlags {
+                restorable: self.restorable,
+                maximizable: self.maximizable,
+                collapsible: self.collapsible,
+                closable: self.closable,
+            },
+            mapper,
+            size,
+        ));
 
-        for action in self.actions {
-            let has_label = action.label.is_some();
-            let label = action
-                .label
-                .unwrap_or_else(|| action.accessible_label.clone());
-            let event = WorkbenchPanelEvent::Action {
-                region: self.region,
-                panel_id: self.panel_id.clone(),
-                action_id: action.id.clone(),
-            };
-            let control = match action.icon {
-                Some(icon) if has_label => SectionHeaderAction::icon_text(icon, label),
-                Some(icon) => SectionHeaderAction::icon(icon).tooltip(action.accessible_label),
-                None => SectionHeaderAction::text(label),
-            };
-            header = header.action(
-                control
-                    .disabled(action.disabled)
-                    .on_press_maybe((!action.disabled).then(|| mapper(event))),
-            );
-        }
-
-        if self.collapsible {
-            header = header.action(header_button(
-                IconRole::ViewConceal,
-                "Collapse panel",
-                mapper(WorkbenchPanelEvent::CollapseRequested {
-                    region: self.region,
-                    panel_id: self.panel_id.clone(),
-                }),
-            ));
-        }
-        if self.restorable {
-            header = header.action(header_button(
-                IconRole::ViewReveal,
-                "Restore panel",
-                mapper(WorkbenchPanelEvent::PanelRestoreRequested {
-                    region: self.region,
-                    panel_id: self.panel_id.clone(),
-                }),
-            ));
-        }
-        if self.maximizable {
-            header = header.action(header_button(
-                IconRole::NiveDisclosureUp,
-                "Maximize panel",
-                mapper(WorkbenchPanelEvent::MaximizeRequested {
-                    region: self.region,
-                    panel_id: self.panel_id.clone(),
-                }),
-            ));
-        }
-        if self.closable {
-            header = header.action(header_button(
-                IconRole::WindowClose,
-                "Close panel",
-                mapper(WorkbenchPanelEvent::CloseRequested {
-                    region: self.region,
-                    panel_id: self.panel_id,
-                }),
-            ));
-        }
-
-        header.into()
+        container(header)
+            .padding(Padding::ZERO.horizontal(theme::spacing().sm))
+            .width(Length::Fill)
+            .height(Length::Fixed(theme::control_metrics(size).height))
+            .clip(true)
+            .into()
     }
+}
+
+pub(super) fn trailing_controls<'a, PanelId, ActionId, Message>(
+    region: WorkbenchRegion,
+    panel_id: PanelId,
+    actions: Vec<super::model::PanelAction<'a, ActionId>>,
+    flags: TrailingControlFlags,
+    mapper: Rc<dyn Fn(WorkbenchPanelEvent<PanelId, ActionId>) -> Message + 'a>,
+    size: ControlSize,
+) -> Element<'a, Message>
+where
+    PanelId: Clone + 'a,
+    ActionId: Clone + 'a,
+    Message: Clone + 'a,
+{
+    let has_app_actions = !actions.is_empty();
+    let has_builtin = flags.restorable || flags.maximizable || flags.collapsible || flags.closable;
+    let mut controls = Vec::new();
+
+    for action in actions {
+        let has_label = action.label.is_some();
+        let label = action
+            .label
+            .clone()
+            .unwrap_or_else(|| action.accessible_label.clone());
+        let event = WorkbenchPanelEvent::Action {
+            region,
+            panel_id: panel_id.clone(),
+            action_id: action.id,
+        };
+        let control = match action.icon {
+            Some(icon) if has_label => SectionHeaderAction::icon_text(icon, label),
+            Some(icon) => SectionHeaderAction::icon(icon).tooltip(action.accessible_label),
+            None => SectionHeaderAction::text(label),
+        }
+        .disabled(action.disabled)
+        .on_press_maybe((!action.disabled).then(|| mapper(event)));
+        controls.push(control);
+    }
+    if has_app_actions && has_builtin {
+        controls.push(SectionHeaderAction::separator());
+    }
+    if flags.restorable {
+        controls.push(header_button(
+            IconRole::ViewReveal,
+            "Restore panel",
+            mapper(WorkbenchPanelEvent::PanelRestoreRequested {
+                region,
+                panel_id: panel_id.clone(),
+            }),
+        ));
+    }
+    if flags.maximizable {
+        controls.push(header_button(
+            IconRole::NiveDisclosureUp,
+            "Maximize panel",
+            mapper(WorkbenchPanelEvent::MaximizeRequested {
+                region,
+                panel_id: panel_id.clone(),
+            }),
+        ));
+    }
+    if flags.collapsible {
+        controls.push(header_button(
+            IconRole::ViewConceal,
+            "Collapse panel",
+            mapper(WorkbenchPanelEvent::CollapseRequested {
+                region,
+                panel_id: panel_id.clone(),
+            }),
+        ));
+    }
+    if flags.closable {
+        controls.push(header_button(
+            IconRole::WindowClose,
+            "Close panel",
+            mapper(WorkbenchPanelEvent::CloseRequested { region, panel_id }),
+        ));
+    }
+
+    SectionHeaderAction::group(controls, size)
 }
 
 fn header_button<'a, Message>(
