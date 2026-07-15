@@ -32,6 +32,9 @@ fn tabs(app: &WidgetGallery) -> Element<'_, Message> {
         .iter()
         .map(|&demo_tab| make_tab(demo_tab, app.layout.dirty_tab))
         .collect();
+    let empty_tabs: Element<'_, Message> = TabBar::<DemoTab, Message>::new(None)
+        .fill_width()
+        .into();
 
     variant_grid([
         example_cell(
@@ -51,6 +54,14 @@ fn tabs(app: &WidgetGallery) -> Element<'_, Message> {
                     .on_press(Message::ToggleDirtyTab),
             ]
             .spacing(10),
+        ),
+        example_cell(
+            "Empty TabBar",
+            column![
+                empty_tabs,
+                ntext::body_small("The strip keeps its Chrome height and bottom seam without placeholder tabs."),
+            ]
+            .spacing(8),
         ),
         example_cell(
             "SectionHeader",
@@ -478,6 +489,16 @@ fn selectable(app: &WidgetGallery) -> Element<'_, Message> {
                     .shrink_width()
                     .tooltip("Compact selectable item")
                     .on_press(Message::SelectItem(2)),
+                SelectableItem::new("Medium operational row")
+                    .md()
+                    .leading_icon(IconRole::DialogInformation)
+                    .trailing_text("42 ms")
+                    .on_press(Message::Noop),
+                SelectableItem::new("Large semantic status row")
+                    .lg()
+                    .leading_icon(IconRole::DialogSuccess)
+                    .trailing(Badge::new("Healthy").success())
+                    .on_press(Message::Noop),
             ]
             .spacing(6),
         ),

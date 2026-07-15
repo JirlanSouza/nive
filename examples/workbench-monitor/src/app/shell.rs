@@ -88,7 +88,8 @@ impl WorkbenchMonitor {
                 .icon(IconRole::DialogInformation)
                 .status(ToneRole::Accent),
             WorkbenchPanel::new("settings", "Settings", self.settings_view())
-                .icon(IconRole::PreferencesSystem),
+                .icon(IconRole::PreferencesSystem)
+                .disabled(true),
         ]
     }
 
@@ -145,7 +146,8 @@ impl WorkbenchMonitor {
             .map(|id| {
                 let mut tab = WorkbenchDocument::new(id, self.document_label(id))
                     .icon(self.document_icon(id))
-                    .closable(matches!(id, DocumentId::Service(_)));
+                    .closable(matches!(id, DocumentId::Service(_)))
+                    .disabled(matches!(id, DocumentId::Service("search")));
                 if matches!(id, DocumentId::Dashboard(_)) {
                     tab = tab.pinned(true).dirty(self.dirty_filter);
                 }
