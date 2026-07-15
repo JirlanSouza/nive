@@ -28,9 +28,11 @@ pub struct SectionHeader<'a, Message> {
     title: Cow<'a, str>,
     icon: Option<IconRole>,
     badge: Option<Cow<'a, str>>,
+    title_tooltip: Option<Cow<'a, str>>,
     size: ControlSize,
     status: Option<SectionHeaderStatus<'a>>,
     actions: Vec<SectionHeaderAction<'a, Message>>,
+    trailing: Option<Element<'a, Message>>,
 }
 
 pub struct SectionHeaderAction<'a, Message> {
@@ -39,6 +41,7 @@ pub struct SectionHeaderAction<'a, Message> {
     tooltip: Option<Cow<'a, str>>,
     disabled: bool,
     on_press: Option<Message>,
+    separator: bool,
 }
 
 pub struct SectionHeaderStatus<'a> {
@@ -55,6 +58,11 @@ enum SectionHeaderStatusKind<'a> {
         label: Cow<'a, str>,
         tone: ToneRole,
     },
+    Icon {
+        icon: IconRole,
+        tooltip: Cow<'a, str>,
+        tone: ToneRole,
+    },
 }
 
 impl<'a, Message> SectionHeader<'a, Message>
@@ -66,9 +74,11 @@ where
             title: title.into(),
             icon: None,
             badge: None,
+            title_tooltip: None,
             size: ControlSize::Sm,
             status: None,
             actions: Vec::new(),
+            trailing: None,
         }
     }
 
@@ -84,6 +94,18 @@ where
 
     pub fn badge(mut self, badge: impl Into<Cow<'a, str>>) -> Self {
         self.badge = Some(badge.into());
+        self
+    }
+
+    /// Exposes the full title when the visible single-line title is clipped.
+    pub fn title_tooltip(mut self, tooltip: impl Into<Cow<'a, str>>) -> Self {
+        self.title_tooltip = Some(tooltip.into());
+        self
+    }
+
+    /// Configures the full-title tooltip when one is available.
+    pub fn title_tooltip_maybe(mut self, tooltip: Option<impl Into<Cow<'a, str>>>) -> Self {
+        self.title_tooltip = tooltip.map(Into::into);
         self
     }
 
@@ -124,19 +146,36 @@ where
         self
     }
 
+    /// Adds protected custom trailing content after status and header actions.
+    pub fn trailing(mut self, trailing: impl Into<Element<'a, Message>>) -> Self {
+        self.trailing = Some(trailing.into());
+        self
+    }
+
     fn into_element(self) -> Element<'a, Message> {
         let metrics = theme_section_header::metrics(self.size);
-        let title = text(self.title)
+        let title: Element<'a, Message> = text(self.title)
             .font(metrics.title_style.font)
             .size(metrics.title_style.size)
             .line_height(metrics.title_style.line_height)
-            .style(theme::text::style(TextRole::Primary));
+            .wrapping(text::Wrapping::None)
+            .style(theme::text::style(TextRole::Primary))
+            .into();
+        let title: Element<'a, Message> = container(title).width(Length::Fill).clip(true).into();
+        let title = match self.title_tooltip {
+            Some(tooltip) => crate::widgets::overlays::tooltip::bottom(title, tooltip),
+            None => title,
+        };
         let mut leading = row![]
             .spacing(metrics.status_gap)
             .align_y(Alignment::Center)
             .width(Length::Fill);
         if let Some(icon) = self.icon {
-            leading = leading.push(icon::role(icon).custom_size(metrics.icon_size));
+            leading = leading.push(
+                icon::role(icon)
+                    .custom_size(metrics.icon_size)
+                    .color(theme::active().text(TextRole::Secondary).color),
+            );
         }
         leading = leading.push(title);
         if let Some(badge) = self.badge {
@@ -161,6 +200,9 @@ where
             .spacing(metrics.action_gap)
             .align_y(Alignment::Center);
             header = header.push(actions);
+        }
+        if let Some(trailing) = self.trailing {
+            header = header.push(trailing);
         }
 
         container(header)
@@ -190,6 +232,7 @@ where
             tooltip: None,
             disabled: false,
             on_press: None,
+            separator: false,
         }
     }
 
@@ -200,6 +243,7 @@ where
             tooltip: None,
             disabled: false,
             on_press: None,
+            separator: false,
         }
     }
 
@@ -210,7 +254,35 @@ where
             tooltip: None,
             disabled: false,
             on_press: None,
+            separator: false,
         }
+    }
+
+    /// Adds a quiet vertical boundary inside a protected action lane.
+    pub fn separator() -> Self {
+        Self {
+            icon: None,
+            label: None,
+            tooltip: None,
+            disabled: true,
+            on_press: None,
+            separator: true,
+        }
+    }
+
+    /// Composes actions as a protected, control-size-derived lane.
+    pub fn group(
+        actions: impl IntoIterator<Item = Self>,
+        size: ControlSize,
+    ) -> Element<'a, Message> {
+        let metrics = theme_section_header::metrics(size);
+        row(actions
+            .into_iter()
+            .map(|action| action.into_element(metrics, size))
+            .collect::<Vec<_>>())
+        .spacing(metrics.action_gap)
+        .align_y(Alignment::Center)
+        .into()
     }
 
     pub fn tooltip(mut self, tooltip: impl Into<Cow<'a, str>>) -> Self {
@@ -238,6 +310,19 @@ where
         metrics: theme_section_header::SectionHeaderMetrics,
         size: ControlSize,
     ) -> Element<'a, Message> {
+        if self.separator {
+            let color = theme::active()
+                .border(crate::theme::BorderRole::Subtle)
+                .color;
+            return container(Space::new())
+                .width(Length::Fixed(1.0))
+                .height(Length::Fixed(metrics.status_height))
+                .style(move |_| container::Style {
+                    background: Some(iced::Background::Color(color)),
+                    ..container::Style::default()
+                })
+                .into();
+        }
         let mut action = match (self.icon, self.label) {
             (Some(icon), None) => button::icon(icon)
                 .padding(Padding::ZERO)
@@ -287,6 +372,17 @@ impl<'a> SectionHeaderStatus<'a> {
         }
     }
 
+    /// Creates compact icon-only semantic status with a discoverable description.
+    pub fn icon(icon: IconRole, tone: ToneRole, tooltip: impl Into<Cow<'a, str>>) -> Self {
+        Self {
+            kind: SectionHeaderStatusKind::Icon {
+                icon,
+                tooltip: tooltip.into(),
+                tone,
+            },
+        }
+    }
+
     fn from_presentation(
         presentation: &impl ResourceStatusPresentation,
         refreshing_label: &'a str,
@@ -309,6 +405,9 @@ impl<'a> SectionHeaderStatus<'a> {
                 tone: status_tone, ..
             }
             | SectionHeaderStatusKind::IconLabel {
+                tone: status_tone, ..
+            }
+            | SectionHeaderStatusKind::Icon {
                 tone: status_tone, ..
             } => {
                 *status_tone = tone;
@@ -390,6 +489,16 @@ impl<'a> SectionHeaderStatus<'a> {
                 .height(Length::Fixed(metrics.status_height))
                 .into()
             }
+            SectionHeaderStatusKind::Icon {
+                icon,
+                tooltip,
+                tone,
+            } => crate::widgets::overlays::tooltip::bottom(
+                icon::role(icon)
+                    .custom_size(metrics.icon_size)
+                    .color(theme::active().tone(tone).color),
+                tooltip,
+            ),
         }
     }
 }
