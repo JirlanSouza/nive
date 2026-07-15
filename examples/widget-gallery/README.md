@@ -19,6 +19,10 @@ The gallery exercises:
   the icons page
 - real overlay behavior for popovers, dialogs, autocomplete, and command
   palette content
+- structural stress cases for long/narrow `SectionHeader`, transparent Toolbar
+  groups and contained overflow, adjacent Panel header/body anatomy, 12/6
+  overlay scrollbars, the complete semantic Separator matrix, and interactive,
+  locked, display-only, invalid-minimum, and constrained SplitPane states
 - opt-in devtools inspection for sample `Resource` and `Operation` fields
 - module-public helper coverage for `nive::ui::widgets::skeleton`, which is not
   re-exported from `crates/nive-ui/src/widgets.rs`
@@ -59,6 +63,10 @@ Check it with:
 ```bash
 cargo check
 ```
+
+For visual review, inspect light and dark themes at wide, narrow, and low
+window sizes. Exercise toolbar overflow, long-title tooltips, scrollbar
+hover/drag, and SplitPane hover, drag, focus, locked, and display-only states.
 
 With devtools enabled, open the panel with Cmd+Option+I on macOS or Ctrl+Alt+I
 on other platforms to force the inspected feedback sample states.

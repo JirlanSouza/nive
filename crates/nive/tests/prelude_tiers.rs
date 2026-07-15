@@ -232,7 +232,12 @@ mod workbench_chrome_prelude_contract {
 
     pub(super) fn _assert_workbench_prelude_exposes_chrome_size() {
         let state = WorkbenchLayoutState::<&str, &str>::default();
-        let _shell = WorkbenchShell::new(state, map_workbench_event).chrome_size(ControlSize::Lg);
+        let _shell = WorkbenchShell::new(state, map_workbench_event)
+            .chrome_size(ControlSize::Lg)
+            .pane_constraints(WorkbenchPaneConstraints::default());
+        let _: nive::ui::Element<'_, ()> = DocumentHeader::new("Document")
+            .title_tooltip("Document")
+            .view();
     }
 }
 
@@ -244,6 +249,7 @@ mod umbrella_workbench_chrome_prelude_contract {
     pub(super) fn _assert_umbrella_prelude_exposes_chrome_size() {
         let state = WorkbenchLayoutState::<&str, &str>::default();
         let _shell = WorkbenchShell::new(state, map_workbench_event).chrome_size(ControlSize::Md);
+        let _: Element<'_, ()> = DocumentHeader::new("Document").view();
     }
 }
 
