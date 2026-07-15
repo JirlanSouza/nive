@@ -13,7 +13,7 @@ use self::{
     chrome::ButtonChrome,
     content::{Content, TextAlign},
 };
-use crate::advanced::pressable::Pressable;
+use crate::advanced::pressable::{FocusRingPlacement, Pressable};
 use crate::widgets::overlays::tooltip as tooltip_widget;
 use crate::widgets::primitives::IconRole;
 
@@ -331,7 +331,19 @@ where
         self
     }
 
-    pub(crate) fn into_grouped_item(mut self, spec: GroupedItemSpec) -> Element<'a, Message> {
+    pub(crate) fn into_grouped_item(self, spec: GroupedItemSpec) -> Element<'a, Message> {
+        self.into_grouped_item_with_placement(spec, FocusRingPlacement::Outset)
+    }
+
+    pub(crate) fn into_grouped_item_inset(self, spec: GroupedItemSpec) -> Element<'a, Message> {
+        self.into_grouped_item_with_placement(spec, FocusRingPlacement::Inset)
+    }
+
+    fn into_grouped_item_with_placement(
+        mut self,
+        spec: GroupedItemSpec,
+        placement: FocusRingPlacement,
+    ) -> Element<'a, Message> {
         self.size = spec.size;
         self.height = Some(Length::Fixed(spec.height));
         if self.width.is_none() {
@@ -347,10 +359,18 @@ where
             });
         }
 
-        self.into_element_chrome(ButtonChrome::Grouped(spec))
+        self.into_element_chrome_with_placement(ButtonChrome::Grouped(spec), placement)
     }
 
-    fn into_element_chrome(mut self, chrome: ButtonChrome) -> Element<'a, Message> {
+    fn into_element_chrome(self, chrome: ButtonChrome) -> Element<'a, Message> {
+        self.into_element_chrome_with_placement(chrome, FocusRingPlacement::Outset)
+    }
+
+    fn into_element_chrome_with_placement(
+        mut self,
+        chrome: ButtonChrome,
+        placement: FocusRingPlacement,
+    ) -> Element<'a, Message> {
         let radius = chrome.radius(self.size);
         let activation = self.keyboard_activation();
         let id = self.id.clone();
@@ -358,7 +378,9 @@ where
         let tooltip_label = self.tooltip.take();
         let button = chrome::into_app_button(self, chrome);
         let button: Element<'a, Message> = match activation {
-            Some(message) => Pressable::new(button, message, id, radius, ring).into(),
+            Some(message) => Pressable::new(button, message, id, radius, ring)
+                .focus_placement(placement)
+                .into(),
             None => button.into(),
         };
 
