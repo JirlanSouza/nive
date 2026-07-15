@@ -73,8 +73,16 @@ impl Overflow {
 
 pub(super) fn wheel_delta(axis: OverflowAxis, delta: mouse::ScrollDelta) -> f32 {
     match (axis, delta) {
-        (OverflowAxis::Horizontal, mouse::ScrollDelta::Lines { x, .. }) => x * 24.0,
-        (OverflowAxis::Horizontal, mouse::ScrollDelta::Pixels { x, .. }) => x,
+        (OverflowAxis::Horizontal, mouse::ScrollDelta::Lines { x, y }) => {
+            (if x.abs() > f32::EPSILON { x } else { y }) * 24.0
+        }
+        (OverflowAxis::Horizontal, mouse::ScrollDelta::Pixels { x, y }) => {
+            if x.abs() > f32::EPSILON {
+                x
+            } else {
+                y
+            }
+        }
         (OverflowAxis::Vertical, mouse::ScrollDelta::Lines { y, .. }) => y * 24.0,
         (OverflowAxis::Vertical, mouse::ScrollDelta::Pixels { y, .. }) => y,
     }
@@ -126,6 +134,13 @@ mod tests {
                 mouse::ScrollDelta::Lines { x: 2.0, y: 5.0 }
             ),
             48.0
+        );
+        assert_eq!(
+            wheel_delta(
+                OverflowAxis::Horizontal,
+                mouse::ScrollDelta::Lines { x: 0.0, y: 5.0 }
+            ),
+            120.0
         );
         assert_eq!(
             wheel_delta(
