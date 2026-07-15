@@ -54,31 +54,31 @@ fn surfaces() -> Element<'static, Message> {
             "Canvas",
             Panel::new(ntext::body("Canvas"))
                 .role(SurfaceRole::Canvas)
-                .padding(16),
+                .body_padding(16),
         ),
         example_cell(
             "Panel",
             Panel::new(ntext::body("Panel"))
                 .role(SurfaceRole::Panel)
-                .padding(16),
+                .body_padding(16),
         ),
         example_cell(
             "Elevated",
             Panel::new(ntext::body("Elevated"))
                 .role(SurfaceRole::Elevated)
-                .padding(16),
+                .body_padding(16),
         ),
         example_cell(
             "Popover",
             Panel::new(ntext::body("Popover"))
                 .role(SurfaceRole::Popover)
-                .padding(16),
+                .body_padding(16),
         ),
         example_cell(
             "Dialog",
             Panel::new(ntext::body("Dialog"))
                 .role(SurfaceRole::Dialog)
-                .padding(16),
+                .body_padding(16),
         ),
     ])
 }

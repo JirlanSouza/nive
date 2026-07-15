@@ -277,11 +277,13 @@ fn toolbar(size: ControlSize) -> Element<'static, Message> {
                             ToolbarAction::icon(IconRole::GoNext)
                                 .tooltip("Forward")
                                 .on_press(Message::Noop),
-                        )
-                        .separator()
-                        .action(
-                            ToolbarAction::icon_label(IconRole::ViewRefresh, "Refresh").loading(true)
                         ),
+                )
+                .separator()
+                .group(
+                    ToolbarGroup::new().action(
+                        ToolbarAction::icon_label(IconRole::ViewRefresh, "Refresh").loading(true),
+                    ),
                 )
                 .group(
                     ToolbarGroup::new()
@@ -303,7 +305,7 @@ fn toolbar(size: ControlSize) -> Element<'static, Message> {
         .spacing(0),
     )
     .role(SurfaceRole::Panel)
-    .padding(0)
+    .body_padding(0)
     .into()
 }
 

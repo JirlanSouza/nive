@@ -68,6 +68,7 @@ pub fn dialog(kind: DialogKind) -> Element<'static, Message> {
             ntext::body("No wrapper is correcting spacing, radius, or token behavior here."),
         ]
         .spacing(12))
+        .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
         .height(180)
         .into(),
         _ => ntext::body("Review the current dialog baseline before accepting the action.").into(),
@@ -180,7 +181,7 @@ fn popover_button(
 fn popover_content(title: &'static str, body: &'static str) -> Element<'static, Message> {
     Panel::new(column![ntext::label_strong(title), ntext::body_small(body)].spacing(8))
         .role(SurfaceRole::Popover)
-        .padding(12)
+        .body_padding(12)
         .into()
 }
 

@@ -600,13 +600,15 @@ impl WidgetGallery {
                 densities,
                 ntext::section_label("Control size"),
                 sizes,
-                scrollable(entries).height(Length::Fill),
+                scrollable(entries)
+                    .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
+                    .height(Length::Fill),
             ]
             .spacing(12)
             .height(Length::Fill),
         )
         .role(SurfaceRole::Chrome)
-        .padding(16)
+        .body_padding(16)
         .width(300)
         .height(Length::Fill)
         .into()
@@ -625,7 +627,11 @@ impl WidgetGallery {
             PageId::Motion => pages::motion::view(self),
         };
 
-        container(scrollable(page).spacing(16))
+        container(
+            scrollable(page)
+                .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
+                .spacing(16),
+        )
             .padding(24)
             .width(Length::Fill)
             .height(Length::Fill)

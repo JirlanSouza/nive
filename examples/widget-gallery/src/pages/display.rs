@@ -118,7 +118,7 @@ fn surfaces() -> Element<'static, Message> {
                 ]
                 .spacing(4),
             )
-            .padding(14)
+            .body_padding(14)
             .width(Length::Fill),
         ),
         example_cell("MetricCard", MetricCard::new("Open issues", 128)),

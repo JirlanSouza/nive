@@ -174,6 +174,7 @@ impl Application for WorkbenchMonitor {
     ) -> ScreenView<'_, Self::Message> {
         let shell = WorkbenchShell::new(self.layout.clone(), Message::Workbench)
             .chrome_size(ControlSize::Sm)
+            .pane_constraints(WorkbenchPaneConstraints::default())
             .toolbar(self.toolbar())
             .left_panels(self.left_panels())
             .documents(self.document_tabs())

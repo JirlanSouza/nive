@@ -73,7 +73,7 @@ pub fn example_cell<'a>(
 ) -> Element<'a, crate::app::Message> {
     Panel::new(column![ntext::caption(label), content.into()].spacing(10))
         .role(SurfaceRole::Panel)
-        .padding(14)
+        .body_padding(14)
         .width(Length::Fill)
         .into()
 }

@@ -64,7 +64,7 @@ fn animated_layout() -> Element<'static, Message> {
             AnimatedLayout::height(
                 Panel::new(ntext::body("Animated layout content"))
                     .role(SurfaceRole::Elevated)
-                    .padding(14),
+                    .body_padding(14),
                 true,
                 20.0,
                 72.0,
