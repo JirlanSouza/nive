@@ -103,6 +103,17 @@ impl Harness {
         ratio: f32,
         locked: bool,
     ) -> Self {
+        Self::new_with_callback(orientation, control_size, size, ratio, locked, true)
+    }
+
+    pub(super) fn new_with_callback(
+        orientation: Orientation,
+        control_size: ControlSize,
+        size: Size,
+        ratio: f32,
+        locked: bool,
+        with_callback: bool,
+    ) -> Self {
         let pane = SplitPane::new(
             EventProbe::new(Message::Leading),
             EventProbe::new(Message::Trailing),
@@ -111,8 +122,12 @@ impl Harness {
         .size(control_size)
         .ratio(ratio)
         .locked(locked)
-        .id("split-pane")
-        .on_change(Message::Ratio);
+        .id("split-pane");
+        let pane = if with_callback {
+            pane.on_change(Message::Ratio)
+        } else {
+            pane
+        };
         let element = pane.into();
         let tree = Tree::new(&element);
         let mut harness = Self {

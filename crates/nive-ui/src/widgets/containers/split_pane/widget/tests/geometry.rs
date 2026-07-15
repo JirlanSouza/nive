@@ -7,6 +7,7 @@ use super::super::super::helpers::{
     focus_seam_color, metrics, metrics_for_control, visible_grip_bounds, visual_seam_bounds,
 };
 use super::super::super::SplitPane;
+use super::super::draw::{resolve_visual_state, DividerVisualState};
 use super::support::{Harness, ORIGIN};
 
 const CONTROL_SIZES: [ControlSize; 4] = [
@@ -224,4 +225,46 @@ fn focused_indicator_uses_the_one_pixel_seam_and_semantic_focus_color() {
         focus_seam_color(&theme),
         theme.border(BorderRole::Focus).color
     );
+}
+
+#[test]
+fn visual_state_precedence_is_inert_engaged_hovered_idle() {
+    assert_eq!(
+        resolve_visual_state(false, true, true),
+        DividerVisualState::Inert
+    );
+    assert_eq!(
+        resolve_visual_state(true, true, true),
+        DividerVisualState::Engaged
+    );
+    assert_eq!(
+        resolve_visual_state(true, false, true),
+        DividerVisualState::Hovered
+    );
+    assert_eq!(
+        resolve_visual_state(true, false, false),
+        DividerVisualState::Idle
+    );
+}
+
+#[test]
+fn inert_splitters_do_not_register_focus() {
+    let mut locked = Harness::new(
+        Orientation::Horizontal,
+        ControlSize::Sm,
+        Size::new(200.0, 120.0),
+        0.5,
+        true,
+    );
+    let mut display_only = Harness::new_with_callback(
+        Orientation::Horizontal,
+        ControlSize::Sm,
+        Size::new(200.0, 120.0),
+        0.5,
+        false,
+        false,
+    );
+
+    assert!(locked.focusable_bounds().is_empty());
+    assert!(display_only.focusable_bounds().is_empty());
 }

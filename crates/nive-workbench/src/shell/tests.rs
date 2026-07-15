@@ -62,6 +62,33 @@ fn chrome_size_defaults_to_small() {
 }
 
 #[test]
+fn pane_constraints_default_and_normalize_app_overrides() {
+    let defaults = WorkbenchPaneConstraints::default();
+    assert_eq!(
+        (defaults.left(), defaults.center(), defaults.right()),
+        (160.0, 240.0, 160.0)
+    );
+    assert_eq!((defaults.upper(), defaults.bottom()), (160.0, 96.0));
+
+    let configured = WorkbenchPaneConstraints::default()
+        .left_min(-1.0)
+        .center_min(f32::NAN)
+        .right_min(180.0)
+        .upper_min(f32::INFINITY)
+        .bottom_min(120.0);
+    assert_eq!(
+        (
+            configured.left(),
+            configured.center(),
+            configured.right(),
+            configured.upper(),
+            configured.bottom(),
+        ),
+        (0.0, 0.0, 180.0, 0.0, 120.0)
+    );
+}
+
+#[test]
 fn typed_toolbar_and_status_are_retained_until_rendering() {
     let shell = WorkbenchShell::new(
         WorkbenchLayoutState::<&str, &str>::default(),

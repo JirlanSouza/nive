@@ -10,7 +10,7 @@ use iced::{
     Font, Length, Pixels, Point, Rectangle, Size,
 };
 use nive_ui::{
-    theme::{testing::ThemeTestGuard, ControlSize, GapRole, Theme, ThemeDensity, ThemeMode},
+    theme::{testing::ThemeTestGuard, ControlSize, Theme, ThemeDensity, ThemeMode},
     widgets::{Toolbar, ToolbarAction, ToolbarGroup},
     Element, IconRole,
 };
@@ -65,16 +65,10 @@ fn snapshot(
         .density(density)
         .build();
     let primary_extent = theme.control_metrics(size).height;
-    // `Toolbar` owns its bottom edge: a 1px hairline is appended below the
-    // fixed-height toolbar content (see `widgets::navigation::toolbar`).
-    const TOOLBAR_BOTTOM_EDGE: f32 = 1.0;
-    let toolbar_extent =
-        primary_extent + theme.spacing().xxs * 2.0 + theme.spacing().xs * 2.0 + TOOLBAR_BOTTOM_EDGE;
-    // `StatusBar` owns its top edge: a 1px hairline is prepended above the
-    // fixed-height status content (see `crate::status`).
-    const STATUS_TOP_EDGE: f32 = 1.0;
-    let status_extent = primary_extent + STATUS_TOP_EDGE;
-    let content_gap = theme.gap(GapRole::Content);
+    // Both structural hairlines are overlaid inside their managed extents.
+    let toolbar_extent = primary_extent + theme.spacing().xs * 2.0;
+    let status_extent = primary_extent;
+    let content_gap = 0.0;
     let tight_gap = theme.spacing().xs;
     let _theme_guard = ThemeTestGuard::activate(theme);
     let viewport = Rectangle::with_size(viewport_size);
@@ -176,9 +170,8 @@ fn build_shell(
         ])
         .status(
             StatusBar::new()
-                .item(StatusItem::text(status_label))
-                .item(StatusItem::Spacer)
-                .item(StatusItem::operation_summary(3, status_label)),
+                .leading(StatusItem::text(status_label))
+                .trailing(StatusItem::operation_summary(3, status_label)),
         )
         .view()
 }
@@ -336,7 +329,10 @@ fn assert_common_expanded_geometry(snapshot: &LayoutSnapshot) {
     let bottom_content = snapshot.probe("bottom_content");
     assert_eq!(bottom_selector.height, snapshot.primary_extent);
     assert_eq!(bottom_track.height, snapshot.primary_extent);
-    assert_eq!(bottom_track.y, bottom_controls.y);
+    assert!(bottom_controls.y >= bottom_selector.y);
+    assert!(
+        bottom_controls.y + bottom_controls.height <= bottom_selector.y + bottom_selector.height
+    );
     assert!(
         bottom_track.width > 0.0,
         "bottom tab track has no remaining width"

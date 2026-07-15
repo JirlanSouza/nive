@@ -120,6 +120,7 @@ fn panel_chrome_accepts_owned_accessible_labels() {
         region: WorkbenchRegion::Left,
         panel_id: "files",
         title: Cow::Borrowed("Files"),
+        tooltip: None,
         icon: None,
         badge: None,
         status: None,

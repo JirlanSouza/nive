@@ -349,6 +349,27 @@ fn resize_cursor_uses_hit_target_and_respects_locking() {
 }
 
 #[test]
+fn display_only_splitter_preserves_child_flow_and_normal_cursor() {
+    for orientation in [Orientation::Horizontal, Orientation::Vertical] {
+        let mut harness = Harness::new_with_callback(
+            orientation,
+            ControlSize::Sm,
+            Size::new(200.0, 120.0),
+            0.5,
+            false,
+            false,
+        );
+        let point = harness.hit_only_point();
+        let result = harness.press(mouse::Button::Left, point);
+
+        assert!(!result.captured);
+        assert_eq!(result.messages, vec![Message::Leading, Message::Trailing]);
+        assert!(!harness.state().focused);
+        assert_eq!(harness.mouse_interaction(), mouse::Interaction::None);
+    }
+}
+
+#[test]
 fn keyboard_resize_uses_focused_splitter_and_layout_thickness() {
     let mut harness = Harness::new(
         Orientation::Horizontal,
