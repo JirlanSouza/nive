@@ -98,12 +98,54 @@ reusable visual composition.
 
 ## Action Surfaces
 
-`ActionGroup` is the inline grouped-action control. Its outer height follows
-`theme::control_metrics(size).height`, matching buttons, inputs and other
-inline controls of the same size.
+`Card`, `ActionCard`, and `SelectableCard` share this frame:
+
+| Variant | Fill | Perimeter | Shadow |
+| --- | --- | --- | --- |
+| `Filled` | Panel | none | none |
+| `Outlined` | transparent | one default border | none |
+| `Elevated` | Elevated | none | elevated |
+| `Ghost` | transparent | none | none |
+
+The default is `Filled` with `ShapeSize::Md` and
+`PaddingRole::Content` (8/12/14 px in Compact/Standard/Comfortable). Raw
+shape, radius, and padding remain escape hatches; `padding(0)` is flush.
+`Card` is passive. `ActionCard` is one immediate target. `SelectableCard` is
+controlled persistent selection and may reserve a display-only check slot.
+The interactive cards have a 48 px minimum height, inset focus, and no nested
+buttons, links, menus, or inputs. Recommended titles use complete
+`BodyStrong` 14 px semibold typography; descriptions use complete 14 px Body.
+
+`MetricCard` owns no surface or padding. It renders a secondary label before a
+20 px semibold value, an optional muted baseline unit, and separate status and
+trend content. An external `Card` owns chrome.
+
+`ActionGroup` is a transparent inline content composition. It accepts
+`ContentAction`, defaults to `ControlSize::Sm`, and follows
+`theme::control_metrics(size).height` while its label typography stays at
+14 px. Loading reserves width and is inert without impersonating explicit
+disabled styling. `fill_width()` does not stretch items or enable wrapping;
+`.wrap()` opts into whole-control wrapping and suppresses orphaned separators.
 
 `Toolbar` is a surface bar for application chrome. Its `size` configures the
-actions inside the bar; the toolbar itself may add surrounding chrome padding.
+`ToolbarAction` values inside `ToolbarGroup`; the toolbar itself may add
+surrounding chrome padding. Toolbar items are not accepted by content
+`ActionGroup`.
+
+### Card/content-action migration
+
+| Previous spelling | Current spelling |
+| --- | --- |
+| `card.role(SurfaceRole::Panel)` | default `filled()` |
+| `card.role(SurfaceRole::Elevated)` | `card.elevated()` |
+| `card.bordered()` | `card.outlined()` (`bordered` is deprecated) |
+| default Xl/Lg card radius plus raw padding | default Md plus semantic content padding |
+| Body geometry plus a local semibold font | `ntext::body_strong(...)` |
+| `widgets::navigation::ActionGroup` | `widgets::controls::ActionGroup` or flat facade |
+| `ActionGroup::action(ToolbarAction::...)` | `ActionGroup::action(ContentAction::...)` |
+
+Downstream exhaustive matches on `TypographyRole` and literals of
+`TypographyScale` must include `BodyStrong`/`body_strong`.
 
 `TabBar`, `VerticalRail`, `SectionHeader`, flat `SegmentedControl`, and toolbar
 actions derive their primary extent from the active theme's `ControlSize`

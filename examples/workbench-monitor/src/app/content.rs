@@ -114,17 +114,19 @@ impl WorkbenchMonitor {
             .sum();
 
         let cards = row![
-            Card::new(MetricCard::new("requests/min", total_rpm))
-                .shape_md()
-                .padding(14)
+            Card::new(
+                MetricCard::new("Requests", total_rpm)
+                    .unit("rpm")
+                    .trend(nive_text::body_small("live fleet total"))
+            )
                 .fill_width(),
-            Card::new(MetricCard::new("active alerts", active_alerts))
-                .shape_md()
-                .padding(14)
+            Card::new(
+                MetricCard::new("Active alerts", active_alerts)
+                    .status(Badge::new(if active_alerts > 0 { "attention" } else { "clear" })
+                        .tone(if active_alerts > 0 { ToneRole::Warning } else { ToneRole::Success }))
+            )
                 .fill_width(),
-            Card::new(MetricCard::new("running jobs", running_jobs))
-                .shape_md()
-                .padding(14)
+            Card::new(MetricCard::new("Running jobs", running_jobs))
                 .fill_width(),
         ]
         .spacing(12);
@@ -166,7 +168,7 @@ impl WorkbenchMonitor {
                         .title_tooltip("Fleet overview")
                         .trailing(
                             ActionGroup::new().action(
-                                ToolbarAction::icon_label(
+                                ContentAction::icon_label(
                                     IconRole::ViewRefresh,
                                     "Run health check"
                                 )
@@ -185,8 +187,7 @@ impl WorkbenchMonitor {
                         ]
                         .spacing(8)
                     )
-                    .shape_md()
-                    .padding(14)
+                    .outlined()
                     .fill_width(),
                     Card::new(
                         column![
@@ -224,8 +225,7 @@ impl WorkbenchMonitor {
                         ]
                         .spacing(8)
                     )
-                    .shape_md()
-                    .padding(14)
+                    .elevated()
                     .fill_width(),
                 ]
                 .spacing(16)
@@ -246,20 +246,14 @@ impl WorkbenchMonitor {
 
         let host = self.model.host(service.host_id);
         let cards = row![
-            Card::new(MetricCard::new("latency ms", service.latency_ms as i128))
-                .shape_md()
-                .padding(14)
+            Card::new(MetricCard::new("Latency", service.latency_ms).unit("ms"))
                 .fill_width(),
-            Card::new(MetricCard::new("uptime %", service.uptime_percent as i128))
-                .shape_md()
-                .padding(14)
+            Card::new(MetricCard::new("Uptime", service.uptime_percent).unit("%"))
                 .fill_width(),
             Card::new(MetricCard::new(
-                "error %",
-                service.error_rate_percent as i128
-            ))
-            .shape_md()
-            .padding(14)
+                "Error rate",
+                service.error_rate_percent
+            ).unit("%"))
             .fill_width(),
         ]
         .spacing(12);
@@ -285,19 +279,21 @@ impl WorkbenchMonitor {
                         )
                         .fill_width()
                 )
-                .shape_md()
-                .padding(14)
                 .fill_width(),
                 ActionGroup::new()
+                    .fill_width()
+                    .wrap()
                     .action(
-                        ToolbarAction::icon_label(IconRole::ViewReveal, "Inspect service")
+                        ContentAction::icon_label(IconRole::ViewReveal, "Inspect service")
                             .on_press(Message::InspectService(service.id))
                     )
                     .action(
-                        ToolbarAction::icon_label(IconRole::ViewRefresh, "Run health check")
+                        ContentAction::icon_label(IconRole::ViewRefresh, "Run health check")
                             .loading(self.model.running_jobs() > 0)
                             .on_press(Message::Command(AppCommand::RunHealthCheck))
-                    ),
+                    )
+                    .separator()
+                    .action(ContentAction::label("Restart service").destructive().disabled(true)),
             ]
             .spacing(16)
             .padding(24),
@@ -366,5 +362,18 @@ impl WorkbenchMonitor {
         scrollable(column(rows).spacing(12).padding(12))
             .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
             .into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn seeded_dashboard_and_service_documents_build_refined_content_compositions() {
+        let app = WorkbenchMonitor::seeded();
+
+        let _: Element<'_, Message> = app.dashboard_document();
+        let _: Element<'_, Message> = app.service_document("api");
     }
 }

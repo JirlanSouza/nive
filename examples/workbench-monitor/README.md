@@ -31,6 +31,13 @@ contained wheel overflow and a protected trailing action lane instead of an
 equal-width segmented selector. Labels, counts, ordering, ratios, and sample
 status data remain local to this example.
 
+Dashboard/service content uses framework-owned Md card shape and semantic
+content padding. Metric labels are separate from baseline units and optional
+status/trend content. Document peer actions use `ActionGroup` with
+`ContentAction`; Toolbar continues to use `ToolbarAction`. The service action
+group opts into whole-control wrapping so `800x600` and `1024x480` expose the
+narrow layout without app-local control resizing.
+
 ## Visual foundations review
 
 The monitor receives Inter Regular/SemiBold and Geist Mono Regular/Medium from
@@ -50,6 +57,11 @@ document menu/keyboard/disabled/dirty/pinned/close/drag/cancellation states,
 side rails, constrained bottom-tab wheel overflow, collapsed side and bottom
 regions, and maximized panels. Fixed chrome extents, protected trailing
 controls, and all region bounds should remain contained.
+
+At `1440x900`, `800x600`, and `1024x480`, also verify filled, outlined, and
+elevated cards, label-before-value metric hierarchy, baseline units and support
+content, loading/disabled content actions, keyboard focus, and wrapping with no
+orphaned separator or split action.
 
 Run it:
 

@@ -225,6 +225,33 @@ mod app_icon_contract {
     }
 }
 
+mod card_and_content_action_contract {
+    use nive::prelude::*;
+
+    pub(super) fn _assert_card_and_content_action_facades_compile() {
+        let _: CardVariant = CardVariant::Elevated;
+        let _: Element<'_, ()> = Card::new(text("Card")).filled().into();
+        let _: Element<'_, ()> = ActionCard::new(text("Open")).outlined().into();
+        let _: Element<'_, ()> = SelectableCard::new(text("Object"))
+            .selected(true)
+            .selection_indicator(true)
+            .into();
+        let _: Element<'_, ()> = MetricCard::new("Latency", 18.4)
+            .unit("ms")
+            .status(text("healthy"))
+            .trend(text("-2.1%"))
+            .into();
+        let _: Element<'_, ()> = ActionGroup::new()
+            .xs()
+            .fill_width()
+            .wrap()
+            .action(ContentAction::icon_label(IconRole::ViewRefresh, "Refresh"))
+            .into();
+        let _: theme::TypographyRole = theme::TypographyRole::BodyStrong;
+        let _: Element<'_, ()> = nive::widgets::text::body_strong("Card title").into();
+    }
+}
+
 mod workbench_chrome_prelude_contract {
     use nive::workbench::prelude::*;
 

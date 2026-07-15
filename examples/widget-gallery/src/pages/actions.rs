@@ -25,7 +25,7 @@ pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
             section("ActionGroup", action_groups(app.control_size)),
             section("Toolbar", toolbar(app.control_size)),
             section("DropdownMenu", dropdown_menu()),
-            section("ActionCard", action_cards()),
+            section("Card family", card_family()),
         ]
         .spacing(18),
     )
@@ -202,30 +202,26 @@ fn action_groups(size: ControlSize) -> Element<'static, Message> {
             ActionGroup::new()
                 .size(size)
                 .action(
-                    ToolbarAction::icon(IconRole::GoPrevious)
+                    ContentAction::icon(IconRole::GoPrevious, "Back")
                         .tooltip("Back")
                         .on_press(Message::Noop),
                 )
                 .action(
-                    ToolbarAction::icon(IconRole::GoNext)
+                    ContentAction::icon(IconRole::GoNext, "Forward")
                         .tooltip("Forward")
                         .on_press(Message::Noop),
                 )
                 .separator()
-                .action(ToolbarAction::icon_label(IconRole::ViewRefresh, "Refresh").loading(true)),
+                .action(ContentAction::icon_label(IconRole::ViewRefresh, "Refresh").loading(true)),
         ),
         example_cell(
-            "Selectable actions",
+            "Content action states",
             ActionGroup::new()
                 .size(size)
+                .action(ContentAction::label("Preview").on_press(Message::Noop))
+                .action(ContentAction::label("Code"))
                 .action(
-                    ToolbarAction::label("Preview")
-                        .selected(true)
-                        .on_press(Message::Noop),
-                )
-                .action(ToolbarAction::label("Code").on_press(Message::Noop))
-                .action(
-                    ToolbarAction::icon(IconRole::EditDelete)
+                    ContentAction::icon(IconRole::EditDelete, "Delete")
                         .destructive()
                         .disabled(true)
                         .tooltip("Delete"),
@@ -241,12 +237,12 @@ fn action_groups(size: ControlSize) -> Element<'static, Message> {
                 ActionGroup::new()
                     .size(size)
                     .action(
-                        ToolbarAction::icon(IconRole::GoPrevious)
+                        ContentAction::icon(IconRole::GoPrevious, "Back")
                             .tooltip("Back")
                             .on_press(Message::Noop),
                     )
                     .action(
-                        ToolbarAction::icon(IconRole::GoNext)
+                        ContentAction::icon(IconRole::GoNext, "Forward")
                             .tooltip("Forward")
                             .on_press(Message::Noop),
                     )
@@ -257,6 +253,27 @@ fn action_groups(size: ControlSize) -> Element<'static, Message> {
                     .on_press(Message::Noop)
                     .into(),
             ]),
+        ),
+        example_cell(
+            "Narrow wrapping",
+            container(
+                ActionGroup::new()
+                    .size(size)
+                    .fill_width()
+                    .wrap()
+                    .action(ContentAction::label("Inspect").on_press(Message::Noop))
+                    .separator()
+                    .action(
+                        ContentAction::icon_label(IconRole::ViewRefresh, "Refresh")
+                            .loading(false)
+                            .on_press(Message::Noop),
+                    )
+                    .action(
+                        ContentAction::label("Oversized complete action label")
+                            .on_press(Message::Noop),
+                    ),
+            )
+            .width(180),
         ),
     ])
 }
@@ -346,34 +363,117 @@ pub fn view_menu_only() -> Element<'static, Message> {
         .into()
 }
 
-fn action_cards() -> Element<'static, Message> {
-    variant_grid([
-        example_cell(
-            "Default",
+fn card_family() -> Element<'static, Message> {
+    let cells = [
+        canvas_cell("Card · filled", Card::new(card_content("Filled", "Default passive frame"))),
+        canvas_cell(
+            "Card · outlined",
+            Card::new(card_content("Outlined", "Transparent with one perimeter")).outlined(),
+        ),
+        canvas_cell(
+            "Card · elevated",
+            Card::new(card_content("Elevated", "Semantic elevation and shadow")).elevated(),
+        ),
+        canvas_cell(
+            "Card · ghost",
+            Card::new(card_content("Ghost", "Surface-free local grouping")).ghost(),
+        ),
+        canvas_cell(
+            "ActionCard · filled",
+            ActionCard::new(card_content("Run import", "One whole-surface action"))
+                .on_press(Message::Noop),
+        ),
+        canvas_cell(
+            "ActionCard · outlined",
+            ActionCard::new(card_content("Inspect", "Keyboard and pointer capable"))
+                .outlined()
+                .on_press(Message::Noop),
+        ),
+        canvas_cell(
+            "ActionCard · elevated",
+            ActionCard::new(card_content("New project", "Preserves elevated identity"))
+                .elevated()
+                .on_press(Message::Noop),
+        ),
+        canvas_cell(
+            "ActionCard · absent callback",
+            ActionCard::new(card_content("Unavailable capability", "Enabled idle presentation"))
+                .ghost(),
+        ),
+        canvas_cell(
+            "SelectableCard · selected",
+            SelectableCard::new(card_content("Compact", "Controlled persistent selection"))
+                .selected(true)
+                .selection_indicator(true)
+                .on_press(Message::Noop),
+        ),
+        canvas_cell(
+            "SelectableCard · outlined",
+            SelectableCard::new(card_content("Detailed", "Unselected controlled object"))
+                .outlined()
+                .selection_indicator(true)
+                .on_press(Message::Noop),
+        ),
+        canvas_cell(
+            "SelectableCard · elevated disabled",
+            SelectableCard::new(card_content("Pinned", "Selected and explicitly disabled"))
+                .elevated()
+                .selected(true)
+                .selection_indicator(true)
+                .disabled(true)
+                .on_press(Message::Noop),
+        ),
+        canvas_cell(
+            "Long arbitrary content",
             ActionCard::new(
-                column![
-                    ntext::label_strong("Run import"),
-                    ntext::body_small("Starts a background operation")
+                row![
+                    Icon::role(IconRole::DialogInformation).md(),
+                    card_content(
+                        "A deliberately long title for constrained review",
+                        "The description remains ordinary 14 px content and the trailing icon is display-only.",
+                    ),
+                    Icon::role(IconRole::GoNext).sm(),
                 ]
-                .spacing(4),
+                .spacing(8)
+                .align_y(Alignment::Center),
             )
+            .ghost()
             .on_press(Message::Noop),
         ),
-        example_cell(
-            "Elevated",
-            ActionCard::new(
-                column![
-                    Icon::role(IconRole::ListAdd).lg(),
-                    ntext::label_strong("New project")
-                ]
-                .spacing(8),
-            )
-            .role(SurfaceRole::Elevated)
-            .on_press(Message::Noop),
-        ),
-        example_cell(
-            "Disabled",
-            ActionCard::new(ntext::body("Unavailable until setup completes")).disabled(true),
-        ),
-    ])
+    ];
+
+    Panel::new(variant_grid(cells))
+        .role(SurfaceRole::Canvas)
+        .body_padding(14)
+        .fill_width()
+        .into()
+}
+
+fn card_content(title: &'static str, description: &'static str) -> Element<'static, Message> {
+    column![ntext::body_strong(title), ntext::body(description)]
+        .spacing(4)
+        .into()
+}
+
+fn canvas_cell(
+    label: &'static str,
+    content: impl Into<Element<'static, Message>>,
+) -> Element<'static, Message> {
+    Panel::new(column![ntext::caption(label), content.into()].spacing(10))
+        .role(SurfaceRole::Canvas)
+        .body_padding(14)
+        .width(Length::Fill)
+        .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn card_family_and_content_action_stress_views_build() {
+        let _: Element<'static, Message> = card_family();
+        let _: Element<'static, Message> = action_groups(ControlSize::Xs);
+        let _: Element<'static, Message> = action_groups(ControlSize::Lg);
+    }
 }

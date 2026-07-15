@@ -56,9 +56,20 @@ unless a lower-level style function or widget state helper is needed.
   single-line title fills and clips before protected status/actions; use
   `title_tooltip` to expose the full title. Principal workbench document titles
   belong to `nive-workbench::DocumentHeader`.
+- `Card`, `ActionCard`, and `SelectableCard` share `ShapeSize::Md`,
+  density-resolved `PaddingRole::Content`, and filled, outlined, elevated, and
+  ghost variants. Use `Card` for passive grouping, `ActionCard` for one
+  immediate whole-surface action, and `SelectableCard` for app-controlled
+  persistent selection. Actionable cards keep a 48 px minimum target and must
+  not contain nested interaction targets.
+- `MetricCard` is surface-free and label-first. Its 20 px value may share a
+  baseline with a muted unit; optional status and trend remain separate. Wrap
+  it in `Card` when chrome is required.
 - `Toolbar` owns its surface, inset, bottom seam, and horizontal overflow.
-  `ToolbarGroup` and toolbar-style `ActionGroup` are transparent spacing groups;
-  use `Toolbar::separator()` only when spacing is not a sufficient boundary.
+  `ToolbarGroup` accepts navigation-owned `ToolbarAction`. Content-owned
+  `ActionGroup` lives under `widgets::controls`, accepts `ContentAction`, keeps
+  14 px labels at every `ControlSize`, and wraps complete controls only after
+  explicit `.wrap()`.
 - `Panel` is square and borderless by default. Header and body are adjacent,
   the header/body seam is overlaid by `Panel`, and `body_padding` affects only
   body content. Rounded, bordered, or elevated standalone treatment is opt-in.

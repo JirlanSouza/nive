@@ -38,6 +38,12 @@ indicator immediately above the Panel-owned seam. The leading track cannot
 resize or clip the protected trailing controls lane established by the shell
 anatomy baseline.
 
+Reference document content relies on the shared card-family defaults rather
+than repairing shape or padding locally. Use `MetricCard` inside an external
+`Card` for label/value/unit/status hierarchy, and use content-owned
+`ActionGroup` plus `ContentAction` for compact document actions. Keep
+`ToolbarAction` limited to the shell toolbar.
+
 `WorkbenchPaneConstraints` configures non-persisted expanded-region minima.
 Defaults are 160/240/160 logical pixels for left/center/right and 160/96 for
 upper/bottom. Layout clamps current rendering without rewriting app-owned or

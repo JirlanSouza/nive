@@ -96,35 +96,7 @@ impl Application for WorkbenchMonitor {
         _context: Context<'_, Self::Window>,
         _bootstrap: Self::Bootstrap,
     ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
-        let mut layout =
-            WorkbenchLayoutState::default().with_active_document(DocumentId::Dashboard("fleet"));
-        layout.set_active_panel(WorkbenchRegion::Left, "services");
-        layout.set_active_panel(WorkbenchRegion::Right, "inspector");
-        layout.set_active_panel(WorkbenchRegion::Bottom, "alerts");
-
-        (
-            Self {
-                model: Simulation::seeded(),
-                layout,
-                documents: vec![
-                    DocumentId::Dashboard("fleet"),
-                    DocumentId::Dashboard(
-                        "Regional capacity forecast with an intentionally long document label",
-                    ),
-                    DocumentId::Service("api"),
-                    DocumentId::Service("billing"),
-                    DocumentId::Service("search"),
-                ],
-                selected: Selection::Service("api"),
-                inspector_loading_until: None,
-                palette: CommandPaletteState::new(),
-                commands: commands::commands(),
-                theme: ThemePreference::Dark,
-                alert_dialog: None,
-                dirty_filter: false,
-            },
-            (),
-        )
+        (Self::seeded(), ())
     }
 
     fn update(
@@ -273,5 +245,36 @@ impl Application for WorkbenchMonitor {
         _window: WindowContext<Self::Window>,
     ) -> impl Into<Cow<'a, str>> + 'a {
         Cow::Borrowed("Workbench Monitor")
+    }
+}
+
+impl WorkbenchMonitor {
+    fn seeded() -> Self {
+        let mut layout =
+            WorkbenchLayoutState::default().with_active_document(DocumentId::Dashboard("fleet"));
+        layout.set_active_panel(WorkbenchRegion::Left, "services");
+        layout.set_active_panel(WorkbenchRegion::Right, "inspector");
+        layout.set_active_panel(WorkbenchRegion::Bottom, "alerts");
+
+        Self {
+            model: Simulation::seeded(),
+            layout,
+            documents: vec![
+                DocumentId::Dashboard("fleet"),
+                DocumentId::Dashboard(
+                    "Regional capacity forecast with an intentionally long document label",
+                ),
+                DocumentId::Service("api"),
+                DocumentId::Service("billing"),
+                DocumentId::Service("search"),
+            ],
+            selected: Selection::Service("api"),
+            inspector_loading_until: None,
+            palette: CommandPaletteState::new(),
+            commands: commands::commands(),
+            theme: ThemePreference::Dark,
+            alert_dialog: None,
+            dirty_filter: false,
+        }
     }
 }
