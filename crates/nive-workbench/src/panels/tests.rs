@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use iced::widget::Space;
 use nive_ui::{
-    widgets::{RailSide, VerticalRailBadge},
+    widgets::{BadgeContent, RailSide, StatusIndicator, VerticalRailBadge},
     IconRole,
 };
 
@@ -155,17 +155,41 @@ fn bottom_header_tab_carries_metadata() {
     let panel: WorkbenchPanel<'_, &str, &str, ()> =
         WorkbenchPanel::new("problems", "Problems", Space::new())
             .icon(IconRole::DialogWarning)
-            .badge("3")
-            .status(ToneRole::Warning)
+            .count_badge(3)
+            .status_text(ToneRole::Warning, "Problems present")
             .disabled(true)
             .tooltip("Project problems");
 
     let tab = BottomHeaderTab::from(&panel);
 
     assert_eq!(tab.panel_id, "problems");
-    assert_eq!(tab.badge.as_deref(), Some("3"));
-    assert_eq!(tab.status, Some(ToneRole::Warning));
+    assert!(matches!(tab.badge, Some(BadgeContent::Count(3))));
+    assert_eq!(
+        tab.status.as_ref().map(StatusIndicator::tone),
+        Some(ToneRole::Warning)
+    );
+    assert_eq!(
+        tab.status.as_ref().map(StatusIndicator::label),
+        Some("Problems present")
+    );
     assert!(tab.disabled);
+}
+
+#[test]
+fn generic_badge_forwarder_remains_status_while_typed_count_stays_numeric() {
+    let status: WorkbenchPanel<'_, &str, &str, ()> =
+        WorkbenchPanel::new("status", "Status", Space::new()).badge(String::from("Review"));
+    let count: WorkbenchPanel<'_, &str, &str, ()> =
+        WorkbenchPanel::new("count", "Count", Space::new()).count_badge(120);
+
+    assert!(matches!(
+        status.badge_content_value(),
+        Some(BadgeContent::Status(label)) if label == "Review"
+    ));
+    assert!(matches!(
+        count.badge_content_value(),
+        Some(BadgeContent::Count(120))
+    ));
 }
 
 #[test]
@@ -181,7 +205,7 @@ fn panel_rail_maps_identity_and_preserves_disabled_items() {
         RailSide::Right,
         [
             PanelRailItem::new("files", IconRole::Folder, "Files")
-                .badge(VerticalRailBadge::new("2").info().description("2 files")),
+                .badge(VerticalRailBadge::count(2).info().description("2 files")),
             disabled.clone(),
         ],
     )

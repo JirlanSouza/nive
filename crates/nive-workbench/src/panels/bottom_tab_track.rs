@@ -11,7 +11,7 @@ use iced::{
 };
 use nive_ui::{
     theme::{BorderRole, ControlRole, ControlSize, ControlState, TextRole},
-    widgets::{Badge, ToneDot},
+    widgets::{Badge, BadgeContent, ToneDot},
     Element,
 };
 
@@ -151,10 +151,25 @@ where
                 .wrapping(text::Wrapping::None),
         );
         if let Some(badge) = &item.metadata.badge {
-            content = content.push(Badge::new(badge.clone()).xs());
+            content =
+                content.push(Badge::from_content(badge.clone()).disabled(item.metadata.disabled));
         }
-        if let Some(status) = item.metadata.status {
-            content = content.push(ToneDot::new(status).xs());
+        let status_badge_present = item.metadata.badge.as_ref().is_some_and(
+            |badge| matches!(badge, BadgeContent::Status(label) if !label.trim().is_empty()),
+        );
+        if let Some(status) = item
+            .metadata
+            .status
+            .as_ref()
+            .filter(|status| !status.is_empty() && !status_badge_present)
+        {
+            content = content
+                .push(
+                    ToneDot::new(status.tone())
+                        .size(size)
+                        .disabled(item.metadata.disabled),
+                )
+                .push(text(status.label().to_owned()));
         }
 
         let tab: Element<'_, Message> = container(content)
