@@ -120,10 +120,10 @@ fn timeline() -> Element<'static, Message> {
         example_cell(
             "Easing",
             variant_row([
-                Badge::new("Linear").neutral().into(),
-                Badge::new("EaseIn").info().into(),
-                Badge::new("EaseOut").success().into(),
-                Badge::new("EaseInOut").warning().into(),
+                Badge::status("Linear").neutral().into(),
+                Badge::status("EaseIn").info().into(),
+                Badge::status("EaseOut").success().into(),
+                Badge::status("EaseInOut").warning().into(),
             ]),
         ),
     ])

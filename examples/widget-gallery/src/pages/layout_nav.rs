@@ -177,12 +177,12 @@ fn vertical_rails(app: &WidgetGallery) -> Element<'_, Message> {
         .item(
             rail_item("explorer", "Explorer", IconRole::Folder)
                 .selected(true)
-                .badge(VerticalRailBadge::new("3").success().description("3 healthy services")),
+                .badge(VerticalRailBadge::count(3).success().description("3 healthy services")),
         )
         .item(rail_item("search", "Search", IconRole::EditFind).selected(true))
         .item(
             rail_item("problems", "Problems", IconRole::DialogWarning)
-                .badge(VerticalRailBadge::new("!").warning().description("Warnings available")),
+                .badge(VerticalRailBadge::count(3).warning().description("3 warnings available")),
         )
         .item(rail_item(
             "long",
@@ -198,16 +198,16 @@ fn vertical_rails(app: &WidgetGallery) -> Element<'_, Message> {
         .item(rail_item("outline", "Outline", IconRole::ListAdd).selected(true))
         .item(
             rail_item("run", "Run", IconRole::GoNext)
-                .badge(VerticalRailBadge::new("1").info().description("1 running task")),
+                .badge(VerticalRailBadge::count(1).info().description("1 running task")),
         )
         .item(rail_item("console", "Console", IconRole::OpenMenu))
         .item(
             rail_item("preview", "Preview", IconRole::ViewReveal)
-                .badge(VerticalRailBadge::new("12").description("12 previews")),
+                .badge(VerticalRailBadge::count(12).description("12 previews")),
         )
         .item(
             rail_item("logs", "Logs", IconRole::EditModify)
-                .badge(VerticalRailBadge::new("2").danger().description("2 log errors")),
+                .badge(VerticalRailBadge::count(2).danger().description("2 log errors")),
         )
         .item(rail_item("history", "History", IconRole::ViewRefresh))
         .item(rail_item("packages", "Packages", IconRole::MailInbox))
@@ -338,7 +338,7 @@ fn trees(app: &WidgetGallery) -> Element<'_, Message> {
             column![
                 row![
                     ntext::caption("Tree"),
-                    Badge::new(match mode {
+                    Badge::status(match mode {
                         SelectionMode::Multiple => "Multi-select",
                         SelectionMode::Single => "Single-select",
                         SelectionMode::None => "Selection off",
@@ -389,12 +389,11 @@ fn tree_nodes(deferred_loaded: bool, deferred_loading: bool) -> Vec<TreeNode<'st
             ],
         )
         .leading_icon(IconRole::Folder)
-        .tone(ToneRole::Success)
+        .status_text(ToneRole::Success, "Loaded")
         .trailing_text("loaded")
     } else {
         TreeNode::branch_deferred(DemoTreeNode::RemotePackages, "remote-packages")
             .leading_icon(IconRole::MailInbox)
-            .tone(ToneRole::Info)
             .trailing_text(if deferred_loading { "loading" } else { "deferred" })
     };
 
@@ -425,7 +424,7 @@ fn tree_nodes(deferred_loaded: bool, deferred_loading: bool) -> Vec<TreeNode<'st
                                 [
                                     TreeNode::leaf(DemoTreeNode::LayoutNavRs, "layout_nav.rs")
                                         .leading_icon(IconRole::EditModify)
-                                        .tone(ToneRole::Warning),
+                                        .status_text(ToneRole::Warning, "Modified"),
                                     TreeNode::leaf(DemoTreeNode::InputsRs, "inputs.rs")
                                         .leading_icon(IconRole::EditModify),
                                 ],
@@ -483,7 +482,7 @@ fn selectable(app: &WidgetGallery) -> Element<'_, Message> {
                     .on_press(Message::SelectItem(0)),
                 SelectableItem::new("Disabled item with long label")
                     .disabled(true)
-                    .leading_color(Color::from_rgb8(218, 78, 78)),
+                    .status_text(ToneRole::Danger, "Unavailable"),
                 SelectableItem::new("Compact item")
                     .xs()
                     .shrink_width()
@@ -497,7 +496,7 @@ fn selectable(app: &WidgetGallery) -> Element<'_, Message> {
                 SelectableItem::new("Large semantic status row")
                     .lg()
                     .leading_icon(IconRole::DialogSuccess)
-                    .trailing(Badge::new("Healthy").success())
+                    .status_text(ToneRole::Success, "Healthy")
                     .on_press(Message::Noop),
             ]
             .spacing(6),

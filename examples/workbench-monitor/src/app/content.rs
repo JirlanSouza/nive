@@ -12,11 +12,7 @@ impl WorkbenchMonitor {
                 .selected(
                     matches!(self.selected, super::Selection::Service(id) if id == service.id),
                 )
-                .leading_color(theme::active().tone(service.health).color)
-                .trailing(nive_text::caption(format!(
-                    "{} rpm · {} ms",
-                    service.requests_per_minute, service.latency_ms
-                )))
+                .status_text(service.health, tone_label(service.health))
                 .on_press(Message::OpenService(service.id))
                 .into()
         });
@@ -30,11 +26,7 @@ impl WorkbenchMonitor {
         let rows = self.model.hosts.iter().map(|host| {
             SelectableItem::new(host.name)
                 .selected(matches!(self.selected, super::Selection::Host(id) if id == host.id))
-                .leading_color(theme::active().tone(host.health).color)
-                .trailing(nive_text::caption(format!(
-                    "{} · cpu {}%",
-                    host.zone, host.cpu_percent
-                )))
+                .status_text(host.health, tone_label(host.health))
                 .on_press(Message::InspectHost(host.id))
                 .into()
         });
@@ -48,7 +40,7 @@ impl WorkbenchMonitor {
         let rows = self.model.active_alerts().map(|alert| {
             SelectableItem::new(alert.title)
                 .selected(matches!(self.selected, super::Selection::Alert(id) if id == alert.id))
-                .leading_color(theme::active().tone(alert.severity).color)
+                .status_text(alert.severity, tone_label(alert.severity))
                 .trailing_text(alert.service_id)
                 .on_press(Message::ShowAlert(alert.id))
                 .into()
@@ -72,7 +64,11 @@ impl WorkbenchMonitor {
                     ToneRole::Success
                 })
                 .value(if self.dirty_filter { "dirty" } else { "clean" })
-                .trailing(nive_button::secondary("Toggle").on_press(Message::ToggleFilterDirty))
+                .trailing(
+                    ActionGroup::new().action(
+                        ContentAction::label("Toggle").on_press(Message::ToggleFilterDirty)
+                    )
+                )
                 .fill_width(),
         ]
         .spacing(8)
@@ -84,10 +80,10 @@ impl WorkbenchMonitor {
         column![
             DataRow::new("Environment")
                 .value(self.model.environment_label())
-                .trailing(
-                    nive_button::secondary("Switch")
+                .trailing(ActionGroup::new().action(
+                    ContentAction::label("Switch")
                         .on_press(Message::Command(AppCommand::SwitchEnvironment))
-                )
+                ))
                 .fill_width(),
             DataRow::new("Theme")
                 .value(if matches!(self.theme, ThemePreference::Dark) {
@@ -95,7 +91,9 @@ impl WorkbenchMonitor {
                 } else {
                     "light"
                 })
-                .trailing(nive_button::secondary("Toggle").on_press(Message::ToggleTheme))
+                .trailing(ActionGroup::new().action(
+                    ContentAction::label("Toggle").on_press(Message::ToggleTheme)
+                ))
                 .fill_width(),
         ]
         .spacing(8)
@@ -122,7 +120,7 @@ impl WorkbenchMonitor {
                 .fill_width(),
             Card::new(
                 MetricCard::new("Active alerts", active_alerts)
-                    .status(Badge::new(if active_alerts > 0 { "attention" } else { "clear" })
+                    .status(Badge::status(if active_alerts > 0 { "attention" } else { "clear" })
                         .tone(if active_alerts > 0 { ToneRole::Warning } else { ToneRole::Success }))
             )
                 .fill_width(),
@@ -151,7 +149,7 @@ impl WorkbenchMonitor {
                 .selected(
                     matches!(self.selected, super::Selection::Service(id) if id == service.id),
                 )
-                .leading_color(theme::active().tone(service.health).color)
+                .status_text(service.health, tone_label(service.health))
                 .trailing(nive_text::caption(format!(
                     "{} rpm · {} ms · {}% uptime",
                     service.requests_per_minute, service.latency_ms, service.uptime_percent
@@ -182,7 +180,7 @@ impl WorkbenchMonitor {
                         column![
                             SectionHeader::new("Services")
                                 .icon(IconRole::Folder)
-                                .badge(self.model.services.len().to_string()),
+                                .count_badge(self.model.services.len() as u64),
                             column(services).spacing(6),
                         ]
                         .spacing(8)
@@ -217,10 +215,10 @@ impl WorkbenchMonitor {
                                     ToneRole::Success
                                 })
                                 .value(if self.dirty_filter { "dirty" } else { "clean" })
-                                .trailing(
-                                    nive_button::secondary("Toggle")
+                                .trailing(ActionGroup::new().action(
+                                    ContentAction::label("Toggle")
                                         .on_press(Message::ToggleFilterDirty)
-                                )
+                                ))
                                 .fill_width(),
                         ]
                         .spacing(8)
@@ -264,7 +262,10 @@ impl WorkbenchMonitor {
                 DocumentHeader::new(service.name)
                     .icon(IconRole::Folder)
                     .title_tooltip(service.name)
-                    .trailing(ToneDot::new(service.health).sm()),
+                    .trailing(StatusIndicator::new(
+                        service.health,
+                        tone_label(service.health)
+                    )),
                 cards,
                 Card::new(
                     KeyValueList::new()
@@ -274,8 +275,12 @@ impl WorkbenchMonitor {
                             self.model.environment_label()
                         ))
                         .item(
+                            MetadataItem::new("Deployment revision identifier", "")
+                                .code_value("release-2026.07.15+build.9f31ad7c0ffee")
+                        )
+                        .item(
                             MetadataItem::new("Health", tone_label(service.health))
-                                .tone(service.health)
+                                .status(service.health)
                         )
                         .fill_width()
                 )

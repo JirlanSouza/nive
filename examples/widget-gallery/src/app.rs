@@ -315,28 +315,9 @@ impl Application for WidgetGallery {
             Message::SearchChanged(value) => self.search = value,
             Message::ThemeChanged(theme) => {
                 self.theme = theme;
-                let catalog = app_theme_catalog_for_density(self.density);
-                let theme_mode = match theme {
-                    ThemePreference::System | ThemePreference::Light => {
-                        nive::ui::theme::ThemeMode::Light
-                    }
-                    ThemePreference::Dark => nive::ui::theme::ThemeMode::Dark,
-                };
-                let resolved = catalog.resolve(theme_mode);
-                theme::runtime::set_active(resolved);
+                effect = Effect::theme(theme);
             }
-            Message::DensityChanged(density) => {
-                self.density = density;
-                let catalog = app_theme_catalog_for_density(density);
-                let theme_mode = match self.theme {
-                    ThemePreference::System | ThemePreference::Light => {
-                        nive::ui::theme::ThemeMode::Light
-                    }
-                    ThemePreference::Dark => nive::ui::theme::ThemeMode::Dark,
-                };
-                let resolved = catalog.resolve(theme_mode);
-                theme::runtime::set_active(resolved);
-            }
+            Message::DensityChanged(density) => self.density = density,
             Message::ControlSizeChanged(size) => self.control_size = size,
             Message::NameChanged(value) => self.form.name = value,
             Message::EmailChanged(value) => self.form.email = value,
@@ -497,9 +478,11 @@ impl Application for WidgetGallery {
 
     fn view(
         &self,
-        _context: Context<'_, Self::Window>,
+        context: Context<'_, Self::Window>,
         _window: WindowContext<Self::Window>,
     ) -> ScreenView<'_, Self::Message> {
+        let resolved = app_theme_catalog_for_density(self.density).resolve(context.theme().mode());
+        theme::runtime::set_active(resolved);
         let content = row![self.sidebar(), self.page()]
             .spacing(0)
             .height(Length::Fill)
