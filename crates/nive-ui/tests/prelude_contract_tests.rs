@@ -25,7 +25,14 @@ fn prelude_exposes_common_widget_contracts() {
         .selection_indicator(true)
         .into();
     let _: theme::TypographyRole = theme::TypographyRole::BodyStrong;
+    let _: theme::TypographyRole = theme::TypographyRole::BadgeLabel;
+    let _: theme::TypographyRole = theme::TypographyRole::MetadataTag;
+    let scale = theme::typography::scale();
+    let _: theme::TextStyle = scale.badge_label;
+    let _: theme::TextStyle = scale.metadata_tag;
     let _: Element<'_, ()> = nive_ui::widgets::text::body_strong("Card title").into();
+    let _: Element<'_, ()> = nive_ui::widgets::text::badge_label("3").into();
+    let _: Element<'_, ()> = nive_ui::widgets::text::metadata_tag("1.0.0").into();
     let _: Element<'_, ()> = MetricCard::new("Latency", "18.4")
         .unit("ms")
         .status(text("healthy"))
@@ -63,13 +70,16 @@ fn widget_taxonomy_exposes_category_facades() {
     let _: Element<'_, ()> = controls::Field::new(text_input("Name", "")).into();
     let _: Element<'_, ()> = containers::Panel::new(text("Panel")).into();
     let _: Element<'_, ()> = containers::SectionHeader::new("Title").into();
-    let _: Element<'_, ()> = display::Badge::new("Ready").success().into();
+    let _: Element<'_, ()> = display::Badge::status("Ready").success().into();
+    let _: Element<'_, ()> = display::Badge::count(3).into();
+    let _: Element<'_, ()> = display::MetadataTag::code("1.4.0-beta.2").into();
+    let _: Element<'_, ()> = display::InitialAvatar::new("Ada Lovelace").person().into();
     let _: Element<'_, ()> = navigation::Toolbar::new().into();
     let _: Element<'_, ()> = navigation::VerticalRail::new(navigation::RailSide::Left)
         .on_select(|_: &str| ())
         .item(
             navigation::VerticalRailItem::new("explorer", "Explorer")
-                .badge(navigation::VerticalRailBadge::new("3").description("3 open explorers")),
+                .badge(navigation::VerticalRailBadge::count(3).description("3 open explorers")),
         )
         .into();
     let _: Element<'_, ()> = navigation::TabBar::new("overview")
@@ -92,6 +102,8 @@ fn widget_taxonomy_exposes_category_facades() {
     let _: Element<'_, ()> = primitives::ToneDot::new(theme::roles::ToneRole::Accent)
         .xs()
         .into();
+    let _: Element<'_, ()> =
+        primitives::StatusIndicator::new(theme::roles::ToneRole::Success, "Healthy").into();
 }
 
 #[test]
