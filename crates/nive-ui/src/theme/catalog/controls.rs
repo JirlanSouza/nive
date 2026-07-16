@@ -84,35 +84,38 @@ pub(super) fn standard_text_input(
 
 pub(super) fn embedded_text_input(
     theme: &Theme,
-    validation: FieldValidation,
+    _validation: FieldValidation,
     status: text_input::Status,
 ) -> text_input::Style {
     let theme = *theme;
-    let muted = theme.text(TextRole::Muted).color;
-    let value = theme.text(TextRole::Primary).color;
     let disabled = matches!(status, text_input::Status::Disabled);
-    let mut style = text_input::Style {
+    let placeholder = theme
+        .text(if disabled {
+            TextRole::Disabled
+        } else {
+            TextRole::Muted
+        })
+        .color;
+    let value = theme
+        .text(if disabled {
+            TextRole::Disabled
+        } else {
+            TextRole::Primary
+        })
+        .color;
+
+    text_input::Style {
         background: Background::Color(Color::TRANSPARENT),
         border: transparent_border_with_radius(theme.shape(ShapeSize::Md).radius()),
-        icon: alpha_when_disabled(muted, disabled),
-        placeholder: alpha_when_disabled(muted, disabled),
-        value: alpha_when_disabled(value, disabled),
+        icon: placeholder,
+        placeholder,
+        value,
         selection: theme.tone(ToneRole::Accent).color.scale_alpha(if disabled {
             0.15
         } else {
             0.30
         }),
-    };
-
-    if matches!(validation, FieldValidation::Invalid) {
-        style.selection =
-            theme
-                .tone(ToneRole::Danger)
-                .color
-                .scale_alpha(if disabled { 0.1 } else { 0.2 });
     }
-
-    style
 }
 
 fn apply_standard_text_input_validation(

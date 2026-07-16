@@ -250,6 +250,8 @@ mod card_and_content_action_contract {
         let _: theme::TypographyRole = theme::TypographyRole::BodyStrong;
         let _: theme::TypographyRole = theme::TypographyRole::BadgeLabel;
         let _: theme::TypographyRole = theme::TypographyRole::MetadataTag;
+        let _: theme::TypographyRole = theme::TypographyRole::Control;
+        let _: theme::TypographyRole = theme::TypographyRole::ControlStrong;
         let _: Element<'_, ()> = nive::widgets::text::body_strong("Card title").into();
         let _: Element<'_, ()> = nive::widgets::text::badge_label("3").into();
         let _: Element<'_, ()> = nive::widgets::text::metadata_tag("1.0.0").into();
@@ -284,6 +286,37 @@ mod umbrella_workbench_chrome_prelude_contract {
     }
 }
 
+mod umbrella_form_contract {
+    use nive::prelude::*;
+
+    pub(super) fn _assert_typed_form_compiles() {
+        let fields = [
+            Field::new(
+                String::from("Name"),
+                Input::new(String::from("Name"), String::from("Ada")).on_change(|_: String| ()),
+            )
+            .required(String::from("Required")),
+            Field::new(
+                "Amount",
+                InputGroup::new(Input::new("Amount", "42"))
+                    .prefix("USD")
+                    .unit("monthly"),
+            )
+            .optional("Optional"),
+        ];
+        let _: FieldControl<'_, ()> = Input::new("Reference", "readonly").into();
+        let _: Element<'_, ()> = FieldGroup::new("Profile", fields)
+            .layout(FieldGroupLayout::Wrap {
+                min_field_width: 240.0,
+            })
+            .into();
+        let _: Element<'_, ()> =
+            nive::widgets::button::icon(IconRole::ValidationError, "Validation error").into();
+        let _: theme::FormControlMetrics =
+            theme::active().form_control_metrics(theme::ControlSize::Sm);
+    }
+}
+
 #[test]
 fn minimal_prelude_compiles_counter_template() {
     minimal_tier_counter::_assert_application_compiles_with_only_minimal_prelude();
@@ -307,4 +340,9 @@ fn workbench_prelude_exposes_chrome_size() {
 #[test]
 fn umbrella_prelude_exposes_chrome_size() {
     umbrella_workbench_chrome_prelude_contract::_assert_umbrella_prelude_exposes_chrome_size();
+}
+
+#[test]
+fn umbrella_prelude_exposes_typed_form_contract() {
+    umbrella_form_contract::_assert_typed_form_compiles();
 }
