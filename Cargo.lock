@@ -2260,6 +2260,7 @@ dependencies = [
  "iced_renderer",
  "iced_tiny_skia",
  "nive-core",
+ "unicode-segmentation",
 ]
 
 [[package]]

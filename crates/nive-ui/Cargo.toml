@@ -21,6 +21,7 @@ bundled-fonts = []
 [dependencies]
 iced = { workspace = true }
 nive-core = { version = "0.1.0-alpha.1", path = "../nive-core" }
+unicode-segmentation = { workspace = true }
 
 [dev-dependencies]
 iced_renderer = "0.14"
