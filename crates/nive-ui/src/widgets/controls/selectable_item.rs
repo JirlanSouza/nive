@@ -5,12 +5,16 @@ use iced::{
     Alignment, Background, Border, Color, Length, Shadow,
 };
 
-use crate::theme::{self, ControlRole, ControlSize, ControlState, TextRole};
+use crate::theme::{
+    self, ControlRole, ControlSize, ControlState, TextRole, ToneRole, TypographyRole,
+};
 use crate::Element;
 
 use super::button::ButtonFocusRing;
 use crate::advanced::pressable::Pressable;
+use crate::widgets::display::measured_text::{EllipsisStrategy, MeasuredText};
 use crate::widgets::primitives::{icon, IconRole};
+use crate::widgets::{StatusIndicator, ToneDot};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SelectableItemVariant {
@@ -39,6 +43,8 @@ pub struct SelectableItem<'a, Message> {
     selected: bool,
     leading_icon: Option<IconRole>,
     leading_color: Option<Color>,
+    status_indicator: Option<StatusIndicator<'a>>,
+    reserve_status_indicator: bool,
     trailing_text: Option<&'a str>,
     trailing: Option<Element<'a, Message>>,
     size: ControlSize,
@@ -58,6 +64,8 @@ where
             selected: false,
             leading_icon: None,
             leading_color: None,
+            status_indicator: None,
+            reserve_status_indicator: false,
             trailing_text: None,
             trailing: None,
             size: ControlSize::Sm,
@@ -80,6 +88,21 @@ where
 
     pub fn leading_color(mut self, color: Color) -> Self {
         self.leading_color = Some(color);
+        self
+    }
+
+    pub fn status_indicator(mut self, status: StatusIndicator<'a>) -> Self {
+        self.status_indicator = Some(status);
+        self.reserve_status_indicator = true;
+        self
+    }
+
+    pub fn status_text(self, tone: ToneRole, label: impl Into<std::borrow::Cow<'a, str>>) -> Self {
+        self.status_indicator(StatusIndicator::new(tone, label))
+    }
+
+    pub fn reserve_status_indicator(mut self) -> Self {
+        self.reserve_status_indicator = true;
         self
     }
 
@@ -185,7 +208,14 @@ where
     }
 
     fn content(self, metrics: SelectableItemMetrics) -> Element<'a, Message> {
-        let label = text(self.label).size(metrics.font_size).width(Length::Fill);
+        let typography = label_typography(self.size);
+        let label = container(MeasuredText::new_inherited(
+            self.label,
+            EllipsisStrategy::End,
+            typography,
+        ))
+        .width(Length::Fill)
+        .clip(true);
 
         let mut content = Row::new()
             .spacing(metrics.gap)
@@ -197,11 +227,33 @@ where
             content = content.push(color_square(color, metrics.leading_size));
         }
 
+        if self.reserve_status_indicator {
+            content = match self
+                .status_indicator
+                .as_ref()
+                .filter(|status| !status.is_empty())
+            {
+                Some(status) => content.push(
+                    ToneDot::new(status.tone())
+                        .size(self.size)
+                        .disabled(self.disabled),
+                ),
+                None => content.push(iced::widget::Space::new().width(Length::Fixed(
+                    crate::widgets::primitives::tone_dot::dot_size(self.size),
+                ))),
+            };
+        }
+
         if let Some(icon) = self.leading_icon {
             content = content.push(icon::role(icon).custom_size(metrics.icon_size));
         }
 
         content = content.push(label);
+
+        if let Some(status) = self.status_indicator.filter(|status| !status.is_empty()) {
+            let (_, label) = status.into_parts();
+            content = content.push(text(label).size(metrics.font_size));
+        }
 
         if let Some(trailing) = self.trailing_text {
             content = content.push(
@@ -241,6 +293,14 @@ where
 
 fn metrics(size: ControlSize) -> SelectableItemMetrics {
     metrics_for_theme(theme::active(), size)
+}
+
+const fn label_typography(size: ControlSize) -> TypographyRole {
+    match size {
+        ControlSize::Xs => TypographyRole::BodySmall,
+        ControlSize::Sm | ControlSize::Md => TypographyRole::Body,
+        ControlSize::Lg => TypographyRole::Heading,
+    }
 }
 
 fn metrics_for_theme(theme: crate::theme::Theme, size: ControlSize) -> SelectableItemMetrics {
@@ -462,6 +522,21 @@ mod selectable_item_tests {
                 assert_eq!(metrics.radius, control.radius);
                 assert_eq!(metrics.icon_size, control.icon_size);
             }
+        }
+    }
+
+    #[test]
+    fn label_typography_matches_the_canonical_control_scale() {
+        for size in [
+            ControlSize::Xs,
+            ControlSize::Sm,
+            ControlSize::Md,
+            ControlSize::Lg,
+        ] {
+            assert_eq!(
+                crate::theme::typography(label_typography(size)),
+                crate::theme::control_metrics(size).text_style,
+            );
         }
     }
 

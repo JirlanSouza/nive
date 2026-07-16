@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use crate::theme::ToneRole;
 use crate::widgets::primitives::IconRole;
+use crate::widgets::{BadgeContent, BadgeKind};
 
 /// Compact rail badge metadata.
 ///
@@ -10,6 +11,7 @@ use crate::widgets::primitives::IconRole;
 /// it when composing its single item tooltip.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerticalRailBadge<'a> {
+    pub(super) content: BadgeContent<'a>,
     pub(super) label: Cow<'a, str>,
     pub(super) tone: ToneRole,
     pub(super) description: Option<Cow<'a, str>>,
@@ -19,15 +21,60 @@ impl<'a> VerticalRailBadge<'a> {
     /// Builds a neutral badge with visible text.
     pub fn new(label: impl Into<Cow<'a, str>>) -> Self {
         Self {
-            label: label.into(),
+            content: BadgeContent::Status(label.into()),
+            label: Cow::Borrowed(""),
+            tone: ToneRole::Neutral,
+            description: None,
+        }
+        .cache_label()
+    }
+
+    pub fn count(count: u64) -> Self {
+        Self {
+            content: BadgeContent::Count(count),
+            label: Cow::Owned(if count > 99 {
+                "99+".into()
+            } else {
+                count.to_string()
+            }),
             tone: ToneRole::Neutral,
             description: None,
         }
     }
 
+    pub fn from_content(content: BadgeContent<'a>) -> Self {
+        Self {
+            content,
+            label: Cow::Borrowed(""),
+            tone: ToneRole::Neutral,
+            description: None,
+        }
+        .cache_label()
+    }
+
+    fn cache_label(mut self) -> Self {
+        self.label = match &self.content {
+            BadgeContent::Count(count) => Cow::Owned(if *count > 99 {
+                "99+".into()
+            } else {
+                count.to_string()
+            }),
+            BadgeContent::Status(label) => label.clone(),
+        };
+        self
+    }
+
     /// Returns the visible badge label.
     pub fn label(&self) -> &str {
         &self.label
+    }
+
+    pub fn content(&self) -> &BadgeContent<'a> {
+        &self.content
+    }
+
+    pub fn kind(&self) -> BadgeKind {
+        self.content.kind()
     }
 
     /// Returns the semantic badge tone.

@@ -14,7 +14,7 @@ use crate::widgets::controls::button;
 use crate::widgets::feedback::presentation::{resource_status_phase, ResourceStatusPhase};
 use crate::widgets::feedback::ResourceStatusPresentation;
 use crate::widgets::primitives::{icon, IconRole};
-use crate::widgets::Badge;
+use crate::widgets::{Badge, BadgeContent, StatusIndicator, ToneDot};
 use crate::Element;
 
 use self::style as theme_section_header;
@@ -27,7 +27,7 @@ use self::style as theme_section_header;
 pub struct SectionHeader<'a, Message> {
     title: Cow<'a, str>,
     icon: Option<IconRole>,
-    badge: Option<Cow<'a, str>>,
+    badge: Option<BadgeContent<'a>>,
     title_tooltip: Option<Cow<'a, str>>,
     size: ControlSize,
     status: Option<SectionHeaderStatus<'a>>,
@@ -58,11 +58,7 @@ enum SectionHeaderStatusKind<'a> {
         label: Cow<'a, str>,
         tone: ToneRole,
     },
-    Icon {
-        icon: IconRole,
-        tooltip: Cow<'a, str>,
-        tone: ToneRole,
-    },
+    Indicator(StatusIndicator<'a>),
 }
 
 impl<'a, Message> SectionHeader<'a, Message>
@@ -92,8 +88,21 @@ where
         self
     }
 
+    /// Sets a source-compatible textual Status badge.
     pub fn badge(mut self, badge: impl Into<Cow<'a, str>>) -> Self {
-        self.badge = Some(badge.into());
+        self.badge = Some(BadgeContent::Status(badge.into()));
+        self
+    }
+
+    /// Sets explicitly classified Count or Status badge content.
+    pub fn badge_content(mut self, badge: BadgeContent<'a>) -> Self {
+        self.badge = Some(badge);
+        self
+    }
+
+    /// Sets a neutral numeric Count badge.
+    pub fn count_badge(mut self, count: u64) -> Self {
+        self.badge = Some(BadgeContent::Count(count));
         self
     }
 
@@ -120,6 +129,16 @@ where
     pub fn status(mut self, status: SectionHeaderStatus<'a>) -> Self {
         self.status = Some(status);
         self
+    }
+
+    /// Sets complete labelled status; a nonempty Status badge takes precedence.
+    pub fn status_indicator(self, status: StatusIndicator<'a>) -> Self {
+        self.status(SectionHeaderStatus::status_indicator(status))
+    }
+
+    /// Sets complete labelled status from a tone and visible text.
+    pub fn status_text(self, tone: ToneRole, label: impl Into<Cow<'a, str>>) -> Self {
+        self.status_indicator(StatusIndicator::new(tone, label))
     }
 
     pub fn status_from(
@@ -178,8 +197,11 @@ where
             );
         }
         leading = leading.push(title);
+        let status_badge_present = self.badge.as_ref().is_some_and(
+            |badge| matches!(badge, BadgeContent::Status(label) if !label.trim().is_empty()),
+        );
         if let Some(badge) = self.badge {
-            leading = leading.push(Badge::new(badge).neutral().xs());
+            leading = leading.push(Badge::from_content(badge).neutral());
         }
         let mut header = Row::new()
             .push(leading)
@@ -187,7 +209,7 @@ where
             .align_y(Alignment::Center)
             .width(Length::Fill);
 
-        if let Some(status) = self.status {
+        if let Some(status) = self.status.filter(|_| !status_badge_present) {
             header = header.push(status.into_element(metrics));
         }
 
@@ -372,14 +394,17 @@ impl<'a> SectionHeaderStatus<'a> {
         }
     }
 
-    /// Creates compact icon-only semantic status with a discoverable description.
+    /// Legacy icon status constructor; the supplied description is rendered visibly.
+    #[deprecated(
+        note = "use icon_label or status_indicator; icon-only status is no longer canonical"
+    )]
     pub fn icon(icon: IconRole, tone: ToneRole, tooltip: impl Into<Cow<'a, str>>) -> Self {
+        Self::icon_label(icon, tooltip, tone)
+    }
+
+    pub fn status_indicator(status: StatusIndicator<'a>) -> Self {
         Self {
-            kind: SectionHeaderStatusKind::Icon {
-                icon,
-                tooltip: tooltip.into(),
-                tone,
-            },
+            kind: SectionHeaderStatusKind::Indicator(status),
         }
     }
 
@@ -406,11 +431,12 @@ impl<'a> SectionHeaderStatus<'a> {
             }
             | SectionHeaderStatusKind::IconLabel {
                 tone: status_tone, ..
-            }
-            | SectionHeaderStatusKind::Icon {
-                tone: status_tone, ..
             } => {
                 *status_tone = tone;
+            }
+            SectionHeaderStatusKind::Indicator(status) => {
+                let (_, label) = status.clone().into_parts();
+                *status = StatusIndicator::new(tone, label);
             }
         }
 
@@ -489,16 +515,27 @@ impl<'a> SectionHeaderStatus<'a> {
                 .height(Length::Fixed(metrics.status_height))
                 .into()
             }
-            SectionHeaderStatusKind::Icon {
-                icon,
-                tooltip,
-                tone,
-            } => crate::widgets::overlays::tooltip::bottom(
-                icon::role(icon)
-                    .custom_size(metrics.icon_size)
-                    .color(theme::active().tone(tone).color),
-                tooltip,
-            ),
+            SectionHeaderStatusKind::Indicator(status) => {
+                if status.is_empty() {
+                    return Space::new()
+                        .width(Length::Fixed(0.0))
+                        .height(Length::Fixed(0.0))
+                        .into();
+                }
+                let (tone, label) = status.into_parts();
+                row![
+                    ToneDot::new(tone),
+                    text(label)
+                        .font(metrics.status_style.font)
+                        .size(metrics.status_style.size)
+                        .line_height(metrics.status_style.line_height)
+                        .style(theme::text::style(TextRole::Secondary)),
+                ]
+                .spacing(metrics.status_gap)
+                .align_y(Alignment::Center)
+                .height(Length::Fixed(metrics.status_height))
+                .into()
+            }
         }
     }
 }
@@ -596,5 +633,31 @@ mod section_header_status_tests {
                 ..
             } if label == "Failed"
         ));
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn legacy_icon_status_keeps_its_description_visible() {
+        let status = SectionHeaderStatus::icon(
+            IconRole::DialogWarning,
+            ToneRole::Warning,
+            "Needs attention",
+        );
+
+        assert!(matches!(
+            status.kind,
+            SectionHeaderStatusKind::IconLabel { label, .. } if label == "Needs attention"
+        ));
+    }
+
+    #[test]
+    fn status_badge_precedence_is_semantic_not_string_parsing() {
+        let count = BadgeContent::Count(3);
+        let status = BadgeContent::Status(Cow::Borrowed("Review"));
+        let empty = BadgeContent::Status(Cow::Borrowed(" "));
+
+        assert!(!matches!(count, BadgeContent::Status(ref label) if !label.trim().is_empty()));
+        assert!(matches!(status, BadgeContent::Status(ref label) if !label.trim().is_empty()));
+        assert!(!matches!(empty, BadgeContent::Status(ref label) if !label.trim().is_empty()));
     }
 }

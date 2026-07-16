@@ -41,6 +41,12 @@ pub fn label_strong<'a>(
     with_role(content, TypographyRole::LabelStrong, TextRole::Primary)
 }
 
+pub fn badge_label<'a>(
+    content: impl text::IntoFragment<'a>,
+) -> text::Text<'a, crate::theme::Theme> {
+    with_role(content, TypographyRole::BadgeLabel, TextRole::Primary)
+}
+
 pub fn caption<'a>(content: impl text::IntoFragment<'a>) -> text::Text<'a, crate::theme::Theme> {
     with_role(content, TypographyRole::Caption, TextRole::Muted)
 }
@@ -53,18 +59,23 @@ pub fn code_small<'a>(content: impl text::IntoFragment<'a>) -> text::Text<'a, cr
     with_role(content, TypographyRole::CodeSmall, TextRole::Secondary)
 }
 
+pub fn metadata_tag<'a>(
+    content: impl text::IntoFragment<'a>,
+) -> text::Text<'a, crate::theme::Theme> {
+    with_role(content, TypographyRole::MetadataTag, TextRole::Secondary)
+}
+
 pub fn with_role<'a>(
     content: impl text::IntoFragment<'a>,
     style_role: TypographyRole,
     color_role: TextRole,
 ) -> text::Text<'a, crate::theme::Theme> {
-    styled_text(content, style_role, color_role)
+    with_typography(content, style_role).style(theme_text::style(color_role))
 }
 
-fn styled_text<'a, Renderer>(
+pub(crate) fn with_typography<'a, Renderer>(
     content: impl text::IntoFragment<'a>,
     style_role: TypographyRole,
-    color_role: TextRole,
 ) -> text::Text<'a, crate::theme::Theme, Renderer>
 where
     Renderer: iced::advanced::text::Renderer<Font = iced::Font>,
@@ -74,7 +85,18 @@ where
         .size(theme_text::size_for_role(style_role))
         .line_height(theme_text::line_height_for_role(style_role))
         .shaping(text::Shaping::Auto)
-        .style(theme_text::style(color_role))
+}
+
+#[cfg(test)]
+fn styled_text<'a, Renderer>(
+    content: impl text::IntoFragment<'a>,
+    style_role: TypographyRole,
+    color_role: TextRole,
+) -> text::Text<'a, crate::theme::Theme, Renderer>
+where
+    Renderer: iced::advanced::text::Renderer<Font = iced::Font>,
+{
+    with_typography(content, style_role).style(theme_text::style(color_role))
 }
 
 pub fn text_color(color: Color) -> impl Fn(&crate::theme::Theme) -> iced::widget::text::Style {

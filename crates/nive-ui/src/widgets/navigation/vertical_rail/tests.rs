@@ -94,7 +94,7 @@ fn item_metadata_builders_store_contract_fields() {
         .selected(true)
         .disabled(true)
         .badge(
-            VerticalRailBadge::new("3")
+            VerticalRailBadge::count(3)
                 .warning()
                 .description("3 warnings"),
         )
@@ -194,7 +194,7 @@ fn explicit_tooltip_overrides_truncation_fallback() {
 #[test]
 fn badge_description_composes_item_tooltip() {
     let item = VerticalRailItem::new("problems", "Problems")
-        .badge(VerticalRailBadge::new("3").danger().description("3 errors"));
+        .badge(VerticalRailBadge::count(3).danger().description("3 errors"));
 
     assert_eq!(
         item_tooltip(&item, false).as_deref(),
