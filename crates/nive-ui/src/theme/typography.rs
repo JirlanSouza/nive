@@ -10,6 +10,10 @@ pub enum TypographyRole {
     BodyStrong,
     /// Compact content text, never below the 12 px structural floor.
     BodySmall,
+    /// Regular 14 px single-line form-control text.
+    Control,
+    /// Semibold 14 px single-line form action text.
+    ControlStrong,
     /// Ordinary control or navigation label.
     Label,
     /// Emphasized control or navigation label.
@@ -53,6 +57,8 @@ pub struct TypographyScale {
     pub body: TextStyle,
     pub body_strong: TextStyle,
     pub body_small: TextStyle,
+    pub control: TextStyle,
+    pub control_strong: TextStyle,
     pub label: TextStyle,
     pub label_strong: TextStyle,
     pub badge_label: TextStyle,
@@ -70,6 +76,8 @@ pub fn scale() -> TypographyScale {
         body: typography(TypographyRole::Body),
         body_strong: typography(TypographyRole::BodyStrong),
         body_small: typography(TypographyRole::BodySmall),
+        control: typography(TypographyRole::Control),
+        control_strong: typography(TypographyRole::ControlStrong),
         label: typography(TypographyRole::Label),
         label_strong: typography(TypographyRole::LabelStrong),
         badge_label: typography(TypographyRole::BadgeLabel),
@@ -97,6 +105,16 @@ pub fn typography(role: TypographyRole) -> TextStyle {
             token_typography::UI.normal(),
             token_typography::TEXT_XS,
             token_typography::LEADING_NORMAL,
+        ),
+        TypographyRole::Control => spec(
+            token_typography::UI.normal(),
+            token_typography::TEXT_BASE,
+            token_typography::LEADING_TIGHT,
+        ),
+        TypographyRole::ControlStrong => spec(
+            token_typography::UI.semibold(),
+            token_typography::TEXT_BASE,
+            token_typography::LEADING_TIGHT,
         ),
         TypographyRole::Label => spec(
             token_typography::UI.normal(),
@@ -159,6 +177,8 @@ impl TypographyScale {
             TypographyRole::Body => self.body,
             TypographyRole::BodyStrong => self.body_strong,
             TypographyRole::BodySmall => self.body_small,
+            TypographyRole::Control => self.control,
+            TypographyRole::ControlStrong => self.control_strong,
             TypographyRole::Label => self.label,
             TypographyRole::LabelStrong => self.label_strong,
             TypographyRole::BadgeLabel => self.badge_label,
@@ -232,6 +252,23 @@ mod typography_tests {
     }
 
     #[test]
+    fn control_roles_are_complete_14px_single_line_styles() {
+        let control = typography(TypographyRole::Control);
+        assert_eq!(control.size, 14.0);
+        assert_eq!(control.font, token_typography::UI.normal());
+        assert_eq!(control.line_height, token_typography::LEADING_TIGHT);
+        assert_eq!(control.letter_spacing, 0.0);
+        assert_eq!(scale().get(TypographyRole::Control), control);
+
+        let strong = typography(TypographyRole::ControlStrong);
+        assert_eq!(strong.size, 14.0);
+        assert_eq!(strong.font, token_typography::UI.semibold());
+        assert_eq!(strong.line_height, token_typography::LEADING_TIGHT);
+        assert_eq!(strong.letter_spacing, 0.0);
+        assert_eq!(scale().get(TypographyRole::ControlStrong), strong);
+    }
+
+    #[test]
     fn compact_display_roles_are_complete_11px_styles() {
         let badge = typography(TypographyRole::BadgeLabel);
         assert_eq!(badge.size, 11.0);
@@ -298,6 +335,8 @@ mod typography_tests {
             TypographyRole::Body,
             TypographyRole::BodyStrong,
             TypographyRole::BodySmall,
+            TypographyRole::Control,
+            TypographyRole::ControlStrong,
             TypographyRole::Label,
             TypographyRole::LabelStrong,
             TypographyRole::Code,
@@ -332,6 +371,8 @@ mod typography_tests {
             TypographyRole::Body,
             TypographyRole::BodyStrong,
             TypographyRole::BodySmall,
+            TypographyRole::Control,
+            TypographyRole::ControlStrong,
             TypographyRole::Label,
             TypographyRole::LabelStrong,
             TypographyRole::BadgeLabel,
@@ -360,6 +401,34 @@ mod typography_tests {
             assert_eq!(
                 theme.typography(TypographyRole::BodyStrong),
                 custom.body_strong
+            );
+        }
+    }
+
+    #[test]
+    fn custom_scale_preserves_control_projections_and_post_data_roles() {
+        for mode in [
+            crate::theme::ThemeMode::Light,
+            crate::theme::ThemeMode::Dark,
+        ] {
+            let mut custom = scale();
+            custom.control.size = 14.5;
+            custom.control_strong.line_height = 1.2;
+            let expected_badge = custom.badge_label;
+            let expected_metadata = custom.metadata_tag;
+            let theme = crate::theme::ThemeBuilder::new("Custom form typography", mode)
+                .typography(custom)
+                .build();
+
+            assert_eq!(theme.typography(TypographyRole::Control), custom.control);
+            assert_eq!(
+                theme.typography(TypographyRole::ControlStrong),
+                custom.control_strong
+            );
+            assert_eq!(theme.typography(TypographyRole::BadgeLabel), expected_badge);
+            assert_eq!(
+                theme.typography(TypographyRole::MetadataTag),
+                expected_metadata
             );
         }
     }
