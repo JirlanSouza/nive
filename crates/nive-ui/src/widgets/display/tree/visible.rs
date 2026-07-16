@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::{theme::ToneRole, widgets::IconRole};
+use crate::widgets::{IconRole, StatusIndicator};
 
 use super::{TreeChildren, TreeNode, TreeState};
 
@@ -20,7 +20,7 @@ pub(crate) struct VisibleTreeRow<'a, Id> {
     pub(crate) disabled: bool,
     pub(crate) label: Cow<'a, str>,
     pub(crate) leading_icon: Option<IconRole>,
-    pub(crate) tone: Option<ToneRole>,
+    pub(crate) status: Option<StatusIndicator<'a>>,
     pub(crate) trailing_text: Option<Cow<'a, str>>,
 }
 
@@ -64,7 +64,7 @@ fn push_visible_nodes<'a, Id>(
             disabled: node.is_disabled(),
             label: Cow::Owned(node.label().to_owned()),
             leading_icon: node.leading_icon_name(),
-            tone: node.tone_role(),
+            status: node.status().cloned(),
             trailing_text: node
                 .trailing_text_value()
                 .map(|trailing| Cow::Owned(trailing.to_owned())),
@@ -95,7 +95,7 @@ fn push_visible_nodes<'a, Id>(
 #[cfg(test)]
 mod visible_tree_tests {
     use super::*;
-    use crate::{theme::ToneRole, widgets::IconRole};
+    use crate::widgets::IconRole;
 
     type TestNode = TreeNode<'static, &'static str>;
 
@@ -252,7 +252,7 @@ mod visible_tree_tests {
     fn disabled_rows_and_display_metadata_remain_visible() {
         let nodes = vec![TreeNode::leaf("readme", "README.md")
             .leading_icon(IconRole::Folder)
-            .tone(ToneRole::Warning)
+            .status_text(crate::theme::ToneRole::Warning, "Warning")
             .trailing_text("4 KB")
             .disabled(true)];
         let state = TreeState::default();
@@ -271,7 +271,10 @@ mod visible_tree_tests {
         assert_eq!(row.expanded, None);
         assert!(row.disabled);
         assert_eq!(row.leading_icon, Some(IconRole::Folder));
-        assert_eq!(row.tone, Some(ToneRole::Warning));
+        assert_eq!(
+            row.status.as_ref().map(StatusIndicator::tone),
+            Some(crate::theme::ToneRole::Warning)
+        );
         assert_eq!(row.trailing_text.as_deref(), Some("4 KB"));
     }
 }

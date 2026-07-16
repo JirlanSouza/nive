@@ -1,15 +1,15 @@
 use std::borrow::Cow;
 
 use iced::{
-    widget::{row, text},
-    Alignment,
+    border::Radius,
+    widget::{container, row, text, Space},
+    Alignment, Background, Border, Length, Shadow,
 };
 
 use crate::theme::{ControlSize, ToneRole};
 use crate::Element;
 
 use super::style as theme_feedback;
-use crate::widgets::primitives::tone_dot::tone_dot;
 
 pub struct Spinner<'a> {
     label: Option<Cow<'a, str>>,
@@ -86,7 +86,7 @@ impl<'a> Spinner<'a> {
         Message: 'a,
     {
         let metrics = theme_feedback::loading_metrics(self.size);
-        let dot = tone_dot(self.tone, metrics.indicator_size);
+        let dot = loading_indicator(self.tone, metrics.indicator_size);
 
         if let Some(label) = self.label {
             row![
@@ -103,6 +103,25 @@ impl<'a> Spinner<'a> {
             dot
         }
     }
+}
+
+fn loading_indicator<'a, Message>(tone: ToneRole, diameter: f32) -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    container(Space::new().width(Length::Fixed(diameter)))
+        .style(move |theme: &crate::theme::Theme| container::Style {
+            background: Some(Background::Color(theme.tone(tone).color)),
+            border: Border {
+                radius: Radius::new(diameter / 2.0),
+                ..Border::default()
+            },
+            shadow: Shadow::default(),
+            ..container::Style::default()
+        })
+        .width(Length::Fixed(diameter))
+        .height(Length::Fixed(diameter))
+        .into()
 }
 
 impl<'a> Default for Spinner<'a> {

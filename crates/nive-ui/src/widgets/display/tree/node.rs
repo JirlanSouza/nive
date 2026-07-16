@@ -1,6 +1,9 @@
 use std::borrow::Cow;
 
-use crate::{theme::ToneRole, widgets::IconRole};
+use crate::{
+    theme::ToneRole,
+    widgets::{IconRole, StatusIndicator},
+};
 
 /// Declarative tree node data consumed by the high-level `Tree` widget.
 ///
@@ -13,7 +16,7 @@ pub struct TreeNode<'a, Id> {
     label: Cow<'a, str>,
     children: Option<TreeChildren<'a, Id>>,
     leading_icon: Option<IconRole>,
-    tone: Option<ToneRole>,
+    status: Option<StatusIndicator<'a>>,
     trailing_text: Option<Cow<'a, str>>,
     disabled: bool,
 }
@@ -59,34 +62,14 @@ impl<'a, Id> TreeNode<'a, Id> {
         self
     }
 
-    /// Adds a tone indicator to the row rendered for this node.
-    pub fn tone(mut self, tone: ToneRole) -> Self {
-        self.tone = Some(tone);
+    /// Adds complete labelled status to the rendered row.
+    pub fn status_indicator(mut self, status: StatusIndicator<'a>) -> Self {
+        self.status = Some(status);
         self
     }
 
-    pub fn neutral(self) -> Self {
-        self.tone(ToneRole::Neutral)
-    }
-
-    pub fn accent(self) -> Self {
-        self.tone(ToneRole::Accent)
-    }
-
-    pub fn info(self) -> Self {
-        self.tone(ToneRole::Info)
-    }
-
-    pub fn success(self) -> Self {
-        self.tone(ToneRole::Success)
-    }
-
-    pub fn warning(self) -> Self {
-        self.tone(ToneRole::Warning)
-    }
-
-    pub fn danger(self) -> Self {
-        self.tone(ToneRole::Danger)
+    pub fn status_text(self, tone: ToneRole, label: impl Into<Cow<'a, str>>) -> Self {
+        self.status_indicator(StatusIndicator::new(tone, label))
     }
 
     /// Adds trailing secondary text to the row rendered for this node.
@@ -131,9 +114,9 @@ impl<'a, Id> TreeNode<'a, Id> {
         self.leading_icon
     }
 
-    /// Returns this node's tone metadata.
-    pub fn tone_role(&self) -> Option<ToneRole> {
-        self.tone
+    /// Returns this node's complete labelled status metadata.
+    pub fn status(&self) -> Option<&StatusIndicator<'a>> {
+        self.status.as_ref()
     }
 
     /// Returns this node's trailing text metadata.
@@ -152,7 +135,7 @@ impl<'a, Id> TreeNode<'a, Id> {
             label: label.into(),
             children,
             leading_icon: None,
-            tone: None,
+            status: None,
             trailing_text: None,
             disabled: false,
         }
@@ -196,12 +179,16 @@ mod tree_node_tests {
     fn builders_store_row_metadata() {
         let node = TreeNode::leaf(1, "README.md")
             .leading_icon(IconRole::Folder)
-            .tone(ToneRole::Info)
+            .status_text(ToneRole::Info, "Loaded")
             .trailing_text("4 KB")
             .disabled(true);
 
         assert_eq!(node.leading_icon_name(), Some(IconRole::Folder));
-        assert_eq!(node.tone_role(), Some(ToneRole::Info));
+        assert_eq!(
+            node.status().map(StatusIndicator::tone),
+            Some(ToneRole::Info)
+        );
+        assert_eq!(node.status().map(StatusIndicator::label), Some("Loaded"));
         assert_eq!(node.trailing_text_value(), Some("4 KB"));
         assert!(node.is_disabled());
     }

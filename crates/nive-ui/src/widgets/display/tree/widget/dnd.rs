@@ -1,5 +1,5 @@
 use crate::interaction::{ClickModifiers, Transfer, TransferOperation};
-use crate::theme::{ControlSize, ToneRole};
+use crate::theme::ControlSize;
 use crate::widgets::{Spinner, TreeItem};
 use crate::Element;
 
@@ -17,7 +17,6 @@ where
     TreeItem::new("Loading...")
         .depth(depth)
         .disabled(true)
-        .tone(ToneRole::Neutral)
         .trailing(Spinner::new().neutral().size(size))
         .size(size)
         .into()

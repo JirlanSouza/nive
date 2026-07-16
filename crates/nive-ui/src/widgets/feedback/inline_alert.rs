@@ -7,7 +7,7 @@ use crate::theme::{ControlSize, ToneRole};
 use crate::Element;
 
 use super::style as theme_feedback;
-use crate::widgets::primitives::tone_dot::tone_dot;
+use crate::widgets::ToneDot;
 
 /// Inline feedback callout.
 ///
@@ -98,7 +98,7 @@ where
 
     fn into_element(self) -> Element<'a, Message> {
         let metrics = theme_feedback::inline_alert_metrics(self.size);
-        let indicator = tone_dot(self.tone, metrics.indicator_size);
+        let indicator = ToneDot::new(self.tone).size(self.size);
         let mut text_content = column![text(self.title)
             .size(metrics.title_size)
             .style(theme_feedback::title_style(self.tone))

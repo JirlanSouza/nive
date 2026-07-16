@@ -9,8 +9,8 @@ use iced::{
 };
 
 use crate::theme::{self, ControlSize, ToneRole};
-use crate::widgets::display::Badge;
-use crate::widgets::primitives::tone_dot::tone_dot;
+use crate::widgets::display::{Badge, BadgeContent};
+use crate::widgets::{StatusIndicator, ToneDot};
 use crate::Element;
 
 use self::style as theme_segmented_control;
@@ -33,8 +33,8 @@ pub struct SegmentedControl<'a, Message> {
 pub struct SegmentedItem<'a, Message> {
     label: Cow<'a, str>,
     icon: Option<IconRole>,
-    badge: Option<Cow<'a, str>>,
-    status: Option<ToneRole>,
+    badge: Option<BadgeContent<'a>>,
+    status: Option<StatusIndicator<'a>>,
     tooltip: Option<Cow<'a, str>>,
     selected: bool,
     disabled: bool,
@@ -176,14 +176,33 @@ impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
         self
     }
 
+    /// Sets a source-compatible textual Status badge.
     pub fn badge(mut self, badge: impl Into<Cow<'a, str>>) -> Self {
-        self.badge = Some(badge.into());
+        self.badge = Some(BadgeContent::Status(badge.into()));
         self
     }
 
-    pub fn status(mut self, status: ToneRole) -> Self {
+    /// Sets explicitly classified Count or Status badge content.
+    pub fn badge_content(mut self, badge: BadgeContent<'a>) -> Self {
+        self.badge = Some(badge);
+        self
+    }
+
+    /// Sets a neutral numeric Count badge.
+    pub fn count_badge(mut self, count: u64) -> Self {
+        self.badge = Some(BadgeContent::Count(count));
+        self
+    }
+
+    /// Sets complete labelled status; a nonempty Status badge takes precedence.
+    pub fn status_indicator(mut self, status: StatusIndicator<'a>) -> Self {
         self.status = Some(status);
         self
+    }
+
+    /// Sets complete labelled status from a tone and visible text.
+    pub fn status_text(self, tone: ToneRole, label: impl Into<Cow<'a, str>>) -> Self {
+        self.status_indicator(StatusIndicator::new(tone, label))
     }
 
     pub fn tooltip(mut self, tooltip: impl Into<Cow<'a, str>>) -> Self {
@@ -236,11 +255,18 @@ impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
                 .push(crate::widgets::primitives::icon::role(icon).custom_size(metrics.icon_size));
         }
         content = content.push(text(self.label));
-        if let Some(status) = self.status {
-            content = content.push(tone_dot(status, 6.0));
+        let status_badge_present = has_status_badge(self.badge.as_ref());
+        if let Some(status) = self
+            .status
+            .filter(|status| !status.is_empty() && !status_badge_present)
+        {
+            let (tone, label) = status.into_parts();
+            content = content
+                .push(ToneDot::new(tone).size(size).disabled(self.disabled))
+                .push(text(label));
         }
         if let Some(badge) = self.badge {
-            content = content.push(Badge::new(badge).tone(status_tone(self.status)).xs());
+            content = content.push(Badge::from_content(badge).neutral().disabled(self.disabled));
         }
 
         let mut item = button::Button::custom(content.into()).secondary();
@@ -275,8 +301,10 @@ impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
     }
 }
 
-fn status_tone(status: Option<ToneRole>) -> ToneRole {
-    status.unwrap_or(ToneRole::Neutral)
+fn has_status_badge(badge: Option<&BadgeContent<'_>>) -> bool {
+    badge.is_some_and(
+        |badge| matches!(badge, BadgeContent::Status(label) if !label.trim().is_empty()),
+    )
 }
 
 fn outer_padding_for_variant(
@@ -322,6 +350,18 @@ mod segmented_control_tests {
             item_height_for_variant(SegmentedControlVariant::Flat, metrics),
             metrics.height
         );
+    }
+
+    #[test]
+    fn status_badge_suppresses_second_status_but_count_does_not() {
+        assert!(has_status_badge(Some(&BadgeContent::Status(
+            Cow::Borrowed("Review")
+        ))));
+        assert!(!has_status_badge(Some(&BadgeContent::Status(
+            Cow::Borrowed(" ")
+        ))));
+        assert!(!has_status_badge(Some(&BadgeContent::Count(3))));
+        assert!(!has_status_badge(None));
     }
 
     #[test]

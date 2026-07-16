@@ -108,7 +108,11 @@ where
             );
         }
         if let Some(badge) = &item.badge {
-            content = content.push(Badge::new(badge.label.clone()).tone(badge.tone).xs());
+            content = content.push(
+                Badge::from_content(badge.content.clone())
+                    .tone(badge.tone)
+                    .disabled(item.disabled),
+            );
         }
 
         content = content.push(

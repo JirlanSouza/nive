@@ -297,8 +297,8 @@ where
                         item = item.leading_icon(icon);
                     }
 
-                    if let Some(tone) = row.tone {
-                        item = item.tone(tone);
+                    if let Some(status) = row.status {
+                        item = item.status_indicator(status);
                     }
 
                     if let Some(trailing) = row.trailing_text {

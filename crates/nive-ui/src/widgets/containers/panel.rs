@@ -126,9 +126,13 @@ where
     }
 
     fn into_container(self) -> container::Container<'a, Message, crate::theme::Theme> {
+        let body_height = match self.height {
+            Some(Length::Fixed(_) | Length::Fill | Length::FillPortion(_)) => Length::Fill,
+            Some(Length::Shrink) | None => Length::Shrink,
+        };
         let mut content = container(self.content)
             .width(Length::Fill)
-            .height(Length::Fill)
+            .height(body_height)
             .clip(true);
         if let Some(padding) = self.body_padding {
             content = content.padding(padding);
@@ -139,11 +143,11 @@ where
                 let seam = rule::horizontal(1).style(header_seam_style);
                 let body = stack![content, seam]
                     .width(Length::Fill)
-                    .height(Length::Fill);
+                    .height(body_height);
                 column![header, body]
                     .spacing(0.0)
                     .width(Length::Fill)
-                    .height(Length::Fill)
+                    .height(body_height)
                     .into()
             }
             None => content.into(),
@@ -231,5 +235,32 @@ mod panel_tests {
 
         assert_eq!(panel.body_padding, Some(Padding::new(12.0)));
         assert!(panel.header.is_some());
+    }
+
+    #[test]
+    fn shrink_height_panel_preserves_intrinsic_body_height() {
+        let node = crate::test_support::layout(
+            Panel::<()>::new(iced::widget::text("Visible body"))
+                .body_padding(14)
+                .into(),
+            iced::Size::new(300.0, 300.0),
+        );
+
+        assert!(node.size().height > 28.0);
+        assert!(node.size().height < 300.0);
+    }
+
+    #[test]
+    fn explicitly_shrink_height_panel_preserves_intrinsic_body_height() {
+        let node = crate::test_support::layout(
+            Panel::<()>::new(iced::widget::text("Visible body"))
+                .body_padding(14)
+                .height(Length::Shrink)
+                .into(),
+            iced::Size::new(300.0, 300.0),
+        );
+
+        assert!(node.size().height > 28.0);
+        assert!(node.size().height < 300.0);
     }
 }

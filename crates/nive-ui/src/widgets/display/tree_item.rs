@@ -13,8 +13,8 @@ use crate::widgets::controls::button::ButtonFocusRing;
 
 mod style;
 use crate::advanced::pressable::Pressable;
-use crate::widgets::primitives::tone_dot::tone_dot;
 use crate::widgets::primitives::{icon as icon_widget, IconRole};
+use crate::widgets::{StatusIndicator, ToneDot};
 
 /// Primitive row widget for rendering one tree-like item.
 ///
@@ -31,7 +31,7 @@ pub struct TreeItem<'a, Message> {
     disabled: bool,
     focused: bool,
     leading_icon: Option<IconRole>,
-    tone: Option<ToneRole>,
+    status: Option<StatusIndicator<'a>>,
     trailing_text: Option<Cow<'a, str>>,
     trailing: Option<Element<'a, Message>>,
     size: ControlSize,
@@ -55,7 +55,7 @@ where
             disabled: false,
             focused: false,
             leading_icon: None,
-            tone: None,
+            status: None,
             trailing_text: None,
             trailing: None,
             size: ControlSize::Sm,
@@ -109,34 +109,14 @@ where
         self
     }
 
-    /// Adds a tone indicator to the row.
-    pub fn tone(mut self, tone: ToneRole) -> Self {
-        self.tone = Some(tone);
+    /// Adds a complete labelled status to the row.
+    pub fn status_indicator(mut self, status: StatusIndicator<'a>) -> Self {
+        self.status = Some(status);
         self
     }
 
-    pub fn neutral(self) -> Self {
-        self.tone(ToneRole::Neutral)
-    }
-
-    pub fn accent(self) -> Self {
-        self.tone(ToneRole::Accent)
-    }
-
-    pub fn info(self) -> Self {
-        self.tone(ToneRole::Info)
-    }
-
-    pub fn success(self) -> Self {
-        self.tone(ToneRole::Success)
-    }
-
-    pub fn warning(self) -> Self {
-        self.tone(ToneRole::Warning)
-    }
-
-    pub fn danger(self) -> Self {
-        self.tone(ToneRole::Danger)
+    pub fn status_text(self, tone: ToneRole, label: impl Into<Cow<'a, str>>) -> Self {
+        self.status_indicator(StatusIndicator::new(tone, label))
     }
 
     /// Adds trailing secondary text.
@@ -328,8 +308,12 @@ where
             .width(Length::Fill)
             .height(Length::Fill);
 
-        if let Some(tone) = self.tone {
-            content = content.push(tone_dot(tone, metrics.tone_size));
+        if let Some(status) = self.status.as_ref().filter(|status| !status.is_empty()) {
+            content = content.push(
+                ToneDot::new(status.tone())
+                    .size(self.size)
+                    .disabled(disabled),
+            );
         }
 
         if let Some(icon) = self.leading_icon {
@@ -342,6 +326,11 @@ where
                 .shaping(text::Shaping::Auto)
                 .width(Length::Fill),
         );
+
+        if let Some(status) = self.status.filter(|status| !status.is_empty()) {
+            let (_, label) = status.into_parts();
+            content = content.push(text(label).size(metrics.font_size));
+        }
 
         if let Some(trailing) = self.trailing_text {
             content = content.push(
