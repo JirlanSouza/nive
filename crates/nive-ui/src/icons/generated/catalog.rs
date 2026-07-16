@@ -164,6 +164,13 @@ pub const APP_ICON_CATALOG: IconCatalog = IconCatalog::new(&[
         ),
     ),
     IconCatalogEntry::new(
+        IconRole::ValidationError,
+        IconGlyph::new(
+            include_bytes!("../../../assets/icons/generated/lucide/circle-alert.svg"),
+            "lucide:circle-alert",
+        ),
+    ),
+    IconCatalogEntry::new(
         IconRole::ViewConceal,
         IconGlyph::new(
             include_bytes!("../../../assets/icons/generated/lucide/eye-off.svg"),

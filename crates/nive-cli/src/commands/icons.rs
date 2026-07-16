@@ -327,14 +327,7 @@ fn icons_check(paths: &IconPaths, target: IconGenerationTarget) -> Result<()> {
     let manifest = read_manifest(&paths.manifest)?;
     let mut failures = Vec::new();
 
-    for role in required_role_names() {
-        if !manifest.roles.contains_key(role) {
-            failures.push(format!(
-                "{} is missing required icon role `{role}`.",
-                display_path(&paths.manifest)
-            ));
-        }
-    }
+    failures.extend(missing_required_role_failures(paths, &manifest));
 
     for (name, source_path) in &manifest.custom {
         if let Err(error) = validate_custom_svg_path(paths, source_path) {
@@ -405,6 +398,19 @@ fn icons_check(paths: &IconPaths, target: IconGenerationTarget) -> Result<()> {
     }
 
     Err(format!("Icon check failed: {} issue(s)", failures.len()).into())
+}
+
+fn missing_required_role_failures(paths: &IconPaths, manifest: &IconsManifest) -> Vec<String> {
+    required_role_names()
+        .into_iter()
+        .filter(|role| !manifest.roles.contains_key(*role))
+        .map(|role| {
+            format!(
+                "{} is missing required icon role `{role}`. Add a provider mapping under `[roles]` and run `nive icons sync`.",
+                display_path(&paths.manifest)
+            )
+        })
+        .collect()
 }
 
 fn icons_add_symbol(paths: &IconPaths, variant: &str, value: &str) -> Result<()> {
@@ -1264,6 +1270,7 @@ fn role_lucide_defaults() -> &'static [(&'static str, &'static str, &'static str
         ("open-menu", "menu", "OpenMenu"),
         ("preferences-system", "settings", "PreferencesSystem"),
         ("tab-pinned", "pin", "TabPinned"),
+        ("validation-error", "circle-alert", "ValidationError"),
         ("view-conceal", "eye-off", "ViewConceal"),
         ("view-more", "ellipsis", "ViewMore"),
         ("view-refresh", "refresh-cw", "ViewRefresh"),
@@ -1870,6 +1877,33 @@ mod tests {
             role_variant("identity").expect("identity variant"),
             "Identity"
         );
+    }
+
+    #[test]
+    fn required_role_coverage_includes_validation_error_and_identity() {
+        assert!(required_role_names().contains(&"validation-error"));
+        assert!(required_role_names().contains(&"identity"));
+        assert_eq!(
+            role_variant("validation-error").expect("validation-error variant"),
+            "ValidationError"
+        );
+    }
+
+    #[test]
+    fn missing_validation_error_has_an_actionable_offline_diagnostic() {
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let paths = IconPaths::from_root(tempdir.path());
+        let mut manifest = empty_manifest();
+        manifest.roles = default_role_refs();
+        manifest.roles.remove("validation-error");
+
+        let failures = missing_required_role_failures(&paths, &manifest);
+
+        assert_eq!(failures.len(), 1);
+        assert!(failures[0].contains("`validation-error`"));
+        assert!(failures[0].contains("[roles]"));
+        assert!(failures[0].contains("nive icons sync"));
+        assert!(manifest.roles.contains_key("identity"));
     }
 
     #[test]

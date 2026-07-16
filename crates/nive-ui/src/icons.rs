@@ -33,6 +33,7 @@ pub enum IconRole {
     OpenMenu,
     PreferencesSystem,
     TabPinned,
+    ValidationError,
     ViewConceal,
     ViewMore,
     ViewRefresh,
@@ -65,6 +66,7 @@ impl IconRole {
         Self::OpenMenu,
         Self::PreferencesSystem,
         Self::TabPinned,
+        Self::ValidationError,
         Self::ViewConceal,
         Self::ViewMore,
         Self::ViewRefresh,
@@ -97,6 +99,7 @@ impl IconRole {
             Self::OpenMenu => "open-menu",
             Self::PreferencesSystem => "preferences-system",
             Self::TabPinned => "tab-pinned",
+            Self::ValidationError => "validation-error",
             Self::ViewConceal => "view-conceal",
             Self::ViewMore => "view-more",
             Self::ViewRefresh => "view-refresh",
@@ -255,5 +258,31 @@ mod tests {
 
         assert_eq!(CATALOG.glyph(IconRole::Identity), Some(GLYPH));
         assert!(!IconCatalog::empty().covers(IconRole::Identity));
+    }
+
+    #[test]
+    fn validation_error_uses_the_provider_neutral_canonical_name() {
+        assert_eq!(
+            IconRole::ValidationError.canonical_name(),
+            "validation-error"
+        );
+        assert_eq!(
+            IconRole::from_canonical_name("validation-error"),
+            Some(IconRole::ValidationError)
+        );
+    }
+
+    #[test]
+    fn custom_and_empty_catalogs_expose_validation_error_coverage() {
+        const GLYPH: IconGlyph = IconGlyph::new(
+            br#"<svg xmlns="http://www.w3.org/2000/svg"></svg>"#,
+            "custom:validation-error",
+        );
+        const CATALOG: IconCatalog =
+            IconCatalog::new(&[IconCatalogEntry::new(IconRole::ValidationError, GLYPH)]);
+
+        assert_eq!(CATALOG.glyph(IconRole::ValidationError), Some(GLYPH));
+        assert!(!IconCatalog::empty().covers(IconRole::ValidationError));
+        assert!(IconRole::ALL.contains(&IconRole::Identity));
     }
 }

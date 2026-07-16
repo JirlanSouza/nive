@@ -32,4 +32,13 @@ mod tests {
 
         assert_eq!(glyph.provider_slug(), "lucide:user");
     }
+
+    #[test]
+    fn default_catalog_maps_validation_error_without_losing_identity() {
+        assert_eq!(
+            glyph_for(IconRole::ValidationError).provider_slug(),
+            "lucide:circle-alert"
+        );
+        assert_eq!(glyph_for(IconRole::Identity).provider_slug(), "lucide:user");
+    }
 }
