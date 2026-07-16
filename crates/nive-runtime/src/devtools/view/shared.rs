@@ -101,7 +101,7 @@ where
 {
     row![
         Space::new().width(Length::Fixed(state_control_indent())),
-        Badge::new("Command failed").danger().xs(),
+        Badge::status("Command failed").danger(),
         nive_ui::widgets::primitives::text::caption(error),
         Space::new().width(Length::Fill),
         button::ghost("Dismiss")
@@ -201,9 +201,9 @@ where
     Message: Clone + 'a,
 {
     match snapshot {
-        SimulableSnapshot::Idle => Badge::new("Idle").neutral().xs().into(),
+        SimulableSnapshot::Idle => Badge::status("Idle").neutral().into(),
         SimulableSnapshot::Loading { has_value } => {
-            let badge: Element<'a, Message> = Badge::new("Loading").info().xs().into();
+            let badge: Element<'a, Message> = Badge::status("Loading").info().into();
             if *has_value {
                 column![
                     badge,
@@ -215,9 +215,9 @@ where
                 badge
             }
         }
-        SimulableSnapshot::Loaded => Badge::new("Loaded").success().xs().into(),
+        SimulableSnapshot::Loaded => Badge::status("Loaded").success().into(),
         SimulableSnapshot::Failed { has_value, summary } => column![
-            Badge::new("Failed").danger().xs(),
+            Badge::status("Failed").danger(),
             nive_ui::widgets::primitives::text::caption(if *has_value {
                 format!("{summary} · cached")
             } else {
@@ -226,9 +226,9 @@ where
         ]
         .spacing(theme::gap(GapRole::Tight))
         .into(),
-        SimulableSnapshot::Running => Badge::new("Running").info().xs().into(),
+        SimulableSnapshot::Running => Badge::status("Running").info().into(),
         SimulableSnapshot::OperationFailed { summary } => column![
-            Badge::new("Failed").danger().xs(),
+            Badge::status("Failed").danger(),
             nive_ui::widgets::primitives::text::caption(summary.clone()),
         ]
         .spacing(theme::gap(GapRole::Tight))

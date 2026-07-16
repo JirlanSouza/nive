@@ -186,15 +186,15 @@ where
     Message: Clone + 'a + 'static,
 {
     let status_badge: Element<'a, Message> = match &entry.status {
-        RegistryStatus::Running => Badge::new("Running").info().xs().into(),
-        RegistryStatus::Completed => Badge::new("Completed").success().xs().into(),
+        RegistryStatus::Running => Badge::status("Running").info().into(),
+        RegistryStatus::Completed => Badge::status("Completed").success().into(),
         RegistryStatus::Failed(msg) => iced::widget::column![
-            Badge::new("Failed").danger().xs(),
+            Badge::status("Failed").danger(),
             nive_ui::widgets::primitives::text::caption(msg.clone()),
         ]
         .spacing(theme::gap(GapRole::Tight))
         .into(),
-        RegistryStatus::Cancelled => Badge::new("Cancelled").neutral().xs().into(),
+        RegistryStatus::Cancelled => Badge::status("Cancelled").neutral().into(),
     };
 
     row![
