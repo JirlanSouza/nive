@@ -23,11 +23,13 @@ pub use controls::{
     FieldValidation, Input, InputGroup, InputGroupVariant, PathInput, RgbHexColor,
     SegmentedControl, SegmentedItem, Select, SelectableItem, Switch, TextInputAppearance,
 };
+#[allow(deprecated)]
 pub use display::{
-    reveal, row_height, scroll_offset_to, visible_index_of, AvatarClass, AvatarSize, Badge,
-    DataRow, EmptyState, InitialAvatar, KeyValueList, MetadataItem, MetricCard, Tree, TreeChildren,
-    TreeDrag, TreeDrop, TreeDropTarget, TreeEvent, TreeEventKind, TreeExpandBehavior, TreeItem,
-    TreeNode, TreePasteTarget, TreeState, TreeStateChange, VersionBadge,
+    reveal, row_height, scroll_offset_to, visible_index_of, AvatarClass, AvatarKind, AvatarSize,
+    AvatarStatus, Badge, BadgeContent, BadgeKind, DataRow, EmptyState, InitialAvatar, KeyValueList,
+    MetadataItem, MetadataTag, MetricCard, Tree, TreeChildren, TreeDrag, TreeDrop, TreeDropTarget,
+    TreeEvent, TreeEventKind, TreeExpandBehavior, TreeItem, TreeNode, TreePasteTarget, TreeState,
+    TreeStateChange, VersionBadge,
 };
 pub use feedback::{
     ErrorDetailsDialog, ErrorEmptyState, ErrorFeedback, ErrorFeedbackAction,
@@ -48,6 +50,6 @@ pub use overlays::{
 };
 pub use primitives::{
     space, svg, ColorSwatch, Icon, IconGlyph, IconRole, IconSource, Separator, SeparatorExtent,
-    SeparatorStrength, ToneDot,
+    SeparatorStrength, StatusIndicator, ToneDot,
 };
 pub use scrollable::overlay_scrollbar;
