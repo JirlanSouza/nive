@@ -14,6 +14,8 @@ pub enum TypographyRole {
     Label,
     /// Emphasized control or navigation label.
     LabelStrong,
+    /// 11 px semibold compact badge label.
+    BadgeLabel,
     /// 12 px semibold compact panel/content-section heading.
     ///
     /// [`crate::widgets::SectionHeader`] owns this level; it is not the
@@ -30,6 +32,8 @@ pub enum TypographyRole {
     Code,
     /// Dense 10 px code; not for structural or actionable text.
     CodeSmall,
+    /// 11 px medium monospaced technical metadata.
+    MetadataTag,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -51,10 +55,12 @@ pub struct TypographyScale {
     pub body_small: TextStyle,
     pub label: TextStyle,
     pub label_strong: TextStyle,
+    pub badge_label: TextStyle,
     pub section_label: TextStyle,
     pub caption: TextStyle,
     pub code: TextStyle,
     pub code_small: TextStyle,
+    pub metadata_tag: TextStyle,
 }
 
 pub fn scale() -> TypographyScale {
@@ -66,10 +72,12 @@ pub fn scale() -> TypographyScale {
         body_small: typography(TypographyRole::BodySmall),
         label: typography(TypographyRole::Label),
         label_strong: typography(TypographyRole::LabelStrong),
+        badge_label: typography(TypographyRole::BadgeLabel),
         section_label: typography(TypographyRole::SectionLabel),
         caption: typography(TypographyRole::Caption),
         code: typography(TypographyRole::Code),
         code_small: typography(TypographyRole::CodeSmall),
+        metadata_tag: typography(TypographyRole::MetadataTag),
     }
 }
 
@@ -98,6 +106,11 @@ pub fn typography(role: TypographyRole) -> TextStyle {
         TypographyRole::LabelStrong => spec(
             token_typography::UI.semibold(),
             token_typography::TEXT_XS,
+            token_typography::LEADING_SNUG,
+        ),
+        TypographyRole::BadgeLabel => spec(
+            token_typography::UI.semibold(),
+            11.0,
             token_typography::LEADING_SNUG,
         ),
         TypographyRole::SectionLabel => spec(
@@ -130,6 +143,11 @@ pub fn typography(role: TypographyRole) -> TextStyle {
             10.0,
             token_typography::LEADING_NORMAL,
         ),
+        TypographyRole::MetadataTag => spec(
+            token_typography::MONO.medium(),
+            11.0,
+            token_typography::LEADING_NORMAL,
+        ),
     }
 }
 
@@ -143,10 +161,12 @@ impl TypographyScale {
             TypographyRole::BodySmall => self.body_small,
             TypographyRole::Label => self.label,
             TypographyRole::LabelStrong => self.label_strong,
+            TypographyRole::BadgeLabel => self.badge_label,
             TypographyRole::SectionLabel => self.section_label,
             TypographyRole::Caption => self.caption,
             TypographyRole::Code => self.code,
             TypographyRole::CodeSmall => self.code_small,
+            TypographyRole::MetadataTag => self.metadata_tag,
         }
     }
 }
@@ -212,6 +232,21 @@ mod typography_tests {
     }
 
     #[test]
+    fn compact_display_roles_are_complete_11px_styles() {
+        let badge = typography(TypographyRole::BadgeLabel);
+        assert_eq!(badge.size, 11.0);
+        assert_eq!(badge.font, token_typography::UI.semibold());
+        assert_eq!(badge.line_height, token_typography::LEADING_SNUG);
+        assert_eq!(scale().get(TypographyRole::BadgeLabel), badge);
+
+        let metadata = typography(TypographyRole::MetadataTag);
+        assert_eq!(metadata.size, 11.0);
+        assert_eq!(metadata.font, token_typography::MONO.medium());
+        assert_eq!(metadata.line_height, token_typography::LEADING_NORMAL);
+        assert_eq!(scale().get(TypographyRole::MetadataTag), metadata);
+    }
+
+    #[test]
     fn title_display_and_section_label_share_the_tight_line_height_tier() {
         for role in [
             TypographyRole::Title,
@@ -227,7 +262,11 @@ mod typography_tests {
 
     #[test]
     fn label_roles_share_the_snug_line_height_tier() {
-        for role in [TypographyRole::Label, TypographyRole::LabelStrong] {
+        for role in [
+            TypographyRole::Label,
+            TypographyRole::LabelStrong,
+            TypographyRole::BadgeLabel,
+        ] {
             assert_eq!(typography(role).line_height, token_typography::LEADING_SNUG);
         }
     }
@@ -241,6 +280,7 @@ mod typography_tests {
             TypographyRole::Caption,
             TypographyRole::Code,
             TypographyRole::CodeSmall,
+            TypographyRole::MetadataTag,
         ] {
             assert_eq!(
                 typography(role).line_height,
@@ -270,9 +310,11 @@ mod typography_tests {
     }
 
     #[test]
-    fn only_caption_and_code_small_may_fall_below_the_12px_floor() {
+    fn only_documented_optional_and_compact_roles_may_fall_below_the_12px_floor() {
         assert!(typography(TypographyRole::Caption).size <= 12.0);
         assert!(typography(TypographyRole::CodeSmall).size <= 12.0);
+        assert!(typography(TypographyRole::BadgeLabel).size <= 12.0);
+        assert!(typography(TypographyRole::MetadataTag).size <= 12.0);
     }
 
     #[test]
@@ -292,10 +334,12 @@ mod typography_tests {
             TypographyRole::BodySmall,
             TypographyRole::Label,
             TypographyRole::LabelStrong,
+            TypographyRole::BadgeLabel,
             TypographyRole::SectionLabel,
             TypographyRole::Caption,
             TypographyRole::Code,
             TypographyRole::CodeSmall,
+            TypographyRole::MetadataTag,
         ] {
             assert_eq!(scale.get(role).letter_spacing, 0.0);
         }

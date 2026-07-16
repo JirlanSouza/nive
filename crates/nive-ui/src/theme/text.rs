@@ -82,12 +82,14 @@ mod text_tests {
             TypographyRole::BodySmall,
             TypographyRole::Label,
             TypographyRole::LabelStrong,
+            TypographyRole::BadgeLabel,
             TypographyRole::SectionLabel,
             TypographyRole::Heading,
             TypographyRole::Title,
             TypographyRole::Caption,
             TypographyRole::Code,
             TypographyRole::CodeSmall,
+            TypographyRole::MetadataTag,
         ] {
             assert_eq!(
                 line_height_for_role(role),
