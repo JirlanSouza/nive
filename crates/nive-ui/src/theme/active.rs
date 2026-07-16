@@ -5,7 +5,7 @@ use std::{
 
 use iced::Padding;
 
-use super::component::{ControlMetrics, ControlMetricsScale, ControlSize};
+use super::component::{ControlMetrics, ControlMetricsScale, ControlSize, FormControlMetrics};
 use super::density::ThemeDensity;
 use super::scheme::Theme;
 use super::spacing::{GapRole, PaddingRole, SpaceStep, SpacingScale};
@@ -61,6 +61,10 @@ pub fn density() -> ThemeDensity {
 
 pub fn control_metrics(size: ControlSize) -> ControlMetrics {
     active().control_metrics(size)
+}
+
+pub fn form_control_metrics(size: ControlSize) -> FormControlMetrics {
+    active().form_control_metrics(size)
 }
 
 pub fn space(step: SpaceStep) -> f32 {

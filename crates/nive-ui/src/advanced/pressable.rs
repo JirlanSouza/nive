@@ -27,6 +27,7 @@ pub(crate) enum FocusRingPlacement {
     #[default]
     Outset,
     Inset,
+    FormInset,
     CardInset,
 }
 
@@ -175,6 +176,21 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
+        let lost_pointer_focus = {
+            let state = tree.state.downcast_mut::<PressableState>();
+
+            if state.focused && primary_press_outside(event, cursor, layout.bounds()) {
+                state.focused = false;
+                true
+            } else {
+                false
+            }
+        };
+
+        if lost_pointer_focus {
+            shell.request_redraw();
+        }
+
         self.content.as_widget_mut().update(
             &mut tree.children[0],
             event,
@@ -317,12 +333,15 @@ pub(crate) fn draw_focus_ring_with_placement(
     placement: FocusRingPlacement,
 ) {
     let width = match placement {
-        FocusRingPlacement::CardInset => 2.0,
+        FocusRingPlacement::CardInset | FocusRingPlacement::FormInset => 2.0,
         FocusRingPlacement::Outset | FocusRingPlacement::Inset => border_width(theme),
     };
     let (bounds, radius) = focus_ring_geometry(bounds, radius, width, placement);
     let mut border = theme_button::focus_ring(theme, ring, radius);
-    if placement == FocusRingPlacement::CardInset {
+    if matches!(
+        placement,
+        FocusRingPlacement::CardInset | FocusRingPlacement::FormInset
+    ) {
         border.width = width;
     }
 
@@ -350,6 +369,10 @@ fn focus_ring_geometry(
     match placement {
         FocusRingPlacement::Outset => (outset_bounds(bounds, width), outset_radius(radius, width)),
         FocusRingPlacement::Inset => (bounds, clamp_radius(radius, bounds)),
+        FocusRingPlacement::FormInset => {
+            let bounds = inset_bounds(bounds, 1.0);
+            (bounds, inset_radius(radius, 1.0, bounds))
+        }
         FocusRingPlacement::CardInset => {
             let bounds = inset_bounds(bounds, width);
             (bounds, inset_radius(radius, width, bounds))
@@ -422,13 +445,25 @@ pub fn is_keyboard_activation(event: &Event) -> bool {
     )
 }
 
+fn primary_press_outside(event: &Event, cursor: mouse::Cursor, bounds: Rectangle) -> bool {
+    match event {
+        Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => !cursor.is_over(bounds),
+        Event::Touch(iced::touch::Event::FingerPressed { position, .. }) => {
+            !bounds.contains(*position)
+        }
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod pressable_tests {
     use super::*;
+    use crate::test_support::WidgetHarness;
     use iced::keyboard::{
         key::{Code, Named, Physical},
         Key, Location, Modifiers,
     };
+    use iced::widget::Space;
     use iced::Point;
 
     fn key_pressed(key: Key) -> Event {
@@ -470,6 +505,51 @@ mod pressable_tests {
         });
 
         assert!(!is_keyboard_activation(&event));
+    }
+
+    #[test]
+    fn focused_pressable_clears_focus_on_primary_press_outside() {
+        let id = Id::new("pressable-action");
+        let pressable: Element<'_, ()> = Pressable::new(
+            Space::new().width(28).height(28),
+            (),
+            Some(id.clone()),
+            Radius::default(),
+            ButtonFocusRing::Default,
+        )
+        .into();
+        let mut harness = WidgetHarness::new(pressable, Size::new(200.0, 80.0));
+        harness.focus(id);
+        assert_eq!(harness.focused_widgets(), 1);
+
+        harness.set_cursor(Point::new(100.0, 60.0));
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+
+        assert_eq!(harness.focused_widgets(), 0);
+    }
+
+    #[test]
+    fn focused_pressable_retains_focus_on_primary_press_inside() {
+        let id = Id::new("pressable-action");
+        let pressable: Element<'_, ()> = Pressable::new(
+            Space::new().width(28).height(28),
+            (),
+            Some(id.clone()),
+            Radius::default(),
+            ButtonFocusRing::Default,
+        )
+        .into();
+        let mut harness = WidgetHarness::new(pressable, Size::new(200.0, 80.0));
+        harness.focus(id);
+
+        harness.set_cursor(Point::new(10.0, 10.0));
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+
+        assert_eq!(harness.focused_widgets(), 1);
     }
 
     #[test]
@@ -522,5 +602,37 @@ mod pressable_tests {
                 Radius::new(6.0)
             )
         );
+    }
+
+    #[test]
+    fn form_focus_ring_is_two_pixels_on_a_one_pixel_inset_rectangle() {
+        let bounds = Rectangle::new(Point::new(10.0, 20.0), Size::new(30.0, 40.0));
+
+        assert_eq!(
+            focus_ring_geometry(bounds, Radius::new(8.0), 2.0, FocusRingPlacement::FormInset),
+            (
+                Rectangle::new(Point::new(11.0, 21.0), Size::new(28.0, 38.0)),
+                Radius::new(7.0)
+            )
+        );
+    }
+
+    #[test]
+    fn form_focus_ring_stays_contained_for_every_representative_radius() {
+        let bounds = Rectangle::new(Point::new(4.0, 8.0), Size::new(28.0, 28.0));
+
+        for radius in [0.0, 1.0, 4.0, 14.0, 40.0] {
+            let (ring, resolved_radius) = focus_ring_geometry(
+                bounds,
+                Radius::new(radius),
+                2.0,
+                FocusRingPlacement::FormInset,
+            );
+
+            assert!(bounds.contains(ring.position()));
+            assert!(ring.x + ring.width <= bounds.x + bounds.width);
+            assert!(ring.y + ring.height <= bounds.y + bounds.height);
+            assert!(resolved_radius.top_left <= ring.width.min(ring.height) / 2.0);
+        }
     }
 }

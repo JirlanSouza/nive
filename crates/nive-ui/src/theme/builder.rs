@@ -305,4 +305,58 @@ mod tests {
             custom_controls.sm.height
         );
     }
+
+    #[test]
+    fn form_projection_preserves_explicit_finite_custom_metrics() {
+        let mut custom_controls = super::super::component::scale(
+            super::super::shape::scale(),
+            super::super::typography::scale(),
+            spacing::scale(),
+        );
+        custom_controls.xs.height = 18.0;
+        custom_controls.xs.shape = super::super::ShapeSpec::new(3.0);
+        custom_controls.xs.radius = 3.0;
+        custom_controls.xs.padding.left = 7.0;
+        custom_controls.xs.padding.right = 9.0;
+        custom_controls.xs.icon_size = 11.0;
+        custom_controls.xs.gap = 5.0;
+
+        let theme = ThemeBuilder::new("Custom form metrics", ThemeMode::Light)
+            .controls(custom_controls)
+            .build();
+        let form = theme.form_control_metrics(super::super::ControlSize::Xs);
+
+        assert_eq!(form.height, 18.0);
+        assert_eq!(form.shape, super::super::ShapeSpec::new(3.0));
+        assert_eq!(form.radius, 3.0);
+        assert_eq!(form.padding.left, 7.0);
+        assert_eq!(form.padding.right, 9.0);
+        assert_eq!(form.icon_size, 11.0);
+        assert_eq!(form.gap, 5.0);
+    }
+
+    #[test]
+    fn form_projection_keeps_the_exact_built_in_density_height_matrix() {
+        let expected = [
+            (ThemeDensity::Compact, [20.0, 24.0, 28.0, 32.0]),
+            (ThemeDensity::Standard, [24.0, 28.0, 32.0, 36.0]),
+            (ThemeDensity::Comfortable, [28.0, 32.0, 36.0, 40.0]),
+        ];
+        let sizes = [
+            super::super::ControlSize::Xs,
+            super::super::ControlSize::Sm,
+            super::super::ControlSize::Md,
+            super::super::ControlSize::Lg,
+        ];
+
+        for (density, heights) in expected {
+            let theme = ThemeBuilder::new("Density", ThemeMode::Light)
+                .density(density)
+                .build();
+
+            for (size, height) in sizes.into_iter().zip(heights) {
+                assert_eq!(theme.form_control_metrics(size).height, height);
+            }
+        }
+    }
 }
