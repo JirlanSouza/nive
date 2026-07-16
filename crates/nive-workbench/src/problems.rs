@@ -59,6 +59,15 @@ impl ProblemSeverity {
             Self::Error => ToneRole::Danger,
         }
     }
+
+    /// Returns complete visible severity text for compact status composition.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Info => "Info",
+            Self::Warning => "Warning",
+            Self::Error => "Error",
+        }
+    }
 }
 
 impl<'a> ProblemLocation<'a> {
@@ -141,12 +150,19 @@ impl<'a> ProblemsPanel<'a> {
         let content = problems_view(self.problems);
         WorkbenchPanel::new(id, self.title, content)
             .icon(IconRole::DialogWarning)
-            .badge(count.to_string())
-            .status(if count == 0 {
-                ToneRole::Success
-            } else {
-                ToneRole::Warning
-            })
+            .count_badge(count as u64)
+            .status_text(
+                if count == 0 {
+                    ToneRole::Success
+                } else {
+                    ToneRole::Warning
+                },
+                if count == 0 {
+                    "No problems"
+                } else {
+                    "Problems present"
+                },
+            )
     }
 }
 
@@ -174,10 +190,11 @@ fn problem_row<'a, Message>(problem: Problem<'a>) -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
-    let metadata = problem.location.as_ref().map_or_else(
+    let source = problem.location.as_ref().map_or_else(
         || problem.source.to_string(),
         |location| format!("{} · {}", problem.source, location.label()),
     );
+    let metadata = format!("{} · {source}", problem.severity.label());
 
     DataRow::new(problem.message)
         .tone(problem.severity.tone())

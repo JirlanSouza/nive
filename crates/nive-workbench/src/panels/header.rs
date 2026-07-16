@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use iced::{widget::container, Length, Padding};
 use nive_ui::theme::{self, ControlSize, ToneRole};
+use nive_ui::widgets::BadgeContent;
 use nive_ui::widgets::{SectionHeader, SectionHeaderAction, SectionHeaderStatus};
 use nive_ui::{Element, IconRole};
 
@@ -68,14 +69,21 @@ where
         if let Some(icon) = self.icon {
             header = header.icon(icon);
         }
+        let status_badge_present = self.badge.as_ref().is_some_and(
+            |badge| matches!(badge, BadgeContent::Status(label) if !label.trim().is_empty()),
+        );
         if let Some(badge) = self.badge {
-            header = header.badge(badge);
+            header = header.badge_content(badge);
         }
-        if let Some(status) = self.status {
-            header = header.status(SectionHeaderStatus::icon(
-                tone_icon(status),
-                status,
-                tone_label(status),
+        if let Some(status) = self
+            .status
+            .filter(|status| !status.is_empty() && !status_badge_present)
+        {
+            let (tone, label) = status.into_parts();
+            header = header.status(SectionHeaderStatus::icon_label(
+                tone_icon(tone),
+                label,
+                tone,
             ));
         }
         header = header.trailing(trailing_controls(
@@ -193,17 +201,6 @@ where
     SectionHeaderAction::icon(icon)
         .tooltip(tooltip)
         .on_press(message)
-}
-
-fn tone_label(tone: ToneRole) -> &'static str {
-    match tone {
-        ToneRole::Neutral => "Info",
-        ToneRole::Accent => "Active",
-        ToneRole::Info => "Info",
-        ToneRole::Success => "Ok",
-        ToneRole::Warning => "Warning",
-        ToneRole::Danger => "Error",
-    }
 }
 
 fn tone_icon(tone: ToneRole) -> IconRole {

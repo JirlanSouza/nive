@@ -58,12 +58,13 @@ where
     Message: Clone + 'a,
 {
     let status = match &state {
-        InspectorState::Error { .. } => ToneRole::Danger,
-        InspectorState::Loading { .. } => ToneRole::Accent,
-        InspectorState::NoSelection | InspectorState::Content(_) => ToneRole::Neutral,
+        InspectorState::Error { .. } => (ToneRole::Danger, "Inspector error"),
+        InspectorState::Loading { .. } => (ToneRole::Accent, "Inspector loading"),
+        InspectorState::NoSelection => (ToneRole::Neutral, "No selection"),
+        InspectorState::Content(_) => (ToneRole::Neutral, "Inspector ready"),
     };
 
     WorkbenchPanel::new(panel_id, "Inspector", state.view())
         .icon(IconRole::PreferencesSystem)
-        .status(status)
+        .status_text(status.0, status.1)
 }

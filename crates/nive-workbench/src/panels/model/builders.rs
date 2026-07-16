@@ -1,7 +1,10 @@
 use std::borrow::Cow;
 
 use nive_ui::theme::ToneRole;
-use nive_ui::{widgets::VerticalRailBadge, Element, IconRole};
+use nive_ui::{
+    widgets::{BadgeContent, StatusIndicator, VerticalRailBadge},
+    Element, IconRole,
+};
 
 use super::{
     PanelAction, PanelHostMode, PanelRailItem, PanelSelectorPlacement, WorkbenchPanel,
@@ -102,6 +105,16 @@ impl<'a, PanelId, ActionId, Message> WorkbenchPanel<'a, PanelId, ActionId, Messa
         &self.actions
     }
 
+    /// Returns typed badge metadata without reparsing its visible label.
+    pub fn badge_content_value(&self) -> Option<&BadgeContent<'a>> {
+        self.badge.as_ref()
+    }
+
+    /// Returns complete labelled status metadata.
+    pub fn status_indicator_value(&self) -> Option<&StatusIndicator<'a>> {
+        self.status.as_ref()
+    }
+
     /// Returns visibility.
     pub const fn is_visible(&self) -> bool {
         self.visible
@@ -113,16 +126,36 @@ impl<'a, PanelId, ActionId, Message> WorkbenchPanel<'a, PanelId, ActionId, Messa
         self
     }
 
-    /// Sets panel badge.
+    /// Sets a textual Status badge, preserving the source-compatible string forwarder.
+    ///
+    /// Use [`Self::count_badge`] or [`Self::badge_content`] when migrating a
+    /// former raw string/Cow field that actually represents a numeric count.
     pub fn badge(mut self, badge: impl Into<Cow<'a, str>>) -> Self {
-        self.badge = Some(badge.into());
+        self.badge = Some(BadgeContent::Status(badge.into()));
         self
     }
 
-    /// Sets panel status tone.
-    pub fn status(mut self, status: ToneRole) -> Self {
+    /// Sets typed panel badge content.
+    pub fn badge_content(mut self, badge: BadgeContent<'a>) -> Self {
+        self.badge = Some(badge);
+        self
+    }
+
+    /// Sets a numeric count badge.
+    pub fn count_badge(mut self, count: u64) -> Self {
+        self.badge = Some(BadgeContent::Count(count));
+        self
+    }
+
+    /// Sets complete labelled panel status.
+    pub fn status_indicator(mut self, status: StatusIndicator<'a>) -> Self {
         self.status = Some(status);
         self
+    }
+
+    /// Sets complete labelled panel status from tone and visible text.
+    pub fn status_text(self, tone: ToneRole, label: impl Into<Cow<'a, str>>) -> Self {
+        self.status_indicator(StatusIndicator::new(tone, label))
     }
 
     /// Adds one app action.

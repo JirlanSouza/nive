@@ -133,9 +133,13 @@ where
                 .selected(&panel.id == active_id)
                 .disabled(panel.disabled);
             if let Some(badge) = &panel.badge {
-                let mut rail_badge = VerticalRailBadge::new(badge.clone());
-                if let Some(status) = panel.status {
-                    rail_badge = rail_badge.tone(status);
+                let mut rail_badge = VerticalRailBadge::from_content(badge.clone());
+                if matches!(badge, nive_ui::widgets::BadgeContent::Status(_)) {
+                    if let Some(status) = &panel.status {
+                        rail_badge = rail_badge
+                            .tone(status.tone())
+                            .description(status.label().to_owned());
+                    }
                 }
                 item = item.badge(rail_badge);
             }
@@ -380,7 +384,7 @@ where
             label: panel.title.clone(),
             icon: panel.icon,
             badge: panel.badge.clone(),
-            status: panel.status,
+            status: panel.status.clone(),
             disabled: panel.disabled,
             tooltip: panel.tooltip.clone(),
         }

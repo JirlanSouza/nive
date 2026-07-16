@@ -3,8 +3,7 @@ mod builders;
 use std::borrow::Cow;
 
 use nive_ui::{
-    theme::ToneRole,
-    widgets::{RailSide, VerticalRailBadge},
+    widgets::{BadgeContent, RailSide, StatusIndicator, VerticalRailBadge},
     Element, IconRole,
 };
 
@@ -63,8 +62,8 @@ pub struct WorkbenchPanel<'a, PanelId, ActionId, Message> {
     pub(super) id: PanelId,
     pub(super) title: Cow<'a, str>,
     pub(super) icon: Option<IconRole>,
-    pub(super) badge: Option<Cow<'a, str>>,
-    pub(super) status: Option<ToneRole>,
+    pub(super) badge: Option<BadgeContent<'a>>,
+    pub(super) status: Option<StatusIndicator<'a>>,
     pub(super) content: Element<'a, Message>,
     pub(super) actions: Vec<PanelAction<'a, ActionId>>,
     pub(super) visible: bool,
@@ -183,9 +182,9 @@ pub struct BottomHeaderTab<'a, PanelId> {
     /// Optional icon.
     pub icon: Option<IconRole>,
     /// Optional badge or count.
-    pub badge: Option<Cow<'a, str>>,
-    /// Optional status tone.
-    pub status: Option<ToneRole>,
+    pub badge: Option<BadgeContent<'a>>,
+    /// Optional complete labelled status.
+    pub status: Option<StatusIndicator<'a>>,
     /// Whether the tab is disabled.
     pub disabled: bool,
     /// Optional truncation tooltip.
@@ -199,8 +198,8 @@ pub struct PanelHeaderBar<'a, PanelId, ActionId> {
     pub(super) title: Cow<'a, str>,
     pub(super) tooltip: Option<Cow<'a, str>>,
     pub(super) icon: Option<IconRole>,
-    pub(super) badge: Option<Cow<'a, str>>,
-    pub(super) status: Option<ToneRole>,
+    pub(super) badge: Option<BadgeContent<'a>>,
+    pub(super) status: Option<StatusIndicator<'a>>,
     pub(super) actions: Vec<PanelAction<'a, ActionId>>,
     pub(super) collapsible: bool,
     pub(super) restorable: bool,
