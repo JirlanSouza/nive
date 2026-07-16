@@ -8,6 +8,6 @@ pub use crate::icons::{IconGlyph, IconRole, IconSource};
 pub use color_swatch::ColorSwatch;
 pub use icon::{Icon, IconSize, Rotation};
 pub use separator::{Separator, SeparatorExtent, SeparatorStrength};
-pub use tone_dot::ToneDot;
+pub use tone_dot::{StatusIndicator, ToneDot};
 
 pub use iced::widget::{space, svg};
