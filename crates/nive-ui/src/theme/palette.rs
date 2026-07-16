@@ -29,7 +29,7 @@ fn light_palette() -> Palette {
         text: hex(0x1D1D24),
         primary: color::PRIMARY,
         success: hex(0x15803D),
-        warning: hex(0xD97706),
+        warning: hex(0xC56605),
         danger: hex(0xDC2626),
     }
 }
