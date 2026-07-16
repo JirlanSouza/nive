@@ -96,6 +96,45 @@ implement these contracts by depending on `nive-core` directly, not on
 `nive-ui`. Applications supply product copy and messages while Nive owns the
 reusable visual composition.
 
+## Data, Indicators, And Identity
+
+| Contract | Canonical API | Fixed semantics |
+| --- | --- | --- |
+| Count badge | `Badge::count(u64)` | 20 px high, 20 px minimum, `0..=99`, then `99+` |
+| Status badge | `Badge::status(Cow<str>)` | compact one-line status, 96 px content bound |
+| Labelled state | `StatusIndicator::new(tone, label)` | complete visible text plus a 6 px Xs/Sm or 8 px Md/Lg dot |
+| Definition list | `KeyValueList::label_width(f32)` | surface-neutral, 96 px default shared column, 14 px text |
+| Static row | `DataRow::reserve_indicator()` | clustered principal/secondary text; Shrink/Fixed peer slots protected |
+| Identity | `InitialAvatar::person()` / `entity()` | Xs/Sm/Md/Lg = 24/32/40/56 px |
+| Technical value | `MetadataTag::code(Cow<str>)` | 20 px high, 168 px maximum, middle ellipsis |
+
+`KeyValueList` hosts own fill, border, radius, shadow, and outer padding.
+`MetadataItem::new` selects framework-styled Text, `code_value` selects Code,
+and `custom_value` is the caller-styled escape hatch. Status remains
+orthogonal through `status(tone)` and requires complete visible meaning in the
+value. `DataRow` is never a row-level target; wrap a complete interactive row
+in `SelectableItem`, and compose a peer action as a one-item `ActionGroup`
+containing `ContentAction`.
+
+Migration mappings:
+
+| Previous API | Current API |
+| --- | --- |
+| `KeyValueList::role(...)` | remove it; put the list in the owning Card/Panel/Dialog |
+| `MetadataItem::label_width(...)` | `KeyValueList::label_width(f32)` |
+| `MetadataItem::value(element)` | `custom_value(element)` (`value` is deprecated for one release) |
+| `MetadataItem::tone(...)` | `status(...)` (`tone` and tonal shortcuts are deprecated) |
+| `Badge::new(text)` | `Badge::status(text)` |
+| Badge size methods | remove them; badge geometry is fixed |
+| bare `ToneRole` compact status | `StatusIndicator::new(tone, visible_label)` |
+| `VersionBadge::new(value)` | `MetadataTag::code(value)` |
+
+Downstream custom icon catalogs must add an `identity` mapping to
+`icons.toml`, run `nive icons sync`, commit the regenerated catalog and asset,
+then pass `nive icons check`. Renderer limits remain explicit: Nive does not
+claim native definition-list/accessibility nodes or enforce OpenType `tnum`;
+tooltips supplement, but never replace, complete visible identity/status text.
+
 ## Action Surfaces
 
 `Card`, `ActionCard`, and `SelectableCard` share this frame:

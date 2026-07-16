@@ -218,6 +218,31 @@ vocabulário de tamanho local. Em chrome composto de workbench,
 `WorkbenchShell::chrome_size(ControlSize)` escolhe uma única escala local para
 todas as regiões gerenciadas, sem criar knobs por região.
 
+### Dados, indicadores e identidade
+
+`KeyValueList` e `DataRow` não pintam superfície, borda, raio, sombra nem
+padding externo. O host é o único dono do chrome. Ambos mantêm Body completo
+de 14 px em todos os `ControlSize`; tamanho e densidade alteram apenas gaps e
+altura mínima. A lista possui uma coluna lógica compartilhada de 96 px. Em
+largura finita `W`, usa `L=min(request, 0.40W)`, `G=min(gap, W-L)` e
+`V=W-L-G`. `DataRow` protege peers Shrink/Fixed, reduz o valor secundário antes
+do principal e permanece estático; interação da linha inteira pertence a
+`SelectableItem`.
+
+| Categoria | Métricas | Regra semântica |
+| --- | --- | --- |
+| `Badge` | 20 px altura/mínimo, 6 px horizontal, pill | `Count` é numérico; `Status` é texto semântico compacto |
+| `ToneDot` | 6 px Xs/Sm; 8 px Md/Lg | estado estável, sempre acompanhado de texto visível |
+| `StatusIndicator` | dot + Body secundário | substitui status compacto armazenado como `ToneRole` nu |
+| `InitialAvatar` | 24/32/40/56 px | pessoa circular, entidade arredondada, fallback `Identity` |
+| `MetadataTag` | 20 px, raio 4, padding 6, máximo 168 | valor técnico literal, ellipsis central |
+
+Um Status Badge não vazio suprime outro canal de status compacto; um Count
+pode coexistir com `StatusIndicator`. `Spinner` representa atividade, nunca
+estado estável. `AvatarStatus` exige fonte explícita do contorno:
+`on_surface`, `with_outline` ou `on_interactive`. Catálogos de ícones custom
+devem mapear `identity` e regenerar artefatos com `nive icons sync`.
+
 ## 4. Density (`ThemeDensity`)
 
 `ThemeDensity` é um eixo global de compactness que afeta spacing, paddings, gaps,
@@ -287,7 +312,7 @@ flowchart TB
         MetricCard
         KeyValueList["KeyValueList / DataRow"]
         InitialAvatar
-        VersionBadge
+        MetadataTag["MetadataTag / VersionBadge (deprecated)"]
         Tree
         TreeItem
         EmptyState

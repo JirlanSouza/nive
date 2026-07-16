@@ -65,6 +65,18 @@ unless a lower-level style function or widget state helper is needed.
 - `MetricCard` is surface-free and label-first. Its 20 px value may share a
   baseline with a muted unit; optional status and trend remain separate. Wrap
   it in `Card` when chrome is required.
+- `KeyValueList` and `DataRow` are static, surface-neutral metadata
+  compositions. `KeyValueList` owns one 96 px label column and typed
+  Text/Code/Custom values; `DataRow` protects only Shrink/Fixed peer content.
+  Their host owns chrome and whole-row interaction.
+- `Badge::count` and `Badge::status` distinguish numeric and semantic content.
+  `StatusIndicator` pairs a 6/8 px `ToneDot` with complete visible neutral
+  text; `Spinner` is reserved for activity. A nonempty Status badge suppresses
+  a duplicate status indicator, while Count may coexist.
+- `InitialAvatar` is a fixed person/entity identity fallback with Unicode-safe
+  initials and the provider-neutral `IconRole::Identity` fallback.
+  `MetadataTag::code` owns literal technical metadata; `VersionBadge` is a
+  deprecated one-release migration wrapper.
 - `Toolbar` owns its surface, inset, bottom seam, and horizontal overflow.
   `ToolbarGroup` accepts navigation-owned `ToolbarAction`. Content-owned
   `ActionGroup` lives under `widgets::controls`, accepts `ContentAction`, keeps
