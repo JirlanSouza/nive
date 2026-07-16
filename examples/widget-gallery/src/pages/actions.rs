@@ -16,7 +16,8 @@ pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
     crate::app::page_shell(
         PageId::Actions,
         column![
-            section("Button variants", buttons(app.control_size)),
+            section("Button hierarchy", button_hierarchy(app.control_size)),
+            section("Advanced button axes", advanced_buttons(app.control_size)),
             section("Action states", button_states()),
             section(
                 "SegmentedControl",
@@ -31,7 +32,40 @@ pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
     )
 }
 
-fn buttons(size: ControlSize) -> Element<'static, Message> {
+fn button_hierarchy(size: ControlSize) -> Element<'static, Message> {
+    variant_grid([
+        example_cell(
+            "Primary",
+            column![
+                nbutton::primary("Create project")
+                    .size(size)
+                    .on_press(Message::Noop),
+                ntext::caption("Use at most one primary action per local action group"),
+            ]
+            .spacing(6),
+        ),
+        example_cell(
+            "Secondary",
+            nbutton::secondary("Save draft")
+                .size(size)
+                .on_press(Message::Noop),
+        ),
+        example_cell(
+            "Tertiary",
+            nbutton::tertiary("Preview")
+                .size(size)
+                .on_press(Message::Noop),
+        ),
+        example_cell(
+            "Destructive",
+            nbutton::destructive("Delete project")
+                .size(size)
+                .on_press(Message::Noop),
+        ),
+    ])
+}
+
+fn advanced_buttons(size: ControlSize) -> Element<'static, Message> {
     use nbutton::{ButtonIntent as Intent, ButtonVariant as Variant};
 
     variant_grid([
@@ -109,11 +143,11 @@ fn button_states() -> Element<'static, Message> {
         example_cell(
             "Icon-only",
             variant_row([
-                nbutton::icon(IconRole::EditFind)
+                nbutton::icon(IconRole::EditFind, "Search")
                     .tooltip("Search")
                     .on_press(Message::Noop)
                     .into(),
-                nbutton::icon(IconRole::PreferencesSystem)
+                nbutton::icon(IconRole::PreferencesSystem, "Settings")
                     .tooltip("Settings")
                     .on_press(Message::Noop)
                     .into(),
@@ -137,6 +171,44 @@ fn button_states() -> Element<'static, Message> {
             nbutton::outline("Export selected records with a very long command label")
                 .align_start()
                 .width(Length::Fill)
+                .on_press(Message::Noop),
+        ),
+        example_cell(
+            "Intrinsic / fill",
+            column![
+                nbutton::secondary("Intrinsic").on_press(Message::Noop),
+                nbutton::secondary("Fill width")
+                    .fill_width()
+                    .on_press(Message::Noop),
+            ]
+            .spacing(8)
+            .width(Length::Fill),
+        ),
+        example_cell(
+            "All form sizes",
+            variant_row([
+                nbutton::secondary("XS")
+                    .xs()
+                    .on_press(Message::Noop)
+                    .into(),
+                nbutton::secondary("SM")
+                    .sm()
+                    .on_press(Message::Noop)
+                    .into(),
+                nbutton::secondary("MD")
+                    .md()
+                    .on_press(Message::Noop)
+                    .into(),
+                nbutton::secondary("LG")
+                    .lg()
+                    .on_press(Message::Noop)
+                    .into(),
+            ]),
+        ),
+        example_cell(
+            "Manual padding escape",
+            nbutton::secondary("Outer height remains fixed")
+                .padding(30)
                 .on_press(Message::Noop),
         ),
         example_cell(
@@ -185,7 +257,7 @@ fn segmented_controls(size: ControlSize, selected: &'static str) -> Element<'sta
                     .item(segment("Code", selected))
                     .item(segment("Tests", selected))
                     .into(),
-                nbutton::icon(IconRole::PreferencesSystem)
+                nbutton::icon(IconRole::PreferencesSystem, "Settings")
                     .size(size)
                     .tooltip("Settings")
                     .on_press(Message::Noop)
@@ -247,7 +319,7 @@ fn action_groups(size: ControlSize) -> Element<'static, Message> {
                             .on_press(Message::Noop),
                     )
                     .into(),
-                nbutton::icon(IconRole::PreferencesSystem)
+                nbutton::icon(IconRole::PreferencesSystem, "Settings")
                     .size(size)
                     .tooltip("Settings")
                     .on_press(Message::Noop)
@@ -475,5 +547,19 @@ mod tests {
         let _: Element<'static, Message> = card_family();
         let _: Element<'static, Message> = action_groups(ControlSize::Xs);
         let _: Element<'static, Message> = action_groups(ControlSize::Lg);
+    }
+
+    #[test]
+    fn professional_button_hierarchy_and_state_matrices_build() {
+        for size in [
+            ControlSize::Xs,
+            ControlSize::Sm,
+            ControlSize::Md,
+            ControlSize::Lg,
+        ] {
+            let _: Element<'static, Message> = button_hierarchy(size);
+            let _: Element<'static, Message> = advanced_buttons(size);
+        }
+        let _: Element<'static, Message> = button_states();
     }
 }

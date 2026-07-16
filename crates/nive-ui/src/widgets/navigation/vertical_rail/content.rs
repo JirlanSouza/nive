@@ -71,21 +71,28 @@ where
 
     fn chevron_button(&self, role: IconRole, visible: bool) -> Element<'_, Message> {
         let metrics = metrics(self.size);
-        button::icon(role)
-            .width(Length::Fixed(metrics.width))
-            .into_grouped_item(GroupedItemSpec {
-                size: metrics.size,
-                radius: metrics.radius.into(),
-                height: if visible {
-                    metrics.width
-                } else {
-                    HIDDEN_AFFORDANCE_HEIGHT
-                },
-                padding_h: 0.0,
-                selected: false,
-                destructive: false,
-                kind: GroupedItemKind::Embedded,
-            })
+        button::icon(
+            role,
+            match role {
+                IconRole::NiveDisclosureUp => "Scroll rail up",
+                IconRole::NiveDisclosureDown => "Scroll rail down",
+                _ => "Scroll rail",
+            },
+        )
+        .width(Length::Fixed(metrics.width))
+        .into_grouped_item(GroupedItemSpec {
+            size: metrics.size,
+            radius: metrics.radius.into(),
+            height: if visible {
+                metrics.width
+            } else {
+                HIDDEN_AFFORDANCE_HEIGHT
+            },
+            padding_h: 0.0,
+            selected: false,
+            destructive: false,
+            kind: GroupedItemKind::Embedded,
+        })
     }
 
     fn item_element<'b>(&'b self, item: &'b VerticalRailItem<'a, Id>) -> Element<'b, Message> {

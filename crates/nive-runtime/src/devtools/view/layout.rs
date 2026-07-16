@@ -44,6 +44,7 @@ where
     let operation_count = snapshot.entries.iter().filter(|e| !e.is_resource()).count();
     let search = container(
         input::default("Search devtools", state.query())
+            .semantic_name("Search devtools")
             .xs()
             .on_change(move |query| map(DevtoolsPanelMessage::SearchChanged(query))),
     )

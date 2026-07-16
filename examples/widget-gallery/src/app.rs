@@ -160,6 +160,25 @@ pub struct WidgetGallery {
     pub dev: DevState,
 }
 
+#[cfg(test)]
+impl WidgetGallery {
+    pub(crate) fn test_fixture() -> Self {
+        Self {
+            route: PageId::Inputs,
+            search: String::new(),
+            theme: ThemePreference::System,
+            density: ThemeDensity::Standard,
+            control_size: ControlSize::Sm,
+            form: FormState::default(),
+            overlays: OverlayState::default(),
+            feedback: FeedbackMode::Loaded,
+            layout: LayoutState::default(),
+            #[cfg(feature = "devtools")]
+            dev: DevState::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Message {
     Navigate(PageId),
@@ -178,6 +197,8 @@ pub enum Message {
     SelectSegment(&'static str),
     ColorChanged(Color),
     PickPath,
+    FocusInvalidInput,
+    FocusProgrammaticInput,
     SelectTab(DemoTab),
     TabCloseRequested(TabCloseRequest<DemoTab>),
     TabContextRequested(ContextRequest<DemoTab>),
@@ -331,6 +352,16 @@ impl Application for WidgetGallery {
             Message::ColorChanged(color) => self.form.color = color,
             Message::PickPath => {
                 self.form.path = "/tmp/nive-gallery-selected".to_owned();
+            }
+            Message::FocusProgrammaticInput => {
+                effect = effect.with_task(nive::widget::operation::focus(
+                    crate::pages::inputs::programmatic_input_id(),
+                ));
+            }
+            Message::FocusInvalidInput => {
+                effect = effect.with_task(nive::widget::operation::focus(
+                    crate::pages::inputs::invalid_input_id(),
+                ));
             }
             Message::SelectTab(tab) => {
                 self.layout.tab = tab;

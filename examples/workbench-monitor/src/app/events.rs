@@ -133,3 +133,28 @@ impl WorkbenchMonitor {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn migrated_palette_preserves_long_query_and_shell_state_until_dismissal() {
+        let mut app = WorkbenchMonitor::seeded();
+        let documents = app.documents.clone();
+        let query = "open the production billing service with a deliberately long query";
+
+        app.palette.open();
+        app.apply_palette_event(WorkbenchCommandPaletteEvent::QueryChanged(query.into()));
+
+        assert!(app.palette.open);
+        assert_eq!(app.palette.query, query);
+        assert_eq!(app.palette.highlighted, Some(0));
+        assert_eq!(app.documents, documents);
+
+        app.apply_palette_event(WorkbenchCommandPaletteEvent::Dismissed);
+        assert!(!app.palette.open);
+        assert!(app.palette.query.is_empty());
+        assert_eq!(app.documents, documents);
+    }
+}

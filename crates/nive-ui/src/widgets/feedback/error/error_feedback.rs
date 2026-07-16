@@ -117,7 +117,7 @@ impl<'a, Message> ErrorFeedbackAction<'a, Message> {
                 .shrink_width()
                 .on_press(on_press)
                 .into(),
-            Self::Dismiss { on_press } => button::icon(IconRole::WindowClose)
+            Self::Dismiss { on_press } => button::icon(IconRole::WindowClose, "Dismiss error")
                 .xs()
                 .tooltip("Dismiss")
                 .on_press(on_press)
