@@ -15,6 +15,8 @@ pub struct Spinner<'a> {
     label: Option<Cow<'a, str>>,
     tone: ToneRole,
     size: ControlSize,
+    inherit_color: bool,
+    indicator_size: Option<f32>,
 }
 
 impl<'a> Spinner<'a> {
@@ -23,6 +25,8 @@ impl<'a> Spinner<'a> {
             label: None,
             tone: ToneRole::Accent,
             size: ControlSize::Sm,
+            inherit_color: false,
+            indicator_size: None,
         }
     }
 
@@ -81,12 +85,27 @@ impl<'a> Spinner<'a> {
         self.size(ControlSize::Lg)
     }
 
+    pub(crate) fn inherit_color(mut self) -> Self {
+        self.inherit_color = true;
+        self
+    }
+
+    pub(crate) fn custom_size(mut self, size: f32) -> Self {
+        self.indicator_size = Some(size);
+        self
+    }
+
     fn into_element<Message>(self) -> Element<'a, Message>
     where
         Message: 'a,
     {
         let metrics = theme_feedback::loading_metrics(self.size);
-        let dot = loading_indicator(self.tone, metrics.indicator_size);
+        let indicator_size = self.indicator_size.unwrap_or(metrics.indicator_size);
+        let dot = if self.inherit_color {
+            inherited_loading_indicator(indicator_size)
+        } else {
+            loading_indicator(self.tone, indicator_size)
+        };
 
         if let Some(label) = self.label {
             row![
@@ -103,6 +122,22 @@ impl<'a> Spinner<'a> {
             dot
         }
     }
+}
+
+fn inherited_loading_indicator<'a, Message>(diameter: f32) -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    container(
+        text("●")
+            .size(diameter)
+            .line_height(text::LineHeight::Relative(1.0)),
+    )
+    .align_x(Alignment::Center)
+    .align_y(Alignment::Center)
+    .width(Length::Fixed(diameter))
+    .height(Length::Fixed(diameter))
+    .into()
 }
 
 fn loading_indicator<'a, Message>(tone: ToneRole, diameter: f32) -> Element<'a, Message>
@@ -136,5 +171,19 @@ where
 {
     fn from(indicator: Spinner<'a>) -> Self {
         indicator.into_element()
+    }
+}
+
+#[cfg(test)]
+mod spinner_tests {
+    use super::*;
+
+    #[test]
+    fn button_spinner_can_inherit_foreground_at_the_form_metric_size() {
+        let size = crate::theme::form_control_metrics(ControlSize::Lg).icon_size;
+        let spinner = Spinner::new().inherit_color().custom_size(size);
+
+        assert!(spinner.inherit_color);
+        assert_eq!(spinner.indicator_size, Some(size));
     }
 }

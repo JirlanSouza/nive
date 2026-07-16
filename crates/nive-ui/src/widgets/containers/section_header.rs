@@ -346,9 +346,14 @@ where
                 .into();
         }
         let mut action = match (self.icon, self.label) {
-            (Some(icon), None) => button::icon(icon)
-                .padding(Padding::ZERO)
-                .width(Length::Fixed(metrics.icon_button_side)),
+            (Some(icon), None) => button::icon(
+                icon,
+                self.tooltip
+                    .clone()
+                    .unwrap_or(Cow::Borrowed("Section action")),
+            )
+            .padding(Padding::ZERO)
+            .width(Length::Fixed(metrics.icon_button_side)),
             (None, Some(label)) => button::Button::custom(text(label).into())
                 .ghost()
                 .padding(Padding::ZERO.horizontal(metrics.action_gap)),

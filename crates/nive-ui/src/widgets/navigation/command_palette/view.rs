@@ -34,6 +34,7 @@ where
     let palette_width = 480.0;
 
     let mut input = Input::new(placeholder, query)
+        .semantic_name("Command search")
         .appearance(crate::widgets::TextInputAppearance::Standard)
         .md()
         .on_change(on_query_change);
@@ -172,4 +173,50 @@ where
         .padding([spacing.lg, spacing.xl])
         .center_x(Length::Fill)
         .into()
+}
+
+#[cfg(test)]
+mod view_tests {
+    use super::*;
+    use crate::test_support::WidgetHarness;
+    use iced::Size;
+
+    #[test]
+    fn migrated_palette_keeps_fixed_overlay_geometry_with_long_input() {
+        let rows = [
+            CommandPaletteRow::new("open", "Open project", ()),
+            CommandPaletteRow::new("refresh", "Refresh project", ()),
+        ];
+        let palette = command_palette_view(
+            "Type a command",
+            "A deliberately long command query that must scroll inside one line",
+            rows,
+            Some(0),
+            |_| (),
+            Some(()),
+        );
+        let harness = WidgetHarness::new(palette, Size::new(800.0, 500.0));
+
+        assert_eq!(harness.bounds().width, 480.0);
+        assert!(harness.bounds().height.is_finite());
+    }
+
+    #[test]
+    fn empty_palette_state_keeps_the_migrated_input_path() {
+        let palette = command_palette_view(
+            "Type a command",
+            "missing",
+            Vec::<CommandPaletteRow<'_, ()>>::new(),
+            None,
+            |_| (),
+            None,
+        );
+        let harness = WidgetHarness::new(palette, Size::new(520.0, 300.0));
+
+        assert_eq!(harness.bounds().width, 480.0);
+        assert!(
+            harness.bounds().height
+                > crate::theme::form_control_metrics(crate::theme::ControlSize::Md).height
+        );
+    }
 }

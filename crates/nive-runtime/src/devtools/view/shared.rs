@@ -247,6 +247,7 @@ where
     let value = state.error_input(path);
     let path = path.to_string();
     let input = input::default_owned("Failure message", value)
+        .semantic_name("Failure message")
         .xs()
         .on_change(move |value| {
             map(DevtoolsPanelMessage::ErrorMessageChanged {
@@ -255,7 +256,7 @@ where
             })
         });
 
-    container(InputGroup::new(input).leading_text("err").xs().fill_width())
+    container(InputGroup::new(input).prefix("err").xs().fill_width())
         .width(Length::Fixed(280.0))
         .align_y(alignment::Vertical::Center)
         .into()

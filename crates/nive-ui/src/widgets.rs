@@ -19,9 +19,10 @@ pub use containers::{
 };
 pub use controls::{
     ActionGroup, Autocomplete, AutocompleteMessage, Button, ButtonIntent, ButtonVariant, Checkbox,
-    ColorInput, ColorPicker, ContentAction, Field, FieldError, FieldGroup, FieldHint, FieldLabel,
-    FieldValidation, Input, InputGroup, InputGroupVariant, PathInput, RgbHexColor,
-    SegmentedControl, SegmentedItem, Select, SelectableItem, Switch, TextInputAppearance,
+    ColorInput, ColorPicker, ContentAction, Field, FieldControl, FieldError, FieldGroup,
+    FieldGroupLayout, FieldHint, FieldLabel, FieldRequirement, FieldValidation, Input, InputGroup,
+    InputGroupVariant, PathInput, RgbHexColor, SegmentedControl, SegmentedItem, Select,
+    SelectableItem, Switch, TextInputAppearance,
 };
 #[allow(deprecated)]
 pub use display::{

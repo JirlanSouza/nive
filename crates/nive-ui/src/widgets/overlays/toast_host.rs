@@ -114,7 +114,7 @@ where
     Message: Clone + 'a,
     T: ToastPresentation + 'a,
 {
-    let dismiss = button::icon(IconRole::WindowClose)
+    let dismiss = button::icon(IconRole::WindowClose, "Dismiss notification")
         .xs()
         .tooltip("Dismiss")
         .on_press(on_dismiss(toast.id()));

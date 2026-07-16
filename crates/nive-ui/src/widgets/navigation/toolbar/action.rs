@@ -107,7 +107,7 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
         let is_icon_only = self.label.is_none();
         let mut button = match (self.icon, self.label) {
             (Some(icon), Some(label)) => button::secondary(label).leading_icon(icon),
-            (Some(icon), None) => button::icon(icon),
+            (Some(icon), None) => button::icon(icon, self.tooltip.unwrap_or("Toolbar action")),
             (None, Some(label)) => button::secondary(label),
             (None, None) => button::secondary(""),
         }
