@@ -38,6 +38,7 @@ pub struct Button<'a, Message> {
     focusable: bool,
     id: Option<Id>,
     on_press: Option<Message>,
+    semantic_name: Option<Cow<'a, str>>,
     tooltip: Option<Cow<'a, str>>,
 }
 
@@ -60,75 +61,105 @@ pub(crate) struct GroupedItemSpec {
 }
 
 /// Creates a suggested solid button.
-pub fn primary<'a, Message>(label: &'a str) -> Button<'a, Message>
+pub fn primary<'a, Message>(label: impl Into<Cow<'a, str>>) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
     Button::new(
-        Content::Label(label),
+        Content::Label(label.into()),
         ButtonIntent::Suggested,
         ButtonVariant::Solid,
     )
 }
 
 /// Creates a neutral outline button.
-pub fn outline<'a, Message>(label: &'a str) -> Button<'a, Message>
+pub fn outline<'a, Message>(label: impl Into<Cow<'a, str>>) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
     Button::new(
-        Content::Label(label),
+        Content::Label(label.into()),
         ButtonIntent::Neutral,
         ButtonVariant::Outline,
     )
 }
 
-/// Creates a neutral subtle button.
-pub fn secondary<'a, Message>(label: &'a str) -> Button<'a, Message>
+/// Creates a neutral outline secondary button.
+///
+/// Prefer at most one [`primary`] action in a local action group. Secondary
+/// actions use Outline; contextual low-emphasis actions use [`tertiary`] or an
+/// explicit advanced variant.
+pub fn secondary<'a, Message>(label: impl Into<Cow<'a, str>>) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
     Button::new(
-        Content::Label(label),
+        Content::Label(label.into()),
         ButtonIntent::Neutral,
-        ButtonVariant::Subtle,
+        ButtonVariant::Outline,
     )
 }
 
 /// Creates a neutral ghost button.
-pub fn ghost<'a, Message>(label: &'a str) -> Button<'a, Message>
+pub fn ghost<'a, Message>(label: impl Into<Cow<'a, str>>) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
     Button::new(
-        Content::Label(label),
+        Content::Label(label.into()),
         ButtonIntent::Neutral,
         ButtonVariant::Ghost,
     )
 }
 
-/// Creates a destructive solid button.
-pub fn destructive<'a, Message>(label: &'a str) -> Button<'a, Message>
+/// Creates a neutral ghost tertiary button.
+pub fn tertiary<'a, Message>(label: impl Into<Cow<'a, str>>) -> Button<'a, Message>
+where
+    Message: Clone + 'a,
+{
+    ghost(label)
+}
+
+/// Creates a destructive solid confirmation button.
+///
+/// Preparatory destructive actions should use the public intent/variant axes
+/// with Outline or Ghost instead of competing with final confirmation.
+pub fn destructive<'a, Message>(label: impl Into<Cow<'a, str>>) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
     Button::new(
-        Content::Label(label),
+        Content::Label(label.into()),
         ButtonIntent::Destructive,
         ButtonVariant::Solid,
     )
 }
 
 /// Creates a neutral ghost icon button.
-pub fn icon<'a, Message>(app_icon: IconRole) -> Button<'a, Message>
+///
+/// The semantic name is retained independently from optional tooltip content.
+/// Omitting it is not a supported public construction:
+///
+/// ```compile_fail
+/// use nive_ui::widgets::button;
+/// use nive_ui::IconRole;
+///
+/// let _ = button::icon::<()>(IconRole::WindowClose);
+/// ```
+pub fn icon<'a, Message>(
+    app_icon: IconRole,
+    semantic_name: impl Into<Cow<'a, str>>,
+) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
-    Button::new(
+    let mut button = Button::new(
         Content::Icon(app_icon),
         ButtonIntent::Neutral,
         ButtonVariant::Ghost,
-    )
+    );
+    button.semantic_name = Some(semantic_name.into());
+    button
 }
 
 impl<'a, Message> Button<'a, Message>
@@ -153,6 +184,7 @@ where
             focusable: true,
             id: None,
             on_press: None,
+            semantic_name: None,
             tooltip: None,
         }
     }
@@ -183,10 +215,16 @@ where
             .variant(ButtonVariant::Solid)
     }
 
-    /// Sets this button to `Neutral + Subtle`.
+    /// Sets this button to `Neutral + Outline`.
     pub fn secondary(self) -> Self {
         self.intent(ButtonIntent::Neutral)
-            .variant(ButtonVariant::Subtle)
+            .variant(ButtonVariant::Outline)
+    }
+
+    /// Sets this button to `Neutral + Ghost`.
+    pub fn tertiary(self) -> Self {
+        self.intent(ButtonIntent::Neutral)
+            .variant(ButtonVariant::Ghost)
     }
 
     /// Sets this button to `Neutral + Outline`.
@@ -313,6 +351,10 @@ where
         self
     }
 
+    pub fn semantic_name_value(&self) -> Option<&str> {
+        self.semantic_name.as_deref()
+    }
+
     pub fn tooltip_maybe<T>(mut self, tooltip: Option<T>) -> Self
     where
         T: Into<Cow<'a, str>>,
@@ -336,7 +378,7 @@ where
     }
 
     pub(crate) fn into_grouped_item_inset(self, spec: GroupedItemSpec) -> Element<'a, Message> {
-        self.into_grouped_item_with_placement(spec, FocusRingPlacement::Inset)
+        self.into_grouped_item_with_placement(spec, FocusRingPlacement::FormInset)
     }
 
     fn into_grouped_item_with_placement(
@@ -363,7 +405,7 @@ where
     }
 
     fn into_element_chrome(self, chrome: ButtonChrome) -> Element<'a, Message> {
-        self.into_element_chrome_with_placement(chrome, FocusRingPlacement::Outset)
+        self.into_element_chrome_with_placement(chrome, FocusRingPlacement::FormInset)
     }
 
     fn into_element_chrome_with_placement(
@@ -403,6 +445,9 @@ where
             ButtonVariant::Solid if self.intent == ButtonIntent::Suggested => {
                 ButtonFocusRing::OnPrimary
             }
+            ButtonVariant::Solid if self.intent == ButtonIntent::Destructive => {
+                ButtonFocusRing::Danger
+            }
             _ => ButtonFocusRing::Default,
         }
     }
@@ -420,12 +465,47 @@ where
 #[cfg(test)]
 mod button_tests {
     use super::*;
+    use crate::test_support::{named_probe, WidgetHarness};
+    use crate::theme::{ThemeBuilder, ThemeDensity, ThemeMode, TypographyRole};
+    use iced::{
+        keyboard::{
+            self,
+            key::{Code, Named, Physical},
+            Key, Location, Modifiers,
+        },
+        mouse, Event, Point, Size,
+    };
+
+    fn key_pressed(key: Key) -> Event {
+        Event::Keyboard(keyboard::Event::KeyPressed {
+            key: key.clone(),
+            modified_key: key,
+            physical_key: Physical::Code(Code::Enter),
+            location: Location::Standard,
+            modifiers: Modifiers::NONE,
+            text: None,
+            repeat: false,
+        })
+    }
 
     #[test]
     fn shrink_width_sets_button_width_to_shrink() {
         let button = secondary::<()>("Open").fill_width().shrink_width();
 
         assert_eq!(button.width, Some(Length::Shrink));
+    }
+
+    #[test]
+    fn label_buttons_are_intrinsic_until_fill_width_is_requested() {
+        let intrinsic = secondary::<()>("Open");
+        assert_eq!(
+            intrinsic.content.default_width(ControlSize::Sm),
+            Length::Shrink
+        );
+        assert_eq!(intrinsic.width, None);
+
+        let filled = secondary::<()>("Open").fill_width();
+        assert_eq!(filled.width, Some(Length::Fill));
     }
 
     #[test]
@@ -438,7 +518,7 @@ mod button_tests {
         assert_button(
             secondary::<()>("Copy"),
             ButtonIntent::Neutral,
-            ButtonVariant::Subtle,
+            ButtonVariant::Outline,
         );
         assert_button(
             outline::<()>("Inspect"),
@@ -451,12 +531,17 @@ mod button_tests {
             ButtonVariant::Ghost,
         );
         assert_button(
+            tertiary::<()>("More"),
+            ButtonIntent::Neutral,
+            ButtonVariant::Ghost,
+        );
+        assert_button(
             destructive::<()>("Delete"),
             ButtonIntent::Destructive,
             ButtonVariant::Solid,
         );
         assert_button(
-            icon::<()>(IconRole::WindowClose),
+            icon::<()>(IconRole::WindowClose, "Close"),
             ButtonIntent::Neutral,
             ButtonVariant::Ghost,
         );
@@ -498,8 +583,240 @@ mod button_tests {
 
     #[test]
     fn tooltip_accepts_owned_label() {
-        let button = icon::<()>(IconRole::WindowClose).tooltip(String::from("Close"));
+        let button = icon::<()>(IconRole::WindowClose, "Close").tooltip(String::from("Dismiss"));
 
-        assert_eq!(button.tooltip.as_deref(), Some("Close"));
+        assert_eq!(button.semantic_name_value(), Some("Close"));
+        assert_eq!(button.tooltip.as_deref(), Some("Dismiss"));
+    }
+
+    #[test]
+    fn labels_accept_owned_cow_and_use_control_strong_metrics() {
+        let button = secondary::<()>(String::from("Owned label"));
+        let Content::Label(label) = &button.content else {
+            panic!("label content")
+        };
+
+        assert_eq!(label.as_ref(), "Owned label");
+        assert_eq!(
+            style::metrics(ControlSize::Xs).font_size,
+            crate::theme::typography(TypographyRole::ControlStrong).size
+        );
+        assert_eq!(style::metrics(ControlSize::Lg).font_size, 14.0);
+    }
+
+    #[test]
+    fn icon_button_retains_required_name_and_square_geometry() {
+        let button = icon::<()>(IconRole::WindowClose, String::from("Close panel"));
+
+        assert_eq!(button.semantic_name_value(), Some("Close panel"));
+        assert_eq!(
+            button.content.default_width(ControlSize::Sm),
+            Length::Fixed(28.0)
+        );
+        assert_eq!(
+            button.content.default_height(ControlSize::Sm),
+            Length::Fixed(28.0)
+        );
+    }
+
+    #[test]
+    fn every_density_and_size_uses_form_height_with_invariant_manual_padding() {
+        let sizes = [
+            ControlSize::Xs,
+            ControlSize::Sm,
+            ControlSize::Md,
+            ControlSize::Lg,
+        ];
+
+        for density in ThemeDensity::ALL {
+            let theme = ThemeBuilder::new("Button metrics", ThemeMode::Light)
+                .density(density)
+                .build();
+            let _guard = crate::theme::testing::ThemeTestGuard::activate(theme);
+
+            for size in sizes {
+                let expected = theme.form_control_metrics(size).height;
+                let normal: Element<'_, ()> = secondary("Save").size(size).into();
+                let padded: Element<'_, ()> = secondary("Save")
+                    .size(size)
+                    .padding(Padding::new(40.0))
+                    .into();
+                let normal = WidgetHarness::new(normal, Size::new(300.0, 80.0));
+                let padded = WidgetHarness::new(padded, Size::new(300.0, 80.0));
+
+                assert_eq!(normal.bounds().height, expected);
+                assert_eq!(padded.bounds().height, expected);
+            }
+        }
+    }
+
+    #[test]
+    fn destructive_solid_uses_the_danger_focus_treatment() {
+        let button = destructive::<()>("Delete");
+
+        assert_eq!(button.focus_ring(), ButtonFocusRing::Danger);
+    }
+
+    #[test]
+    fn loading_preserves_intrinsic_width_and_suppresses_activation() {
+        let idle: Element<'_, &'static str> =
+            secondary("Save").loading(false).on_press("save").into();
+        let loading: Element<'_, &'static str> =
+            secondary("Save").loading(true).on_press("save").into();
+        let idle = WidgetHarness::new(idle, Size::new(300.0, 80.0));
+        let mut loading = WidgetHarness::new(loading, Size::new(300.0, 80.0));
+
+        assert_eq!(idle.bounds(), loading.bounds());
+        loading.set_cursor(Point::new(4.0, 4.0));
+        assert!(loading
+            .update(Event::Mouse(mouse::Event::ButtonPressed(
+                mouse::Button::Left
+            )))
+            .messages
+            .is_empty());
+    }
+
+    #[test]
+    fn pointer_enter_and_space_activate_while_disabled_does_not() {
+        let id = Id::new("button-action");
+        let button: Element<'_, &'static str> =
+            secondary("Run").id(id.clone()).on_press("run").into();
+        let mut harness = WidgetHarness::new(button, Size::new(300.0, 80.0));
+        harness.set_cursor(Point::new(4.0, 4.0));
+        assert!(harness
+            .update(Event::Mouse(mouse::Event::ButtonPressed(
+                mouse::Button::Left
+            )))
+            .messages
+            .is_empty());
+        assert_eq!(
+            harness
+                .update(Event::Mouse(mouse::Event::ButtonReleased(
+                    mouse::Button::Left
+                )))
+                .messages,
+            vec!["run"]
+        );
+        harness.focus(id);
+        assert_eq!(
+            harness
+                .update(key_pressed(Key::Named(Named::Enter)))
+                .messages,
+            vec!["run"]
+        );
+        assert_eq!(
+            harness
+                .update(key_pressed(Key::Named(Named::Space)))
+                .messages,
+            vec!["run"]
+        );
+
+        let disabled: Element<'_, &'static str> =
+            secondary("Run").disabled(true).on_press("run").into();
+        let mut disabled = WidgetHarness::new(disabled, Size::new(300.0, 80.0));
+        disabled.set_cursor(Point::new(4.0, 4.0));
+        assert!(disabled
+            .update(Event::Mouse(mouse::Event::ButtonPressed(
+                mouse::Button::Left
+            )))
+            .messages
+            .is_empty());
+    }
+
+    #[test]
+    fn named_fill_button_reflows_wide_narrow_wide_at_invariant_height() {
+        let button: Element<'_, &'static str> = named_probe(
+            "button",
+            secondary("A complete long action label")
+                .fill_width()
+                .on_press("press"),
+        );
+        let mut harness = WidgetHarness::new(button, Size::new(320.0, 80.0));
+        assert_eq!(
+            harness.named_bounds("button").expect("wide").size(),
+            Size::new(320.0, 28.0)
+        );
+
+        harness.relayout(Size::new(96.0, 80.0));
+        assert_eq!(
+            harness.named_bounds("button").expect("narrow").size(),
+            Size::new(96.0, 28.0)
+        );
+
+        harness.relayout(Size::new(320.0, 80.0));
+        assert_eq!(
+            harness.named_bounds("button").expect("wide again").size(),
+            Size::new(320.0, 28.0)
+        );
+    }
+
+    #[test]
+    fn fixed_long_label_reflows_without_changing_outer_height() {
+        let button: Element<'_, &'static str> = named_probe(
+            "fixed-button",
+            secondary("A complete label retained for conditional disclosure")
+                .width(Length::Fixed(140.0))
+                .on_press("press"),
+        );
+        let mut harness = WidgetHarness::new(button, Size::new(320.0, 80.0));
+        assert_eq!(
+            harness.named_bounds("fixed-button").expect("wide").size(),
+            Size::new(140.0, 28.0)
+        );
+
+        harness.relayout(Size::new(72.0, 80.0));
+        assert_eq!(
+            harness.named_bounds("fixed-button").expect("narrow").size(),
+            Size::new(72.0, 28.0)
+        );
+
+        harness.relayout(Size::new(320.0, 80.0));
+        assert_eq!(
+            harness
+                .named_bounds("fixed-button")
+                .expect("wide again")
+                .size(),
+            Size::new(140.0, 28.0)
+        );
+    }
+
+    #[test]
+    fn oversized_custom_content_is_contained_by_fixed_button_geometry() {
+        let content: Element<'_, &'static str> = iced::widget::container(
+            iced::widget::Space::new()
+                .width(Length::Fixed(400.0))
+                .height(Length::Fixed(100.0)),
+        )
+        .into();
+        let button: Element<'_, &'static str> = Button::custom(content)
+            .width(Length::Fixed(80.0))
+            .on_press("press")
+            .into();
+        let harness = WidgetHarness::new(button, Size::new(300.0, 200.0));
+
+        assert_eq!(harness.bounds().size(), Size::new(80.0, 28.0));
+    }
+
+    #[test]
+    fn loading_and_disabled_buttons_are_not_focusable_or_keyboard_activatable() {
+        for button in [
+            secondary("Run").loading(true).on_press("run"),
+            secondary("Run").disabled(true).on_press("run"),
+        ] {
+            let id = Id::unique();
+            let element: Element<'_, &'static str> = button.id(id.clone()).into();
+            let mut harness = WidgetHarness::new(element, Size::new(200.0, 80.0));
+            harness.focus(id);
+
+            assert_eq!(harness.focused_widgets(), 0);
+            assert!(harness
+                .update(key_pressed(Key::Named(Named::Enter)))
+                .messages
+                .is_empty());
+            assert!(harness
+                .update(key_pressed(Key::Named(Named::Space)))
+                .messages
+                .is_empty());
+        }
     }
 }

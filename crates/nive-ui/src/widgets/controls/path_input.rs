@@ -13,6 +13,7 @@ pub struct PathInput<'a, Message> {
     placeholder: &'a str,
     value: &'a str,
     browse_label: &'a str,
+    semantic_name: Option<&'a str>,
     leading_icon: Option<IconRole>,
     size: ControlSize,
     width: Length,
@@ -30,6 +31,7 @@ where
             placeholder,
             value,
             browse_label: "Browse",
+            semantic_name: None,
             leading_icon: None,
             size: ControlSize::Sm,
             width: Length::Fill,
@@ -41,6 +43,12 @@ where
 
     pub fn browse_label(mut self, label: &'a str) -> Self {
         self.browse_label = label;
+        self
+    }
+
+    /// Retains the input's semantic name independently from its placeholder.
+    pub fn semantic_name(mut self, name: &'a str) -> Self {
+        self.semantic_name = Some(name);
         self
     }
 
@@ -106,14 +114,20 @@ where
     }
 
     fn into_element(self) -> Element<'a, Message> {
-        let input = input::default(self.placeholder, self.value)
+        let mut input = input::default(self.placeholder, self.value)
             .disabled(self.disabled)
             .on_change_maybe(self.on_change);
+        if let Some(name) = self.semantic_name {
+            input = input.semantic_name(name);
+        }
 
-        let browse = button::icon(self.leading_icon.unwrap_or(IconRole::Folder))
-            .disabled(self.disabled)
-            .on_press_maybe(self.on_browse)
-            .tooltip(self.browse_label);
+        let browse = button::icon(
+            self.leading_icon.unwrap_or(IconRole::Folder),
+            self.browse_label,
+        )
+        .disabled(self.disabled)
+        .on_press_maybe(self.on_browse)
+        .tooltip(self.browse_label);
 
         InputGroup::new(input)
             .trailing_action(browse)
@@ -129,5 +143,68 @@ where
 {
     fn from(input: PathInput<'a, Message>) -> Self {
         input.into_element()
+    }
+}
+
+#[cfg(test)]
+mod path_input_tests {
+    use super::*;
+    use crate::test_support::WidgetHarness;
+    use iced::{mouse, Event, Point, Size};
+
+    #[test]
+    fn path_input_retains_semantic_name_and_uses_form_size() {
+        let input = PathInput::<()>::new("Path", "/workspace")
+            .semantic_name("Project path")
+            .browse_label("Choose directory")
+            .lg();
+        assert_eq!(input.semantic_name, Some("Project path"));
+        assert_eq!(input.browse_label, "Choose directory");
+
+        let element: Element<'_, ()> = input.into();
+        let harness = WidgetHarness::new(element, Size::new(320.0, 80.0));
+        assert_eq!(
+            harness.bounds().height,
+            crate::theme::form_control_metrics(ControlSize::Lg).height
+        );
+    }
+
+    #[test]
+    fn browse_action_routes_once_and_disabled_path_is_inert() {
+        let enabled: Element<'_, &'static str> = PathInput::new("Path", "/workspace")
+            .on_browse("browse")
+            .into();
+        let mut enabled = WidgetHarness::new(enabled, Size::new(320.0, 80.0));
+        enabled.set_cursor(Point::new(316.0, 14.0));
+        assert!(enabled
+            .update(Event::Mouse(mouse::Event::ButtonPressed(
+                mouse::Button::Left,
+            )))
+            .messages
+            .is_empty());
+        assert_eq!(
+            enabled
+                .update(Event::Mouse(mouse::Event::ButtonReleased(
+                    mouse::Button::Left,
+                )))
+                .messages,
+            vec!["browse"]
+        );
+
+        let disabled: Element<'_, &'static str> = PathInput::new("Path", "/workspace")
+            .disabled(true)
+            .on_browse("browse")
+            .into();
+        let mut disabled = WidgetHarness::new(disabled, Size::new(320.0, 80.0));
+        disabled.set_cursor(Point::new(316.0, 14.0));
+        disabled.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        assert!(disabled
+            .update(Event::Mouse(mouse::Event::ButtonReleased(
+                mouse::Button::Left,
+            )))
+            .messages
+            .is_empty());
     }
 }

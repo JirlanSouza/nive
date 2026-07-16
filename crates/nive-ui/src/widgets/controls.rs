@@ -5,6 +5,7 @@ pub mod checkbox;
 pub mod color_input;
 pub mod color_picker;
 pub mod field;
+mod form_frame;
 pub mod input;
 pub mod input_group;
 pub mod path_input;
@@ -19,7 +20,10 @@ pub use button::{Button, ButtonIntent, ButtonVariant};
 pub use checkbox::Checkbox;
 pub use color_input::ColorInput;
 pub use color_picker::{ColorPicker, RgbHexColor};
-pub use field::{Field, FieldError, FieldGroup, FieldHint, FieldLabel};
+pub use field::{
+    Field, FieldControl, FieldError, FieldGroup, FieldGroupLayout, FieldHint, FieldLabel,
+    FieldRequirement,
+};
 pub use input::{FieldValidation, Input, TextInputAppearance};
 pub use input_group::{InputGroup, InputGroupVariant};
 pub use path_input::PathInput;

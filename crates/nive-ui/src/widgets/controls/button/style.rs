@@ -5,8 +5,8 @@ use iced::{
 };
 
 use crate::theme::{
-    self, control_metrics, BorderRole, BorderSpec, ButtonClass, ControlRole, ControlSize,
-    ControlState, TextRole, ToneRole,
+    self, BorderRole, BorderSpec, ButtonClass, ControlRole, ControlSize, ControlState, TextRole,
+    ToneRole,
 };
 
 use crate::advanced::control_style::{border_with_radius, transparent_border_with_radius};
@@ -249,18 +249,12 @@ pub fn focus_ring(theme: &crate::theme::Theme, ring: ButtonFocusRing, radius: Ra
 }
 
 pub fn metrics(size: ControlSize) -> ButtonMetrics {
-    let control = control_metrics(size);
-    let spacing = theme::spacing();
+    let control = theme::form_control_metrics(size);
 
     ButtonMetrics {
-        font_size: control.font_size,
+        font_size: control.strong_text_style.size,
         height: control.height,
-        padding_h: match size {
-            ControlSize::Xs => spacing.sm,
-            ControlSize::Sm => spacing.md,
-            ControlSize::Md => spacing.md + spacing.xxs,
-            ControlSize::Lg => spacing.xl,
-        },
+        padding_h: control.padding.left,
         radius: control.radius,
         icon_size: control.icon_size,
         gap: control.gap,
@@ -268,7 +262,7 @@ pub fn metrics(size: ControlSize) -> ButtonMetrics {
 }
 
 pub fn icon_side(size: ControlSize) -> f32 {
-    control_metrics(size).height
+    theme::form_control_metrics(size).height
 }
 
 #[cfg(test)]
@@ -282,11 +276,11 @@ mod button_tests {
     fn metrics_follow_control_size() {
         assert_eq!(
             metrics(ControlSize::Sm).height,
-            control_metrics(ControlSize::Sm).height
+            theme::form_control_metrics(ControlSize::Sm).height
         );
         assert_eq!(
             metrics(ControlSize::Sm).font_size,
-            control_metrics(ControlSize::Sm).font_size
+            theme::typography(crate::theme::TypographyRole::ControlStrong).size
         );
     }
 
@@ -332,6 +326,20 @@ mod button_tests {
         assert_eq!(style.border.color, expected.border.color);
         assert_eq!(style.border.width, expected.border.width);
         assert_eq!(style.border.radius, radius);
+    }
+
+    #[test]
+    fn built_in_solid_action_foregrounds_meet_text_contrast() {
+        for theme in [Theme::Light, Theme::Dark] {
+            for intent in [ButtonIntent::Suggested, ButtonIntent::Destructive] {
+                let style =
+                    style(intent, ButtonVariant::Solid, Radius::new(4.0))(&theme, Status::Active);
+                let background = background_color(&style);
+                let contrast = crate::theme::color::contrast_ratio(style.text_color, background);
+
+                assert!(contrast >= 4.5, "{theme:?} {intent:?}: {contrast}");
+            }
+        }
     }
 
     #[test]
