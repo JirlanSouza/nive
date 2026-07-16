@@ -1,5 +1,6 @@
 use nive::prelude::*;
 
+use super::tone::tone_label;
 use super::{AppCommand, DocumentId, Message, PanelActionId, WorkbenchMonitor};
 
 impl WorkbenchMonitor {
@@ -64,8 +65,8 @@ impl WorkbenchMonitor {
         vec![
             WorkbenchPanel::new("services", "Services", self.services_view())
                 .icon(IconRole::Folder)
-                .badge(self.model.services.len().to_string())
-                .status(self.overall_tone())
+                .count_badge(self.model.services.len() as u64)
+                .status_text(self.overall_tone(), tone_label(self.overall_tone()))
                 .action(PanelAction::icon(
                     PanelActionId::RunHealth,
                     IconRole::ViewRefresh,
@@ -78,15 +79,15 @@ impl WorkbenchMonitor {
                 )),
             WorkbenchPanel::new("hosts", "Hosts", self.hosts_view())
                 .icon(IconRole::OpenMenu)
-                .badge(self.model.hosts.len().to_string())
-                .status(self.host_tone()),
+                .count_badge(self.model.hosts.len() as u64)
+                .status_text(self.host_tone(), tone_label(self.host_tone())),
             WorkbenchPanel::new("alerts", "Alerts", self.alerts_left_view())
                 .icon(IconRole::DialogWarning)
-                .badge(self.active_alert_count().to_string())
-                .status(self.alert_tone()),
+                .count_badge(self.active_alert_count() as u64)
+                .status_text(self.alert_tone(), tone_label(self.alert_tone())),
             WorkbenchPanel::new("dashboards", "Dashboards", self.dashboards_view())
                 .icon(IconRole::DialogInformation)
-                .status(ToneRole::Accent),
+                .status_text(ToneRole::Accent, "Active"),
             WorkbenchPanel::new("settings", "Settings", self.settings_view())
                 .icon(IconRole::PreferencesSystem)
                 .disabled(true),
@@ -119,23 +120,23 @@ impl WorkbenchMonitor {
         vec![
             ProblemsPanel::new(self.problems()).into_panel("alerts"),
             logs_panel_slot("logs", self.logs_view())
-                .badge(self.model.logs.len().to_string())
-                .status(ToneRole::Accent),
+                .count_badge(self.model.logs.len() as u64)
+                .status_text(ToneRole::Accent, "Live"),
             bottom_panel_slot("events", "Events", self.events_view())
                 .icon(IconRole::MailInbox)
-                .badge(self.model.events.len().to_string())
+                .count_badge(self.model.events.len() as u64)
                 .action(PanelAction::icon(
                     PanelActionId::Clear,
                     IconRole::EditDelete,
                     "Clear events",
                 )),
             operations_panel_slot("jobs", self.jobs_view())
-                .badge(self.model.running_jobs().to_string())
-                .status(if self.model.running_jobs() == 0 {
+                .count_badge(self.model.running_jobs() as u64)
+                .status_text(if self.model.running_jobs() == 0 {
                     ToneRole::Success
                 } else {
                     ToneRole::Accent
-                }),
+                }, if self.model.running_jobs() == 0 { "Idle" } else { "Running" }),
         ]
     }
 
@@ -202,5 +203,27 @@ impl WorkbenchMonitor {
             DocumentId::Dashboard(_) => IconRole::DialogInformation,
             DocumentId::Service(_) => IconRole::Folder,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn seeded_panel_models_keep_typed_counts_and_labelled_status() {
+        let app = WorkbenchMonitor::seeded();
+        let panels = app.left_panels();
+        let services = &panels[0];
+
+        assert!(matches!(
+            services.badge_content_value(),
+            Some(BadgeContent::Count(3))
+        ));
+        let status = services
+            .status_indicator_value()
+            .expect("services status indicator");
+        assert!(!status.label().trim().is_empty());
+        assert_eq!(status.tone(), app.overall_tone());
     }
 }

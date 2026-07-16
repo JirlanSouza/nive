@@ -44,13 +44,13 @@ pub fn variant_grid<'a>(
         current = current.push(container(cell).width(Length::FillPortion(1)));
         count += 1;
 
-        if count % 3 == 0 {
+        if count % 2 == 0 {
             rows = rows.push(current);
             current = row![].spacing(12).width(Length::Fill);
         }
     }
 
-    if count % 3 != 0 {
+    if count % 2 != 0 {
         rows = rows.push(current);
     }
 
@@ -64,6 +64,8 @@ pub fn variant_row<'a>(
         .spacing(12)
         .align_y(Alignment::Center)
         .width(Length::Fill)
+        .wrap()
+        .vertical_spacing(8)
         .into()
 }
 

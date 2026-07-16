@@ -17,16 +17,10 @@ impl WorkbenchMonitor {
                     .item(MetadataItem::new("Host", service.host_id))
                     .item(
                         MetadataItem::new("Health", tone_label(service.health))
-                            .tone(service.health),
+                            .status(service.health),
                     )
-                    .item(
-                        MetadataItem::new("Latency", "")
-                            .value(nive_text::caption(format!("{} ms", service.latency_ms))),
-                    )
-                    .item(
-                        MetadataItem::new("RPM", "")
-                            .value(nive_text::caption(service.requests_per_minute.to_string())),
-                    )
+                    .item(MetadataItem::new("Latency", format!("{} ms", service.latency_ms)))
+                    .item(MetadataItem::new("RPM", service.requests_per_minute.to_string()))
                     .fill_width()
                     .into()
             }),
@@ -34,15 +28,9 @@ impl WorkbenchMonitor {
                 KeyValueList::new()
                     .item(MetadataItem::new("Host", host.name))
                     .item(MetadataItem::new("Zone", host.zone))
-                    .item(MetadataItem::new("Health", tone_label(host.health)).tone(host.health))
-                    .item(
-                        MetadataItem::new("CPU", "")
-                            .value(nive_text::caption(format!("{}%", host.cpu_percent))),
-                    )
-                    .item(
-                        MetadataItem::new("Memory", "")
-                            .value(nive_text::caption(format!("{}%", host.memory_percent))),
-                    )
+                    .item(MetadataItem::new("Health", tone_label(host.health)).status(host.health))
+                    .item(MetadataItem::new("CPU", format!("{}%", host.cpu_percent)))
+                    .item(MetadataItem::new("Memory", format!("{}%", host.memory_percent)))
                     .fill_width()
                     .into()
             }),
@@ -52,7 +40,7 @@ impl WorkbenchMonitor {
                     .item(MetadataItem::new("Service", alert.service_id))
                     .item(
                         MetadataItem::new("Severity", tone_label(alert.severity))
-                            .tone(alert.severity),
+                            .status(alert.severity),
                     )
                     .item(MetadataItem::new(
                         "State",
@@ -74,7 +62,8 @@ impl WorkbenchMonitor {
             KeyValueList::new()
                 .item(MetadataItem::new("Service", alert.service_id))
                 .item(
-                    MetadataItem::new("Severity", tone_label(alert.severity)).tone(alert.severity)
+                    MetadataItem::new("Severity", tone_label(alert.severity))
+                        .status(alert.severity)
                 )
                 .item(MetadataItem::new(
                     "Environment",

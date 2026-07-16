@@ -38,11 +38,11 @@ fn tones() -> Element<'static, Message> {
         example_cell(
             "Tone badges",
             variant_row([
-                Badge::new("Accent").accent().into(),
-                Badge::new("Info").info().into(),
-                Badge::new("Success").success().into(),
-                Badge::new("Warning").warning().into(),
-                Badge::new("Danger").danger().into(),
+                Badge::status("Accent").accent().into(),
+                Badge::status("Info").info().into(),
+                Badge::status("Success").success().into(),
+                Badge::status("Warning").warning().into(),
+                Badge::status("Danger").danger().into(),
             ]),
         ),
     ])
@@ -128,7 +128,7 @@ fn controls(size: ControlSize, app: &WidgetGallery) -> Element<'_, Message> {
         Input::new("Input", &app.form.name)
             .size(size)
             .on_change(Message::NameChanged),
-        Badge::new("Badge").accent().size(size),
+        Badge::status("Badge").accent(),
         ProgressBar::percent(0.55).size(size),
     ]
     .spacing(8)

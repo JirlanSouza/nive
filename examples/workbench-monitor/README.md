@@ -38,6 +38,15 @@ status/trend content. Document peer actions use `ActionGroup` with
 group opts into whole-control wrapping so `800x600` and `1024x480` expose the
 narrow layout without app-local control resizing.
 
+Inspector `KeyValueList` content is surface-neutral and uses framework-owned
+14 px Text/Code values; its surrounding workbench panel owns the only surface.
+Panel and bottom-tab counts use `BadgeContent::Count`; status uses complete
+visible `StatusIndicator` labels and omits unlabeled dots. Problems and other
+`DataRow` content keep principal and source/value metadata clustered, reserve
+status slots where needed, and use a one-item `ActionGroup`/`ContentAction`
+for protected peer actions. Selectable service/host/alert rows own whole-row
+interaction and labelled status explicitly.
+
 ## Visual foundations review
 
 The monitor receives Inter Regular/SemiBold and Geist Mono Regular/Medium from
@@ -75,3 +84,10 @@ Check it:
 cargo check --manifest-path examples/workbench-monitor/Cargo.toml
 just examples-check
 ```
+
+For manual sign-off, the agent launches
+`rtk cargo run --manifest-path examples/workbench-monitor/Cargo.toml` and keeps
+it running. The user captures and attaches Light/Dark screenshots at
+`1440x900`, constrained, and low viewports. The agent reviews only those
+user-supplied images and requests replacements after rendered corrections; it
+does not capture screenshots itself.

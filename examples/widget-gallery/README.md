@@ -34,6 +34,14 @@ The gallery exercises:
 - surface-free and externally framed MetricCard values with baseline units,
   status, and trend; ContentAction label/icon/loading/destructive/disabled
   states plus whole-control wrapping and the oversized-action clipping fallback
+- surface-neutral KeyValueList/DataRow in standalone and hosted forms, typed
+  text/code/custom values, shared/invalid label columns, mixed status slots,
+  protected peer actions, selectable-row ownership, and constrained overflow
+- Count/Status Badge, labelled StatusIndicator, 6/8 px ToneDot, disabled and
+  clipped-host stress, empty status omission, and separate Spinner activity
+- InitialAvatar person/entity matrices across 24/32/40/56 px, Unicode and
+  identity-icon fallback, status-outline contexts, plus exact and constrained
+  MetadataTag values; VersionBadge appears only in migration documentation
 - opt-in devtools inspection for sample `Resource` and `Operation` fields
 - module-public helper coverage for `nive::ui::widgets::skeleton`, which is not
   re-exported from `crates/nive-ui/src/widgets.rs`
@@ -82,6 +90,12 @@ SelectableItem focus, and SplitPane hover, drag, focus, locked, and display-only
 states. On the Actions page, traverse cards and content actions with Tab,
 Enter, and Space; compare all three densities and constrain the window until
 ActionGroup wraps without splitting a control.
+
+The agent launches the review app with `rtk just widget-gallery-dev` and keeps
+it running. The user captures and attaches the Light/Dark ×
+Compact/Standard/Comfortable × wide/constrained screenshots; the agent reviews
+those supplied images and requests replacements after any visual correction.
+The agent does not capture manual-validation screenshots.
 
 With devtools enabled, open the panel with Cmd+Option+I on macOS or Ctrl+Alt+I
 on other platforms to force the inspected feedback sample states.
