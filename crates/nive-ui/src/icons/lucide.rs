@@ -25,4 +25,11 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn default_catalog_covers_identity() {
+        let glyph = glyph_for(IconRole::Identity);
+
+        assert_eq!(glyph.provider_slug(), "lucide:user");
+    }
 }

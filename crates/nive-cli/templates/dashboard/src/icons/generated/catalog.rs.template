@@ -87,6 +87,13 @@ pub const APP_ICON_CATALOG: IconCatalog = IconCatalog::new(&[
         ),
     ),
     IconCatalogEntry::new(
+        IconRole::Identity,
+        IconGlyph::new(
+            include_bytes!("../../../assets/icons/generated/lucide/user.svg"),
+            "lucide:user",
+        ),
+    ),
+    IconCatalogEntry::new(
         IconRole::ListAdd,
         IconGlyph::new(
             include_bytes!("../../../assets/icons/generated/lucide/plus.svg"),
@@ -147,6 +154,13 @@ pub const APP_ICON_CATALOG: IconCatalog = IconCatalog::new(&[
         IconGlyph::new(
             include_bytes!("../../../assets/icons/generated/lucide/settings.svg"),
             "lucide:settings",
+        ),
+    ),
+    IconCatalogEntry::new(
+        IconRole::TabPinned,
+        IconGlyph::new(
+            include_bytes!("../../../assets/icons/generated/lucide/pin.svg"),
+            "lucide:pin",
         ),
     ),
     IconCatalogEntry::new(

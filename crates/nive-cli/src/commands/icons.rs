@@ -1249,6 +1249,7 @@ fn role_lucide_defaults() -> &'static [(&'static str, &'static str, &'static str
         ("folder", "folder", "Folder"),
         ("go-next", "arrow-right", "GoNext"),
         ("go-previous", "arrow-left", "GoPrevious"),
+        ("identity", "user", "Identity"),
         ("list-add", "plus", "ListAdd"),
         ("list-remove", "minus", "ListRemove"),
         ("mail-inbox", "inbox", "MailInbox"),
@@ -1262,6 +1263,7 @@ fn role_lucide_defaults() -> &'static [(&'static str, &'static str, &'static str
         ("nive-disclosure-up", "chevron-up", "NiveDisclosureUp"),
         ("open-menu", "menu", "OpenMenu"),
         ("preferences-system", "settings", "PreferencesSystem"),
+        ("tab-pinned", "pin", "TabPinned"),
         ("view-conceal", "eye-off", "ViewConceal"),
         ("view-more", "ellipsis", "ViewMore"),
         ("view-refresh", "refresh-cw", "ViewRefresh"),
@@ -1317,6 +1319,13 @@ impl LucideMetadata {
             })
             .collect();
 
+        if let Some(user) = icons.iter_mut().find(|icon| icon.name == "user") {
+            user.aliases = vec!["account".to_string(), "person".to_string()];
+            user.tags = vec!["profile".to_string(), "avatar".to_string()];
+            user.categories = vec!["users".to_string()];
+            user.use_cases = vec!["account menu".to_string()];
+        }
+
         icons.extend([
             LucideIconMetadata {
                 name: "arrow-up".to_string(),
@@ -1324,13 +1333,6 @@ impl LucideMetadata {
                 tags: vec!["north".to_string(), "direction".to_string()],
                 categories: vec!["arrows".to_string(), "navigation".to_string()],
                 use_cases: vec!["sort ascending".to_string()],
-            },
-            LucideIconMetadata {
-                name: "user".to_string(),
-                aliases: vec!["account".to_string(), "person".to_string()],
-                tags: vec!["profile".to_string(), "avatar".to_string()],
-                categories: vec!["users".to_string()],
-                use_cases: vec!["account menu".to_string()],
             },
             LucideIconMetadata {
                 name: "shield-check".to_string(),
@@ -1858,6 +1860,15 @@ mod tests {
         assert!(
             error.to_string().contains("Icon check failed"),
             "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn required_role_coverage_includes_identity() {
+        assert!(required_role_names().contains(&"identity"));
+        assert_eq!(
+            role_variant("identity").expect("identity variant"),
+            "Identity"
         );
     }
 
