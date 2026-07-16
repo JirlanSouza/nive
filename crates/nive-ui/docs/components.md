@@ -184,7 +184,85 @@ surrounding chrome padding. Toolbar items are not accepted by content
 | `ActionGroup::action(ToolbarAction::...)` | `ActionGroup::action(ContentAction::...)` |
 
 Downstream exhaustive matches on `TypographyRole` and literals of
-`TypographyScale` must include `BodyStrong`/`body_strong`.
+`TypographyScale` must include `BodyStrong`/`body_strong`, plus form-specific
+`Control`/`control` and `ControlStrong`/`control_strong`.
+
+## Form Controls And Composition
+
+`theme::FormControlMetrics` projects the active theme's concrete
+`ControlSize` into form geometry without changing finite custom heights.
+
+| Density | Xs | Sm | Md | Lg |
+| --- | ---: | ---: | ---: | ---: |
+| Compact | 20 | 24 | 28 | 32 |
+| Standard | 24 | 28 | 32 | 36 |
+| Comfortable | 28 | 32 | 36 | 40 |
+
+The projection supplies Control/ControlStrong 14 px typography, horizontal
+padding, radius, icon size, gap, a 1 px field perimeter, and a layout-neutral
+2 px focus stroke on a rectangle inset 1 px. Standard Input and InputGroup
+reuse the same private frame; Embedded Input paints no duplicate chrome.
+
+Input capability is independent from appearance:
+
+| State | Focus/select/copy | Mutate/paste/IME | Submit | Actions |
+| --- | --- | --- | --- | --- |
+| Editable (`on_change`) | yes | yes | configured | configured |
+| Explicit/callback-less read-only | yes | no | non-mutating configured submit | explicitly enabled group actions remain enabled |
+| Disabled | no | no | no | no |
+
+Canonical composition is label-first:
+
+```rust
+use nive_ui::prelude::*;
+
+let fields = [
+    Field::new("Name", Input::new("Enter a name", "").on_change(|_| ()))
+        .required("Required")
+        .hint("Public display name")
+        .reserve_support_line(true),
+    Field::new(
+        "Amount",
+        InputGroup::new(Input::new("Amount", "42"))
+            .prefix("USD")
+            .unit("monthly"),
+    )
+    .optional("Optional"),
+];
+let form: Element<'_, ()> = FieldGroup::new("Profile", fields)
+    .description("Account details")
+    .layout(FieldGroupLayout::Wrap { min_field_width: 240.0 })
+    .into();
+```
+
+A nonempty Field error replaces its hint and is the sole Invalid source;
+empty/whitespace errors normalize to absence. Errors combine 12 px Danger text
+with the required 14 px `IconRole::ValidationError`. Field spacing resolves
+from the active density (`Sm` label-to-control, `Xs` control-to-support).
+
+Wrap uses `max(1, floor((W + G) / (M + G)))` columns and equal tracks
+`max(0, (W - (columns - 1)G) / columns)`. Invalid minima normalize to 240 px;
+unbounded hosts fall back to Vertical. FieldGroup paints no surface—Card or a
+section owns visual boundaries.
+
+InputGroup typed APIs are `prefix`, `unit`, `semantic_icon`, `status`,
+leading/trailing actions, named `clear_action`, and `activity`. The deprecated
+`leading_text`/`trailing_text` aliases remain for one release. Arbitrary slots
+are rectangular escape hatches with caller-owned paint, masking, semantics,
+and propagation.
+
+Button shortcuts map to primary Suggested+Solid, secondary Neutral+Outline,
+tertiary Neutral+Ghost, and destructive solid Danger. The public intent and
+variant axes remain the advanced surface. Loading retains width and label,
+uses a foreground-inheriting metric-sized Spinner, and suppresses activation.
+Explicit-width labels ellipsize and disclose the complete Cow only while
+truncated. Icon-only construction requires semantic text independently from a
+tooltip.
+
+Input semantic names, Field labels/requirements/support, FieldGroup headings,
+and icon action names are retained for a future accessibility bridge. Iced
+0.14 does not currently let Nive emit the required native AccessKit
+name/description/error/group relationships or independently paint caret color.
 
 `TabBar`, `VerticalRail`, `SectionHeader`, flat `SegmentedControl`, and toolbar
 actions derive their primary extent from the active theme's `ControlSize`
@@ -248,17 +326,17 @@ upstream APIs.
 
 ### Interactive Widget Expectations
 
-- **Icon-only interactive widgets** (`Button` with no label, `SelectableItem`
-  used as an icon row, action rows in toolbars) MUST accept a label or
-  tooltip string. `Button::tooltip`, `SelectableItem::tooltip`, and
-  equivalent methods on every interactive widget provide the accessible
-  name. Tests cover the construction paths.
+- **Icon-only Button widgets** require retained semantic text at construction;
+  tooltip disclosure is independent and never substitutes for that metadata.
+  Native accessible-name emission is still deferred. Other compact actions
+  retain their app-owned visible/semantic labels according to their APIs.
 - **Disabled and loading states** MUST be exposed through the widget API.
   `disabled()`, `loading()`, and visual variants keep the state explicit
   and prevent apps from hiding state behind a single boolean.
-- **Error states** for fields MUST be reachable through
-  `FieldValidation::Invalid` plus an error message. Silent failures are
-  not acceptable.
+- **Typed Field error state** comes from one nonempty Field error, which drives
+  both Invalid chrome and visible icon-plus-text support. Standalone controls
+  may still use `FieldValidation`; silent or color-only failures are not
+  acceptable.
 
 ### Overlay Keyboard Contract
 

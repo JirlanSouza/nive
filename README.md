@@ -72,13 +72,13 @@ On first launch, Nive installs a `.desktop` entry and icon PNG to `~/.local/shar
 ## Examples
 
 - [Counter](examples/counter/README.md) — Minimal app with `Application`, `Effect`, and `ScreenView`
-- [Forms](examples/forms/README.md) — Form inputs with `Field`, `InputGroup`, validation, and dialogs
+- [Forms](examples/forms/README.md) — Canonical typed `FieldGroup` composition, validation, read-only/disabled states, InputGroup adornments, and dialogs
 - [Async Data](examples/async-data/README.md) — `Resource` with guarded `begin`/`settle` loading and app-owned operations
 - [Multi Window](examples/multi-window/README.md) — Multiple windows with explicit `Window` enum
 - [Theming](examples/theming/README.md) — Runtime theme switching with `Application::theme` override
 - [Icons](examples/icons/README.md) — Roles, symbols, custom SVGs, and theme icon catalog overrides
-- [Widget Gallery](examples/widget-gallery/README.md) — Navigable visual baseline for public widgets, variants, overlays, feedback, theme, icons, and motion
-- [Workbench Monitor](examples/workbench-monitor/README.md) — Simulated service-monitoring app for validating the fixed-region workbench shell, panel hosts, document tabs, command palette, dialogs, and toasts
+- [Widget Gallery](examples/widget-gallery/README.md) — Deterministic visual matrices for public widgets, including form state/composition and Button hierarchy
+- [Workbench Monitor](examples/workbench-monitor/README.md) — Simulated service-monitoring app validating the migrated command-palette Input inside the fixed-region workbench shell
 - [File Picker](examples/file-picker/README.md) — Native file picker dialogs (feature-gated)
 - [Devtools](examples/devtools/README.md) — Runtime state inspection panel (feature-gated)
 

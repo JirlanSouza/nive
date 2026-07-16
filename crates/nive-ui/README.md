@@ -41,6 +41,37 @@ unless a lower-level style function or widget state helper is needed.
 
 ## Structural widget contracts
 
+### Form controls and composition
+
+`Input`, `InputGroup`, `Field`, `FieldGroup`, and `Button` share
+`theme::FormControlMetrics`. Built-in outer heights by density are:
+
+| Density | Xs | Sm | Md | Lg |
+| --- | ---: | ---: | ---: | ---: |
+| Compact | 20 | 24 | 28 | 32 |
+| Standard | 24 | 28 | 32 | 36 |
+| Comfortable | 28 | 32 | 36 | 40 |
+
+Form value text uses `TypographyRole::Control` (Inter Regular 14 px) and
+button labels use `ControlStrong` (Inter Semibold 14 px), both with 1.25 line
+height. `Field::new(label, Input/InputGroup)` is the canonical typed boundary:
+the Field owns validation from its nonempty error, Required/Optional text,
+label focus, and the shared hint/error slot. `Field::custom` is an explicit
+escape hatch whose focus, state, size, semantics, and clipping remain
+caller-owned.
+
+`FieldGroup::new(visible_legend, fields)` owns typed Fields, stays
+surface-neutral, and offers Vertical or equal-track Wrap layout. `InputGroup`
+owns one frame around its typed prefix/unit/icon/status/actions; arbitrary
+slots retain caller-owned masking and semantics. Inputs without `on_change`
+are read-only, not disabled.
+
+Button hierarchy is primary (Suggested+Solid), secondary (Neutral+Outline),
+tertiary (Neutral+Ghost), and destructive confirmation (Destructive+Solid).
+Label buttons are intrinsic unless `fill_width` is requested; icon buttons
+require `button::icon(icon, semantic_name)`. Retained semantic metadata does
+not yet imply native AccessKit name/relationship emission.
+
 - `TabBar` is the controlled document/view collection: a borderless Chrome
   strip with Canvas-connected active tabs, bounded one-line labels, stable
   dirty/close geometry, pinned-first overflow menu, horizontal or mapped

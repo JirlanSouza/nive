@@ -31,6 +31,7 @@ classDiagram
         +gap(GapRole) f32
         +padding(PaddingRole) Padding
         +control_metrics(ControlSize) ControlMetrics
+        +form_control_metrics(ControlSize) FormControlMetrics
     }
     class ThemeData {
         +name: str
@@ -201,14 +202,58 @@ Atalhos de alto nível continuam existindo e mapeiam para pares:
 | Atalho | Par |
 | --- | --- |
 | `primary()` / `button::primary` | `Suggested + Solid` |
-| `secondary()` / `button::secondary` | `Neutral + Subtle` |
+| `secondary()` / `button::secondary` | `Neutral + Outline` |
+| `tertiary()` / `button::tertiary` | `Neutral + Ghost` |
 | `outline()` / `button::outline` | `Neutral + Outline` |
 | `ghost()` / `button::ghost` | `Neutral + Ghost` |
 | `destructive()` / `button::destructive` | `Destructive + Solid` |
-| `button::icon` | `Neutral + Ghost` |
+| `button::icon(icon, semantic_name)` | `Neutral + Ghost` |
 
 `ButtonVariant::Link`, `button::link(...)` e `Button::link()` não fazem parte
 do botão. Links terão controle dedicado quando a área de navegação precisar.
+
+### Controles de formulário
+
+`FormControlMetrics` projeta `ControlSize` nas métricas compartilhadas por
+`Input`, `InputGroup`, `Field`, `FieldGroup` e `Button`. O texto de valor usa
+`TypographyRole::Control` (Inter Regular 14 px) e labels de botão usam
+`ControlStrong` (Inter Semibold 14 px); tamanho local altera geometria, não a
+tipografia.
+
+| Densidade | Xs | Sm | Md | Lg |
+| --- | ---: | ---: | ---: | ---: |
+| Compact | 20 | 24 | 28 | 32 |
+| Standard | 24 | 28 | 32 | 36 |
+| Comfortable | 28 | 32 | 36 | 40 |
+
+O frame de `Input`/`InputGroup` tem perímetro externo de 1 px e foco de 2 px
+sobreposto num retângulo 1 px interno. Disabled prevalece sobre foco, hover,
+read-only e ações; Invalid preserva o perímetro Danger mesmo com foco. O frame
+não reserva faixa extra nem multiplica opacidade local.
+
+`Field::new(label, Input/InputGroup)` é a composição canônica: Field propaga
+tamanho/disabled, é o único dono de validação quando o erro não é vazio e
+compartilha a faixa de suporte entre hint e erro. `Field::custom` é uma saída
+limitada, com foco, semântica, clipping e propagação sob responsabilidade do
+chamador. `FieldGroup::new(legend, fields)` exige legenda visível, não pinta
+superfície e oferece `Vertical` ou Wrap de trilhas iguais. Para largura finita
+`W`, gap `G` e mínimo `M`, Wrap usa
+`max(1, floor((W + G) / (M + G)))` colunas e largura
+`max(0, (W - (columns - 1)G) / columns)`; hosts ilimitados usam Vertical.
+
+`InputGroup` mantém um único frame para Input embutido e slots tipados de
+prefixo, unidade, ícone semântico, status rotulado, ações, clear e atividade.
+Slots arbitrários são retangulares e mantêm paint, máscara arredondada,
+semântica e propagação sob responsabilidade do chamador. A ausência de
+`on_change` torna Input read-only, não Disabled.
+
+Os eixos públicos de Button continuam sendo a superfície avançada. A
+hierarquia recomendada é primary Suggested+Solid, secondary Neutral+Outline,
+tertiary Neutral+Ghost e destructive Destructive+Solid; use apenas um primary
+por grupo local. Botões de ícone exigem nome semântico separado do tooltip.
+Esses metadados preparam uma futura ponte de acessibilidade: Iced 0.14 ainda
+não permite emitir todas as relações nativas de nome/descrição/erro/grupo nem
+configurar a cor do caret independentemente.
 
 ### Dense desktop default
 
