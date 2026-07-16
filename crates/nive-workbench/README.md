@@ -44,6 +44,22 @@ than repairing shape or padding locally. Use `MetricCard` inside an external
 `ActionGroup` plus `ContentAction` for compact document actions. Keep
 `ToolbarAction` limited to the shell toolbar.
 
+Panel, rail, header-tab, and header metadata retain badge semantics as
+`BadgeContent`: `.badge(text)` remains a Status-compatible forwarder,
+`.badge_content(...)` accepts the typed model, and `.count_badge(u64)` is the
+numeric path. Panel and bottom-tab status is `StatusIndicator`, not a bare
+`ToneRole`; use `.status_indicator(...)` or `.status_text(tone, visible_label)`.
+Code that previously initialized public `BottomHeaderTab` fields directly must
+replace `badge: Option<Cow<str>>` with `Option<BadgeContent>` and
+`status: Option<ToneRole>` with `Option<StatusIndicator>`. Empty or unlabeled
+compact status is omitted. A nonempty Status badge wins the single status
+channel; an independent Count may coexist with the labelled indicator.
+
+Workbench `DataRow` consumers keep principal/source metadata clustered and
+static. Whole-row interaction belongs to a selectable host. A peer row action
+uses one `ActionGroup` containing `ContentAction`, preserving its own focus and
+activation target.
+
 `WorkbenchPaneConstraints` configures non-persisted expanded-region minima.
 Defaults are 160/240/160 logical pixels for left/center/right and 160/96 for
 upper/bottom. Layout clamps current rendering without rewriting app-owned or
