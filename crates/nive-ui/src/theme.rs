@@ -17,14 +17,16 @@ pub mod typography;
 mod catalog;
 
 pub use crate::tokens::color::{format_hex_color, format_rgb_hex_color, hex, parse_hex_color};
-pub use active::{active, control_metrics, controls, density, gap, padding, space, spacing};
+pub use active::{
+    active, control_metrics, controls, density, form_control_metrics, gap, padding, space, spacing,
+};
 pub use builder::ThemeBuilder;
 pub use catalog::{
     ButtonClass, CheckboxClass, ContainerClass, FieldValidation, MenuClass, PickListClass,
     ProgressBarClass, RuleClass, ScrollableClass, TextClass, TextInputClass, TogglerClass,
 };
 pub use color_scheme::{BorderSpec, SurfaceSpec};
-pub use component::{ControlMetrics, ControlMetricsScale, ControlSize};
+pub use component::{ControlMetrics, ControlMetricsScale, ControlSize, FormControlMetrics};
 pub use density::ThemeDensity;
 pub use mode::{ThemeMode, ThemePreference};
 pub use roles::{

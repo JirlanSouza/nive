@@ -5,7 +5,9 @@ use iced::Padding;
 use crate::icons::{self, IconCatalog, IconGlyph, IconRole};
 
 use super::color_scheme::{BorderSpec, ColorScheme, ControlSpec, SurfaceSpec, TextSpec, ToneSpec};
-use super::component::{self, ControlMetrics, ControlMetricsScale, ControlSize};
+use super::component::{
+    self, ControlMetrics, ControlMetricsScale, ControlSize, FormControlMetrics,
+};
 use super::density::ThemeDensity;
 use super::shape::{self, ShapeScale, ShapeSize, ShapeSpec};
 use super::spacing::{self, GapRole, PaddingRole, SpaceStep, SpacingScale};
@@ -199,6 +201,10 @@ impl Theme {
 
     pub fn control_metrics(self, size: ControlSize) -> ControlMetrics {
         self.controls().get(size)
+    }
+
+    pub fn form_control_metrics(self, size: ControlSize) -> FormControlMetrics {
+        component::form_metrics(self.control_metrics(size), self.typography_scale())
     }
 
     pub fn space(self, step: SpaceStep) -> f32 {
