@@ -22,6 +22,7 @@ pub enum IconRole {
     Folder,
     GoNext,
     GoPrevious,
+    Identity,
     ListAdd,
     ListRemove,
     MailInbox,
@@ -53,6 +54,7 @@ impl IconRole {
         Self::Folder,
         Self::GoNext,
         Self::GoPrevious,
+        Self::Identity,
         Self::ListAdd,
         Self::ListRemove,
         Self::MailInbox,
@@ -84,6 +86,7 @@ impl IconRole {
             Self::Folder => "folder",
             Self::GoNext => "go-next",
             Self::GoPrevious => "go-previous",
+            Self::Identity => "identity",
             Self::ListAdd => "list-add",
             Self::ListRemove => "list-remove",
             Self::MailInbox => "mail-inbox",
@@ -230,5 +233,27 @@ mod tests {
                 Some(*role)
             );
         }
+    }
+
+    #[test]
+    fn identity_uses_the_provider_neutral_canonical_name() {
+        assert_eq!(IconRole::Identity.canonical_name(), "identity");
+        assert_eq!(
+            IconRole::from_canonical_name("identity"),
+            Some(IconRole::Identity)
+        );
+    }
+
+    #[test]
+    fn custom_catalog_can_supply_identity_and_missing_catalog_is_detectable() {
+        const GLYPH: IconGlyph = IconGlyph::new(
+            br#"<svg xmlns="http://www.w3.org/2000/svg"></svg>"#,
+            "custom:identity",
+        );
+        const CATALOG: IconCatalog =
+            IconCatalog::new(&[IconCatalogEntry::new(IconRole::Identity, GLYPH)]);
+
+        assert_eq!(CATALOG.glyph(IconRole::Identity), Some(GLYPH));
+        assert!(!IconCatalog::empty().covers(IconRole::Identity));
     }
 }
