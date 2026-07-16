@@ -6,6 +6,11 @@ It renders a deterministic service-monitoring desktop shell with simulated
 services, hosts, alerts, logs, events, jobs, command palette actions, dialogs,
 toasts, document tabs, side rails, bottom tabs, and a status bar.
 
+The normal command palette is the integrated form-control smoke path. It uses
+the migrated Input contract and preserves focus, horizontal long-value
+behavior, filtered actions, overlay placement, and shell geometry at narrow
+viewports.
+
 ## Chrome sizing
 
 The monitor deliberately uses `ThemeDensity::Compact` for its global theme
@@ -75,18 +80,19 @@ orphaned separator or split action.
 Run it:
 
 ```sh
-cargo run --manifest-path examples/workbench-monitor/Cargo.toml
+rtk just example-dev workbench-monitor
 ```
 
 Check it:
 
 ```sh
-cargo check --manifest-path examples/workbench-monitor/Cargo.toml
-just examples-check
+rtk cargo test --manifest-path examples/workbench-monitor/Cargo.toml
+rtk cargo check --manifest-path examples/workbench-monitor/Cargo.toml
+rtk just examples-check
 ```
 
 For manual sign-off, the agent launches
-`rtk cargo run --manifest-path examples/workbench-monitor/Cargo.toml` and keeps
+`rtk just example-dev workbench-monitor` and keeps
 it running. The user captures and attaches Light/Dark screenshots at
 `1440x900`, constrained, and low viewports. The agent reviews only those
 user-supplied images and requests replacements after rendered corrections; it

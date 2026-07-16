@@ -11,6 +11,9 @@ The gallery exercises:
 
 - variant matrices for size, tone, disabled, loading, long-label, and compact
   states
+- deterministic Input states, typed InputGroup slots, Field support/error
+  ownership, multi-field Vertical/Wrap groups, and primary/secondary/tertiary/
+  destructive Button hierarchy plus advanced axes
 - **density switching** between Comfortable, Standard, and Compact through
   theme/catalog selection
 - app-owned state for inputs, selections, overlays, feedback controls, and
@@ -68,19 +71,19 @@ cargo run
 From the repository root, run it with terminal-triggered rebuild/reload:
 
 ```bash
-just widget-gallery-dev
+rtk just widget-gallery-dev
 ```
 
 Run devtools explicitly when inspecting simulator integration:
 
 ```bash
-just widget-gallery-devtools
+rtk just widget-gallery-devtools
 ```
 
 Check it with:
 
 ```bash
-cargo check
+rtk cargo test --manifest-path examples/widget-gallery/Cargo.toml
 ```
 
 For visual review, inspect light and dark themes at wide, narrow, and low

@@ -5,6 +5,11 @@
 bottom header tabs, layout/session state, diagnostics/status surfaces, and
 command palette hosting.
 
+Command-palette hosts use the shared form Input contract: callback absence is
+read-only rather than Disabled, semantic naming is retained for the future
+accessibility bridge, and focus/long-value behavior remains owned by the
+control. Applications keep query/filter state and message routing.
+
 The crate stores shell/view state only. Application domain state, side effects,
 persistence location, runtime/window behavior, resources, operations, and final
 message routing remain app-owned.
