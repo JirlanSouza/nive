@@ -3,15 +3,7 @@ use iced::{
     widget::text_input::{self, Status},
 };
 
-use crate::theme::{self, control_metrics, ControlSize, FieldValidation, TextInputClass};
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct TextInputMetrics {
-    pub font_size: f32,
-    pub padding_v: f32,
-    pub padding_h: f32,
-    pub radius: f32,
-}
+use crate::theme::{FieldValidation, TextInputClass};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TextInputAppearance {
@@ -39,28 +31,6 @@ pub(crate) fn text_input_class(
     match appearance {
         TextInputAppearance::Standard => TextInputClass::Standard { validation },
         TextInputAppearance::Embedded => TextInputClass::Embedded { validation },
-    }
-}
-
-pub fn metrics(size: ControlSize) -> TextInputMetrics {
-    let control = control_metrics(size);
-    let spacing = theme::spacing();
-
-    TextInputMetrics {
-        font_size: control.font_size,
-        padding_v: match size {
-            ControlSize::Xs => spacing.xxs,
-            ControlSize::Sm => spacing.xs,
-            ControlSize::Md => spacing.xs + 1.0,
-            ControlSize::Lg => spacing.md,
-        },
-        padding_h: match size {
-            ControlSize::Xs => spacing.sm,
-            ControlSize::Sm => spacing.md,
-            ControlSize::Md => spacing.md + spacing.xxs,
-            ControlSize::Lg => spacing.xl,
-        },
-        radius: control.radius,
     }
 }
 
@@ -126,7 +96,7 @@ mod text_input_tests {
     }
 
     #[test]
-    fn embedded_invalid_uses_catalog_validation() {
+    fn embedded_invalid_keeps_frame_chrome_and_accent_selection_separate() {
         let theme = Theme::Dark;
         let style = style(
             TextInputAppearance::Embedded,
@@ -138,7 +108,7 @@ mod text_input_tests {
         assert_eq!(style.border.width, 0.0);
         assert_eq!(
             style.selection,
-            theme.tone(ToneRole::Danger).color.scale_alpha(0.2)
+            theme.tone(ToneRole::Accent).color.scale_alpha(0.3)
         );
     }
 

@@ -1,5 +1,5 @@
 use iced::{
-    widget::{container, text, Row, Space},
+    widget::{container, Row, Space},
     Alignment, Length, Padding,
 };
 
@@ -7,6 +7,7 @@ use crate::theme::ControlSize;
 use crate::Element;
 
 use super::style as theme_button;
+use crate::widgets::display::measured_text::{EllipsisStrategy, MeasuredText};
 use crate::widgets::feedback::Spinner;
 use crate::widgets::primitives::{icon as icon_widget, IconRole};
 
@@ -17,7 +18,7 @@ pub(super) enum TextAlign {
 }
 
 pub(super) enum Content<'a, Message> {
-    Label(&'a str),
+    Label(Cow<'a, str>),
     Icon(IconRole),
     Custom(Element<'a, Message>),
 }
@@ -36,7 +37,7 @@ impl<Message> Content<'_, Message> {
     pub(super) fn default_width(&self, size: ControlSize) -> Length {
         match self {
             Content::Icon(_) => Length::Fixed(theme_button::icon_side(size)),
-            Content::Label(_) => Length::Fill,
+            Content::Label(_) => Length::Shrink,
             Content::Custom(_) => Length::Shrink,
         }
     }
@@ -72,11 +73,16 @@ where
 
     let content: Element<'a, Message> = match spec.content {
         Content::Label(label) => {
-            let label = text(label)
-                .size(metrics.font_size)
-                .wrapping(text::Wrapping::None);
-            let label = match spec.text_align {
-                TextAlign::Center => label.width(Length::Shrink).center(),
+            let label: Element<'a, Message> = Element::new(MeasuredText::new_inherited(
+                label,
+                EllipsisStrategy::End,
+                crate::theme::TypographyRole::ControlStrong,
+            ));
+            let label: Element<'a, Message> = match spec.text_align {
+                TextAlign::Center => container(label)
+                    .width(Length::Shrink)
+                    .align_x(Alignment::Center)
+                    .into(),
                 TextAlign::Start => label,
             };
 
@@ -142,10 +148,11 @@ fn loading_indicator_slot<'a, Message>(size: f32) -> Element<'a, Message>
 where
     Message: 'a,
 {
-    container(Spinner::new().neutral().xs())
+    container(Spinner::new().inherit_color().custom_size(size))
         .align_x(Alignment::Center)
         .align_y(Alignment::Center)
         .width(Length::Fixed(size))
         .height(Length::Fixed(size))
         .into()
 }
+use std::borrow::Cow;
