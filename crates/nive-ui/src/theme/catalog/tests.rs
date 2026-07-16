@@ -120,10 +120,10 @@ fn button_destructive_class_uses_danger_tone() {
     let style = <Theme as button::Catalog>::style(&theme, &class, button::Status::Active);
     let danger = theme.tone(ToneRole::Danger);
 
-    assert_eq!(background_color(style.background), danger.container);
-    assert_eq!(style.text_color, danger.color);
-    assert_eq!(style.border.color, danger.border.color);
-    assert_eq!(style.border.width, danger.border.width);
+    assert_eq!(background_color(style.background), danger.color);
+    assert_eq!(style.text_color, danger.on_color);
+    assert_eq!(style.border.color, Color::TRANSPARENT);
+    assert_eq!(style.border.width, 0.0);
 }
 
 #[test]

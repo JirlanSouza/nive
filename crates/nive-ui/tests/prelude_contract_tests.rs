@@ -27,9 +27,13 @@ fn prelude_exposes_common_widget_contracts() {
     let _: theme::TypographyRole = theme::TypographyRole::BodyStrong;
     let _: theme::TypographyRole = theme::TypographyRole::BadgeLabel;
     let _: theme::TypographyRole = theme::TypographyRole::MetadataTag;
+    let _: theme::TypographyRole = theme::TypographyRole::Control;
+    let _: theme::TypographyRole = theme::TypographyRole::ControlStrong;
     let scale = theme::typography::scale();
     let _: theme::TextStyle = scale.badge_label;
     let _: theme::TextStyle = scale.metadata_tag;
+    let _: theme::TextStyle = scale.control;
+    let _: theme::TextStyle = scale.control_strong;
     let _: Element<'_, ()> = nive_ui::widgets::text::body_strong("Card title").into();
     let _: Element<'_, ()> = nive_ui::widgets::text::badge_label("3").into();
     let _: Element<'_, ()> = nive_ui::widgets::text::metadata_tag("1.0.0").into();
@@ -43,7 +47,7 @@ fn prelude_exposes_common_widget_contracts() {
         .wrap()
         .action(ContentAction::label("Refresh"))
         .into();
-    let _: Element<'_, ()> = Field::new(text_input("Name", "")).label("Name").into();
+    let _: Element<'_, ()> = Field::new("Name", Input::new("Name", "")).into();
     let _: Element<'_, ()> = Dialog::new(text("Dialog")).into();
     let _: Element<'_, ()> = EmptyState::new("No results").into();
     let _: Element<'_, ()> = Separator::horizontal().into();
@@ -61,13 +65,49 @@ fn prelude_exposes_common_widget_contracts() {
 }
 
 #[test]
+fn prelude_exposes_complete_typed_form_contract() {
+    let control: FieldControl<'_, String> = Input::new(String::from("Name"), String::from("Ada"))
+        .semantic_name(String::from("Account name"))
+        .on_change(|value| value)
+        .into();
+    let field = Field::new(String::from("Name"), control)
+        .required(String::from("Required"))
+        .hint(String::from("Use your public name"))
+        .reserve_support_line(true)
+        .lg();
+    let grouped = Field::new(
+        "Amount",
+        InputGroup::new(Input::new("Amount", "42").read_only(true))
+            .prefix(String::from("USD"))
+            .unit(String::from("monthly"))
+            .trailing_slot(text("custom")),
+    )
+    .optional(String::from("Optional"));
+    let _: Element<'_, String> = FieldGroup::new(String::from("Profile"), [field, grouped])
+        .description(String::from("Public account details"))
+        .error(String::from("Review highlighted fields"))
+        .layout(FieldGroupLayout::Wrap {
+            min_field_width: 240.0,
+        })
+        .disabled(false)
+        .fill_width()
+        .into();
+    let _: Element<'_, String> = Field::custom("Custom", text("escape hatch")).into();
+    let _: Element<'_, String> =
+        nive_ui::widgets::button::icon(IconRole::ValidationError, "Validation details")
+            .on_press(String::from("open"))
+            .into();
+    let _: theme::FormControlMetrics = theme::active().form_control_metrics(theme::ControlSize::Lg);
+}
+
+#[test]
 fn widget_taxonomy_exposes_category_facades() {
     use nive_ui::widgets::{containers, controls, display, navigation, overlays, primitives};
 
     let _: controls::ButtonIntent = controls::ButtonIntent::Suggested;
     let _: controls::ButtonVariant = controls::ButtonVariant::Solid;
     let _: Element<'_, ()> = controls::Checkbox::new("Enabled", true).into();
-    let _: Element<'_, ()> = controls::Field::new(text_input("Name", "")).into();
+    let _: Element<'_, ()> = controls::Field::new("Name", controls::Input::new("Name", "")).into();
     let _: Element<'_, ()> = containers::Panel::new(text("Panel")).into();
     let _: Element<'_, ()> = containers::SectionHeader::new("Title").into();
     let _: Element<'_, ()> = display::Badge::status("Ready").success().into();

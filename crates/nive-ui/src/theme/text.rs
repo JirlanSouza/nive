@@ -80,6 +80,8 @@ mod text_tests {
         for role in [
             TypographyRole::Body,
             TypographyRole::BodySmall,
+            TypographyRole::Control,
+            TypographyRole::ControlStrong,
             TypographyRole::Label,
             TypographyRole::LabelStrong,
             TypographyRole::BadgeLabel,

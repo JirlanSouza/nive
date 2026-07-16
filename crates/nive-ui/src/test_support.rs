@@ -1,11 +1,12 @@
 use iced::{
     advanced::{
+        clipboard,
         layout::{Layout, Limits, Node},
-        mouse, renderer,
-        widget::Tree,
+        mouse, overlay, renderer,
+        widget::{operation, tree, Id, Operation as _, Tree},
         Clipboard, Shell, Widget,
     },
-    Event, Font, Length, Pixels, Point, Rectangle, Size,
+    event, Event, Font, Length, Pixels, Point, Rectangle, Size, Vector,
 };
 
 use crate::Element;
@@ -54,6 +55,487 @@ pub(crate) fn event_messages<Message>(
     messages
 }
 
+pub(crate) struct WidgetHarness<'a, Message> {
+    element: Element<'a, Message>,
+    tree: Tree,
+    node: Node,
+    renderer: iced::Renderer,
+    maximum: Size,
+    cursor: mouse::Cursor,
+    clipboard: MemoryClipboard,
+}
+
+impl<'a, Message> WidgetHarness<'a, Message> {
+    pub(crate) fn new(mut element: Element<'a, Message>, maximum: Size) -> Self {
+        let mut tree = Tree::new(&element);
+        let renderer = renderer();
+        let node =
+            element
+                .as_widget_mut()
+                .layout(&mut tree, &renderer, &Limits::new(Size::ZERO, maximum));
+
+        Self {
+            element,
+            tree,
+            node,
+            renderer,
+            maximum,
+            cursor: mouse::Cursor::Unavailable,
+            clipboard: MemoryClipboard::default(),
+        }
+    }
+
+    pub(crate) fn bounds(&self) -> Rectangle {
+        Layout::new(&self.node).bounds()
+    }
+
+    pub(crate) fn relayout(&mut self, maximum: Size) {
+        self.maximum = maximum;
+        self.node = self.element.as_widget_mut().layout(
+            &mut self.tree,
+            &self.renderer,
+            &Limits::new(Size::ZERO, maximum),
+        );
+    }
+
+    pub(crate) fn replace(&mut self, element: Element<'a, Message>) {
+        self.element = element;
+        self.tree.diff(self.element.as_widget());
+        self.relayout(self.maximum);
+    }
+
+    pub(crate) fn operate(&mut self, operation: &mut dyn operation::Operation) {
+        self.element.as_widget_mut().operate(
+            &mut self.tree,
+            Layout::new(&self.node),
+            &self.renderer,
+            operation,
+        );
+    }
+
+    pub(crate) fn focus(&mut self, id: Id) {
+        self.operate(&mut operation::focusable::focus(id));
+    }
+
+    pub(crate) fn focused_count(&mut self) -> operation::focusable::Count {
+        let mut count = operation::focusable::count();
+        self.element.as_widget_mut().operate(
+            &mut self.tree,
+            Layout::new(&self.node),
+            &self.renderer,
+            &mut operation::black_box(&mut count),
+        );
+
+        match count.finish() {
+            operation::Outcome::Some(count) => count,
+            _ => operation::focusable::Count::default(),
+        }
+    }
+
+    pub(crate) fn focused_widgets(&mut self) -> usize {
+        struct FocusedWidgets(usize);
+
+        impl operation::Operation for FocusedWidgets {
+            fn focusable(
+                &mut self,
+                _id: Option<&Id>,
+                _bounds: Rectangle,
+                state: &mut dyn operation::Focusable,
+            ) {
+                self.0 += usize::from(state.is_focused());
+            }
+
+            fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn operation::Operation)) {
+                operate(self);
+            }
+        }
+
+        let mut focused = FocusedWidgets(0);
+        self.operate(&mut focused);
+        focused.0
+    }
+
+    pub(crate) fn named_bounds(&mut self, name: &'static str) -> Option<Rectangle> {
+        let mut probe = BoundsProbe::new(name);
+        self.element.as_widget_mut().operate(
+            &mut self.tree,
+            Layout::new(&self.node),
+            &self.renderer,
+            &mut probe,
+        );
+        probe.bounds
+    }
+
+    pub(crate) fn focusable_bounds(&mut self, target: &Id) -> Option<Rectangle> {
+        struct FocusableBounds<'a> {
+            target: &'a Id,
+            bounds: Option<Rectangle>,
+        }
+
+        impl operation::Operation for FocusableBounds<'_> {
+            fn focusable(
+                &mut self,
+                id: Option<&Id>,
+                bounds: Rectangle,
+                _state: &mut dyn operation::Focusable,
+            ) {
+                if id == Some(self.target) {
+                    self.bounds = Some(bounds);
+                }
+            }
+
+            fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn operation::Operation)) {
+                operate(self);
+            }
+        }
+
+        let mut probe = FocusableBounds {
+            target,
+            bounds: None,
+        };
+        self.operate(&mut probe);
+        probe.bounds
+    }
+
+    pub(crate) fn focusable_ids(&mut self) -> Vec<Id> {
+        struct FocusableIds(Vec<Id>);
+
+        impl operation::Operation for FocusableIds {
+            fn focusable(
+                &mut self,
+                id: Option<&Id>,
+                _bounds: Rectangle,
+                _state: &mut dyn operation::Focusable,
+            ) {
+                if let Some(id) = id {
+                    self.0.push(id.clone());
+                }
+            }
+
+            fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn operation::Operation)) {
+                operate(self);
+            }
+        }
+
+        let mut ids = FocusableIds(Vec::new());
+        self.operate(&mut ids);
+        ids.0
+    }
+
+    pub(crate) fn mouse_interaction(&self) -> mouse::Interaction {
+        self.element.as_widget().mouse_interaction(
+            &self.tree,
+            Layout::new(&self.node),
+            self.cursor,
+            &Rectangle::new(Point::ORIGIN, self.maximum),
+            &self.renderer,
+        )
+    }
+
+    pub(crate) fn has_overlay(&mut self) -> bool {
+        let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+        self.element
+            .as_widget_mut()
+            .overlay(
+                &mut self.tree,
+                Layout::new(&self.node),
+                &self.renderer,
+                &viewport,
+                Vector::ZERO,
+            )
+            .is_some()
+    }
+
+    pub(crate) fn set_cursor(&mut self, position: Point) {
+        self.cursor = mouse::Cursor::Available(position);
+    }
+
+    pub(crate) fn clear_cursor(&mut self) {
+        self.cursor = mouse::Cursor::Unavailable;
+    }
+
+    pub(crate) fn clipboard(&self, kind: clipboard::Kind) -> Option<&str> {
+        self.clipboard.read_ref(kind)
+    }
+
+    pub(crate) fn set_clipboard(&mut self, kind: clipboard::Kind, contents: impl Into<String>) {
+        self.clipboard.write(kind, contents.into());
+    }
+
+    pub(crate) fn update(&mut self, event: Event) -> UpdateResult<Message> {
+        let mut messages = Vec::new();
+        let mut shell = Shell::new(&mut messages);
+        let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+
+        self.element.as_widget_mut().update(
+            &mut self.tree,
+            &event,
+            Layout::new(&self.node),
+            self.cursor,
+            &self.renderer,
+            &mut self.clipboard,
+            &mut shell,
+            &viewport,
+        );
+
+        let captured = shell.event_status() == event::Status::Captured;
+        let layout_invalid = shell.is_layout_invalid();
+        let input_method_enabled = shell.input_method().is_enabled();
+        drop(shell);
+
+        if layout_invalid {
+            self.node = self.element.as_widget_mut().layout(
+                &mut self.tree,
+                &self.renderer,
+                &Limits::new(Size::ZERO, self.maximum),
+            );
+        }
+
+        UpdateResult {
+            messages,
+            captured,
+            layout_invalid,
+            input_method_enabled,
+        }
+    }
+}
+
+pub(crate) struct UpdateResult<Message> {
+    pub(crate) messages: Vec<Message>,
+    pub(crate) captured: bool,
+    pub(crate) layout_invalid: bool,
+    pub(crate) input_method_enabled: bool,
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct MemoryClipboard {
+    standard: Option<String>,
+    primary: Option<String>,
+}
+
+impl MemoryClipboard {
+    fn read_ref(&self, kind: clipboard::Kind) -> Option<&str> {
+        match kind {
+            clipboard::Kind::Standard => self.standard.as_deref(),
+            clipboard::Kind::Primary => self.primary.as_deref(),
+        }
+    }
+}
+
+impl Clipboard for MemoryClipboard {
+    fn read(&self, kind: clipboard::Kind) -> Option<String> {
+        self.read_ref(kind).map(str::to_owned)
+    }
+
+    fn write(&mut self, kind: clipboard::Kind, contents: String) {
+        match kind {
+            clipboard::Kind::Standard => self.standard = Some(contents),
+            clipboard::Kind::Primary => self.primary = Some(contents),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FormStateFixture {
+    pub(crate) hovered: bool,
+    pub(crate) focused: bool,
+    pub(crate) pressed: bool,
+    pub(crate) read_only: bool,
+    pub(crate) disabled: bool,
+}
+
+impl FormStateFixture {
+    pub(crate) const INTERACTIVE: [Self; 4] = [
+        Self::enabled(),
+        Self {
+            hovered: true,
+            ..Self::enabled()
+        },
+        Self {
+            focused: true,
+            ..Self::enabled()
+        },
+        Self {
+            pressed: true,
+            ..Self::enabled()
+        },
+    ];
+
+    pub(crate) const fn enabled() -> Self {
+        Self {
+            hovered: false,
+            focused: false,
+            pressed: false,
+            read_only: false,
+            disabled: false,
+        }
+    }
+
+    pub(crate) const fn read_only() -> Self {
+        Self {
+            read_only: true,
+            ..Self::enabled()
+        }
+    }
+
+    pub(crate) const fn disabled() -> Self {
+        Self {
+            disabled: true,
+            ..Self::enabled()
+        }
+    }
+}
+
+pub(crate) fn named_probe<'a, Message>(
+    name: &'static str,
+    content: impl Into<Element<'a, Message>>,
+) -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    Element::new(NamedProbe {
+        id: Id::new(name),
+        content: content.into(),
+    })
+}
+
+struct NamedProbe<'a, Message> {
+    id: Id,
+    content: Element<'a, Message>,
+}
+
+impl<Message> Widget<Message, crate::theme::Theme, iced::Renderer> for NamedProbe<'_, Message> {
+    fn tag(&self) -> tree::Tag {
+        self.content.as_widget().tag()
+    }
+
+    fn state(&self) -> tree::State {
+        self.content.as_widget().state()
+    }
+
+    fn children(&self) -> Vec<Tree> {
+        self.content.as_widget().children()
+    }
+
+    fn diff(&self, tree: &mut Tree) {
+        self.content.as_widget().diff(tree);
+    }
+
+    fn size(&self) -> Size<Length> {
+        self.content.as_widget().size()
+    }
+
+    fn size_hint(&self) -> Size<Length> {
+        self.content.as_widget().size_hint()
+    }
+
+    fn layout(&mut self, tree: &mut Tree, renderer: &iced::Renderer, limits: &Limits) -> Node {
+        self.content.as_widget_mut().layout(tree, renderer, limits)
+    }
+
+    fn operate(
+        &mut self,
+        tree: &mut Tree,
+        layout: Layout<'_>,
+        renderer: &iced::Renderer,
+        operation: &mut dyn operation::Operation,
+    ) {
+        operation.container(Some(&self.id), layout.bounds());
+        self.content
+            .as_widget_mut()
+            .operate(tree, layout, renderer, operation);
+    }
+
+    fn update(
+        &mut self,
+        tree: &mut Tree,
+        event: &Event,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        renderer: &iced::Renderer,
+        clipboard: &mut dyn Clipboard,
+        shell: &mut Shell<'_, Message>,
+        viewport: &Rectangle,
+    ) {
+        self.content.as_widget_mut().update(
+            tree, event, layout, cursor, renderer, clipboard, shell, viewport,
+        );
+    }
+
+    fn mouse_interaction(
+        &self,
+        tree: &Tree,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        viewport: &Rectangle,
+        renderer: &iced::Renderer,
+    ) -> mouse::Interaction {
+        self.content
+            .as_widget()
+            .mouse_interaction(tree, layout, cursor, viewport, renderer)
+    }
+
+    fn draw(
+        &self,
+        tree: &Tree,
+        renderer: &mut iced::Renderer,
+        theme: &crate::theme::Theme,
+        inherited_style: &renderer::Style,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        viewport: &Rectangle,
+    ) {
+        self.content.as_widget().draw(
+            tree,
+            renderer,
+            theme,
+            inherited_style,
+            layout,
+            cursor,
+            viewport,
+        );
+    }
+
+    fn overlay<'a>(
+        &'a mut self,
+        tree: &'a mut Tree,
+        layout: Layout<'a>,
+        renderer: &iced::Renderer,
+        viewport: &Rectangle,
+        translation: Vector,
+    ) -> Option<overlay::Element<'a, Message, crate::theme::Theme, iced::Renderer>> {
+        self.content
+            .as_widget_mut()
+            .overlay(tree, layout, renderer, viewport, translation)
+    }
+}
+
+struct BoundsProbe {
+    id: Id,
+    bounds: Option<Rectangle>,
+}
+
+impl BoundsProbe {
+    fn new(name: &'static str) -> Self {
+        Self {
+            id: Id::new(name),
+            bounds: None,
+        }
+    }
+}
+
+impl operation::Operation for BoundsProbe {
+    fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn operation::Operation)) {
+        operate(self);
+    }
+
+    fn container(&mut self, id: Option<&Id>, bounds: Rectangle) {
+        if id == Some(&self.id) {
+            self.bounds = Some(bounds);
+        }
+    }
+}
+
 pub(crate) fn event_probe<Message: Clone + 'static>(message: Message) -> Element<'static, Message> {
     Element::new(EventProbe { message })
 }
@@ -99,5 +581,75 @@ impl<Message: Clone> Widget<Message, crate::theme::Theme, iced::Renderer> for Ev
         _cursor: mouse::Cursor,
         _viewport: &Rectangle,
     ) {
+    }
+
+    fn mouse_interaction(
+        &self,
+        _tree: &Tree,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        _viewport: &Rectangle,
+        _renderer: &iced::Renderer,
+    ) -> mouse::Interaction {
+        if cursor.is_over(layout.bounds()) {
+            mouse::Interaction::Pointer
+        } else {
+            mouse::Interaction::default()
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use iced::{advanced::clipboard, mouse, widget::Space};
+
+    use super::{event_probe, named_probe, FormStateFixture, WidgetHarness};
+
+    #[test]
+    fn named_probe_reports_bounds_without_child_indices() {
+        let content = named_probe("form-control", Space::new().width(80).height(32));
+        let mut harness = WidgetHarness::<()>::new(content, iced::Size::new(320.0, 200.0));
+
+        assert_eq!(
+            harness.named_bounds("form-control"),
+            Some(iced::Rectangle::new(
+                iced::Point::ORIGIN,
+                iced::Size::new(80.0, 32.0),
+            ))
+        );
+        assert_eq!(harness.named_bounds("missing"), None);
+    }
+
+    #[test]
+    fn harness_preserves_event_and_clipboard_state() {
+        let mut harness = WidgetHarness::new(event_probe("updated"), iced::Size::new(100.0, 80.0));
+        harness.set_cursor(iced::Point::new(4.0, 4.0));
+        harness.set_clipboard(clipboard::Kind::Standard, "copied");
+
+        let result = harness.update(iced::Event::Mouse(mouse::Event::CursorEntered));
+
+        assert_eq!(result.messages, vec!["updated"]);
+        assert!(!result.captured);
+        assert!(!result.layout_invalid);
+        assert!(!result.input_method_enabled);
+        assert_eq!(harness.clipboard(clipboard::Kind::Standard), Some("copied"));
+        assert_eq!(harness.bounds().size(), iced::Size::new(24.0, 20.0));
+
+        harness.clear_cursor();
+    }
+
+    #[test]
+    fn form_state_fixture_covers_required_interaction_modes() {
+        assert!(FormStateFixture::INTERACTIVE
+            .iter()
+            .any(|state| state.hovered));
+        assert!(FormStateFixture::INTERACTIVE
+            .iter()
+            .any(|state| state.focused));
+        assert!(FormStateFixture::INTERACTIVE
+            .iter()
+            .any(|state| state.pressed));
+        assert!(FormStateFixture::read_only().read_only);
+        assert!(FormStateFixture::disabled().disabled);
     }
 }

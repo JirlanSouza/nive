@@ -113,22 +113,23 @@ pub(super) fn ghost_button(theme: &Theme, status: button::Status) -> button::Sty
 pub(super) fn destructive_button(theme: &Theme, status: button::Status) -> button::Style {
     let theme = *theme;
     let tone = theme.tone(ToneRole::Danger);
-    let background = match status {
-        button::Status::Active => tone.container,
-        button::Status::Hovered => tone.container.scale_alpha(1.35),
-        button::Status::Pressed => tone.container.scale_alpha(1.12),
-        button::Status::Disabled => tone.container.scale_alpha(0.55),
-    };
-    let text_color = if matches!(status, button::Status::Disabled) {
-        tone.color.scale_alpha(0.55)
-    } else {
-        tone.color
+    let alpha = match status {
+        button::Status::Active => 1.0,
+        button::Status::Hovered => 0.90,
+        button::Status::Pressed => 0.82,
+        button::Status::Disabled => 0.45,
     };
 
     button::Style {
-        background: Some(Background::Color(background)),
-        text_color,
-        border: border_with_radius(tone.border, theme.shape(ShapeSize::Md).radius()),
+        background: Some(Background::Color(tone.color.scale_alpha(alpha))),
+        text_color: tone
+            .on_color
+            .scale_alpha(if matches!(status, button::Status::Disabled) {
+                0.65
+            } else {
+                1.0
+            }),
+        border: transparent_border_with_radius(theme.shape(ShapeSize::Md).radius()),
         shadow: Shadow::default(),
         ..button::Style::default()
     }
