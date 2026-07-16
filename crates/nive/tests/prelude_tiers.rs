@@ -248,7 +248,11 @@ mod card_and_content_action_contract {
             .action(ContentAction::icon_label(IconRole::ViewRefresh, "Refresh"))
             .into();
         let _: theme::TypographyRole = theme::TypographyRole::BodyStrong;
+        let _: theme::TypographyRole = theme::TypographyRole::BadgeLabel;
+        let _: theme::TypographyRole = theme::TypographyRole::MetadataTag;
         let _: Element<'_, ()> = nive::widgets::text::body_strong("Card title").into();
+        let _: Element<'_, ()> = nive::widgets::text::badge_label("3").into();
+        let _: Element<'_, ()> = nive::widgets::text::metadata_tag("1.0.0").into();
     }
 }
 
