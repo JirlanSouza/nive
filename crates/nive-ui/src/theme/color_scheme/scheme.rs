@@ -169,7 +169,12 @@ impl ColorScheme {
         let border_subtle = mix(app, foreground, if is_dark { 0.08 } else { 0.12 });
         let border = mix(app, foreground, if is_dark { 0.14 } else { 0.18 });
         let border_strong = mix(app, foreground, if is_dark { 0.22 } else { 0.28 });
-        let focus = focus_color(primary, is_dark);
+        let primary_tone = if is_dark {
+            mix(primary, Color::WHITE, 0.38)
+        } else {
+            primary
+        };
+        let focus = focus_color(primary_tone, is_dark);
         let control_hover = if is_dark {
             surface_elevated
         } else {
@@ -181,7 +186,7 @@ impl ColorScheme {
         } else {
             mix(app, foreground, 0.05)
         };
-        let neutral = text_muted;
+        let neutral = mix(foreground, app, if is_dark { 0.38 } else { 0.42 });
         let neutral_bg = with_alpha(text_muted, if is_dark { 0.16 } else { 0.10 });
         let primary_subtle = with_alpha(primary, if is_dark { 0.16 } else { 0.12 });
 
@@ -208,7 +213,7 @@ impl ColorScheme {
                 default: border,
                 strong: border_strong,
                 focus,
-                accent: with_alpha(primary, 0.40),
+                accent: with_alpha(primary_tone, 0.40),
                 danger,
             },
             control: ControlColors {
@@ -221,9 +226,9 @@ impl ColorScheme {
             tone: ToneColors {
                 neutral: ToneColorsForRole::new(neutral, neutral_bg, border_subtle, is_dark),
                 primary: ToneColorsForRole::new(
-                    primary,
+                    primary_tone,
                     primary_subtle,
-                    with_alpha(primary, 0.40),
+                    with_alpha(primary_tone, 0.40),
                     is_dark,
                 ),
                 info: ToneColorsForRole::new(
@@ -500,13 +505,13 @@ fn tone_background(color: Color, is_dark: bool) -> Color {
     with_alpha(color, if is_dark { 0.16 } else { 0.10 })
 }
 
-fn readable_on(background: Color, is_dark: bool) -> Color {
-    if is_dark && luminance(background) < 0.45 {
+fn readable_on(background: Color, _is_dark: bool) -> Color {
+    if crate::theme::color::contrast_ratio(Color::WHITE, background)
+        >= crate::theme::color::contrast_ratio(Color::BLACK, background)
+    {
         Color::WHITE
-    } else if is_dark {
-        rgb(0xF4F1F8)
     } else {
-        Color::WHITE
+        Color::BLACK
     }
 }
 
@@ -514,6 +519,7 @@ fn readable_on_container(color: Color, _is_dark: bool) -> Color {
     color
 }
 
+#[cfg(test)]
 fn luminance(color: Color) -> f32 {
     0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b
 }
