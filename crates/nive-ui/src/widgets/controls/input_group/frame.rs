@@ -1,7 +1,7 @@
 use iced::{
     advanced::{
         layout, mouse, overlay, renderer,
-        widget::{operation, tree, Operation as _, Tree},
+        widget::{operation, tree, Tree},
         Clipboard, Layout, Renderer as _, Shell, Widget,
     },
     Background, Event, Length, Rectangle, Size as IcedSize, Vector,
@@ -107,7 +107,7 @@ where
             viewport,
         );
 
-        let focused = content_has_focused_text_input(
+        let focused = super::super::input::adapter::content_has_visual_focus(
             &mut self.content,
             &mut tree.children[0],
             layout,
@@ -200,65 +200,6 @@ where
     }
 }
 
-fn content_has_focused_text_input<Message>(
-    content: &mut Element<'_, Message>,
-    tree: &mut Tree,
-    layout: Layout<'_>,
-    renderer: &iced::Renderer,
-) -> bool {
-    let mut operation = FocusedTextInput::default();
-
-    content.as_widget_mut().operate(
-        tree,
-        layout,
-        renderer,
-        &mut operation::black_box(&mut operation),
-    );
-
-    match operation.finish() {
-        operation::Outcome::Some(focused) => focused,
-        _ => false,
-    }
-}
-
-#[derive(Default)]
-struct FocusedTextInput {
-    pending_text_input: bool,
-    focused: bool,
-}
-
-impl operation::Operation<bool> for FocusedTextInput {
-    fn text_input(
-        &mut self,
-        _id: Option<&iced::widget::Id>,
-        _bounds: Rectangle,
-        _state: &mut dyn operation::TextInput,
-    ) {
-        self.pending_text_input = true;
-    }
-
-    fn focusable(
-        &mut self,
-        _id: Option<&iced::widget::Id>,
-        _bounds: Rectangle,
-        state: &mut dyn operation::Focusable,
-    ) {
-        if self.pending_text_input && state.is_focused() {
-            self.focused = true;
-        }
-
-        self.pending_text_input = false;
-    }
-
-    fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn operation::Operation<bool>)) {
-        operate(self);
-    }
-
-    fn finish(&self) -> operation::Outcome<bool> {
-        operation::Outcome::Some(self.focused)
-    }
-}
-
 fn frame_status(disabled: bool, state: &InputGroupFrameState) -> InputGroupStatus {
     if disabled {
         InputGroupStatus::Disabled
@@ -274,44 +215,6 @@ fn frame_status(disabled: bool, state: &InputGroupFrameState) -> InputGroupStatu
 #[cfg(test)]
 mod input_group_frame_tests {
     use super::*;
-    use iced::{Point, Size};
-
-    #[derive(Default)]
-    struct TestTextInput;
-
-    impl operation::TextInput for TestTextInput {
-        fn text(&self) -> &str {
-            ""
-        }
-
-        fn move_cursor_to_front(&mut self) {}
-
-        fn move_cursor_to_end(&mut self) {}
-
-        fn move_cursor_to(&mut self, _position: usize) {}
-
-        fn select_all(&mut self) {}
-
-        fn select_range(&mut self, _start: usize, _end: usize) {}
-    }
-
-    struct TestFocusable {
-        focused: bool,
-    }
-
-    impl operation::Focusable for TestFocusable {
-        fn is_focused(&self) -> bool {
-            self.focused
-        }
-
-        fn focus(&mut self) {
-            self.focused = true;
-        }
-
-        fn unfocus(&mut self) {
-            self.focused = false;
-        }
-    }
 
     #[test]
     fn hovered_frame_uses_hovered_status() {
@@ -333,32 +236,4 @@ mod input_group_frame_tests {
         assert_eq!(frame_status(false, &state), InputGroupStatus::Focused);
     }
 
-    #[test]
-    fn focused_text_input_marks_frame_focused() {
-        let mut operation = FocusedTextInput::default();
-        let mut text_input = TestTextInput;
-        let mut focusable = TestFocusable { focused: true };
-
-        operation.text_input(None, bounds(), &mut text_input);
-        operation.focusable(None, bounds(), &mut focusable);
-
-        assert!(matches!(operation.finish(), operation::Outcome::Some(true)));
-    }
-
-    #[test]
-    fn focused_non_text_input_does_not_mark_frame_focused() {
-        let mut operation = FocusedTextInput::default();
-        let mut focusable = TestFocusable { focused: true };
-
-        operation.focusable(None, bounds(), &mut focusable);
-
-        assert!(matches!(
-            operation.finish(),
-            operation::Outcome::Some(false)
-        ));
-    }
-
-    fn bounds() -> Rectangle {
-        Rectangle::new(Point::ORIGIN, Size::UNIT)
-    }
 }
