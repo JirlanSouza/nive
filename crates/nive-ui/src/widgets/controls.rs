@@ -21,7 +21,7 @@ pub(super) mod choice_test_support;
 pub use action_group::{ActionGroup, ContentAction};
 pub use autocomplete::{Autocomplete, AutocompleteMessage};
 pub use button::{Button, ButtonIntent, ButtonVariant};
-pub use checkbox::Checkbox;
+pub use checkbox::{Checkbox, CheckboxState};
 pub use color_input::ColorInput;
 pub use color_picker::{ColorPicker, RgbHexColor};
 pub use field::{
