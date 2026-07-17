@@ -7,7 +7,7 @@ use iced::{
 };
 
 use crate::{
-    advanced::pressable::Pressable,
+    advanced::pressable::{FocusRingPlacement, Pressable},
     theme::{
         self, ControlRole, ControlSize, ControlState, InteractionState, TextRole, Theme, ToneRole,
         TypographyRole,
@@ -151,10 +151,20 @@ impl<'a, Message: Clone + 'a> ContentAction<'a, Message> {
             );
         }
 
+        let icon_only = self.shape == ContentShape::Icon && !self.reserve_loading_indicator;
+        let content = if icon_only {
+            container(content).center(Length::Fixed(metrics.height))
+        } else {
+            container(content).center_y(Length::Fixed(metrics.height))
+        };
         let radius = Radius::new(metrics.radius);
         let mut action = button::Button::new(content)
             .height(Length::Fixed(metrics.height))
-            .padding(Padding::ZERO.horizontal(metrics.padding_h))
+            .padding(if icon_only {
+                Padding::ZERO
+            } else {
+                Padding::ZERO.horizontal(metrics.padding_h)
+            })
             .style(content_action_style(
                 self.disabled,
                 self.loading,
@@ -163,20 +173,21 @@ impl<'a, Message: Clone + 'a> ContentAction<'a, Message> {
                 radius,
             ))
             .clip(true);
-        if self.shape == ContentShape::Icon && !self.reserve_loading_indicator {
+        if icon_only {
             action = action.width(Length::Fixed(metrics.height));
         }
         let action = action.on_press_maybe(activation.clone());
-        let action = Pressable::maybe(
-            action,
-            activation,
-            radius,
-            if self.destructive {
-                ButtonFocusRing::Danger
-            } else {
-                ButtonFocusRing::Default
-            },
-        );
+        let ring = if self.destructive {
+            ButtonFocusRing::Danger
+        } else {
+            ButtonFocusRing::Default
+        };
+        let action: Element<'a, Message> = match activation {
+            Some(message) => Pressable::new(action, message, None, radius, ring)
+                .focus_placement(FocusRingPlacement::Inset)
+                .into(),
+            None => action.into(),
+        };
 
         match self.tooltip {
             Some(label) => tooltip::bottom(action, label),

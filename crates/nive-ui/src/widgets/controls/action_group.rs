@@ -189,7 +189,7 @@ mod tests {
     use super::*;
     use crate::widgets::containers::card_test_support::{CardHarness, Message};
     use crate::widgets::primitives::IconRole;
-    use iced::{keyboard::key::Named, mouse, Size};
+    use iced::{advanced::layout::Node, keyboard::key::Named, mouse, Point, Rectangle, Size};
 
     #[test]
     fn defaults_to_small_intrinsic_single_line_group() {
@@ -271,8 +271,25 @@ mod tests {
     }
 
     #[test]
+    fn icon_only_content_centers_icon_vertically() {
+        let metrics = ContentActionMetrics::resolve(theme::active(), ControlSize::Sm);
+        let node = crate::test_support::layout(
+            ContentAction::<Message>::icon(IconRole::GoNext, "Next")
+                .on_press(Message::Activated)
+                .into_element(metrics),
+            Size::new(100.0, 100.0),
+        );
+        let icon = leaf_with_size(&node, Point::ORIGIN, metrics.icon_size)
+            .expect("icon leaf with the resolved control size");
+
+        assert_eq!(node.size().height, metrics.height);
+        assert!((icon.center_x() - node.bounds().center_x()).abs() < 0.01);
+        assert!((icon.center_y() - node.bounds().center_y()).abs() < 0.01);
+    }
+
+    #[test]
     fn wrapped_boundary_suppresses_an_orphaned_separator() {
-        let harness = CardHarness::new(
+        let mut harness = CardHarness::new(
             ActionGroup::new()
                 .fill_width()
                 .wrap()
@@ -287,6 +304,7 @@ mod tests {
         assert_eq!(children.len(), 3);
         assert_eq!(children[1].size(), Size::ZERO);
         assert!(children[2].y > children[0].y);
+        assert!(!harness.has_overlay());
     }
 
     #[test]
@@ -317,9 +335,20 @@ mod tests {
             Size::new(200.0, 80.0),
         );
         assert_eq!(enabled.click_center(), vec![Message::Activated]);
-        enabled.focus_next();
         assert_eq!(
             enabled.activate_key(Named::Enter, false),
+            vec![Message::Activated]
+        );
+
+        let mut keyboard = CardHarness::new(
+            ActionGroup::new()
+                .action(ContentAction::label("Run").on_press(Message::Activated))
+                .into(),
+            Size::new(200.0, 80.0),
+        );
+        keyboard.focus_next();
+        assert_eq!(
+            keyboard.activate_key(Named::Enter, false),
             vec![Message::Activated]
         );
 
@@ -341,5 +370,25 @@ mod tests {
             inert.focus_next();
             assert!(inert.activate_key(Named::Space, false).is_empty());
         }
+    }
+
+    fn leaf_with_size(node: &Node, origin: Point, side: f32) -> Option<Rectangle> {
+        let bounds = node.bounds();
+        let absolute = Rectangle {
+            x: origin.x + bounds.x,
+            y: origin.y + bounds.y,
+            ..bounds
+        };
+
+        if node.children().is_empty()
+            && (bounds.width - side).abs() < 0.01
+            && (bounds.height - side).abs() < 0.01
+        {
+            return Some(absolute);
+        }
+
+        node.children()
+            .iter()
+            .find_map(|child| leaf_with_size(child, absolute.position(), side))
     }
 }
