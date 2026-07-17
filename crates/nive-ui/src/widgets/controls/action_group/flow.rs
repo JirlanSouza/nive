@@ -32,6 +32,7 @@ impl<'a, Message> FlowItem<'a, Message> {
 
 pub(super) struct Flow<'a, Message> {
     items: Vec<FlowItem<'a, Message>>,
+    hidden: Vec<bool>,
     width: Length,
     spacing: f32,
     row_gap: f32,
@@ -46,8 +47,11 @@ impl<'a, Message> Flow<'a, Message> {
         row_gap: f32,
         wrap: bool,
     ) -> Self {
+        let hidden = vec![false; items.len()];
+
         Self {
             items,
+            hidden,
             width,
             spacing,
             row_gap,
@@ -87,6 +91,8 @@ where
         renderer: &iced::Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
+        self.hidden.fill(false);
+
         let limits = limits.width(self.width);
         let child_limits = layout::Limits::NONE;
         let maximum = limits.max().width;
@@ -124,6 +130,7 @@ where
                     y += row_height + self.row_gap;
                     x = 0.0;
                     row_height = 0.0;
+                    self.hidden[index] = true;
                     positioned.push(layout::Node::new(Size::ZERO).move_to(Point::new(0.0, y)));
                     index += 1;
                     row_start = positioned.len();
@@ -160,12 +167,17 @@ where
         renderer: &iced::Renderer,
         operation: &mut dyn operation::Operation,
     ) {
-        for ((item, tree), child_layout) in self
+        for (index, ((item, tree), child_layout)) in self
             .items
             .iter_mut()
             .zip(&mut tree.children)
             .zip(layout.children())
+            .enumerate()
         {
+            if self.hidden[index] {
+                continue;
+            }
+
             item.element
                 .as_widget_mut()
                 .operate(tree, child_layout, renderer, operation);
@@ -183,12 +195,17 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
-        for ((item, tree), child_layout) in self
+        for (index, ((item, tree), child_layout)) in self
             .items
             .iter_mut()
             .zip(&mut tree.children)
             .zip(layout.children())
+            .enumerate()
         {
+            if self.hidden[index] {
+                continue;
+            }
+
             item.element.as_widget_mut().update(
                 tree,
                 event,
@@ -217,14 +234,19 @@ where
             .iter()
             .zip(&tree.children)
             .zip(layout.children())
-            .map(|((item, tree), child_layout)| {
-                item.element.as_widget().mouse_interaction(
+            .enumerate()
+            .filter_map(|(index, ((item, tree), child_layout))| {
+                if self.hidden[index] {
+                    return None;
+                }
+
+                Some(item.element.as_widget().mouse_interaction(
                     tree,
                     child_layout,
                     cursor,
                     viewport,
                     renderer,
-                )
+                ))
             })
             .max()
             .unwrap_or_default()
@@ -242,9 +264,17 @@ where
     ) {
         let clip = layout.bounds().intersection(viewport).unwrap_or_default();
         renderer.with_layer(clip, |renderer| {
-            for ((item, tree), child_layout) in
-                self.items.iter().zip(&tree.children).zip(layout.children())
+            for (index, ((item, tree), child_layout)) in self
+                .items
+                .iter()
+                .zip(&tree.children)
+                .zip(layout.children())
+                .enumerate()
             {
+                if self.hidden[index] {
+                    continue;
+                }
+
                 item.element.as_widget().draw(
                     tree,
                     renderer,
@@ -271,7 +301,12 @@ where
             .iter_mut()
             .zip(&mut tree.children)
             .zip(layout.children())
-            .filter_map(|((item, tree), child_layout)| {
+            .enumerate()
+            .filter_map(|(index, ((item, tree), child_layout))| {
+                if self.hidden[index] {
+                    return None;
+                }
+
                 item.element.as_widget_mut().overlay(
                     tree,
                     child_layout,
