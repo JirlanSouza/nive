@@ -338,6 +338,7 @@ flowchart TB
         Button
         Input
         Checkbox
+        RadioGroup
         Switch
         Select
         SelectableItem
@@ -413,7 +414,7 @@ abrir contexto, reordenar e tear-off sem mutar o modelo sozinho.
 
 ### Métricas de chrome composto
 
-`TabBar`, `VerticalRail`, `SectionHeader`, `SegmentedControl` plano e as ações
+`TabBar`, `VerticalRail`, `SectionHeader`, `SegmentedControl` Linked e as ações
 de `Toolbar` derivam a extensão primária de `ControlSize` e das métricas do
 tema ativo. Em um `WorkbenchShell`, uma única chamada a `chrome_size(...)`
 propaga essa escala para tabs, rails, cabeçalhos, seletor inferior, toolbar,
@@ -452,7 +453,8 @@ Estado e callbacks seguem um vocabulário único:
 | --- | --- |
 | Desabilitar widget | `disabled(bool)` |
 | Selecionáveis | `selected(bool)` |
-| Booleanos | `checked(bool)` + `on_toggle(fn(bool) -> Message)` |
+| Checkbox controlado | estado no construtor + `on_toggle(fn(CheckboxState) -> Message)` |
+| Switch binário | valor no construtor + `on_toggle(fn(bool) -> Message)` |
 | Navegação controlada | `active(...)` |
 | Ativação de ação | `on_press(Message)` |
 | Valor editável | `on_change(fn(V) -> Message)` |
@@ -463,6 +465,11 @@ Callbacks opcionais usam o par `_maybe`: `on_press_maybe`,
 `on_toggle_maybe`, `on_change_maybe`, `on_select_maybe` e
 `on_browse_maybe`. `None` remove a mensagem, mas não força visual disabled.
 `disabled(true)` sempre vence sobre callbacks presentes.
+
+Use Checkbox para escolhas independentes submetidas, RadioGroup para uma opção
+visível entre várias, Switch para configuração binária imediata e
+SegmentedControl tipado para dois a cinco modos/filtros fixos. Select cobre
+conjuntos maiores ou abertos; TabBar mantém a seleção de documentos/views.
 
 `Input` e `PathInput` usam `on_change`; `Autocomplete::on_select` entrega o
 valor da sugestão, não um índice. `TabBar::on_select` entrega só o id do tab;

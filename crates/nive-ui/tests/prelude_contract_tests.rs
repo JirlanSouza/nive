@@ -101,6 +101,73 @@ fn prelude_exposes_complete_typed_form_contract() {
 }
 
 #[test]
+fn prelude_exposes_complete_selection_contract() {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum Choice {
+        None,
+        First,
+        Second,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    enum Message {
+        Checkbox(CheckboxState),
+        Radio(Choice),
+        Switch(bool),
+        Segment(Choice),
+    }
+
+    let _: Element<'_, Message> = Checkbox::new(String::from("Owned"), CheckboxState::Mixed)
+        .description("Borrowed description")
+        .error(String::from("Review this choice"))
+        .on_toggle(Message::Checkbox)
+        .into();
+    let _: Element<'_, Message> = Checkbox::new("Boolean convenience", true).into();
+    let _: Element<'_, Message> = RadioGroup::new(
+        String::from("Typed options"),
+        Some(Choice::None),
+        [
+            RadioOption::new(Choice::None, "No preference"),
+            RadioOption::new(Choice::First, String::from("First"))
+                .description("Borrowed description"),
+            RadioOption::new(Choice::Second, "Second").disabled(true),
+        ],
+    )
+    .optional(String::from("Optional"))
+    .layout(RadioGroupLayout::HorizontalWrap)
+    .on_select(Message::Radio)
+    .fill_width()
+    .into();
+    let _: Element<'_, Message> = Switch::inline(String::from("Immediate"), true)
+        .on_toggle(Message::Switch)
+        .into();
+    let _: Element<'_, Message> = Switch::setting("Setting row", false)
+        .description(String::from("Takes effect immediately"))
+        .into();
+    let _: Element<'_, Message> = SegmentedControl::new(
+        String::from("Mode"),
+        Choice::First,
+        [
+            SegmentedOption::new(Choice::First, "First"),
+            SegmentedOption::new(Choice::Second, String::from("Second"))
+                .icon(IconRole::ActionConfirm),
+        ],
+    )
+    .linked()
+    .on_select(Message::Segment)
+    .fill_width()
+    .into();
+}
+
+#[test]
+#[allow(deprecated)]
+fn segmented_migration_bridge_remains_separate() {
+    let _: Element<'_, ()> = LegacySegmentedControl::new()
+        .item(SegmentedItem::new("Status").status_text(theme::roles::ToneRole::Success, "Healthy"))
+        .into();
+}
+
+#[test]
 fn widget_taxonomy_exposes_category_facades() {
     use nive_ui::widgets::{containers, controls, display, navigation, overlays, primitives};
 
