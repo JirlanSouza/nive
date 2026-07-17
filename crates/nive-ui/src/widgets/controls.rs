@@ -12,7 +12,11 @@ pub mod path_input;
 pub mod segmented_control;
 pub mod select;
 pub mod selectable_item;
+mod single_choice;
 pub mod switch;
+
+#[cfg(test)]
+pub(super) mod choice_test_support;
 
 pub use action_group::{ActionGroup, ContentAction};
 pub use autocomplete::{Autocomplete, AutocompleteMessage};
