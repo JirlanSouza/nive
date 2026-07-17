@@ -99,6 +99,19 @@ impl CardHarness {
         )
     }
 
+    pub(crate) fn has_overlay(&mut self) -> bool {
+        self.element
+            .as_widget_mut()
+            .overlay(
+                &mut self.tree,
+                Layout::new(&self.node),
+                &self.renderer,
+                &Rectangle::new(Point::ORIGIN, self.maximum),
+                iced::Vector::ZERO,
+            )
+            .is_some()
+    }
+
     fn layout(&mut self) {
         self.element.as_widget_mut().diff(&mut self.tree);
         self.node = self.element.as_widget_mut().layout(

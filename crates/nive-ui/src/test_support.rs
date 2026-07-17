@@ -89,6 +89,17 @@ impl<'a, Message> WidgetHarness<'a, Message> {
         Layout::new(&self.node).bounds()
     }
 
+    pub(crate) fn state<T: 'static>(&self) -> &T {
+        self.tree.state.downcast_ref::<T>()
+    }
+
+    pub(crate) fn state_at<T: 'static>(&self, path: &[usize]) -> &T {
+        let tree = path
+            .iter()
+            .fold(&self.tree, |tree, index| &tree.children[*index]);
+        tree.state.downcast_ref::<T>()
+    }
+
     pub(crate) fn relayout(&mut self, maximum: Size) {
         self.maximum = maximum;
         self.node = self.element.as_widget_mut().layout(
@@ -115,6 +126,10 @@ impl<'a, Message> WidgetHarness<'a, Message> {
 
     pub(crate) fn focus(&mut self, id: Id) {
         self.operate(&mut operation::focusable::focus(id));
+    }
+
+    pub(crate) fn focus_next(&mut self) {
+        crate::focus_trap::FocusDirection::Next.operate(|operation| self.operate(operation));
     }
 
     pub(crate) fn focused_count(&mut self) -> operation::focusable::Count {
@@ -151,6 +166,33 @@ impl<'a, Message> WidgetHarness<'a, Message> {
         }
 
         let mut focused = FocusedWidgets(0);
+        self.operate(&mut focused);
+        focused.0
+    }
+
+    pub(crate) fn focused_ids(&mut self) -> Vec<Id> {
+        struct FocusedIds(Vec<Id>);
+
+        impl operation::Operation for FocusedIds {
+            fn focusable(
+                &mut self,
+                id: Option<&Id>,
+                _bounds: Rectangle,
+                state: &mut dyn operation::Focusable,
+            ) {
+                if state.is_focused() {
+                    if let Some(id) = id {
+                        self.0.push(id.clone());
+                    }
+                }
+            }
+
+            fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn operation::Operation)) {
+                operate(self);
+            }
+        }
+
+        let mut focused = FocusedIds(Vec::new());
         self.operate(&mut focused);
         focused.0
     }
@@ -232,6 +274,24 @@ impl<'a, Message> WidgetHarness<'a, Message> {
         )
     }
 
+    pub(crate) fn draw(&mut self) {
+        let theme = crate::theme::active();
+        let style = renderer::Style {
+            text_color: theme.text(crate::theme::TextRole::Primary).color,
+        };
+        let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+
+        self.element.as_widget().draw(
+            &self.tree,
+            &mut self.renderer,
+            &theme,
+            &style,
+            Layout::new(&self.node),
+            self.cursor,
+            &viewport,
+        );
+    }
+
     pub(crate) fn has_overlay(&mut self) -> bool {
         let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
         self.element
@@ -244,6 +304,34 @@ impl<'a, Message> WidgetHarness<'a, Message> {
                 Vector::ZERO,
             )
             .is_some()
+    }
+
+    pub(crate) fn draw_overlay(&mut self) -> bool {
+        let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+        let theme = crate::theme::active();
+        let style = renderer::Style {
+            text_color: theme.text(crate::theme::TextRole::Primary).color,
+        };
+        let Some(mut overlay) = self.element.as_widget_mut().overlay(
+            &mut self.tree,
+            Layout::new(&self.node),
+            &self.renderer,
+            &viewport,
+            Vector::ZERO,
+        ) else {
+            return false;
+        };
+        let node = overlay
+            .as_overlay_mut()
+            .layout(&self.renderer, self.maximum);
+        overlay.as_overlay().draw(
+            &mut self.renderer,
+            &theme,
+            &style,
+            Layout::new(&node),
+            self.cursor,
+        );
+        true
     }
 
     pub(crate) fn set_cursor(&mut self, position: Point) {

@@ -24,18 +24,40 @@ where
     Message: 'a,
 {
     let metrics = metrics();
-    let label = label.into();
+    bottom_with_delay(content, label, metrics.delay)
+}
+
+#[cfg(test)]
+pub(crate) fn bottom_without_delay<'a, Message>(
+    content: impl Into<Element<'a, Message>>,
+    label: impl Into<Cow<'a, str>>,
+) -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    bottom_with_delay(content, label, Duration::ZERO)
+}
+
+fn bottom_with_delay<'a, Message>(
+    content: impl Into<Element<'a, Message>>,
+    label: impl Into<Cow<'a, str>>,
+    delay: Duration,
+) -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    let metrics = metrics();
 
     tooltip(
         content,
-        text(label)
+        text(label.into())
             .size(metrics.font_size)
             .shaping(text::Shaping::Auto),
         tooltip::Position::Bottom,
     )
     .gap(metrics.gap)
     .padding(metrics.padding)
-    .delay(metrics.delay)
+    .delay(delay)
     .style(style())
     .into()
 }
