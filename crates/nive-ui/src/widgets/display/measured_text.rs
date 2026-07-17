@@ -52,9 +52,7 @@ where
         color: TextRole,
     ) -> Self {
         let original = original.into();
-        let content = text::with_role(original.clone(), typography, color)
-            .wrapping(iced::widget::text::Wrapping::None)
-            .into();
+        let content = measured_content(original.clone(), original.clone(), typography, Some(color));
 
         Self {
             original,
@@ -72,9 +70,7 @@ where
         typography: TypographyRole,
     ) -> Self {
         let original = original.into();
-        let content = text::with_typography(original.clone(), typography)
-            .wrapping(iced::widget::text::Wrapping::None)
-            .into();
+        let content = measured_content(original.clone(), original.clone(), typography, None);
 
         Self {
             original,
@@ -92,19 +88,40 @@ where
     }
 
     fn content_element(&self, state: &State) -> Element<'a, Message> {
-        let content = text::with_typography(state.projection.clone(), self.typography)
-            .wrapping(iced::widget::text::Wrapping::None);
-        let content = if let Some(color) = self.color {
-            content.style(crate::theme::text::style(color))
-        } else {
-            content
-        };
+        measured_content(
+            Cow::Owned(state.projection.clone()),
+            self.original.clone(),
+            self.typography,
+            self.color,
+        )
+    }
+}
 
-        if tooltip_source(state, self.original.as_ref()).is_some() {
-            tooltip::bottom(content, self.original.clone())
-        } else {
-            content.into()
-        }
+fn measured_content<'a, Message>(
+    visible: Cow<'a, str>,
+    tooltip_label: Cow<'a, str>,
+    typography: TypographyRole,
+    color: Option<TextRole>,
+) -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    let content =
+        text::with_typography(visible, typography).wrapping(iced::widget::text::Wrapping::None);
+    let content = if let Some(color) = color {
+        content.style(crate::theme::text::style(color))
+    } else {
+        content
+    };
+
+    #[cfg(test)]
+    {
+        tooltip::bottom_without_delay(content, tooltip_label)
+    }
+
+    #[cfg(not(test))]
+    {
+        tooltip::bottom(content, tooltip_label)
     }
 }
 
@@ -162,10 +179,13 @@ where
         );
 
         let state = tree.state.downcast_mut::<State>();
+        let was_truncated = state.truncated;
         let changed = update_state(state, projection, finite_width);
 
         let content = self.content_element(state);
-        if changed {
+        if was_truncated && !state.truncated {
+            tree.children[0] = Tree::new(&content);
+        } else if changed {
             tree.children[0].diff(content.as_widget());
         }
         self.content = content;
@@ -199,6 +219,9 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
+        if !tree.state.downcast_ref::<State>().truncated {
+            return;
+        }
         self.content.as_widget_mut().update(
             &mut tree.children[0],
             event,
@@ -219,6 +242,9 @@ where
         viewport: &Rectangle,
         renderer: &iced::Renderer,
     ) -> mouse::Interaction {
+        if !tree.state.downcast_ref::<State>().truncated {
+            return mouse::Interaction::None;
+        }
         self.content.as_widget().mouse_interaction(
             &tree.children[0],
             layout,
@@ -257,6 +283,9 @@ where
         viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, crate::theme::Theme, iced::Renderer>> {
+        if !tree.state.downcast_ref::<State>().truncated {
+            return None;
+        }
         self.content.as_widget_mut().overlay(
             &mut tree.children[0],
             layout,
@@ -388,6 +417,7 @@ fn update_state(state: &mut State, projection: Projection, finite_width: Option<
     changed
 }
 
+#[cfg(test)]
 fn tooltip_source<'a>(state: &State, original: &'a str) -> Option<&'a str> {
     state.truncated.then_some(original)
 }
@@ -412,6 +442,9 @@ pub(super) fn measure_width(_renderer: &iced::Renderer, content: &str, style: Te
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::WidgetHarness;
+    use crate::widgets::controls::choice_test_support::pointer_move;
+    use iced::{Point, Size};
 
     fn grapheme_width(value: &str) -> f32 {
         value.graphemes(true).count() as f32
@@ -520,5 +553,31 @@ mod tests {
         let sub_ellipsis = project("x", EllipsisStrategy::End, 0.5, grapheme_width);
         assert!(sub_ellipsis.truncated);
         assert!(sub_ellipsis.visible.is_empty());
+    }
+
+    #[test]
+    fn truncated_tooltip_keeps_one_tree_through_event_overlay_and_draw() {
+        let label = || -> Element<'static, ()> {
+            MeasuredText::new_inherited(
+                "A deliberately long constrained label",
+                EllipsisStrategy::End,
+                TypographyRole::ControlStrong,
+            )
+            .max_width(48.0)
+            .into()
+        };
+        let mut harness = WidgetHarness::new(label(), Size::new(48.0, 40.0));
+        let point = Point::new(4.0, 8.0);
+
+        harness.set_cursor(point);
+        harness.update(pointer_move(point));
+        harness.draw();
+        assert!(harness.draw_overlay());
+
+        harness.replace(label());
+        harness.set_cursor(point);
+        harness.update(pointer_move(point));
+        harness.draw();
+        assert!(harness.draw_overlay());
     }
 }

@@ -34,6 +34,7 @@ pub(crate) enum FocusRingPlacement {
 #[derive(Debug, Default)]
 struct PressableState {
     focused: bool,
+    focus_visible: bool,
 }
 
 impl<'a, Message> Pressable<'a, Message> {
@@ -176,18 +177,33 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
-        let lost_pointer_focus = {
+        let focus_changed = {
             let state = tree.state.downcast_mut::<PressableState>();
+            let previous = (state.focused, state.focus_visible);
 
-            if state.focused && primary_press_outside(event, cursor, layout.bounds()) {
-                state.focused = false;
-                true
-            } else {
-                false
+            match event {
+                Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
+                    state.focused = cursor.is_over(layout.bounds());
+                    state.focus_visible = false;
+                }
+                Event::Touch(iced::touch::Event::FingerPressed { position, .. }) => {
+                    state.focused = layout.bounds().contains(*position);
+                    state.focus_visible = false;
+                }
+                Event::Keyboard(_) if state.focused && is_keyboard_activation(event) => {
+                    state.focus_visible = true;
+                }
+                Event::Window(iced::window::Event::Unfocused) => {
+                    state.focused = false;
+                    state.focus_visible = false;
+                }
+                _ => {}
             }
+
+            previous != (state.focused, state.focus_visible)
         };
 
-        if lost_pointer_focus {
+        if focus_changed {
             shell.request_redraw();
         }
 
@@ -254,7 +270,7 @@ where
 
         let state = tree.state.downcast_ref::<PressableState>();
 
-        if state.focused {
+        if state.focused && state.focus_visible {
             draw_focus_ring_with_placement(
                 renderer,
                 theme,
@@ -291,10 +307,12 @@ impl operation::Focusable for PressableState {
 
     fn focus(&mut self) {
         self.focused = true;
+        self.focus_visible = true;
     }
 
     fn unfocus(&mut self) {
         self.focused = false;
+        self.focus_visible = false;
     }
 }
 
@@ -445,16 +463,6 @@ pub fn is_keyboard_activation(event: &Event) -> bool {
     )
 }
 
-fn primary_press_outside(event: &Event, cursor: mouse::Cursor, bounds: Rectangle) -> bool {
-    match event {
-        Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => !cursor.is_over(bounds),
-        Event::Touch(iced::touch::Event::FingerPressed { position, .. }) => {
-            !bounds.contains(*position)
-        }
-        _ => false,
-    }
-}
-
 #[cfg(test)]
 mod pressable_tests {
     use super::*;
@@ -463,7 +471,7 @@ mod pressable_tests {
         key::{Code, Named, Physical},
         Key, Location, Modifiers,
     };
-    use iced::widget::Space;
+    use iced::widget::{Column, Space};
     use iced::Point;
 
     fn key_pressed(key: Key) -> Event {
@@ -550,6 +558,56 @@ mod pressable_tests {
         )));
 
         assert_eq!(harness.focused_widgets(), 1);
+    }
+
+    #[test]
+    fn pointer_focus_is_logical_until_keyboard_interaction() {
+        let id = Id::new("pressable-action");
+        let pressable: Element<'_, ()> = Pressable::new(
+            Space::new().width(28).height(28),
+            (),
+            Some(id),
+            Radius::default(),
+            ButtonFocusRing::Default,
+        )
+        .into();
+        let mut harness = WidgetHarness::new(pressable, Size::new(200.0, 80.0));
+
+        harness.set_cursor(Point::new(10.0, 10.0));
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+
+        let state = harness.state::<PressableState>();
+        assert!(state.focused);
+        assert!(!state.focus_visible);
+
+        harness.update(key_pressed(Key::Named(Named::Enter)));
+        assert!(harness.state::<PressableState>().focus_visible);
+    }
+
+    #[test]
+    fn tab_continues_after_the_pointer_focused_pressable() {
+        let ids = [Id::new("first"), Id::new("second"), Id::new("third")];
+        let column = ids.iter().cloned().fold(Column::new(), |column, id| {
+            column.push(Pressable::new(
+                Space::new().width(28).height(28),
+                (),
+                Some(id),
+                Radius::default(),
+                ButtonFocusRing::Default,
+            ))
+        });
+        let mut harness = WidgetHarness::new(column.into(), Size::new(100.0, 100.0));
+
+        harness.set_cursor(Point::new(10.0, 42.0));
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        assert_eq!(harness.focused_ids(), [ids[1].clone()]);
+
+        harness.focus_next();
+        assert_eq!(harness.focused_ids(), [ids[2].clone()]);
     }
 
     #[test]
