@@ -1,7 +1,7 @@
 use iced::{
     advanced::{
         layout, mouse, overlay, renderer,
-        widget::{operation, tree, Operation as _, Tree},
+        widget::{operation, tree, Tree},
         Clipboard, Layout, Renderer as _, Shell, Widget,
     },
     border::Radius,
@@ -187,7 +187,7 @@ where
             viewport,
         );
 
-        let focused = content_has_focused_text_input(
+        let focused = super::input::adapter::content_has_visual_focus(
             &mut self.content,
             &mut tree.children[0],
             layout,
@@ -298,66 +298,30 @@ where
     }
 }
 
-fn content_has_focused_text_input<Message>(
-    content: &mut Element<'_, Message>,
-    tree: &mut Tree,
-    layout: Layout<'_>,
-    renderer: &iced::Renderer,
-) -> bool {
-    let mut operation = FocusedTextInput::default();
-
-    content.as_widget_mut().operate(
-        tree,
-        layout,
-        renderer,
-        &mut operation::black_box(&mut operation),
-    );
-
-    matches!(operation.finish(), operation::Outcome::Some(true))
-}
-
-#[derive(Default)]
-struct FocusedTextInput {
-    pending_text_input: bool,
-    focused: bool,
-}
-
-impl operation::Operation<bool> for FocusedTextInput {
-    fn text_input(
-        &mut self,
-        _id: Option<&iced::widget::Id>,
-        _bounds: Rectangle,
-        _state: &mut dyn operation::TextInput,
-    ) {
-        self.pending_text_input = true;
-    }
-
-    fn focusable(
-        &mut self,
-        _id: Option<&iced::widget::Id>,
-        _bounds: Rectangle,
-        state: &mut dyn operation::Focusable,
-    ) {
-        if self.pending_text_input && state.is_focused() {
-            self.focused = true;
-        }
-
-        self.pending_text_input = false;
-    }
-
-    fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn operation::Operation<bool>)) {
-        operate(self);
-    }
-
-    fn finish(&self) -> operation::Outcome<bool> {
-        operation::Outcome::Some(self.focused)
-    }
-}
-
 #[cfg(test)]
 mod form_frame_tests {
     use super::*;
+    use crate::test_support::WidgetHarness;
     use crate::theme::{ControlSize, Theme, ThemeBuilder, ThemeDensity, ThemeMode};
+    use crate::widgets::controls::Input;
+
+    #[test]
+    fn pointer_blur_hides_the_frame_focus_while_retaining_navigation_anchor() {
+        let input: Element<'_, String> = Input::new("Name", "Ada").on_change(|value| value).into();
+        let mut harness = WidgetHarness::new(input, Size::new(240.0, 80.0));
+
+        harness.set_cursor(iced::Point::new(20.0, 14.0));
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        assert!(harness.state::<FrameWidgetState>().focused);
+
+        harness.set_cursor(iced::Point::new(20.0, 60.0));
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        assert!(!harness.state::<FrameWidgetState>().focused);
+    }
 
     #[test]
     fn every_built_in_density_and_size_uses_exact_frame_geometry() {

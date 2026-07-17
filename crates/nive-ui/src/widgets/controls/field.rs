@@ -438,7 +438,7 @@ impl<'a> FieldLabel<'a> {
         }
     }
 
-    fn into_element<Message>(self) -> Element<'a, Message>
+    pub(super) fn into_element<Message>(self) -> Element<'a, Message>
     where
         Message: 'a,
     {
@@ -508,7 +508,7 @@ impl<'a> FieldError<'a> {
         }
     }
 
-    fn into_element<Message>(self) -> Element<'a, Message>
+    pub(super) fn into_element<Message>(self) -> Element<'a, Message>
     where
         Message: 'a,
     {
@@ -553,7 +553,7 @@ fn metrics() -> FieldMetrics {
     }
 }
 
-fn normalized_error<'a>(error: Option<Cow<'a, str>>) -> Option<Cow<'a, str>> {
+pub(super) fn normalized_error<'a>(error: Option<Cow<'a, str>>) -> Option<Cow<'a, str>> {
     error.filter(|value| !value.trim().is_empty())
 }
 
@@ -611,6 +611,8 @@ fn error_style() -> impl Fn(&crate::theme::Theme) -> text::Style {
 
 #[cfg(test)]
 mod field_tests {
+    use std::{cell::Cell, rc::Rc};
+
     use super::*;
     use crate::test_support::{named_probe, WidgetHarness};
     use crate::theme::{Theme, ThemeBuilder, ThemeDensity, ThemeMode};
@@ -758,11 +760,14 @@ mod field_tests {
     fn activating_a_sibling_label_blurs_once_and_moves_the_single_focus() {
         let first_id = Id::new("first");
         let second_id = Id::new("second");
+        let first_visual_focus = Rc::new(Cell::new(false));
+        let second_visual_focus = Rc::new(Cell::new(false));
         let fields: Element<'_, &'static str> = iced::widget::column![
             Field::new(
                 "First",
                 Input::new("First", "One")
                     .id(first_id.clone())
+                    .track_focus(Rc::clone(&first_visual_focus))
                     .on_change(|_| "first change")
                     .on_blur("first blur"),
             ),
@@ -772,6 +777,7 @@ mod field_tests {
                     "Second",
                     Input::new("Second", "Two")
                         .id(second_id)
+                        .track_focus(Rc::clone(&second_visual_focus))
                         .on_change(|_| "second change")
                         .on_blur("second blur"),
                 ),
@@ -789,7 +795,8 @@ mod field_tests {
         )));
 
         assert_eq!(result.messages, vec!["first blur"]);
-        assert_eq!(harness.focused_widgets(), 1);
+        assert!(!first_visual_focus.get());
+        assert!(second_visual_focus.get());
     }
 
     #[test]
