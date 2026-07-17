@@ -6,6 +6,7 @@ use iced::{
 use super::classes::FieldValidation;
 use super::shared::{alpha_when_disabled, border_with_radius, transparent_border_with_radius};
 use crate::theme::{
+    choice::{self, ChoicePersistentState, ChoiceStateInput},
     BorderRole, BorderSpec, ControlRole, ControlState, InteractionState, ShapeSize, TextRole,
     Theme, ToneRole,
 };
@@ -17,40 +18,34 @@ pub(super) fn default_checkbox(theme: &Theme, status: checkbox::Status) -> check
         | checkbox::Status::Hovered { is_checked }
         | checkbox::Status::Disabled { is_checked } => is_checked,
     };
-    let state = match status {
-        checkbox::Status::Active { .. } => ControlState::ENABLED,
-        checkbox::Status::Hovered { .. } => ControlState::HOVERED,
-        checkbox::Status::Disabled { .. } => ControlState::DISABLED,
-    };
-    let control = theme.control(ControlRole::Standard, state);
-    let tone = theme.tone(ToneRole::Accent);
     let disabled = matches!(status, checkbox::Status::Disabled { .. });
-    let alpha = if disabled { 0.55 } else { 1.0 };
+    let resolved = choice::resolve_state(ChoiceStateInput {
+        persistent: if is_checked {
+            ChoicePersistentState::Selected
+        } else {
+            ChoicePersistentState::Unselected
+        },
+        validation: FieldValidation::Valid,
+        callback_present: !disabled,
+        disabled,
+        hovered: matches!(status, checkbox::Status::Hovered { .. }),
+        pressed: false,
+        focused: false,
+    });
+    let palette = choice::palette(theme, resolved);
 
     checkbox::Style {
-        background: Background::Color(if is_checked {
-            tone.color.scale_alpha(alpha)
-        } else {
-            control.background
-        }),
+        background: Background::Color(palette.background),
         icon_color: if is_checked {
-            theme.tone(ToneRole::Accent).on_color.scale_alpha(alpha)
+            palette.mark
         } else {
             Color::TRANSPARENT
         },
         border: border_with_radius(
-            if is_checked {
-                BorderSpec::new(tone.border.color.scale_alpha(alpha), tone.border.width)
-            } else {
-                control.border
-            },
+            BorderSpec::new(palette.perimeter, 1.0),
             theme.shape(ShapeSize::Sm).radius(),
         ),
-        text_color: Some(if disabled {
-            theme.text(TextRole::Muted).color.scale_alpha(0.65)
-        } else {
-            theme.text(TextRole::Secondary).color
-        }),
+        text_color: Some(palette.foreground),
     }
 }
 
@@ -144,36 +139,29 @@ pub(super) fn default_toggler(theme: &Theme, status: toggler::Status) -> toggler
         | toggler::Status::Hovered { is_toggled }
         | toggler::Status::Disabled { is_toggled } => is_toggled,
     };
-    let state = match status {
-        toggler::Status::Active { .. } => ControlState::ENABLED,
-        toggler::Status::Hovered { .. } => ControlState::HOVERED,
-        toggler::Status::Disabled { .. } => ControlState::DISABLED,
-    };
-    let control = theme.control(ControlRole::Standard, state);
-    let alpha = if matches!(status, toggler::Status::Disabled { .. }) {
-        0.5
-    } else {
-        1.0
-    };
-    let background = if is_toggled {
-        theme.tone(ToneRole::Accent).color
-    } else {
-        control.background
-    };
-    let foreground = if is_toggled {
-        theme.tone(ToneRole::Accent).on_color
-    } else {
-        theme.text(TextRole::Secondary).color
-    };
-    let border = theme.border(BorderRole::Default);
+    let disabled = matches!(status, toggler::Status::Disabled { .. });
+    let resolved = choice::resolve_state(ChoiceStateInput {
+        persistent: if is_toggled {
+            ChoicePersistentState::Selected
+        } else {
+            ChoicePersistentState::Unselected
+        },
+        validation: FieldValidation::Valid,
+        callback_present: !disabled,
+        disabled,
+        hovered: matches!(status, toggler::Status::Hovered { .. }),
+        pressed: false,
+        focused: false,
+    });
+    let palette = choice::palette(theme, resolved);
 
     toggler::Style {
-        background: Background::Color(background.scale_alpha(alpha)),
-        foreground: Background::Color(foreground.scale_alpha(alpha)),
+        background: Background::Color(palette.background),
+        foreground: Background::Color(palette.mark),
         foreground_border_width: 0.0,
         foreground_border_color: Color::TRANSPARENT,
-        background_border_width: border.width,
-        background_border_color: border.color.scale_alpha(alpha),
+        background_border_width: 1.0,
+        background_border_color: palette.perimeter,
         text_color: None,
         border_radius: None,
         padding_ratio: 0.1,

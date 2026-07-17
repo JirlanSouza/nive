@@ -15,6 +15,7 @@ pub mod text;
 pub mod typography;
 
 mod catalog;
+pub(crate) mod choice;
 
 pub use crate::tokens::color::{format_hex_color, format_rgb_hex_color, hex, parse_hex_color};
 pub use active::{
