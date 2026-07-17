@@ -55,6 +55,32 @@ pub enum FeedbackMode {
     Running,
 }
 
+impl FeedbackMode {
+    pub const ALL: [Self; 7] = [
+        Self::Idle,
+        Self::Loading,
+        Self::Loaded,
+        Self::Refreshing,
+        Self::Error,
+        Self::Empty,
+        Self::Running,
+    ];
+}
+
+impl std::fmt::Display for FeedbackMode {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            Self::Idle => "Idle",
+            Self::Loading => "Loading",
+            Self::Loaded => "Loaded",
+            Self::Refreshing => "Refreshing",
+            Self::Error => "Error",
+            Self::Empty => "Empty",
+            Self::Running => "Running",
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DialogKind {
     Basic,
@@ -111,9 +137,10 @@ pub struct FormState {
     pub search: String,
     pub secret: String,
     pub path: String,
-    pub checked: bool,
+    pub checked: CheckboxState,
     pub enabled: bool,
     pub selected_plan: Option<&'static str>,
+    pub radio: Option<&'static str>,
     pub segment: &'static str,
     pub color: Color,
 }
@@ -191,9 +218,10 @@ pub enum Message {
     InputSearchChanged(String),
     SecretChanged(String),
     PathChanged(String),
-    ToggleChecked(bool),
+    ToggleChecked(CheckboxState),
     ToggleEnabled(bool),
     SelectPlan(&'static str),
+    SelectRadio(&'static str),
     SelectSegment(&'static str),
     ColorChanged(Color),
     PickPath,
@@ -231,9 +259,10 @@ impl Default for FormState {
             search: String::new(),
             secret: "correct horse battery staple".to_owned(),
             path: "/Users/ada/projects/nive/examples/widget-gallery".to_owned(),
-            checked: true,
+            checked: CheckboxState::Checked,
             enabled: true,
             selected_plan: Some("Pro"),
+            radio: None,
             segment: "Preview",
             color: Color::from_rgb8(64, 123, 255),
         }
@@ -348,6 +377,7 @@ impl Application for WidgetGallery {
             Message::ToggleChecked(value) => self.form.checked = value,
             Message::ToggleEnabled(value) => self.form.enabled = value,
             Message::SelectPlan(value) => self.form.selected_plan = Some(value),
+            Message::SelectRadio(value) => self.form.radio = Some(value),
             Message::SelectSegment(value) => self.form.segment = value,
             Message::ColorChanged(color) => self.form.color = color,
             Message::PickPath => {
@@ -573,35 +603,41 @@ impl WidgetGallery {
             entries = entries.push(layout::sidebar_button(entry, self.route == entry.id));
         }
 
-        let themes = SegmentedControl::new()
-            .item(
-                SegmentedItem::new("System")
-                    .selected(self.theme == ThemePreference::System)
-                    .on_press(Message::ThemeChanged(ThemePreference::System)),
-            )
-            .item(
-                SegmentedItem::new("Light")
-                    .selected(self.theme == ThemePreference::Light)
-                    .on_press(Message::ThemeChanged(ThemePreference::Light)),
-            )
-            .item(
-                SegmentedItem::new("Dark")
-                    .selected(self.theme == ThemePreference::Dark)
-                    .on_press(Message::ThemeChanged(ThemePreference::Dark)),
-            )
+        let themes = SegmentedControl::new(
+            "Theme preference",
+            self.theme,
+            [
+                SegmentedOption::new(ThemePreference::System, "System"),
+                SegmentedOption::new(ThemePreference::Light, "Light"),
+                SegmentedOption::new(ThemePreference::Dark, "Dark"),
+            ],
+        )
+            .on_select(Message::ThemeChanged)
             .fill_width();
 
-        let sizes = SegmentedControl::new()
-            .item(size_item("XS", ControlSize::Xs, self.control_size))
-            .item(size_item("SM", ControlSize::Sm, self.control_size))
-            .item(size_item("MD", ControlSize::Md, self.control_size))
-            .item(size_item("LG", ControlSize::Lg, self.control_size))
+        let sizes = SegmentedControl::new(
+            "Control size",
+            self.control_size,
+            [
+                SegmentedOption::new(ControlSize::Xs, "XS"),
+                SegmentedOption::new(ControlSize::Sm, "SM"),
+                SegmentedOption::new(ControlSize::Md, "MD"),
+                SegmentedOption::new(ControlSize::Lg, "LG"),
+            ],
+        )
+            .on_select(Message::ControlSizeChanged)
             .fill_width();
 
-        let densities = SegmentedControl::new()
-            .item(density_item("Compact", ThemeDensity::Compact, self.density))
-            .item(density_item("Standard", ThemeDensity::Standard, self.density))
-            .item(density_item("Comfortable", ThemeDensity::Comfortable, self.density))
+        let densities = SegmentedControl::new(
+            "Theme density",
+            self.density,
+            [
+                SegmentedOption::new(ThemeDensity::Compact, "Compact"),
+                SegmentedOption::new(ThemeDensity::Standard, "Standard"),
+                SegmentedOption::new(ThemeDensity::Comfortable, "Comfortable"),
+            ],
+        )
+            .on_select(Message::DensityChanged)
             .fill_width();
 
         Panel::new(
@@ -667,24 +703,4 @@ pub fn page_shell<'a>(
     content: impl Into<Element<'a, Message>>,
 ) -> Element<'a, Message> {
     layout::page_shell(entry_for(id), content)
-}
-
-fn size_item(
-    label: &'static str,
-    size: ControlSize,
-    active: ControlSize,
-) -> SegmentedItem<'static, Message> {
-    SegmentedItem::new(label)
-        .selected(active == size)
-        .on_press(Message::ControlSizeChanged(size))
-}
-
-fn density_item(
-    label: &'static str,
-    density: ThemeDensity,
-    active: ThemeDensity,
-) -> SegmentedItem<'static, Message> {
-    SegmentedItem::new(label)
-        .selected(active == density)
-        .on_press(Message::DensityChanged(density))
 }

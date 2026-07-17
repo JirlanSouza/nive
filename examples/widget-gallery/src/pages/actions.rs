@@ -227,21 +227,33 @@ fn segmented_controls(size: ControlSize, selected: &'static str) -> Element<'sta
     variant_grid([
         example_cell(
             "Default",
-            SegmentedControl::new()
+            SegmentedControl::new(
+                "Editor mode",
+                selected,
+                [
+                    segment("Preview"),
+                    segment("Code"),
+                    segment("Tests").icon(IconRole::ActionConfirm),
+                ],
+            )
                 .size(size)
-                .item(segment("Preview", selected))
-                .item(segment("Code", selected))
-                .item(segment("Tests", selected).icon(IconRole::ActionConfirm))
+                .on_select(Message::SelectSegment)
                 .fill_width(),
         ),
         example_cell(
             "Flat",
-            SegmentedControl::new()
-                .flat()
+            SegmentedControl::new(
+                "Linked editor mode",
+                selected,
+                [
+                    segment("Preview"),
+                    segment("Code"),
+                    segment("Tests").icon(IconRole::ActionConfirm),
+                ],
+            )
+                .linked()
                 .size(size)
-                .item(segment("Preview", selected))
-                .item(segment("Code", selected))
-                .item(segment("Tests", selected).icon(IconRole::ActionConfirm))
+                .on_select(Message::SelectSegment)
                 .fill_width(),
         ),
         example_cell(
@@ -251,11 +263,13 @@ fn segmented_controls(size: ControlSize, selected: &'static str) -> Element<'sta
                     .size(size)
                     .on_press(Message::Noop)
                     .into(),
-                SegmentedControl::new()
+                SegmentedControl::new(
+                    "Inline editor mode",
+                    selected,
+                    [segment("Preview"), segment("Code"), segment("Tests")],
+                )
                     .size(size)
-                    .item(segment("Preview", selected))
-                    .item(segment("Code", selected))
-                    .item(segment("Tests", selected))
+                    .on_select(Message::SelectSegment)
                     .into(),
                 nbutton::icon(IconRole::PreferencesSystem, "Settings")
                     .size(size)
@@ -398,10 +412,8 @@ fn toolbar(size: ControlSize) -> Element<'static, Message> {
     .into()
 }
 
-fn segment(label: &'static str, selected: &'static str) -> SegmentedItem<'static, Message> {
-    SegmentedItem::new(label)
-        .selected(label == selected)
-        .on_press(Message::SelectSegment(label))
+fn segment(label: &'static str) -> SegmentedOption<'static, &'static str> {
+    SegmentedOption::new(label, label)
 }
 
 fn dropdown_menu() -> Element<'static, Message> {

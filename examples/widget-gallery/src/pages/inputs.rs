@@ -369,42 +369,146 @@ fn suggestions(highlighted: Option<usize>) -> Element<'static, Message> {
 }
 
 fn choices(app: &WidgetGallery) -> Element<'_, Message> {
+    let binary_segment = if matches!(app.form.segment, "Preview" | "Code") {
+        app.form.segment
+    } else {
+        "Preview"
+    };
+
     variant_grid([
         example_cell(
-            "Checkbox / Switch",
+            "Checkbox states",
             column![
-                Checkbox::new("Checked option", app.form.checked).on_toggle(Message::ToggleChecked),
-                Checkbox::new("Disabled option", true).disabled(true),
-                Switch::new(app.form.enabled)
-                    .label("Enable previews")
-                    .on_toggle(Message::ToggleEnabled),
-                Switch::new(false).label("Disabled switch").disabled(true),
+                Checkbox::new("Controlled choice", app.form.checked)
+                    .description("Indicator, label, and description share one target")
+                    .on_toggle(Message::ToggleChecked),
+                Checkbox::new("Unchecked display-only", CheckboxState::Unchecked),
+                Checkbox::new("Mixed aggregate", CheckboxState::Mixed)
+                    .on_toggle(Message::ToggleChecked),
+                Checkbox::new(
+                    "A long invalid choice label that wraps without moving the indicator away from its first line",
+                    CheckboxState::Unchecked,
+                )
+                .error("This submitted choice requires review")
+                .fill_width()
+                .on_toggle(Message::ToggleChecked),
+                Checkbox::new("Disabled mixed choice", CheckboxState::Mixed).disabled(true),
             ]
             .spacing(10),
         ),
         example_cell(
-            "Select",
-            Select::new(PLANS.to_vec(), app.form.selected_plan)
-                .placeholder("Plan")
-                .on_select(Message::SelectPlan)
+            "RadioGroup",
+            column![
+                RadioGroup::new(
+                    "Deployment target",
+                    app.form.radio,
+                    [
+                        RadioOption::new("none", "No automatic deployment")
+                            .description("An ordinary visible clearing choice"),
+                        RadioOption::new("preview", "Preview environment"),
+                        RadioOption::new("production", "Production").disabled(true),
+                    ],
+                )
+                .required("Required")
+                .description("Choose one typed destination")
+                .error_maybe(app.form.radio.is_none().then_some("Select a deployment target"))
+                .layout(RadioGroupLayout::HorizontalWrap)
+                .on_select(Message::SelectRadio)
                 .fill_width(),
+                RadioGroup::new(
+                    "Optional vertical choice",
+                    Some("none"),
+                    [
+                        RadioOption::new("none", "No preference"),
+                        RadioOption::new(
+                            "long",
+                            "A deliberately long option that wraps as one complete row",
+                        )
+                        .description("The indicator remains attached to the first text line"),
+                    ],
+                )
+                .optional("Optional")
+                .on_select(Message::SelectRadio),
+                RadioGroup::new(
+                    "Disabled group",
+                    Some("preview"),
+                    [
+                        RadioOption::new("preview", "Preview"),
+                        RadioOption::new("production", "Production"),
+                    ],
+                )
+                .disabled(true)
+                .on_select(Message::SelectRadio),
+            ]
+            .spacing(12),
+        ),
+        example_cell(
+            "Switch compositions",
+            column![
+                Switch::inline("Enable previews", app.form.enabled)
+                    .on_toggle(Message::ToggleEnabled),
+                Switch::setting("Synchronize automatically", app.form.enabled)
+                    .description("Changes take effect immediately")
+                    .on_toggle(Message::ToggleEnabled),
+                Switch::inline("On display-only", true),
+                Switch::setting("Disabled setting", true).disabled(true),
+            ]
+            .spacing(10),
         ),
         example_cell(
             "SegmentedControl",
-            SegmentedControl::new()
-                .item(segment("Preview", app.form.segment))
-                .item(segment("Code", app.form.segment))
-                .item(segment("Tests", app.form.segment).icon(IconRole::ActionConfirm))
+            column![
+                SegmentedControl::new(
+                    "Two option intrinsic mode",
+                    binary_segment,
+                    [segment("Preview"), segment("Code")],
+                )
+                .on_select(Message::SelectSegment),
+                SegmentedControl::new(
+                    "Input preview mode",
+                    app.form.segment,
+                    [
+                        segment("Preview"),
+                        segment("Code"),
+                        segment("Tests").icon(IconRole::ActionConfirm),
+                    ],
+                )
+                .on_select(Message::SelectSegment)
                 .fill_width(),
-        ),
-        example_cell(
-            "SegmentedControl flat",
-            SegmentedControl::new()
-                .flat()
-                .item(segment("Preview", app.form.segment))
-                .item(segment("Code", app.form.segment))
-                .item(segment("Tests", app.form.segment).icon(IconRole::ActionConfirm))
+                SegmentedControl::new(
+                    "Linked input preview mode",
+                    app.form.segment,
+                    [
+                        segment("Preview"),
+                        segment("Code"),
+                        segment("Tests").icon(IconRole::ActionConfirm),
+                    ],
+                )
+                .linked()
+                .on_select(Message::SelectSegment)
                 .fill_width(),
+                SegmentedControl::new(
+                    "Five constrained modes",
+                    app.form.segment,
+                    [
+                        segment("Preview"),
+                        segment("Code"),
+                        segment("Tests").disabled(true),
+                        segment("Long diagnostics"),
+                        segment("Metadata"),
+                    ],
+                )
+                .width(180),
+                SegmentedControl::new(
+                    "Disabled linked modes",
+                    binary_segment,
+                    [segment("Preview"), segment("Code")],
+                )
+                .linked()
+                .disabled(true)
+                .on_select(Message::SelectSegment),
+            ]
+            .spacing(10),
         ),
     ])
 }
@@ -449,6 +553,12 @@ fn sizes(app: &WidgetGallery) -> Element<'_, Message> {
 }
 
 fn size_stack(size: ControlSize, app: &WidgetGallery) -> Element<'_, Message> {
+    let binary_segment = if matches!(app.form.segment, "Preview" | "Code") {
+        app.form.segment
+    } else {
+        "Preview"
+    };
+
     column![
         Field::new(
             "Input",
@@ -467,10 +577,26 @@ fn size_stack(size: ControlSize, app: &WidgetGallery) -> Element<'_, Message> {
         Checkbox::new("Checkbox", app.form.checked)
             .size(size)
             .on_toggle(Message::ToggleChecked),
-        Switch::new(app.form.enabled)
+        Switch::inline("Switch", app.form.enabled)
             .size(size)
-            .label("Switch")
             .on_toggle(Message::ToggleEnabled),
+        RadioGroup::new(
+            "Radio",
+            app.form.radio,
+            [
+                RadioOption::new("none", "None"),
+                RadioOption::new("preview", "Preview"),
+            ],
+        )
+        .size(size)
+        .on_select(Message::SelectRadio),
+        SegmentedControl::new(
+            "Sized mode",
+            binary_segment,
+            [segment("Preview"), segment("Code")],
+        )
+        .size(size)
+        .on_select(Message::SelectSegment),
         Select::new(PLANS.to_vec(), app.form.selected_plan)
             .size(size)
             .on_select(Message::SelectPlan),
@@ -479,10 +605,8 @@ fn size_stack(size: ControlSize, app: &WidgetGallery) -> Element<'_, Message> {
     .into()
 }
 
-fn segment(label: &'static str, selected: &'static str) -> SegmentedItem<'static, Message> {
-    SegmentedItem::new(label)
-        .selected(label == selected)
-        .on_press(Message::SelectSegment(label))
+fn segment(label: &'static str) -> SegmentedOption<'static, &'static str> {
+    SegmentedOption::new(label, label)
 }
 
 #[cfg(test)]

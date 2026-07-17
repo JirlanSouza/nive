@@ -180,14 +180,8 @@ fn controls(app: &WidgetGallery) -> Element<'_, Message> {
 
     column![
         ntext::body_small(format!("Current local feedback mode: {current}")),
-        SegmentedControl::new()
-            .item(mode_item("Idle", FeedbackMode::Idle, app.feedback))
-            .item(mode_item("Loading", FeedbackMode::Loading, app.feedback))
-            .item(mode_item("Loaded", FeedbackMode::Loaded, app.feedback))
-            .item(mode_item("Refresh", FeedbackMode::Refreshing, app.feedback))
-            .item(mode_item("Error", FeedbackMode::Error, app.feedback))
-            .item(mode_item("Empty", FeedbackMode::Empty, app.feedback))
-            .item(mode_item("Running", FeedbackMode::Running, app.feedback))
+        Select::new(FeedbackMode::ALL.to_vec(), Some(app.feedback))
+            .on_select(Message::FeedbackModeChanged)
             .fill_width(),
         InlineAlert::new("Devtools optional")
             .body("Run the explicit devtools command only when inspecting simulator integration.")
@@ -195,14 +189,4 @@ fn controls(app: &WidgetGallery) -> Element<'_, Message> {
     ]
     .spacing(12)
     .into()
-}
-
-fn mode_item(
-    label: &'static str,
-    mode: FeedbackMode,
-    active: FeedbackMode,
-) -> SegmentedItem<'static, Message> {
-    SegmentedItem::new(label)
-        .selected(mode == active)
-        .on_press(Message::FeedbackModeChanged(mode))
 }

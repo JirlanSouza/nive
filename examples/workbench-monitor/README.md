@@ -11,6 +11,11 @@ the migrated Input contract and preserves focus, horizontal long-value
 behavior, filtered actions, overlay placement, and shell geometry at narrow
 viewports.
 
+The settings area uses a titled immediate `Switch::setting`, a two-option typed
+environment `SegmentedControl`, and a persistent typed filter selector. Toolbar
+theme actions and document/panel navigation keep their specialized ownership;
+they are not modeled as form selection controls.
+
 ## Chrome sizing
 
 The monitor deliberately uses `ThemeDensity::Compact` for its global theme
@@ -76,6 +81,9 @@ At `1440x900`, `800x600`, and `1024x480`, also verify filled, outlined, and
 elevated cards, label-before-value metric hierarchy, baseline units and support
 content, loading/disabled content actions, keyboard focus, and wrapping with no
 orphaned separator or split action.
+
+Also confirm the titled Switch and both typed selectors preserve their values,
+focus, and finite geometry in Light/Dark at all three reference viewports.
 
 Run it:
 
