@@ -14,6 +14,9 @@ The gallery exercises:
 - deterministic Input states, typed InputGroup slots, Field support/error
   ownership, multi-field Vertical/Wrap groups, and primary/secondary/tertiary/
   destructive Button hierarchy plus advanced axes
+- controlled Checkbox Unchecked/Checked/Mixed/error states, typed RadioGroup
+  layouts, exact inline/setting Switch compositions, and typed Default/Linked
+  SegmentedControl fixtures
 - **density switching** between Comfortable, Standard, and Compact through
   theme/catalog selection
 - app-owned state for inputs, selections, overlays, feedback controls, and
@@ -93,6 +96,10 @@ SelectableItem focus, and SplitPane hover, drag, focus, locked, and display-only
 states. On the Actions page, traverse cards and content actions with Tab,
 Enter, and Space; compare all three densities and constrain the window until
 ActionGroup wraps without splitting a control.
+
+On Inputs, also exercise Checkbox pointer/Space transitions and error wrapping,
+RadioGroup arrows/Space/disabled skipping and horizontal wrapping, immediate
+Switch endpoints, and SegmentedControl bounded keyboard navigation/truncation.
 
 The agent launches the review app with `rtk just widget-gallery-dev` and keeps
 it running. The user captures and attaches the Light/Dark ×

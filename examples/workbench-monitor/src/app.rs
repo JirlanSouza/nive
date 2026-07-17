@@ -12,6 +12,7 @@ use nive::prelude::ui::DialogRequest;
 use nive::{prelude::*, Action, ActionMap};
 
 use crate::sim::Simulation;
+use crate::sim::Environment;
 
 pub(crate) type WorkbenchMsg = WorkbenchEvent<DocumentId, &'static str, PanelActionId>;
 
@@ -27,6 +28,8 @@ pub(crate) struct WorkbenchMonitor {
     theme: ThemePreference,
     alert_dialog: Option<u32>,
     dirty_filter: bool,
+    auto_refresh: bool,
+    monitor_filter: MonitorFilter,
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +49,9 @@ pub(crate) enum Message {
     CloseDialog,
     ToggleTheme,
     ToggleFilterDirty,
+    AutoRefreshChanged(bool),
+    EnvironmentChanged(Environment),
+    MonitorFilterChanged(MonitorFilter),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,6 +66,12 @@ pub(crate) enum Selection {
     Service(&'static str),
     Host(&'static str),
     Alert(u32),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MonitorFilter {
+    All,
+    Attention,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -142,6 +154,9 @@ impl Application for WorkbenchMonitor {
                 return Effect::theme(self.theme);
             }
             Message::ToggleFilterDirty => self.dirty_filter = !self.dirty_filter,
+            Message::AutoRefreshChanged(value) => self.auto_refresh = value,
+            Message::EnvironmentChanged(environment) => self.model.environment = environment,
+            Message::MonitorFilterChanged(filter) => self.monitor_filter = filter,
         }
 
         Effect::none()
@@ -275,6 +290,8 @@ impl WorkbenchMonitor {
             theme: ThemePreference::Dark,
             alert_dialog: None,
             dirty_filter: false,
+            auto_refresh: true,
+            monitor_filter: MonitorFilter::All,
         }
     }
 }

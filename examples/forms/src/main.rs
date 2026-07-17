@@ -5,14 +5,27 @@ use nive::prelude::ui::DialogRequest;
 struct FormsApp {
     name: String,
     email: String,
+    terms: CheckboxState,
+    deployment: Option<Deployment>,
+    sync_updates: bool,
     submit_attempted: bool,
     show_dialog: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Deployment {
+    Preview,
+    Production,
+    None,
 }
 
 #[derive(Debug, Clone)]
 enum Message {
     NameChanged(String),
     EmailChanged(String),
+    TermsChanged(CheckboxState),
+    DeploymentChanged(Deployment),
+    SyncUpdatesChanged(bool),
     Submit,
     OpenDialog,
     CloseDialog,
@@ -23,14 +36,28 @@ struct FormValidation {
     name_error: &'static str,
     email_error: &'static str,
     group_error: &'static str,
+    terms_error: &'static str,
+    deployment_error: &'static str,
     valid: bool,
 }
 
-fn validate(name: &str, email: &str, show_errors: bool) -> FormValidation {
+fn validate(
+    name: &str,
+    email: &str,
+    terms: CheckboxState,
+    deployment: Option<Deployment>,
+    show_errors: bool,
+) -> FormValidation {
     let name_missing = name.trim().is_empty();
     let email_missing = email.trim().is_empty();
     let email_malformed = !email_missing && !email.contains('@');
-    let valid = !name_missing && !email_missing && !email_malformed;
+    let terms_missing = terms != CheckboxState::Checked;
+    let deployment_missing = deployment.is_none();
+    let valid = !name_missing
+        && !email_missing
+        && !email_malformed
+        && !terms_missing
+        && !deployment_missing;
     let name_error = if show_errors && name_missing {
         "Enter your name"
     } else {
@@ -48,7 +75,17 @@ fn validate(name: &str, email: &str, show_errors: bool) -> FormValidation {
         name_error,
         email_error,
         group_error: if show_errors && !valid {
-            "Review the highlighted contact details"
+            "Review the highlighted submission details"
+        } else {
+            ""
+        },
+        terms_error: if show_errors && terms_missing {
+            "Confirm the submitted terms choice"
+        } else {
+            ""
+        },
+        deployment_error: if show_errors && deployment_missing {
+            "Select one deployment preference"
         } else {
             ""
         },
@@ -76,6 +113,9 @@ impl Application for FormsApp {
             Self {
                 name: String::new(),
                 email: String::new(),
+                terms: CheckboxState::Mixed,
+                deployment: None,
+                sync_updates: true,
                 submit_attempted: false,
                 show_dialog: false,
             },
@@ -98,15 +138,32 @@ impl Application for FormsApp {
                 self.email = value;
                 self.submit_attempted = false;
             }
+            Message::TermsChanged(value) => {
+                self.terms = value;
+                self.submit_attempted = false;
+            }
+            Message::DeploymentChanged(value) => {
+                self.deployment = Some(value);
+                self.submit_attempted = false;
+            }
+            Message::SyncUpdatesChanged(value) => self.sync_updates = value,
             Message::Submit => {
                 self.submit_attempted = true;
-                if !validate(&self.name, &self.email, true).valid {
+                if !validate(
+                    &self.name,
+                    &self.email,
+                    self.terms,
+                    self.deployment,
+                    true,
+                )
+                .valid
+                {
                     return Effect::none();
                 }
                 self.show_dialog = false;
                 return Effect::toast(Toast::success(format!(
-                    "Submitted: {} <{}>",
-                    self.name, self.email
+                    "Submitted: {} <{}> · {:?}",
+                    self.name, self.email, self.deployment
                 )));
             }
             Message::OpenDialog => self.show_dialog = true,
@@ -120,7 +177,13 @@ impl Application for FormsApp {
         _context: Context<'_, Self::Window>,
         _window: WindowContext<Self::Window>,
     ) -> ScreenView<'_, Self::Message> {
-        let validation = validate(&self.name, &self.email, self.submit_attempted);
+        let validation = validate(
+            &self.name,
+            &self.email,
+            self.terms,
+            self.deployment,
+            self.submit_attempted,
+        );
 
         let contact_fields = vec![
             Field::new(
@@ -170,6 +233,35 @@ impl Application for FormsApp {
                 .error(validation.group_error)
                 .md()
                 .wrap(260.0),
+            Checkbox::new("I confirm the submitted account terms", self.terms)
+                .description("This choice is validated when the form is submitted")
+                .error(validation.terms_error)
+                .fill_width()
+                .on_toggle(Message::TermsChanged),
+            RadioGroup::new(
+                "Deployment preference",
+                self.deployment,
+                [
+                    RadioOption::new(Deployment::Preview, "Preview environment")
+                        .description("Validate changes before production"),
+                    RadioOption::new(Deployment::Production, "Production")
+                        .description("Apply after submission"),
+                    RadioOption::new(Deployment::None, "No deployment"),
+                ],
+            )
+            .required("Required")
+            .description("Choose exactly one submitted destination")
+            .error(validation.deployment_error)
+            .layout(RadioGroupLayout::HorizontalWrap)
+            .on_select(Message::DeploymentChanged),
+            Switch::setting("Synchronize account updates", self.sync_updates)
+                .description("This immediate preference is not deferred until submission")
+                .on_toggle(Message::SyncUpdatesChanged),
+            row![
+                Switch::<Message>::inline("Display-only enabled setting", true),
+                Switch::<Message>::inline("Disabled enabled setting", true).disabled(true),
+            ]
+            .spacing(16),
             row![
                 nive::widgets::button::primary("Submit").on_press(Message::Submit),
                 nive::widgets::button::secondary("Preview dialog")
@@ -185,7 +277,10 @@ impl Application for FormsApp {
         if self.show_dialog {
             let dialog_content = column![
                 text("Confirm Submission"),
-                text(format!("Name: {}\nEmail: {}", self.name, self.email)),
+                text(format!(
+                    "Name: {}\nEmail: {}\nTerms: {:?}\nDeployment: {:?}",
+                    self.name, self.email, self.terms, self.deployment
+                )),
                 row![
                     nive::widgets::button::secondary("Cancel")
                         .on_press(Message::CloseDialog),
@@ -217,18 +312,32 @@ mod tests {
 
     #[test]
     fn empty_submit_exposes_field_and_group_errors() {
-        let validation = validate("", "", true);
+        let validation = validate("", "", CheckboxState::Unchecked, None, true);
 
         assert!(!validation.valid);
         assert_eq!(validation.name_error, "Enter your name");
         assert_eq!(validation.email_error, "Enter your email");
         assert!(!validation.group_error.is_empty());
+        assert!(!validation.terms_error.is_empty());
+        assert!(!validation.deployment_error.is_empty());
     }
 
     #[test]
     fn malformed_email_is_deterministic_before_and_after_submit() {
-        let editing = validate("Ada", "invalid", false);
-        let submitted = validate("Ada", "invalid", true);
+        let editing = validate(
+            "Ada",
+            "invalid",
+            CheckboxState::Checked,
+            Some(Deployment::Preview),
+            false,
+        );
+        let submitted = validate(
+            "Ada",
+            "invalid",
+            CheckboxState::Checked,
+            Some(Deployment::Preview),
+            true,
+        );
 
         assert_eq!(editing.email_error, "Enter a valid email address");
         assert!(editing.group_error.is_empty());
@@ -238,12 +347,20 @@ mod tests {
 
     #[test]
     fn corrected_values_are_valid_and_clear_all_support_errors() {
-        let validation = validate("Ada Lovelace", "ada@example.com", true);
+        let validation = validate(
+            "Ada Lovelace",
+            "ada@example.com",
+            CheckboxState::Checked,
+            Some(Deployment::Preview),
+            true,
+        );
 
         assert!(validation.valid);
         assert_eq!(validation.name_error, "");
         assert_eq!(validation.email_error, "");
         assert_eq!(validation.group_error, "");
+        assert_eq!(validation.terms_error, "");
+        assert_eq!(validation.deployment_error, "");
     }
 
     #[test]

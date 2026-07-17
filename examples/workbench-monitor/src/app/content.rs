@@ -3,7 +3,8 @@ use nive::widget::{column, container, row, scrollable};
 use nive::widgets::{button as nive_button, text as nive_text};
 
 use super::tone::tone_label;
-use super::{AppCommand, Message, WorkbenchMonitor};
+use super::{AppCommand, Message, MonitorFilter, WorkbenchMonitor};
+use crate::sim::Environment;
 
 impl WorkbenchMonitor {
     pub(super) fn services_view(&self) -> Element<'_, Message> {
@@ -78,13 +79,32 @@ impl WorkbenchMonitor {
 
     pub(super) fn settings_view(&self) -> Element<'_, Message> {
         column![
-            DataRow::new("Environment")
-                .value(self.model.environment_label())
-                .trailing(ActionGroup::new().action(
-                    ContentAction::label("Switch")
-                        .on_press(Message::Command(AppCommand::SwitchEnvironment))
-                ))
-                .fill_width(),
+            Switch::setting("Automatic refresh", self.auto_refresh)
+                .description("Apply incoming monitor updates immediately")
+                .on_toggle(Message::AutoRefreshChanged),
+            nive_text::section_label("Environment"),
+            SegmentedControl::new(
+                "Monitor environment",
+                self.model.environment,
+                [
+                    SegmentedOption::new(Environment::Production, "Production"),
+                    SegmentedOption::new(Environment::Staging, "Staging"),
+                ],
+            )
+            .on_select(Message::EnvironmentChanged)
+            .fill_width(),
+            nive_text::section_label("Dashboard filter"),
+            SegmentedControl::new(
+                "Dashboard filter",
+                self.monitor_filter,
+                [
+                    SegmentedOption::new(MonitorFilter::All, "All services"),
+                    SegmentedOption::new(MonitorFilter::Attention, "Attention"),
+                ],
+            )
+            .linked()
+            .on_select(Message::MonitorFilterChanged)
+            .fill_width(),
             DataRow::new("Theme")
                 .value(if matches!(self.theme, ThemePreference::Dark) {
                     "dark"
