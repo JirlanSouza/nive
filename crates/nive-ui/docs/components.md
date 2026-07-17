@@ -259,6 +259,36 @@ Explicit-width labels ellipsize and disclose the complete Cow only while
 truncated. Icon-only construction requires semantic text independently from a
 tooltip.
 
+## Selection Controls
+
+| Intent | Canonical control | Value/callback |
+| --- | --- | --- |
+| Submitted independent choice | `Checkbox` | `CheckboxState` / `on_toggle` |
+| One visible choice among options | `RadioGroup<T>` | `Option<T>` / `on_select` |
+| Immediate binary setting | `Switch::inline` or `Switch::setting` | `bool` / `on_toggle` |
+| Two through five fixed modes or filters | `SegmentedControl<T>` | `T` / `on_select` |
+| Longer or open-ended option set | `Select<T>` | popup-backed selection |
+| Documents/views with lifecycle | `TabBar` | navigation-owned active id |
+
+`CheckboxState::Mixed` is an app-supplied aggregate value. Activation requests
+`Mixed -> Checked`; there is no user cycle into Mixed. Checkbox owns its inline
+label and optional error, while RadioGroup owns its legend and one group error.
+Radio and segmented option values must be unique.
+
+Choice outer heights follow the complete density-by-size form table above.
+Checkbox/Radio indicators are 14/16/18/20 px for Xs/Sm/Md/Lg. Switch tracks are
+28x16, 32x18, 36x20, and 40x22 px with a 2 px thumb inset. Focus is a
+layout-neutral 2 px overlay and can coexist with selected or invalid state.
+
+RadioGroup is one tab entry with circular physical LTR arrow navigation.
+SegmentedControl is one tab entry with bounded Left/Right and Home/End. Callback
+absence removes focus and hover/pressed behavior without applying disabled
+colors. Native accessibility-tree emission is not claimed yet.
+
+`Switch::new(value).label(...)`, `SegmentedControl::flat`,
+`LegacySegmentedControl`, and `SegmentedItem` are bounded one-release migration
+bridges. See `docs/migrations/selection-controls.md` from the repository root.
+
 Input semantic names, Field labels/requirements/support, FieldGroup headings,
 and icon action names are retained for a future accessibility bridge. Iced
 0.14 does not currently let Nive emit the required native AccessKit

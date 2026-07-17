@@ -5,7 +5,7 @@ use iced::{
 
 use nive_ui::theme::{self, GapRole, PaddingRole, SurfaceRole};
 use nive_ui::widgets::containers::Panel;
-use nive_ui::widgets::controls::{input, SegmentedControl, SegmentedItem};
+use nive_ui::widgets::controls::{input, SegmentedControl, SegmentedOption};
 use nive_ui::Element;
 
 use crate::devtools::{
@@ -95,24 +95,18 @@ fn devtools_tabs<'a, Message>(
 where
     Message: Clone + 'a,
 {
-    SegmentedControl::new()
-        .item(
-            SegmentedItem::new("Resources")
-                .selected(state.active_tab == DevtoolsPanelTab::Resources)
-                .on_press(map(DevtoolsPanelMessage::SelectTab(
-                    DevtoolsPanelTab::Resources,
-                ))),
-        )
-        .item(
-            SegmentedItem::new("Operations")
-                .selected(state.active_tab == DevtoolsPanelTab::Operations)
-                .on_press(map(DevtoolsPanelMessage::SelectTab(
-                    DevtoolsPanelTab::Operations,
-                ))),
-        )
-        .xs()
-        .fill_width()
-        .into()
+    SegmentedControl::new(
+        "Devtools panel",
+        state.active_tab,
+        [
+            SegmentedOption::new(DevtoolsPanelTab::Resources, "Resources"),
+            SegmentedOption::new(DevtoolsPanelTab::Operations, "Operations"),
+        ],
+    )
+    .on_select(move |tab| map(DevtoolsPanelMessage::SelectTab(tab)))
+    .xs()
+    .fill_width()
+    .into()
 }
 
 fn tab_toolbar<'a, Message>(

@@ -39,6 +39,25 @@ The individual `theme::*` and `widgets::*` submodules remain public for advanced
 composition and tests, but apps should prefer the root/prelude/widget reexports
 unless a lower-level style function or widget state helper is needed.
 
+### Selection controls
+
+Use `Checkbox` for submitted independent choices, including controlled
+`CheckboxState::Mixed`; `RadioGroup` for one visible choice among labelled
+options; `Switch::inline` or `Switch::setting` for an immediate binary setting;
+and typed `SegmentedControl` for two through five fixed modes or filters. Use
+popup-backed `Select` for longer or open-ended option sets and `TabBar` for
+documents or views with their own lifecycle.
+
+All four controls are controlled: callbacks request the next typed value and the
+application supplies the next view state. Missing callbacks mean display-only,
+while `disabled(true)` suppresses interaction and applies disabled presentation.
+Switch state changes are immediate; async persistence and failure UI remain
+host-owned. Visible labels and preparatory semantic metadata do not yet imply
+native accessibility-tree emission.
+
+See [the selection-controls migration guide](../../docs/migrations/selection-controls.md)
+for callback and compatibility changes.
+
 ## Structural widget contracts
 
 ### Form controls and composition

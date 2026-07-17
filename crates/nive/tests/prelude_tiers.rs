@@ -317,6 +317,55 @@ mod umbrella_form_contract {
     }
 }
 
+mod umbrella_selection_contract {
+    use nive::prelude::*;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum Choice {
+        None,
+        First,
+        Second,
+    }
+
+    pub(super) fn _assert_typed_selection_compiles() {
+        let _: Element<'_, ()> = Checkbox::new("Choice", CheckboxState::Mixed)
+            .on_toggle(|_: CheckboxState| ())
+            .into();
+        let _: Element<'_, ()> = RadioGroup::new(
+            "Radio choices",
+            Some(Choice::None),
+            [
+                RadioOption::new(Choice::None, "None"),
+                RadioOption::new(Choice::First, "First"),
+            ],
+        )
+        .on_select(|_: Choice| ())
+        .into();
+        let _: Element<'_, ()> = Switch::setting("Immediate setting", true)
+            .on_toggle(|_: bool| ())
+            .into();
+        let _: Element<'_, ()> = SegmentedControl::new(
+            "Mode",
+            Choice::First,
+            [
+                SegmentedOption::new(Choice::First, "First"),
+                SegmentedOption::new(Choice::Second, "Second"),
+            ],
+        )
+        .on_select(|_: Choice| ())
+        .into();
+    }
+}
+
+mod extended_selection_contract {
+    use nive::prelude::ui::*;
+
+    pub(super) fn _assert_ui_prelude_selection_compiles() {
+        let _: Element<'_, ()> = Checkbox::new("Choice", true).into();
+        let _: Element<'_, ()> = Switch::inline("Immediate", false).into();
+    }
+}
+
 #[test]
 fn minimal_prelude_compiles_counter_template() {
     minimal_tier_counter::_assert_application_compiles_with_only_minimal_prelude();
@@ -345,4 +394,10 @@ fn umbrella_prelude_exposes_chrome_size() {
 #[test]
 fn umbrella_prelude_exposes_typed_form_contract() {
     umbrella_form_contract::_assert_typed_form_compiles();
+}
+
+#[test]
+fn public_preludes_expose_typed_selection_contracts() {
+    umbrella_selection_contract::_assert_typed_selection_compiles();
+    extended_selection_contract::_assert_ui_prelude_selection_compiles();
 }
