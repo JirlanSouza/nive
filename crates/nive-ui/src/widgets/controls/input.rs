@@ -1,6 +1,4 @@
-mod adapter;
-mod blur;
-mod focus_tracker;
+pub(super) mod adapter;
 mod style;
 
 use std::{borrow::Cow, cell::Cell, rc::Rc};
@@ -16,7 +14,6 @@ use crate::theme::ControlSize;
 use crate::Element;
 
 use self::style as theme_text_input;
-use self::{blur::InputBlur, focus_tracker::InputFocusTracker};
 use super::form_frame::{FormControlFrame, FormFrameAppearance};
 use adapter::{InputEvent, TextInputAdapter};
 
@@ -393,26 +390,14 @@ where
             content: input,
             on_change: self.on_change,
             on_submit: self.on_submit,
+            on_blur: self.on_blur,
+            focus_tracker: self.focus_tracker,
             semantic_name: self.semantic_name,
             read_only: effective_read_only,
             disabled: self.disabled,
         });
 
-        let input = match self.on_blur {
-            Some(on_blur) => Element::new(InputBlur {
-                content: input,
-                on_blur,
-            }),
-            None => input,
-        };
-
-        match self.focus_tracker {
-            Some(focused) => Element::new(InputFocusTracker {
-                content: input,
-                focused,
-            }),
-            None => input,
-        }
+        input
     }
 }
 
@@ -434,7 +419,9 @@ mod text_input_tests {
             key::{Code, Named, Physical},
             Key, Location, Modifiers,
         },
-        mouse, Event, Point, Size,
+        mouse,
+        widget::Column,
+        Event, Point, Size,
     };
 
     use super::*;
@@ -583,6 +570,45 @@ mod text_input_tests {
         disabled.focus(disabled_id);
 
         assert_eq!(disabled.focused_count().focused, None);
+    }
+
+    #[test]
+    fn tab_continues_after_the_last_pointer_focused_input_is_blurred() {
+        let ids = [Id::new("first"), Id::new("second"), Id::new("third")];
+        let second_visual_focus = Rc::new(Cell::new(false));
+        let column = Column::new()
+            .push(
+                Input::new("Value", "")
+                    .id(ids[0].clone())
+                    .on_change(|value| value),
+            )
+            .push(
+                Input::new("Value", "")
+                    .id(ids[1].clone())
+                    .track_focus(Rc::clone(&second_visual_focus))
+                    .on_change(|value| value),
+            )
+            .push(
+                Input::new("Value", "")
+                    .id(ids[2].clone())
+                    .on_change(|value| value),
+            );
+        let mut harness = WidgetHarness::new(column.into(), Size::new(240.0, 140.0));
+
+        harness.set_cursor(Point::new(20.0, 42.0));
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        assert_eq!(harness.focused_ids(), [ids[1].clone()]);
+
+        harness.set_cursor(Point::new(20.0, 120.0));
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        assert!(!second_visual_focus.get());
+
+        harness.focus_next();
+        assert_eq!(harness.focused_ids(), [ids[2].clone()]);
     }
 
     #[test]

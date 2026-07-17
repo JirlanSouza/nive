@@ -1,12 +1,16 @@
-use std::borrow::Cow;
+use std::{any::Any, borrow::Cow, cell::Cell, rc::Rc};
 
 use iced::{
     advanced::{
         input_method, layout, mouse, overlay, renderer,
-        widget::{operation, tree, Tree},
+        widget::{
+            operation::{self, Focusable, Operation, Scrollable, TextInput},
+            tree, Tree,
+        },
         Clipboard, Layout, Shell, Widget,
     },
     keyboard::{self, key::Named, Key},
+    widget::Id,
     Event, Length, Rectangle, Size, Vector,
 };
 
@@ -22,6 +26,8 @@ pub(super) struct TextInputAdapter<'a, Message> {
     pub(super) content: Element<'a, InputEvent>,
     pub(super) on_change: Option<Box<dyn Fn(String) -> Message + 'a>>,
     pub(super) on_submit: Option<Message>,
+    pub(super) on_blur: Option<Message>,
+    pub(super) focus_tracker: Option<Rc<Cell<bool>>>,
     pub(super) semantic_name: Option<Cow<'a, str>>,
     pub(super) read_only: bool,
     pub(super) disabled: bool,
@@ -30,6 +36,8 @@ pub(super) struct TextInputAdapter<'a, Message> {
 #[derive(Debug)]
 struct AdapterState {
     disabled: bool,
+    logical_focus: bool,
+    visual_focus: bool,
 }
 
 impl<'a, Message> Widget<Message, crate::theme::Theme, iced::Renderer>
@@ -44,6 +52,8 @@ where
     fn state(&self) -> tree::State {
         tree::State::new(AdapterState {
             disabled: self.disabled,
+            logical_focus: false,
+            visual_focus: false,
         })
     }
 
@@ -56,6 +66,9 @@ where
 
         if self.disabled && !state.disabled {
             tree.children[0] = Tree::new(&self.content);
+            state.logical_focus = false;
+            state.visual_focus = false;
+            self.sync_focus_tracker(false);
         } else {
             tree.children[0].diff(self.content.as_widget());
         }
@@ -90,12 +103,21 @@ where
         operation: &mut dyn operation::Operation,
     ) {
         if !self.disabled {
+            let state = tree.state.downcast_mut::<AdapterState>();
+            operation.custom(None, layout.bounds(), state);
+            let mut operation = LogicalFocusOperation {
+                operation,
+                logical_focus: &mut state.logical_focus,
+            };
             self.content.as_widget_mut().operate(
                 &mut tree.children[0],
                 layout,
                 renderer,
-                operation,
+                &mut operation,
             );
+            state.visual_focus =
+                child_has_native_focus(&mut self.content, &mut tree.children[0], layout, renderer);
+            self.sync_focus_tracker(state.visual_focus);
         }
     }
 
@@ -112,6 +134,20 @@ where
     ) {
         if self.disabled {
             return;
+        }
+
+        let state = tree.state.downcast_mut::<AdapterState>();
+        let was_focused =
+            child_has_native_focus(&mut self.content, &mut tree.children[0], layout, renderer);
+
+        if is_primary_press(event) {
+            if cursor.is_over(layout.bounds()) {
+                state.logical_focus = true;
+            } else if shell.is_event_captured() {
+                state.logical_focus = false;
+            }
+        } else if matches!(event, Event::Window(iced::window::Event::Unfocused)) {
+            state.logical_focus = false;
         }
 
         if self.read_only && is_mutating_event(event) {
@@ -174,6 +210,20 @@ where
                         shell.publish(on_submit.clone());
                     }
                 }
+            }
+        }
+
+        let is_focused =
+            child_has_native_focus(&mut self.content, &mut tree.children[0], layout, renderer);
+        if is_focused {
+            state.logical_focus = true;
+        }
+        state.visual_focus = is_focused;
+        self.sync_focus_tracker(is_focused);
+
+        if was_focused && !is_focused {
+            if let Some(on_blur) = &self.on_blur {
+                shell.publish(on_blur.clone());
             }
         }
     }
@@ -241,6 +291,156 @@ where
             "Iced TextInput unexpectedly produced an overlay"
         );
         None
+    }
+}
+
+impl<Message> TextInputAdapter<'_, Message> {
+    fn sync_focus_tracker(&self, focused: bool) {
+        if let Some(tracker) = &self.focus_tracker {
+            tracker.set(focused);
+        }
+    }
+}
+
+struct LogicalFocusOperation<'a> {
+    operation: &'a mut dyn Operation,
+    logical_focus: &'a mut bool,
+}
+
+impl Operation for LogicalFocusOperation<'_> {
+    fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn Operation)) {
+        self.operation.traverse(&mut |operation| {
+            operate(&mut LogicalFocusOperation {
+                operation,
+                logical_focus: self.logical_focus,
+            });
+        });
+    }
+
+    fn container(&mut self, id: Option<&Id>, bounds: Rectangle) {
+        self.operation.container(id, bounds);
+    }
+
+    fn scrollable(
+        &mut self,
+        id: Option<&Id>,
+        bounds: Rectangle,
+        content_bounds: Rectangle,
+        translation: Vector,
+        state: &mut dyn Scrollable,
+    ) {
+        self.operation
+            .scrollable(id, bounds, content_bounds, translation, state);
+    }
+
+    fn focusable(&mut self, id: Option<&Id>, bounds: Rectangle, state: &mut dyn Focusable) {
+        self.operation.focusable(
+            id,
+            bounds,
+            &mut LogicalFocus {
+                native: state,
+                logical: self.logical_focus,
+            },
+        );
+    }
+
+    fn text_input(&mut self, id: Option<&Id>, bounds: Rectangle, state: &mut dyn TextInput) {
+        self.operation.text_input(id, bounds, state);
+    }
+
+    fn text(&mut self, id: Option<&Id>, bounds: Rectangle, text: &str) {
+        self.operation.text(id, bounds, text);
+    }
+
+    fn custom(&mut self, id: Option<&Id>, bounds: Rectangle, state: &mut dyn Any) {
+        self.operation.custom(id, bounds, state);
+    }
+}
+
+struct LogicalFocus<'a> {
+    native: &'a mut dyn Focusable,
+    logical: &'a mut bool,
+}
+
+impl Focusable for LogicalFocus<'_> {
+    fn is_focused(&self) -> bool {
+        self.native.is_focused() || *self.logical
+    }
+
+    fn focus(&mut self) {
+        self.native.focus();
+        *self.logical = true;
+    }
+
+    fn unfocus(&mut self) {
+        self.native.unfocus();
+        *self.logical = false;
+    }
+}
+
+fn child_has_native_focus(
+    content: &mut Element<'_, InputEvent>,
+    tree: &mut Tree,
+    layout: Layout<'_>,
+    renderer: &iced::Renderer,
+) -> bool {
+    let mut count = operation::focusable::count();
+    content.as_widget_mut().operate(
+        tree,
+        layout,
+        renderer,
+        &mut operation::black_box(&mut count),
+    );
+
+    matches!(
+        count.finish(),
+        operation::Outcome::Some(operation::focusable::Count {
+            focused: Some(_),
+            ..
+        })
+    )
+}
+
+fn is_primary_press(event: &Event) -> bool {
+    matches!(
+        event,
+        Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
+            | Event::Touch(iced::touch::Event::FingerPressed { .. })
+    )
+}
+
+pub(in crate::widgets::controls) fn content_has_visual_focus<Message>(
+    content: &mut Element<'_, Message>,
+    tree: &mut Tree,
+    layout: Layout<'_>,
+    renderer: &iced::Renderer,
+) -> bool {
+    let mut visual_focus = VisualFocus(false);
+    content.as_widget_mut().operate(
+        tree,
+        layout,
+        renderer,
+        &mut operation::black_box(&mut visual_focus),
+    );
+
+    matches!(visual_focus.finish(), operation::Outcome::Some(true))
+}
+
+struct VisualFocus(bool);
+
+impl Operation<bool> for VisualFocus {
+    fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn Operation<bool>)) {
+        operate(self);
+    }
+
+    fn custom(&mut self, _id: Option<&Id>, _bounds: Rectangle, state: &mut dyn Any) {
+        if let Some(state) = state.downcast_ref::<AdapterState>() {
+            self.0 |= state.visual_focus;
+        }
+    }
+
+    fn finish(&self) -> operation::Outcome<bool> {
+        operation::Outcome::Some(self.0)
     }
 }
 
@@ -326,6 +526,23 @@ mod adapter_tests {
             Modifiers::NONE,
             None,
         )));
+    }
+
+    #[test]
+    fn visual_focus_query_ignores_the_logical_navigation_anchor() {
+        let mut operation = VisualFocus(false);
+        let mut state = AdapterState {
+            disabled: false,
+            logical_focus: true,
+            visual_focus: false,
+        };
+
+        operation.custom(None, Rectangle::default(), &mut state);
+
+        assert!(matches!(
+            operation.finish(),
+            operation::Outcome::Some(false)
+        ));
     }
 
     #[test]
