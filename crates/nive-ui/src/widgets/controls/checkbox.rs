@@ -1,45 +1,135 @@
-use iced::{
-    border::Radius,
-    widget::checkbox::Status,
-    widget::{checkbox as iced_checkbox, text, Checkbox as IcedCheckbox},
-    Background, Border, Color, Length,
-};
+use std::borrow::Cow;
 
-use crate::theme::{
-    self, control_metrics, ControlRole, ControlSize, ControlState, SpaceStep, TextRole, ToneRole,
-};
+use iced::{widget, Length};
+
+use crate::theme::{ControlSize, FieldValidation};
 use crate::Element;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct CheckboxMetrics {
-    size: f32,
-    radius: f32,
-    spacing: f32,
-    font_size: f32,
+use super::field::{normalized_error, FieldError};
+use super::single_choice::{SingleChoice, SingleChoiceKind, SingleChoiceLayout};
+use crate::theme::choice::ChoicePersistentState;
+
+/// Controlled Checkbox value.
+///
+/// User activation requests `Unchecked → Checked`, `Checked → Unchecked`, and
+/// `Mixed → Checked`. The application remains the durable state owner.
+///
+/// ```compile_fail
+/// use nive_ui::theme::choice::ChoiceMetrics;
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum CheckboxState {
+    /// The choice is not selected.
+    #[default]
+    Unchecked,
+    /// The choice is selected.
+    Checked,
+    /// An app-owned aggregate contains both checked and unchecked values.
+    Mixed,
 }
 
+impl CheckboxState {
+    /// Returns the value requested by one user activation.
+    ///
+    /// Mixed activates to Checked; users do not cycle into Mixed.
+    pub const fn next(self) -> Self {
+        match self {
+            Self::Unchecked | Self::Mixed => Self::Checked,
+            Self::Checked => Self::Unchecked,
+        }
+    }
+}
+
+impl From<bool> for CheckboxState {
+    fn from(checked: bool) -> Self {
+        if checked {
+            Self::Checked
+        } else {
+            Self::Unchecked
+        }
+    }
+}
+
+/// A controlled submitted choice with an inline visible label.
+///
+/// The constructor is the sole durable-state input. The optional description is
+/// inside the complete target, while a normalized nonempty error is rendered
+/// outside it and owns invalid presentation. With no callback the checkbox is
+/// display-only; [`Checkbox::disabled`] additionally applies disabled styling.
+/// Retained text and keyboard behavior do not yet imply native accessibility-tree
+/// emission.
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+///
+/// // State belongs only in the constructor; there is no competing builder.
+/// let _ = Checkbox::<()>::new("Choice", false).checked(true);
+/// ```
 pub struct Checkbox<'a, Message> {
-    label: &'a str,
-    checked: bool,
+    label: Cow<'a, str>,
+    state: CheckboxState,
+    description: Option<Cow<'a, str>>,
+    error: Option<Cow<'a, str>>,
     size: ControlSize,
-    width: Option<Length>,
+    width: Length,
     disabled: bool,
-    on_toggle: Option<Box<dyn Fn(bool) -> Message + 'a>>,
+    id: Option<widget::Id>,
+    on_toggle: Option<Box<dyn Fn(CheckboxState) -> Message + 'a>>,
 }
 
 impl<'a, Message> Checkbox<'a, Message>
 where
     Message: Clone + 'a,
 {
-    pub fn new(label: &'a str, checked: bool) -> Self {
+    pub fn new(label: impl Into<Cow<'a, str>>, state: impl Into<CheckboxState>) -> Self {
+        let label = label.into();
+        debug_assert!(
+            !label.trim().is_empty(),
+            "Checkbox requires a nonempty visible label"
+        );
+
         Self {
             label,
-            checked,
+            state: state.into(),
+            description: None,
+            error: None,
             size: ControlSize::Sm,
-            width: None,
+            width: Length::Shrink,
             disabled: false,
+            id: None,
             on_toggle: None,
         }
+    }
+
+    pub fn description(mut self, description: impl Into<Cow<'a, str>>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    pub fn description_maybe<T>(mut self, description: Option<T>) -> Self
+    where
+        T: Into<Cow<'a, str>>,
+    {
+        self.description = description.map(Into::into);
+        self
+    }
+
+    pub fn error(mut self, error: impl Into<Cow<'a, str>>) -> Self {
+        self.error = Some(error.into());
+        self
+    }
+
+    pub fn error_maybe<T>(mut self, error: Option<T>) -> Self
+    where
+        T: Into<Cow<'a, str>>,
+    {
+        self.error = error.map(Into::into);
+        self
+    }
+
+    pub fn id(mut self, id: widget::Id) -> Self {
+        self.id = Some(id);
+        self
     }
 
     pub fn size(mut self, size: ControlSize) -> Self {
@@ -63,38 +153,67 @@ where
         self.size(ControlSize::Lg)
     }
 
-    crate::impl_layout_builders!(width_opt, fill_width_opt, shrink_width_opt);
+    crate::impl_layout_builders!(width_direct, fill_width_direct, shrink_width_direct);
 
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
     }
 
-    pub fn on_toggle(mut self, on_toggle: impl Fn(bool) -> Message + 'a) -> Self {
+    pub fn on_toggle(mut self, on_toggle: impl Fn(CheckboxState) -> Message + 'a) -> Self {
         self.on_toggle = Some(Box::new(on_toggle));
         self
     }
 
-    pub fn on_toggle_maybe(mut self, on_toggle: Option<impl Fn(bool) -> Message + 'a>) -> Self {
+    pub fn on_toggle_maybe(
+        mut self,
+        on_toggle: Option<impl Fn(CheckboxState) -> Message + 'a>,
+    ) -> Self {
         self.on_toggle = on_toggle.map(|on_toggle| Box::new(on_toggle) as _);
         self
     }
 
-    fn into_checkbox(self) -> IcedCheckbox<'a, Message, crate::theme::Theme> {
-        let metrics = metrics(self.size);
-        let mut checkbox = iced_checkbox(self.checked)
-            .label(self.label)
-            .size(metrics.size)
-            .spacing(metrics.spacing)
-            .text_size(metrics.font_size)
-            .text_shaping(text::Shaping::Auto)
-            .style(style(metrics.radius.into()));
+    fn into_element(self) -> Element<'a, Message> {
+        let error = normalized_error(self.error);
+        let validation = if error.is_some() {
+            FieldValidation::Invalid
+        } else {
+            FieldValidation::Valid
+        };
+        let persistent = match self.state {
+            CheckboxState::Unchecked => ChoicePersistentState::Unselected,
+            CheckboxState::Checked => ChoicePersistentState::Selected,
+            CheckboxState::Mixed => ChoicePersistentState::Mixed,
+        };
+        let message = self
+            .on_toggle
+            .as_ref()
+            .map(|on_toggle| on_toggle(self.state.next()));
+        let target: Element<'a, Message> = SingleChoice::new(
+            SingleChoiceKind::Checkbox,
+            SingleChoiceLayout::Leading,
+            self.label,
+            persistent,
+        )
+        .description(self.description)
+        .validation(validation)
+        .size(self.size)
+        .width(self.width)
+        .disabled(self.disabled)
+        .id(self.id)
+        .on_activate(message)
+        .into();
 
-        if let Some(width) = self.width {
-            checkbox = checkbox.width(width);
+        if let Some(error) = error {
+            widget::Column::new()
+                .push(target)
+                .push(FieldError::new(error).into_element())
+                .spacing(crate::theme::space(crate::theme::SpaceStep::Xs))
+                .width(self.width)
+                .into()
+        } else {
+            target
         }
-
-        checkbox.on_toggle_maybe(if self.disabled { None } else { self.on_toggle })
     }
 }
 
@@ -103,227 +222,132 @@ where
     Message: Clone + 'a,
 {
     fn from(checkbox: Checkbox<'a, Message>) -> Self {
-        checkbox.into_checkbox().into()
-    }
-}
-
-fn metrics(size: ControlSize) -> CheckboxMetrics {
-    let control = control_metrics(size);
-
-    CheckboxMetrics {
-        size: match size {
-            ControlSize::Xs => 14.0,
-            ControlSize::Sm => 16.0,
-            ControlSize::Md => 18.0,
-            ControlSize::Lg => 20.0,
-        },
-        radius: control.radius.min(5.0),
-        spacing: theme::space(SpaceStep::Md).max(control.gap),
-        font_size: control.font_size,
-    }
-}
-
-fn style(radius: Radius) -> impl Fn(&crate::theme::Theme, Status) -> iced_checkbox::Style {
-    move |theme: &crate::theme::Theme, status: Status| {
-        let theme = *theme;
-        let is_checked = match status {
-            Status::Active { is_checked }
-            | Status::Hovered { is_checked }
-            | Status::Disabled { is_checked } => is_checked,
-        };
-        let state = match status {
-            Status::Active { .. } => ControlState::ENABLED,
-            Status::Hovered { .. } => ControlState::HOVERED,
-            Status::Disabled { .. } => ControlState::DISABLED,
-        };
-        let control = theme.control(ControlRole::Standard, state);
-        let primary = theme.tone(ToneRole::Accent);
-        let disabled = matches!(status, Status::Disabled { .. });
-        let alpha = if disabled { 0.55 } else { 1.0 };
-
-        iced_checkbox::Style {
-            background: Background::Color(if is_checked {
-                primary.color.scale_alpha(alpha)
-            } else {
-                control.background
-            }),
-            icon_color: if is_checked {
-                theme.tone(ToneRole::Accent).on_color.scale_alpha(alpha)
-            } else {
-                Color::TRANSPARENT
-            },
-            border: Border {
-                color: if is_checked {
-                    primary.border.color.scale_alpha(alpha)
-                } else {
-                    control.border.color
-                },
-                width: if is_checked {
-                    primary.border.width
-                } else {
-                    control.border.width
-                },
-                radius,
-            },
-            text_color: Some(if disabled {
-                theme.text(TextRole::Muted).color.scale_alpha(0.65)
-            } else {
-                theme.text(TextRole::Secondary).color
-            }),
-        }
+        checkbox.into_element()
     }
 }
 
 #[cfg(test)]
-mod checkbox_tests {
+mod tests {
+    use std::borrow::Cow;
+
+    use iced::{keyboard::key, Point, Size};
+
     use super::*;
-    use crate::theme::Theme;
-    use iced::{
-        advanced::{
-            layout::{Layout, Limits, Node},
-            mouse,
-            widget::Tree,
-            Shell,
-        },
-        Event, Font, Pixels, Point, Rectangle, Size, Vector,
+    use crate::test_support::WidgetHarness;
+    use crate::widgets::controls::choice_test_support::{
+        key_pressed, key_released, pointer_click, touch_tap,
     };
 
-    const ORIGIN: Vector = Vector::new(16.0, 16.0);
-
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     enum Message {
-        Toggled(bool),
-    }
-
-    struct Harness<'a> {
-        element: Element<'a, Message>,
-        tree: Tree,
-        node: Node,
-        renderer: iced::Renderer,
-    }
-
-    impl<'a> Harness<'a> {
-        fn new(element: Element<'a, Message>) -> Self {
-            let tree = Tree::new(&element);
-            let mut harness = Self {
-                element,
-                tree,
-                node: Node::new(Size::ZERO),
-                renderer: test_renderer(),
-            };
-            harness.layout();
-            harness
-        }
-
-        fn layout(&mut self) {
-            self.element.as_widget_mut().diff(&mut self.tree);
-            self.node = self.element.as_widget_mut().layout(
-                &mut self.tree,
-                &self.renderer,
-                &Limits::new(Size::ZERO, Size::new(240.0, 80.0)),
-            );
-        }
-
-        fn center(&self) -> Point {
-            let bounds = Layout::with_offset(ORIGIN, &self.node).bounds();
-
-            Point::new(
-                bounds.x + bounds.width / 2.0,
-                bounds.y + bounds.height / 2.0,
-            )
-        }
-
-        fn click(&mut self, position: Point) -> Vec<Message> {
-            let mut messages = Vec::new();
-            let mut clipboard = iced::advanced::clipboard::Null;
-            let viewport = Rectangle::new(Point::ORIGIN, Size::new(4096.0, 4096.0));
-            let events = [
-                Event::Mouse(mouse::Event::CursorMoved { position }),
-                Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
-                Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)),
-            ];
-
-            for event in events {
-                let cursor = mouse::Cursor::Available(position);
-                let mut shell = Shell::new(&mut messages);
-                self.element.as_widget_mut().update(
-                    &mut self.tree,
-                    &event,
-                    Layout::with_offset(ORIGIN, &self.node),
-                    cursor,
-                    &self.renderer,
-                    &mut clipboard,
-                    &mut shell,
-                    &viewport,
-                );
-            }
-
-            messages
-        }
-    }
-
-    fn test_renderer() -> iced::Renderer {
-        iced_renderer::fallback::Renderer::Secondary(iced_tiny_skia::Renderer::new(
-            Font::default(),
-            Pixels(14.0),
-        ))
+        Toggled(CheckboxState),
     }
 
     #[test]
-    fn checked_checkbox_uses_app_primary_background() {
-        let theme = Theme::Dark;
-        let checkbox = style(Radius::new(4.0))(&theme, Status::Active { is_checked: true });
+    fn state_model_and_bool_conversion_are_deterministic() {
+        assert_eq!(CheckboxState::default(), CheckboxState::Unchecked);
+        assert_eq!(CheckboxState::from(false), CheckboxState::Unchecked);
+        assert_eq!(CheckboxState::from(true), CheckboxState::Checked);
+        assert_eq!(CheckboxState::Unchecked.next(), CheckboxState::Checked);
+        assert_eq!(CheckboxState::Checked.next(), CheckboxState::Unchecked);
+        assert_eq!(CheckboxState::Mixed.next(), CheckboxState::Checked);
+    }
 
-        assert_eq!(
-            background_color(checkbox.background),
-            theme.tone(ToneRole::Accent).color
+    #[test]
+    fn owned_and_borrowed_data_and_error_normalization_render() {
+        let borrowed: Element<'_, Message> = Checkbox::new("Borrowed", false)
+            .description("Description")
+            .error("   ")
+            .into();
+        let owned: Element<'_, Message> =
+            Checkbox::new(String::from("Owned"), CheckboxState::Mixed)
+                .description(String::from("Description"))
+                .error(String::from("Required"))
+                .into();
+
+        assert!(
+            WidgetHarness::new(borrowed, Size::new(240.0, 120.0))
+                .bounds()
+                .height
+                > 0.0
         );
-    }
-
-    #[test]
-    fn unchecked_checkbox_uses_app_active_control_background() {
-        let theme = Theme::Dark;
-        let checkbox = style(Radius::new(4.0))(&theme, Status::Active { is_checked: false });
-
-        assert_eq!(
-            background_color(checkbox.background),
-            theme
-                .control(ControlRole::Standard, ControlState::ENABLED)
-                .background
+        assert!(
+            WidgetHarness::new(owned, Size::new(240.0, 120.0))
+                .bounds()
+                .height
+                > 28.0
         );
-    }
-
-    fn background_color(background: Background) -> Color {
-        match background {
-            Background::Color(color) => color,
-            _ => panic!("Expected color background"),
-        }
+        assert_eq!(normalized_error(Some(Cow::Borrowed(" \n"))), None);
     }
 
     #[test]
-    fn enabled_checkbox_with_callback_emits_toggle() {
-        let checkbox: Element<'_, Message> = Checkbox::new("Enabled", false)
+    fn every_modality_publishes_the_next_state_once() {
+        let checkbox = || -> Element<'static, Message> {
+            Checkbox::new("Mixed", CheckboxState::Mixed)
+                .id(widget::Id::new("checkbox"))
+                .on_toggle(Message::Toggled)
+                .into()
+        };
+
+        let mut pointer = WidgetHarness::new(checkbox(), Size::new(240.0, 80.0));
+        assert_eq!(
+            pointer_click(&mut pointer, Point::new(8.0, 8.0)),
+            [Message::Toggled(CheckboxState::Checked)]
+        );
+
+        let mut touch = WidgetHarness::new(checkbox(), Size::new(240.0, 80.0));
+        assert_eq!(
+            touch_tap(&mut touch, 1, Point::new(8.0, 8.0)),
+            [Message::Toggled(CheckboxState::Checked)]
+        );
+
+        let id = widget::Id::new("checkbox");
+        let keyboard_checkbox: Element<'_, Message> = Checkbox::new("Mixed", CheckboxState::Mixed)
+            .id(id.clone())
             .on_toggle(Message::Toggled)
             .into();
-        let mut harness = Harness::new(checkbox);
-        let center = harness.center();
-
-        let messages = harness.click(center);
-
-        assert_eq!(messages, vec![Message::Toggled(true)]);
+        let mut keyboard = WidgetHarness::new(keyboard_checkbox, Size::new(240.0, 80.0));
+        keyboard.focus(id);
+        assert!(keyboard
+            .update(key_pressed(key::Named::Space, key::Code::Space))
+            .messages
+            .is_empty());
+        assert_eq!(
+            keyboard
+                .update(key_released(key::Named::Space, key::Code::Space))
+                .messages,
+            [Message::Toggled(CheckboxState::Checked)]
+        );
     }
 
     #[test]
-    fn disabled_checkbox_ignores_present_callback() {
-        let checkbox: Element<'_, Message> = Checkbox::new("Disabled", false)
-            .on_toggle(Message::Toggled)
+    fn callback_absence_and_disabled_remove_focus_and_activation() {
+        let display: Element<'_, Message> = Checkbox::new("Display", true).into();
+        let disabled: Element<'_, Message> = Checkbox::new("Disabled", CheckboxState::Mixed)
             .disabled(true)
+            .on_toggle(Message::Toggled)
             .into();
-        let mut harness = Harness::new(checkbox);
-        let center = harness.center();
+        let mut display = WidgetHarness::new(display, Size::new(240.0, 80.0));
+        let mut disabled = WidgetHarness::new(disabled, Size::new(240.0, 80.0));
 
-        let messages = harness.click(center);
+        assert_eq!(display.focusable_ids().len(), 0);
+        assert_eq!(disabled.focusable_ids().len(), 0);
+        assert!(pointer_click(&mut display, Point::new(8.0, 8.0)).is_empty());
+        assert!(pointer_click(&mut disabled, Point::new(8.0, 8.0)).is_empty());
+    }
 
-        assert!(messages.is_empty());
+    #[test]
+    fn every_size_uses_the_form_height_floor() {
+        for (size, height) in [
+            (ControlSize::Xs, 24.0),
+            (ControlSize::Sm, 28.0),
+            (ControlSize::Md, 32.0),
+            (ControlSize::Lg, 36.0),
+        ] {
+            let checkbox: Element<'_, Message> = Checkbox::new("Choice", false).size(size).into();
+            let harness = WidgetHarness::new(checkbox, Size::new(240.0, 80.0));
+
+            assert_eq!(harness.bounds().height, height);
+        }
     }
 }
