@@ -1,26 +1,36 @@
-use iced::{
-    widget::{toggler, Toggler},
-    Background, Color, Length,
-};
+use std::borrow::Cow;
 
-use crate::theme::{
-    self, control_metrics, BorderRole, ControlRole, ControlSize, ControlState, SpaceStep, TextRole,
-    ToneRole,
-};
+use iced::{widget, Length};
+
+use crate::theme::{choice::ChoicePersistentState, ControlSize};
 use crate::Element;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct SwitchMetrics {
-    size: u16,
-    spacing: f32,
-    text_size: f32,
+use super::single_choice::{SingleChoice, SingleChoiceKind, SingleChoiceLayout};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SwitchComposition {
+    TrackOnly,
+    Inline,
+    Setting,
 }
 
+/// A controlled immediate binary setting.
+///
+/// Use [`Switch::inline`] for intrinsic label-and-track composition and
+/// [`Switch::setting`] for a fill-width title/description row with a protected
+/// trailing track. Missing callbacks are display-only; explicit disabled state
+/// is visually distinct. State and thumb position change immediately—async
+/// persistence, failure, retry, and future motion preferences are host-owned.
+/// Retained semantic metadata does not yet emit a native accessibility node.
 pub struct Switch<'a, Message> {
     checked: bool,
-    label: Option<&'a str>,
+    label: Option<Cow<'a, str>>,
+    description: Option<Cow<'a, str>>,
+    semantic_name: Option<Cow<'a, str>>,
+    composition: SwitchComposition,
     size: ControlSize,
     disabled: bool,
+    id: Option<widget::Id>,
     on_toggle: Option<Box<dyn Fn(bool) -> Message + 'a>>,
 }
 
@@ -28,18 +38,88 @@ impl<'a, Message> Switch<'a, Message>
 where
     Message: Clone + 'a,
 {
+    /// Creates an intrinsic inline label-and-track composition.
+    pub fn inline(label: impl Into<Cow<'a, str>>, checked: bool) -> Self {
+        Self::canonical(label.into(), checked, SwitchComposition::Inline)
+    }
+
+    /// Creates a fill-width setting row with a protected trailing track.
+    pub fn setting(title: impl Into<Cow<'a, str>>, checked: bool) -> Self {
+        Self::canonical(title.into(), checked, SwitchComposition::Setting)
+    }
+
+    /// Creates an advanced track-only compatibility composition.
+    ///
+    /// Supply a nonempty [`Switch::semantic_name`] before rendering. Normal app
+    /// UI should prefer [`Switch::inline`] or [`Switch::setting`].
     pub fn new(checked: bool) -> Self {
         Self {
             checked,
             label: None,
+            description: None,
+            semantic_name: None,
+            composition: SwitchComposition::TrackOnly,
             size: ControlSize::Sm,
             disabled: false,
+            id: None,
             on_toggle: None,
         }
     }
 
-    pub fn label(mut self, label: &'a str) -> Self {
+    fn canonical(label: Cow<'a, str>, checked: bool, composition: SwitchComposition) -> Self {
+        debug_assert!(
+            !label.trim().is_empty(),
+            "Switch requires a nonempty visible label or title"
+        );
+
+        Self {
+            checked,
+            label: Some(label),
+            description: None,
+            semantic_name: None,
+            composition,
+            size: ControlSize::Sm,
+            disabled: false,
+            id: None,
+            on_toggle: None,
+        }
+    }
+
+    #[deprecated(
+        since = "0.1.0",
+        note = "use Switch::inline(label, value) or Switch::setting(title, value); this forwarder is removed in the next published release"
+    )]
+    pub fn label(mut self, label: impl Into<Cow<'a, str>>) -> Self {
+        let label = label.into();
+        debug_assert!(
+            !label.trim().is_empty(),
+            "Switch requires a nonempty visible label"
+        );
         self.label = Some(label);
+        self.composition = SwitchComposition::Inline;
+        self
+    }
+
+    pub fn description(mut self, description: impl Into<Cow<'a, str>>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    pub fn description_maybe<T>(mut self, description: Option<T>) -> Self
+    where
+        T: Into<Cow<'a, str>>,
+    {
+        self.description = description.map(Into::into);
+        self
+    }
+
+    pub fn semantic_name(mut self, semantic_name: impl Into<Cow<'a, str>>) -> Self {
+        self.semantic_name = Some(semantic_name.into());
+        self
+    }
+
+    pub fn id(mut self, id: widget::Id) -> Self {
+        self.id = Some(id);
         self
     }
 
@@ -79,20 +159,40 @@ where
         self
     }
 
-    fn into_toggler(self) -> Toggler<'a, Message, crate::theme::Theme> {
-        let metrics = metrics(self.size);
-        let mut switch = toggler(self.checked)
-            .size(u32::from(metrics.size))
-            .width(Length::Shrink)
-            .spacing(metrics.spacing)
-            .text_size(metrics.text_size)
-            .style(style);
+    fn into_element(self) -> Element<'a, Message> {
+        let label = self.label.unwrap_or_else(|| {
+            debug_assert!(
+                self.semantic_name
+                    .as_deref()
+                    .is_some_and(|name| !name.trim().is_empty()),
+                "track-only Switch requires nonempty semantic_name metadata"
+            );
+            Cow::Borrowed("")
+        });
+        let persistent = if self.checked {
+            ChoicePersistentState::Selected
+        } else {
+            ChoicePersistentState::Unselected
+        };
+        let message = self
+            .on_toggle
+            .as_ref()
+            .map(|on_toggle| on_toggle(!self.checked));
+        let (layout, width) = match self.composition {
+            SwitchComposition::Setting => (SingleChoiceLayout::Setting, Length::Fill),
+            SwitchComposition::Inline | SwitchComposition::TrackOnly => {
+                (SingleChoiceLayout::Leading, Length::Shrink)
+            }
+        };
 
-        if let Some(label) = self.label {
-            switch = switch.label(label);
-        }
-
-        switch.on_toggle_maybe(if self.disabled { None } else { self.on_toggle })
+        SingleChoice::new(SingleChoiceKind::Switch, layout, label, persistent)
+            .description(self.description)
+            .size(self.size)
+            .width(width)
+            .disabled(self.disabled)
+            .id(self.id)
+            .on_activate(message)
+            .into()
     }
 }
 
@@ -101,89 +201,124 @@ where
     Message: Clone + 'a,
 {
     fn from(switch: Switch<'a, Message>) -> Self {
-        switch.into_toggler().into()
-    }
-}
-
-fn metrics(size: ControlSize) -> SwitchMetrics {
-    let control = control_metrics(size);
-
-    SwitchMetrics {
-        size: match size {
-            ControlSize::Xs => 18,
-            ControlSize::Sm => 20,
-            ControlSize::Md => 22,
-            ControlSize::Lg => 24,
-        },
-        spacing: theme::space(SpaceStep::Md).max(control.gap),
-        text_size: control.font_size,
-    }
-}
-
-fn style(theme: &crate::theme::Theme, status: toggler::Status) -> toggler::Style {
-    let theme = *theme;
-    let is_toggled = match status {
-        toggler::Status::Active { is_toggled }
-        | toggler::Status::Hovered { is_toggled }
-        | toggler::Status::Disabled { is_toggled } => is_toggled,
-    };
-    let is_hovered = matches!(status, toggler::Status::Hovered { .. });
-    let is_disabled = matches!(status, toggler::Status::Disabled { .. });
-    let state = if is_disabled {
-        ControlState::DISABLED
-    } else if is_hovered {
-        ControlState::HOVERED
-    } else {
-        ControlState::ENABLED
-    };
-    let control = theme.control(ControlRole::Standard, state);
-    let primary = theme.tone(ToneRole::Accent);
-    let background = if is_toggled {
-        primary.color
-    } else {
-        control.background
-    };
-    let foreground = if is_toggled {
-        theme.tone(ToneRole::Accent).on_color
-    } else {
-        theme.text(TextRole::Secondary).color
-    };
-    let alpha = if is_disabled { 0.5 } else { 1.0 };
-    let border = theme.border(BorderRole::Default);
-
-    toggler::Style {
-        background: Background::Color(background.scale_alpha(alpha)),
-        foreground: Background::Color(foreground.scale_alpha(alpha)),
-        foreground_border_width: 0.0,
-        foreground_border_color: Color::TRANSPARENT,
-        background_border_width: border.width,
-        background_border_color: border.color.scale_alpha(alpha),
-        text_color: None,
-        border_radius: None,
-        padding_ratio: 0.1,
+        switch.into_element()
     }
 }
 
 #[cfg(test)]
-mod switch_tests {
+mod tests {
+    use iced::{keyboard::key, Point, Size};
+
     use super::*;
-    use crate::theme::{Theme, ToneRole};
+    use crate::test_support::WidgetHarness;
+    use crate::widgets::controls::choice_test_support::{
+        key_pressed, key_released, pointer_click, touch_tap,
+    };
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum Message {
+        Toggled(bool),
+    }
 
     #[test]
-    fn toggled_switch_uses_app_primary_background() {
-        let theme = Theme::Dark;
-        let style = style(&theme, toggler::Status::Active { is_toggled: true });
+    fn inline_and_setting_have_distinct_width_grammar() {
+        let inline: Element<'_, Message> = Switch::inline("Inline", false).into();
+        let setting: Element<'_, Message> = Switch::setting("Setting", false)
+            .description("Takes effect immediately")
+            .into();
+        let inline = WidgetHarness::new(inline, Size::new(320.0, 120.0));
+        let setting = WidgetHarness::new(setting, Size::new(320.0, 120.0));
+
+        assert!(inline.bounds().width < 320.0);
+        assert_eq!(setting.bounds().width, 320.0);
+        assert!(setting.bounds().height > 28.0);
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn compatibility_label_forwards_to_inline_composition() {
+        let compatibility: Element<'_, Message> = Switch::new(false).label("Compatibility").into();
+        let canonical: Element<'_, Message> = Switch::inline("Canonical", false).into();
 
         assert_eq!(
-            background_color(style.background),
-            theme.tone(ToneRole::Accent).color
+            WidgetHarness::new(compatibility, Size::new(320.0, 80.0))
+                .bounds()
+                .height,
+            WidgetHarness::new(canonical, Size::new(320.0, 80.0))
+                .bounds()
+                .height
         );
     }
 
-    fn background_color(background: Background) -> Color {
-        match background {
-            Background::Color(color) => color,
-            _ => panic!("Expected color background"),
+    #[test]
+    fn pointer_touch_and_space_publish_next_bool_once() {
+        let switch = || -> Element<'static, Message> {
+            Switch::inline("Immediate", false)
+                .id(widget::Id::new("switch"))
+                .on_toggle(Message::Toggled)
+                .into()
+        };
+
+        let mut pointer = WidgetHarness::new(switch(), Size::new(240.0, 80.0));
+        assert_eq!(
+            pointer_click(&mut pointer, Point::new(8.0, 8.0)),
+            [Message::Toggled(true)]
+        );
+
+        let mut touch = WidgetHarness::new(switch(), Size::new(240.0, 80.0));
+        assert_eq!(
+            touch_tap(&mut touch, 1, Point::new(8.0, 8.0)),
+            [Message::Toggled(true)]
+        );
+
+        let id = widget::Id::new("switch");
+        let keyboard_switch: Element<'_, Message> = Switch::inline("Immediate", false)
+            .id(id.clone())
+            .on_toggle(Message::Toggled)
+            .into();
+        let mut keyboard = WidgetHarness::new(keyboard_switch, Size::new(240.0, 80.0));
+        keyboard.focus(id);
+        assert!(keyboard
+            .update(key_pressed(key::Named::Space, key::Code::Space))
+            .messages
+            .is_empty());
+        assert_eq!(
+            keyboard
+                .update(key_released(key::Named::Space, key::Code::Space))
+                .messages,
+            [Message::Toggled(true)]
+        );
+    }
+
+    #[test]
+    fn callback_absence_and_disabled_are_inert() {
+        let display: Element<'_, Message> = Switch::inline("Display", true).into();
+        let disabled: Element<'_, Message> = Switch::setting("Disabled", true)
+            .disabled(true)
+            .on_toggle(Message::Toggled)
+            .into();
+        let mut display = WidgetHarness::new(display, Size::new(240.0, 80.0));
+        let mut disabled = WidgetHarness::new(disabled, Size::new(240.0, 80.0));
+
+        assert!(display.focusable_ids().is_empty());
+        assert!(disabled.focusable_ids().is_empty());
+        assert!(pointer_click(&mut display, Point::new(8.0, 8.0)).is_empty());
+        assert!(pointer_click(&mut disabled, Point::new(8.0, 8.0)).is_empty());
+    }
+
+    #[test]
+    fn exact_track_geometry_is_owned_by_choice_metrics() {
+        for (size, track) in [
+            (ControlSize::Xs, iced::Size::new(28.0, 16.0)),
+            (ControlSize::Sm, iced::Size::new(32.0, 18.0)),
+            (ControlSize::Md, iced::Size::new(36.0, 20.0)),
+            (ControlSize::Lg, iced::Size::new(40.0, 22.0)),
+        ] {
+            let metrics =
+                crate::theme::choice::ChoiceMetrics::for_theme(crate::theme::Theme::Light, size);
+
+            assert_eq!(metrics.switch_track, track);
+            assert_eq!(metrics.switch_thumb_size, track.height - 4.0);
         }
     }
 }
