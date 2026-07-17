@@ -9,6 +9,7 @@ mod form_frame;
 pub mod input;
 pub mod input_group;
 pub mod path_input;
+pub mod radio_group;
 pub mod segmented_control;
 pub mod select;
 pub mod selectable_item;
@@ -31,7 +32,12 @@ pub use field::{
 pub use input::{FieldValidation, Input, TextInputAppearance};
 pub use input_group::{InputGroup, InputGroupVariant};
 pub use path_input::PathInput;
-pub use segmented_control::{SegmentedControl, SegmentedItem};
+pub use radio_group::{RadioGroup, RadioGroupLayout, RadioOption};
+#[allow(deprecated)]
+pub use segmented_control::{
+    LegacySegmentedControl, SegmentedControl, SegmentedControlVariant, SegmentedItem,
+    SegmentedOption,
+};
 pub use select::Select;
 pub use selectable_item::SelectableItem;
 pub use switch::Switch;

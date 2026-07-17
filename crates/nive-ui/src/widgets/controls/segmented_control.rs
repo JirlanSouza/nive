@@ -1,4 +1,7 @@
 mod style;
+mod typed;
+
+pub use typed::{SegmentedControl, SegmentedControlVariant, SegmentedOption};
 
 use std::borrow::Cow;
 
@@ -20,16 +23,22 @@ use crate::advanced::control_group::radius_for_position;
 use crate::advanced::control_group::{position_for_index, SlotPosition};
 use crate::widgets::primitives::IconRole;
 
-/// A single-selection control rendered as a track with a rounded selected thumb.
-///
-/// Use [`SegmentedControl::flat`] for the linked button-group variant.
-pub struct SegmentedControl<'a, Message> {
+#[deprecated(
+    since = "0.1.0",
+    note = "use typed SegmentedControl with SegmentedOption; this bridge is removed in the next published release"
+)]
+#[allow(deprecated)]
+pub struct LegacySegmentedControl<'a, Message> {
     items: Vec<SegmentedItem<'a, Message>>,
     size: ControlSize,
     width: Length,
-    variant: SegmentedControlVariant,
+    variant: LegacySegmentedControlVariant,
 }
 
+#[deprecated(
+    since = "0.1.0",
+    note = "use SegmentedOption with group-owned selection; this bridge is removed in the next published release"
+)]
 pub struct SegmentedItem<'a, Message> {
     label: Cow<'a, str>,
     icon: Option<IconRole>,
@@ -42,12 +51,13 @@ pub struct SegmentedItem<'a, Message> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SegmentedControlVariant {
+enum LegacySegmentedControlVariant {
     Default,
     Flat,
 }
 
-impl<'a, Message> SegmentedControl<'a, Message>
+#[allow(deprecated)]
+impl<'a, Message> LegacySegmentedControl<'a, Message>
 where
     Message: Clone + 'a,
 {
@@ -56,7 +66,7 @@ where
             items: Vec::new(),
             size: ControlSize::Sm,
             width: Length::Shrink,
-            variant: SegmentedControlVariant::Default,
+            variant: LegacySegmentedControlVariant::Default,
         }
     }
 
@@ -96,8 +106,12 @@ where
     ///
     /// The default variant uses an inset rounded thumb for the selected item.
     /// The flat variant removes that inset and rounds only the outer corners.
+    #[deprecated(
+        since = "0.1.0",
+        note = "migrate to typed SegmentedControl::linked; this bridge is removed in the next published release"
+    )]
     pub fn flat(mut self) -> Self {
-        self.variant = SegmentedControlVariant::Flat;
+        self.variant = LegacySegmentedControlVariant::Flat;
         self
     }
 
@@ -139,7 +153,8 @@ where
     }
 }
 
-impl<'a, Message> Default for SegmentedControl<'a, Message>
+#[allow(deprecated)]
+impl<'a, Message> Default for LegacySegmentedControl<'a, Message>
 where
     Message: Clone + 'a,
 {
@@ -148,15 +163,17 @@ where
     }
 }
 
-impl<'a, Message> From<SegmentedControl<'a, Message>> for Element<'a, Message>
+#[allow(deprecated)]
+impl<'a, Message> From<LegacySegmentedControl<'a, Message>> for Element<'a, Message>
 where
     Message: Clone + 'a,
 {
-    fn from(control: SegmentedControl<'a, Message>) -> Self {
+    fn from(control: LegacySegmentedControl<'a, Message>) -> Self {
         control.into_element()
     }
 }
 
+#[allow(deprecated)]
 impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
     pub fn new(label: impl Into<Cow<'a, str>>) -> Self {
         Self {
@@ -244,7 +261,7 @@ impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
         metrics: theme_segmented_control::SegmentedControlMetrics,
         position: SlotPosition,
         fill: bool,
-        variant: SegmentedControlVariant,
+        variant: LegacySegmentedControlVariant,
         item_height: f32,
     ) -> Element<'a, Message> {
         let spacing = theme::spacing();
@@ -279,10 +296,10 @@ impl<'a, Message: Clone + 'a> SegmentedItem<'a, Message> {
         }
 
         let (kind, radius) = match variant {
-            SegmentedControlVariant::Default => {
+            LegacySegmentedControlVariant::Default => {
                 (GroupedItemKind::Selectable, Radius::new(metrics.radius))
             }
-            SegmentedControlVariant::Flat => (
+            LegacySegmentedControlVariant::Flat => (
                 GroupedItemKind::Embedded,
                 radius_for_position(position, metrics.radius),
             ),
@@ -308,17 +325,17 @@ fn has_status_badge(badge: Option<&BadgeContent<'_>>) -> bool {
 }
 
 fn outer_padding_for_variant(
-    variant: SegmentedControlVariant,
+    variant: LegacySegmentedControlVariant,
     metrics: theme_segmented_control::SegmentedControlMetrics,
 ) -> f32 {
     match variant {
-        SegmentedControlVariant::Default => metrics.outer_padding,
-        SegmentedControlVariant::Flat => 0.0,
+        LegacySegmentedControlVariant::Default => metrics.outer_padding,
+        LegacySegmentedControlVariant::Flat => 0.0,
     }
 }
 
 fn item_height_for_variant(
-    variant: SegmentedControlVariant,
+    variant: LegacySegmentedControlVariant,
     metrics: theme_segmented_control::SegmentedControlMetrics,
 ) -> f32 {
     (metrics.height - outer_padding_for_variant(variant, metrics) * 2.0).max(0.0)
@@ -333,7 +350,7 @@ mod segmented_control_tests {
         let metrics = theme_segmented_control::metrics(ControlSize::Sm);
 
         assert_eq!(
-            item_height_for_variant(SegmentedControlVariant::Default, metrics),
+            item_height_for_variant(LegacySegmentedControlVariant::Default, metrics),
             metrics.height - metrics.outer_padding * 2.0
         );
         assert_eq!(
@@ -347,7 +364,7 @@ mod segmented_control_tests {
         let metrics = theme_segmented_control::metrics(ControlSize::Sm);
 
         assert_eq!(
-            item_height_for_variant(SegmentedControlVariant::Flat, metrics),
+            item_height_for_variant(LegacySegmentedControlVariant::Flat, metrics),
             metrics.height
         );
     }

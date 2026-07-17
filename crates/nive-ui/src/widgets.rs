@@ -17,12 +17,14 @@ pub use containers::{
     ActionCard, Card, CardVariant, Panel, SectionHeader, SectionHeaderAction, SectionHeaderStatus,
     SelectableCard, SplitPane, SplitPaneConstraints,
 };
+#[allow(deprecated)]
 pub use controls::{
     ActionGroup, Autocomplete, AutocompleteMessage, Button, ButtonIntent, ButtonVariant, Checkbox,
-    ColorInput, ColorPicker, ContentAction, Field, FieldControl, FieldError, FieldGroup,
-    FieldGroupLayout, FieldHint, FieldLabel, FieldRequirement, FieldValidation, Input, InputGroup,
-    InputGroupVariant, PathInput, RgbHexColor, SegmentedControl, SegmentedItem, Select,
-    SelectableItem, Switch, TextInputAppearance,
+    CheckboxState, ColorInput, ColorPicker, ContentAction, Field, FieldControl, FieldError,
+    FieldGroup, FieldGroupLayout, FieldHint, FieldLabel, FieldRequirement, FieldValidation, Input,
+    InputGroup, InputGroupVariant, LegacySegmentedControl, PathInput, RadioGroup, RadioGroupLayout,
+    RadioOption, RgbHexColor, SegmentedControl, SegmentedControlVariant, SegmentedItem,
+    SegmentedOption, Select, SelectableItem, Switch, TextInputAppearance,
 };
 #[allow(deprecated)]
 pub use display::{
