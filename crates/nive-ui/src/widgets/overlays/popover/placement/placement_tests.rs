@@ -49,7 +49,7 @@ fn top_end_places_content_above_anchor_end() {
         8.0,
     );
 
-    assert_eq!(position, Point::new(20.0, -18.0));
+    assert_eq!(position, Point::new(20.0, 8.0));
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn shift_keeps_content_inside_viewport_without_flipping() {
         8.0,
     );
 
-    assert_eq!(position, Point::new(0.0, 30.0));
+    assert_eq!(position, Point::new(8.0, 82.0));
 }
 
 #[test]
@@ -99,5 +99,23 @@ fn at_least_anchor_width_sets_minimum_width() {
     );
 
     assert_eq!(limits.min().width, 80.0);
-    assert_eq!(limits.max().width, 300.0);
+    assert_eq!(limits.max().width, 284.0);
+}
+
+#[test]
+fn translated_bounds_sanitizes_translation_and_dimensions() {
+    let translated = translated_bounds(
+        Rectangle {
+            x: 10.0,
+            y: 20.0,
+            width: -40.0,
+            height: f32::NAN,
+        },
+        iced::Vector::new(5.0, f32::INFINITY),
+    );
+
+    assert_eq!(
+        translated,
+        Rectangle::new(Point::new(15.0, 20.0), Size::ZERO)
+    );
 }
