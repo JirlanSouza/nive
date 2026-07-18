@@ -8,7 +8,7 @@ use nive_core::{Action, ActionId, ShortcutBinding};
 
 use super::command_palette::format_shortcut;
 mod relay;
-pub(super) mod style;
+pub(crate) mod style;
 mod widget;
 
 use self::relay::MessageRelay;
@@ -29,13 +29,13 @@ use crate::Element;
 
 const MENU_MIN_WIDTH: f32 = 180.0;
 const MENU_MAX_WIDTH: f32 = 320.0;
-const MENU_LIST_INSET: f32 = 4.0;
-const MENU_ROW_HEIGHT: f32 = 28.0;
-const MENU_ROW_PADDING_H: f32 = 8.0;
-const MENU_ROW_RADIUS: f32 = 4.0;
-const MENU_ICON_SIZE: f32 = 16.0;
+pub(crate) const MENU_LIST_INSET: f32 = 4.0;
+pub(crate) const MENU_ROW_HEIGHT: f32 = 28.0;
+pub(crate) const MENU_ROW_PADDING_H: f32 = 8.0;
+pub(crate) const MENU_ROW_RADIUS: f32 = 4.0;
+pub(crate) const MENU_ICON_SIZE: f32 = 16.0;
 const MENU_SEPARATOR_MARGIN: f32 = 4.0;
-const MENU_COLUMN_GAP: f32 = 8.0;
+pub(crate) const MENU_COLUMN_GAP: f32 = 8.0;
 
 /// Whether activating a Menu leaf requests closure of the complete chain.
 #[non_exhaustive]
