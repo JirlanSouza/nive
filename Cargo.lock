@@ -2226,6 +2226,8 @@ name = "nive-runtime"
 version = "0.1.0-alpha.1"
 dependencies = [
  "iced",
+ "iced_renderer",
+ "iced_tiny_skia",
  "log",
  "nive-core",
  "nive-runtime-derive",

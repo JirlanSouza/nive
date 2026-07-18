@@ -19,10 +19,12 @@
 //! - `fonts` — bundled Inter/Geist Mono font bytes (behind the default-on
 //!   `bundled-fonts` feature) and the default application font.
 //! - `advanced` — internals for authoring custom widgets (layout math,
-//!   border/style helpers, `Shell` propagation), mirroring `iced::advanced`.
-//!   Not needed to assemble screens from `widgets`.
+//!   border/style helpers, logical [`advanced::focus::FocusState`], `Shell`
+//!   propagation), mirroring `iced::advanced`. Not needed to assemble screens
+//!   from `widgets`.
 //! - `layout`, `graphics`, and `accessibility` — focused facades for layout
-//!   surfaces, visual assets, and keyboard/focus affordances.
+//!   surfaces, visual assets, and keyboard/focus affordances, including the
+//!   explicit standalone [`accessibility::FocusRoot`].
 //! - `focus_trap` — Tab/Shift+Tab focus cycling helpers for overlays.
 //! - `BootstrapView` — generic startup loading/failure template.
 //!
@@ -42,6 +44,10 @@
 //! Lower-level widget and theme submodules remain public for advanced
 //! composition, styling, and focused tests. Generic app code should avoid
 //! depending on private host internals or product-specific assumptions.
+//! `nive-runtime` installs one managed-focus root for every window. Standalone
+//! `nive-ui` applications opt in by wrapping their final content in
+//! [`accessibility::FocusRoot`]; without it, widgets keep compatible local
+//! focus behavior but do not share a retained, unique logical anchor.
 //!
 //! # Status
 //!
@@ -61,6 +67,8 @@ pub mod layout;
 pub mod prelude;
 pub mod theme;
 pub mod tokens;
+
+mod focus;
 
 #[cfg(test)]
 pub(crate) mod test_support;

@@ -407,6 +407,10 @@ where
     }
 
     fn view(&self, window_id: window::Id) -> nive_ui::Element<'_, RuntimeMessage<A, P>> {
+        nive_ui::accessibility::FocusRoot::new(self.window_content(window_id)).into()
+    }
+
+    fn window_content(&self, window_id: window::Id) -> nive_ui::Element<'_, RuntimeMessage<A, P>> {
         if self
             .bootstrap
             .as_ref()
@@ -1818,7 +1822,22 @@ mod tests {
             _context: Context<'_, Self::Window>,
             _window: WindowContext<Self::Window>,
         ) -> ScreenView<'_, Self::Message> {
-            let base = iced::widget::text("");
+            let base = iced::widget::container(iced::widget::Column::with_children(vec![
+                nive_ui::widgets::button::primary("First")
+                    .id(iced::widget::Id::new("runtime-focus-first"))
+                    .on_press(TestMessage::Action)
+                    .into(),
+                nive_ui::widgets::Input::new("Value", "")
+                    .id(iced::widget::Id::new("runtime-focus-input"))
+                    .on_change(|_| TestMessage::Action)
+                    .into(),
+                nive_ui::widgets::button::primary("Second")
+                    .id(iced::widget::Id::new("runtime-focus-second"))
+                    .on_press(TestMessage::Action)
+                    .into(),
+            ]))
+            .width(iced::Length::Fill)
+            .height(iced::Length::Fill);
             if self.show_dialog {
                 ScreenView::new(base).dialog(
                     DialogRequest::new(iced::widget::text("dialog"))
@@ -3057,6 +3076,8 @@ mod tests {
         let _handle = program.core.registry.mark_opened(main_id);
         main_id
     }
+
+    mod focus;
 
     #[test]
     fn toast_runtime_command_enqueues_visible_toast() {

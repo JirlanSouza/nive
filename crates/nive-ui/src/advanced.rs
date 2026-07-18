@@ -7,5 +7,6 @@
 
 pub mod control_group;
 pub mod control_style;
+pub mod focus;
 pub mod pressable;
 pub mod shell_relay;

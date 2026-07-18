@@ -31,6 +31,8 @@ serde_json = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 
 [dev-dependencies]
+iced_renderer = "0.14"
+iced_tiny_skia = "0.14"
 tempfile = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
