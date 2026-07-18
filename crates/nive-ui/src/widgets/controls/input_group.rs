@@ -331,6 +331,7 @@ where
             validation,
             metrics: crate::theme::form_control_metrics(self.size),
             disabled: effective_disabled,
+            interactive: true,
         })
     }
 

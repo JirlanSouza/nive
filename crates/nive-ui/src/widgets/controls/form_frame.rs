@@ -98,6 +98,7 @@ pub(super) struct FormControlFrame<'a, Message> {
     pub(super) validation: FieldValidation,
     pub(super) metrics: FormControlMetrics,
     pub(super) disabled: bool,
+    pub(super) interactive: bool,
 }
 
 #[derive(Debug, Default)]
@@ -168,7 +169,7 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
-        let hovered = !self.disabled && cursor.is_over(layout.bounds());
+        let hovered = self.interactive && !self.disabled && cursor.is_over(layout.bounds());
         let state = tree.state.downcast_mut::<FrameWidgetState>();
 
         if state.hovered != hovered {
