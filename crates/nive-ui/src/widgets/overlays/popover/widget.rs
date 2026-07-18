@@ -11,7 +11,8 @@ use super::{PopoverCollision, PopoverFocusPolicy, PopoverPlacement, PopoverWidth
 use crate::{
     focus::{contains_focus_target, FocusTarget, FocusTargetContext},
     widgets::overlays::anchored_overlay::{
-        expose_node, translated_bounds, AnchoredOverlay, OverlayNodeState, PopoverDismissalCause,
+        expose_node, scroll::EnsureVisibleHandle, translated_bounds, AnchoredOverlay,
+        OverlayNodeState, PopoverDismissalCause,
     },
     Element,
 };
@@ -26,6 +27,7 @@ pub(super) struct PopoverWidget<'a, Message> {
     pub(super) gap: f32,
     pub(super) on_dismiss: Option<Message>,
     pub(super) focus_policy: PopoverFocusPolicy,
+    pub(super) ensure_visible: Option<EnsureVisibleHandle>,
 }
 
 #[derive(Debug, Default)]
@@ -237,29 +239,32 @@ where
         );
 
         let popover_overlay = if self.open {
-            Some(overlay::Element::new(Box::new(
-                AnchoredOverlay::new(
-                    translated_bounds(layout.bounds(), translation),
-                    &mut self.content,
-                    content_state,
-                    self.placement,
-                    self.width,
-                    self.collision,
-                    self.gap,
-                    self.on_dismiss.clone(),
-                    |message, shell: &mut Shell<'_, Message>| shell.publish(message),
-                )
-                .identity(state.overlay_node.identity().clone())
-                .focus_policy(
-                    self.focus_policy,
-                    &mut state.focus_entered,
-                    &mut state.dismissal_requested,
-                    &mut state.dismissal_cause,
-                    &state.focus_context,
-                    &mut state.expected_target,
-                )
-                .with_nested_overlay_map(identity_message::<Message>),
-            )))
+            let anchored = AnchoredOverlay::new(
+                translated_bounds(layout.bounds(), translation),
+                &mut self.content,
+                content_state,
+                self.placement,
+                self.width,
+                self.collision,
+                self.gap,
+                self.on_dismiss.clone(),
+                |message, shell: &mut Shell<'_, Message>| shell.publish(message),
+            )
+            .identity(state.overlay_node.identity().clone())
+            .focus_policy(
+                self.focus_policy,
+                &mut state.focus_entered,
+                &mut state.dismissal_requested,
+                &mut state.dismissal_cause,
+                &state.focus_context,
+                &mut state.expected_target,
+            )
+            .with_nested_overlay_map(identity_message::<Message>);
+            let anchored = match &self.ensure_visible {
+                Some(handle) => anchored.ensure_visible(handle.clone()),
+                None => anchored,
+            };
+            Some(overlay::Element::new(Box::new(anchored)))
         } else {
             None
         };

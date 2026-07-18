@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use iced::{
     advanced::{
         layout, mouse, overlay, renderer,
@@ -20,7 +22,11 @@ use crate::{
 };
 
 use super::PopoverDismissalCause;
-use super::{identity::bind_descendants, OverlayIdentity};
+use super::{
+    identity::bind_descendants,
+    scroll::{self, EnsureVisibleHandle},
+    OverlayIdentity,
+};
 
 pub(crate) struct AnchoredOverlay<'a, 'b, LocalMessage, Message, OnMessage> {
     anchor_bounds: Rectangle,
@@ -41,6 +47,8 @@ pub(crate) struct AnchoredOverlay<'a, 'b, LocalMessage, Message, OnMessage> {
     focus_context: Option<&'b FocusTargetContext>,
     expected_target: Option<&'b mut Option<FocusTarget>>,
     identity: OverlayIdentity,
+    resolved_bounds: Option<&'b Cell<Rectangle>>,
+    ensure_visible: Option<EnsureVisibleHandle>,
 }
 
 impl<'a, 'b, LocalMessage, Message, OnMessage>
@@ -77,6 +85,8 @@ impl<'a, 'b, LocalMessage, Message, OnMessage>
             focus_context: None,
             expected_target: None,
             identity: OverlayIdentity::root(),
+            resolved_bounds: None,
+            ensure_visible: None,
         }
     }
 
@@ -101,6 +111,16 @@ impl<'a, 'b, LocalMessage, Message, OnMessage>
 
     pub(crate) fn identity(mut self, identity: OverlayIdentity) -> Self {
         self.identity = identity;
+        self
+    }
+
+    pub(crate) fn report_bounds(mut self, bounds: &'b Cell<Rectangle>) -> Self {
+        self.resolved_bounds = Some(bounds);
+        self
+    }
+
+    pub(crate) fn ensure_visible(mut self, handle: EnsureVisibleHandle) -> Self {
+        self.ensure_visible = Some(handle);
         self
     }
 
@@ -154,6 +174,9 @@ where
             .as_widget_mut()
             .layout(self.content_state, renderer, &final_limits)
             .move_to(geometry.frame.position());
+        if let Some(bounds) = self.resolved_bounds {
+            bounds.set(node.bounds());
+        }
         bind_descendants(
             &self.identity,
             self.content,
@@ -202,6 +225,22 @@ where
             && is_primary_press_inside(event, layout, cursor)
         {
             local_shell.capture_event();
+        }
+
+        if let Some((handle, target)) = self
+            .ensure_visible
+            .as_ref()
+            .and_then(|handle| handle.take().map(|target| (handle, target)))
+        {
+            let mut operation = scroll::ensure_visible(handle.scrollable(), target);
+            self.content.as_widget_mut().operate(
+                self.content_state,
+                layout,
+                renderer,
+                &mut operation,
+            );
+            local_shell.invalidate_layout();
+            local_shell.request_redraw();
         }
 
         self.refresh_owned_target(layout, renderer);
