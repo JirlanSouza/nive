@@ -89,7 +89,10 @@ where
     }
 
     fn diff(&self, tree: &mut Tree) {
-        let state = tree.state.downcast_ref::<ColorInputState>();
+        let state = tree.state.downcast_mut::<ColorInputState>();
+        if !self.enabled() {
+            state.clear_focus();
+        }
         let popover = self.build_popover(state);
 
         popover.diff(tree);
@@ -109,11 +112,13 @@ where
         renderer: &iced::Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        let state = *tree.state.downcast_ref::<ColorInputState>();
-        self.refresh_popover(&state);
+        let Tree {
+            state, children, ..
+        } = tree;
+        self.refresh_popover(state.downcast_ref::<ColorInputState>());
 
         self.popover
-            .layout_anchor(&mut tree.children[0], renderer, limits)
+            .layout_anchor(&mut children[0], renderer, limits)
     }
 
     fn operate(
@@ -126,7 +131,7 @@ where
         if self.enabled() {
             let state = tree.state.downcast_mut::<ColorInputState>();
 
-            operation.focusable(None, layout.bounds(), state);
+            state.register(operation, None, layout.bounds());
         }
 
         self.popover
@@ -147,8 +152,7 @@ where
         let Tree {
             state, children, ..
         } = tree;
-        let snapshot = *state.downcast_ref::<ColorInputState>();
-        self.refresh_popover(&snapshot);
+        self.refresh_popover(state.downcast_ref::<ColorInputState>());
 
         self.popover.update_anchor(
             &mut children[0],
@@ -165,21 +169,21 @@ where
             return;
         }
 
-        let focused = state.downcast_ref::<ColorInputState>().is_focused();
+        let active = state.downcast_ref::<ColorInputState>().is_active();
+        let pointer_pressed = trigger_pressed(self.enabled(), event, layout.bounds(), cursor);
 
-        if self.enabled()
-            && ((focused && is_keyboard_activation(event))
-                || trigger_pressed(self.enabled(), event, layout.bounds(), cursor))
-        {
+        if self.enabled() && ((active && is_keyboard_activation(event)) || pointer_pressed) {
             let state = state.downcast_mut::<ColorInputState>();
+            if pointer_pressed {
+                state.focus_from_pointer();
+            }
             state.toggle_with(self.value);
             shell.capture_event();
             shell.invalidate_layout();
             shell.request_redraw();
         }
 
-        let snapshot = *state.downcast_ref::<ColorInputState>();
-        self.refresh_popover(&snapshot);
+        self.refresh_popover(state.downcast_ref::<ColorInputState>());
     }
 
     fn mouse_interaction(
@@ -220,7 +224,7 @@ where
 
         let state = tree.state.downcast_ref::<ColorInputState>();
 
-        if self.enabled() && state.is_focused() {
+        if self.enabled() && state.is_focus_visible() {
             draw_focus_ring(
                 renderer,
                 theme,
@@ -242,8 +246,7 @@ where
         let Tree {
             state, children, ..
         } = tree;
-        let snapshot = *state.downcast_ref::<ColorInputState>();
-        self.refresh_popover(&snapshot);
+        self.refresh_popover(state.downcast_ref::<ColorInputState>());
 
         let (anchor_tree, content_tree) = children.split_at_mut(1);
         let anchor_state = &mut anchor_tree[0];
@@ -300,3 +303,7 @@ where
         }
     }
 }
+
+#[cfg(test)]
+#[path = "widget_tests.rs"]
+mod color_input_focus_tests;

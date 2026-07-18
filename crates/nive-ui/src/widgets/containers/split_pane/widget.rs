@@ -132,10 +132,12 @@ where
             if let Some(hit_bounds) =
                 current_hit_bounds(layout, self.orientation, metrics(self.size))
             {
-                operation.focusable(self.id.as_ref(), hit_bounds, state);
+                state
+                    .focus
+                    .register(operation, self.id.as_ref(), hit_bounds);
             }
         } else {
-            state.focused = false;
+            state.focus.clear();
             state.drag = None;
         }
 
@@ -178,18 +180,22 @@ where
         {
             let state = tree.state.downcast_mut::<SplitPaneState>();
 
+            if matches!(event, Event::Window(iced::window::Event::Unfocused)) {
+                state.focus.deactivate();
+            }
+
             if let Some(hit_bounds) = hit_bounds {
                 if primary_press_outside_hit(event, cursor, hit_bounds) {
                     state.drag = None;
-                    if state.focused {
-                        state.focused = false;
+                    if state.focus.is_active() {
+                        state.focus.deactivate();
                         shell.request_redraw();
                     }
                 }
             }
 
-            if !self.interactive() && (state.focused || state.drag.is_some()) {
-                state.focused = false;
+            if !self.interactive() && (state.focus.is_active() || state.drag.is_some()) {
+                state.focus.clear();
                 state.drag = None;
                 shell.request_redraw();
             }
@@ -354,7 +360,7 @@ where
         let hit_bounds = current_hit_bounds(layout, self.orientation, metrics(self.size));
         let visual_state = resolve_visual_state(
             self.interactive(),
-            state.drag.is_some() || state.focused,
+            state.drag.is_some() || state.focus.is_focus_visible(),
             hit_bounds.is_some_and(|bounds| cursor.is_over(bounds)),
         );
 

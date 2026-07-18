@@ -736,6 +736,72 @@ mod field_tests {
     }
 
     #[test]
+    fn generated_label_target_keeps_the_input_anchor_across_view_rebuilds() {
+        fn view() -> Element<'static, &'static str> {
+            let content = iced::widget::column![
+                Input::new("Search", "")
+                    .id(Id::new("sidebar-search"))
+                    .on_change(|_| "search"),
+                Field::new(
+                    "Empty value",
+                    Input::new("Enter a value", "").on_change(|_| "changed"),
+                )
+                .probe_name("empty-field"),
+                crate::widgets::button::primary("After")
+                    .id(Id::new("after-empty-field"))
+                    .on_press("after"),
+            ]
+            .spacing(12);
+
+            crate::accessibility::FocusRoot::new(iced::widget::scrollable(content)).into()
+        }
+
+        let mut harness = WidgetHarness::new(view(), Size::new(400.0, 240.0));
+        let field = harness.named_bounds("empty-field").expect("empty field");
+        harness.set_cursor(Point::new(field.x + 20.0, field.y + field.height - 10.0));
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        assert_eq!(
+            harness
+                .managed_focus()
+                .entries
+                .iter()
+                .filter(|entry| entry.active)
+                .count(),
+            1
+        );
+
+        harness.set_cursor(Point::new(380.0, 220.0));
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        assert_eq!(
+            harness
+                .managed_focus()
+                .entries
+                .iter()
+                .filter(|entry| entry.anchor_only)
+                .count(),
+            1
+        );
+
+        harness.replace(view());
+        assert_eq!(
+            harness
+                .managed_focus()
+                .entries
+                .iter()
+                .filter(|entry| entry.anchor_only)
+                .count(),
+            1
+        );
+
+        harness.focus_next();
+        assert_eq!(harness.focused_ids(), [Id::new("after-empty-field")]);
+    }
+
+    #[test]
     fn enabled_label_uses_default_cursor_and_still_focuses_its_input() {
         let field: Element<'_, ()> = Field::new(
             "Name",

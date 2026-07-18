@@ -10,6 +10,7 @@ use iced::{
     touch, widget, Event, Length, Point, Rectangle, Size, Vector,
 };
 
+use crate::advanced::focus::FocusState;
 use crate::theme::{choice::ChoiceMetrics, ControlSize, FieldValidation, Theme};
 use crate::Element;
 
@@ -293,10 +294,9 @@ struct RadioGroupWidget<'a, T, Message> {
     on_select: Option<Box<dyn Fn(T) -> Message + 'a>>,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Default)]
 struct RadioGroupState {
-    focused: bool,
-    focus_visible: bool,
+    focus: FocusState,
     focused_index: Option<usize>,
 }
 
@@ -376,9 +376,7 @@ where
         .disabled(self.disabled || option.disabled)
         .on_activate(message)
         .register_focus(false)
-        .focused(
-            state.focused && state.focus_visible && self.reconciled_focus(state) == Some(index),
-        )
+        .focused(state.focus.is_focus_visible() && self.reconciled_focus(state) == Some(index))
         .into()
     }
 
@@ -438,17 +436,20 @@ where
     }
 
     fn diff(&self, tree: &mut Tree) {
-        let state = *tree.state.downcast_ref::<RadioGroupState>();
-        tree.diff_children(
-            &(0..self.options.len())
-                .map(|index| self.option_element(index, &state, self.option_width()))
+        let elements = {
+            let state = tree.state.downcast_ref::<RadioGroupState>();
+            (0..self.options.len())
+                .map(|index| self.option_element(index, state, self.option_width()))
                 .collect::<Vec<_>>()
-                .iter()
-                .map(Element::as_widget)
-                .collect::<Vec<_>>(),
-        );
+        };
+        tree.diff_children(&elements.iter().map(Element::as_widget).collect::<Vec<_>>());
 
-        if state.focused {
+        if tree
+            .state
+            .downcast_ref::<RadioGroupState>()
+            .focus
+            .is_active()
+        {
             tree.state.downcast_mut::<RadioGroupState>().focused_index = self
                 .selected_index()
                 .filter(|index| !self.options[*index].disabled)
@@ -545,7 +546,21 @@ where
     ) {
         let state = tree.state.downcast_mut::<RadioGroupState>();
         if self.interactive() {
-            operation.focusable(self.id.as_ref(), layout.bounds(), state);
+            let RadioGroupState {
+                focus,
+                focused_index,
+            } = state;
+            focus.expose(operation, self.id.as_ref(), layout.bounds());
+            operation.focusable(
+                self.id.as_ref(),
+                layout.bounds(),
+                &mut RadioGroupFocus {
+                    focus,
+                    focused_index,
+                },
+            );
+        } else {
+            state.focus.clear();
         }
         let state = tree.state.downcast_ref::<RadioGroupState>();
         for (index, (tree, child_layout)) in
@@ -568,29 +583,27 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
-        let focused_snapshot = {
-            let state = tree.state.downcast_ref::<RadioGroupState>();
-            RadioGroupState {
-                focused: state.focused,
-                focus_visible: state.focus_visible,
-                focused_index: state.focused_index,
-            }
-        };
-        for (index, (child_tree, child_layout)) in
-            tree.children.iter_mut().zip(layout.children()).enumerate()
         {
-            self.option_element(index, &focused_snapshot, self.option_width())
-                .as_widget_mut()
-                .update(
-                    child_tree,
-                    event,
-                    child_layout,
-                    cursor,
-                    renderer,
-                    clipboard,
-                    shell,
-                    viewport,
-                );
+            let Tree {
+                state, children, ..
+            } = tree;
+            let state = state.downcast_ref::<RadioGroupState>();
+            for (index, (child_tree, child_layout)) in
+                children.iter_mut().zip(layout.children()).enumerate()
+            {
+                self.option_element(index, state, self.option_width())
+                    .as_widget_mut()
+                    .update(
+                        child_tree,
+                        event,
+                        child_layout,
+                        cursor,
+                        renderer,
+                        clipboard,
+                        shell,
+                        viewport,
+                    );
+            }
         }
 
         let interactive = self.interactive();
@@ -602,8 +615,7 @@ where
         });
         let state = tree.state.downcast_mut::<RadioGroupState>();
         if !interactive {
-            state.focused = false;
-            state.focus_visible = false;
+            state.focus.clear();
             state.focused_index = None;
             return;
         }
@@ -614,17 +626,15 @@ where
                 | Event::Touch(touch::Event::FingerPressed { .. })
         ) {
             if let Some(index) = hit.filter(|index| !self.options[*index].disabled) {
-                state.focused = true;
-                state.focus_visible = false;
+                state.focus.focus_from_pointer();
                 state.focused_index = Some(index);
                 shell.request_redraw();
             } else {
-                state.focused = false;
-                state.focus_visible = false;
+                state.focus.deactivate();
             }
         }
 
-        if !state.focused {
+        if !state.focus.is_active() {
             return;
         }
 
@@ -644,7 +654,9 @@ where
                     | key::Named::End
                     | key::Named::Space
             );
-            state.focus_visible |= focus_key;
+            if focus_key {
+                state.focus.focus_from_keyboard();
+            }
             let target = match named {
                 key::Named::ArrowUp | key::Named::ArrowLeft => self.move_focus(state, -1),
                 key::Named::ArrowDown | key::Named::ArrowRight => self.move_focus(state, 1),
@@ -664,8 +676,7 @@ where
         }
 
         if matches!(event, Event::Window(iced::window::Event::Unfocused)) {
-            state.focused = false;
-            state.focus_visible = false;
+            state.focus.deactivate();
             state.focused_index = None;
             shell.request_redraw();
         }
@@ -732,30 +743,33 @@ where
     }
 }
 
+struct RadioGroupFocus<'a> {
+    focus: &'a mut FocusState,
+    focused_index: &'a mut Option<usize>,
+}
+
+impl operation::Focusable for RadioGroupFocus<'_> {
+    fn is_focused(&self) -> bool {
+        operation::Focusable::is_focused(self.focus)
+    }
+
+    fn focus(&mut self) {
+        operation::Focusable::focus(self.focus);
+        *self.focused_index = None;
+    }
+
+    fn unfocus(&mut self) {
+        operation::Focusable::unfocus(self.focus);
+        *self.focused_index = None;
+    }
+}
+
 impl<T, Message> RadioGroupWidget<'_, T, Message> {
     fn option_width(&self) -> Length {
         match self.layout {
             RadioGroupLayout::Vertical => self.width,
             RadioGroupLayout::HorizontalWrap => Length::Shrink,
         }
-    }
-}
-
-impl operation::Focusable for RadioGroupState {
-    fn is_focused(&self) -> bool {
-        self.focused
-    }
-
-    fn focus(&mut self) {
-        self.focused = true;
-        self.focus_visible = true;
-        self.focused_index = None;
-    }
-
-    fn unfocus(&mut self) {
-        self.focused = false;
-        self.focus_visible = false;
-        self.focused_index = None;
     }
 }
 
@@ -873,7 +887,10 @@ mod tests {
 
         assert_eq!(harness.focusable_ids(), std::slice::from_ref(&id));
         harness.focus(id);
-        assert!(harness.state_at::<RadioGroupState>(&[1]).focus_visible);
+        assert!(harness
+            .state_at::<RadioGroupState>(&[1])
+            .focus
+            .is_focus_visible());
         assert_eq!(
             harness
                 .update(key_pressed(key::Named::ArrowRight, key::Code::ArrowRight))
@@ -894,8 +911,11 @@ mod tests {
         let mut harness = WidgetHarness::new(group, Size::new(320.0, 240.0));
 
         assert!(pointer_click(&mut harness, Point::new(8.0, 60.0)).is_empty());
-        assert!(harness.state_at::<RadioGroupState>(&[1]).focused);
-        assert!(!harness.state_at::<RadioGroupState>(&[1]).focus_visible);
+        assert!(harness.state_at::<RadioGroupState>(&[1]).focus.is_active());
+        assert!(!harness
+            .state_at::<RadioGroupState>(&[1])
+            .focus
+            .is_focus_visible());
     }
 
     #[test]

@@ -9,7 +9,7 @@ use iced::{
     Event, Length, Rectangle, Size,
 };
 
-use super::widget::TooltipState;
+use super::widget::{request_redraw_after_visibility_change, TooltipState};
 use crate::Element;
 
 const WARM_DELAY: Duration = Duration::from_millis(100);
@@ -160,10 +160,15 @@ impl<Message> Widget<Message, crate::theme::Theme, iced::Renderer> for TooltipSc
 
         let mut apply = ApplyWinner {
             winner: state.active,
+            changed: false,
         };
         self.content
             .as_widget_mut()
             .operate(&mut tree.children[0], layout, renderer, &mut apply);
+        if apply.changed {
+            shell.invalidate_layout();
+            request_redraw_after_visibility_change(event, shell);
+        }
     }
 
     fn mouse_interaction(
@@ -247,6 +252,7 @@ impl operation::Operation for CollectCandidates<'_> {
 
 struct ApplyWinner {
     winner: Option<u64>,
+    changed: bool,
 }
 
 impl operation::Operation for ApplyWinner {
@@ -263,7 +269,9 @@ impl operation::Operation for ApplyWinner {
         if let Some(scope) = state.downcast_mut::<ScopeState>() {
             scope.block_private_traversal = true;
         } else if let Some(tooltip) = state.downcast_mut::<TooltipState>() {
-            tooltip.visible = tooltip.owner_key == self.winner;
+            let visible = tooltip.owner_key == self.winner;
+            self.changed |= tooltip.visible != visible;
+            tooltip.visible = visible;
         }
     }
 }

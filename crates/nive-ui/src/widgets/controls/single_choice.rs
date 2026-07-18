@@ -14,6 +14,7 @@ use iced::{
     Shadow, Size, Vector,
 };
 
+use crate::advanced::focus::FocusState;
 use crate::theme::{
     self,
     choice::{self, ChoiceMetrics, ChoicePersistentState, ChoiceStateInput, ResolvedChoiceState},
@@ -60,8 +61,7 @@ enum PressSource {
 
 #[derive(Debug, Default)]
 struct SingleChoiceState {
-    focused: bool,
-    focus_visible: bool,
+    focus: FocusState,
     press: Option<PressSource>,
 }
 
@@ -224,7 +224,7 @@ impl<'a, Message> SingleChoice<'a, Message> {
             disabled: self.disabled,
             hovered: cursor.is_over(bounds),
             pressed: state.press.is_some(),
-            focused: (state.focused && state.focus_visible) || self.focused_override,
+            focused: state.focus.is_focus_visible() || self.focused_override,
         })
     }
 
@@ -300,7 +300,11 @@ where
         let state = tree.state.downcast_mut::<SingleChoiceState>();
 
         if self.register_focus && self.on_activate.is_some() && !self.disabled {
-            operation.focusable(self.id.as_ref(), layout.bounds(), state);
+            state
+                .focus
+                .register(operation, self.id.as_ref(), layout.bounds());
+        } else {
+            state.focus.clear();
         }
 
         let mut content = self.content();
@@ -337,9 +341,8 @@ where
         let state = tree.state.downcast_mut::<SingleChoiceState>();
 
         if !interactive {
-            if state.focused || state.press.is_some() {
-                state.focused = false;
-                state.focus_visible = false;
+            if state.focus.is_active() || state.press.is_some() {
+                state.focus.clear();
                 state.press = None;
                 shell.request_redraw();
             }
@@ -350,15 +353,13 @@ where
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 if cursor.is_over(bounds) {
                     if self.register_focus {
-                        state.focused = true;
-                        state.focus_visible = false;
+                        state.focus.focus_from_pointer();
                     }
                     state.press = Some(PressSource::Pointer);
                     shell.capture_event();
                 } else {
                     if self.register_focus {
-                        state.focused = false;
-                        state.focus_visible = false;
+                        state.focus.deactivate();
                     }
                     state.press = None;
                 }
@@ -384,16 +385,14 @@ where
             Event::Touch(touch::Event::FingerPressed { id, position }) => {
                 if bounds.contains(*position) {
                     if self.register_focus {
-                        state.focused = true;
-                        state.focus_visible = false;
+                        state.focus.focus_from_pointer();
                     }
                     state.press = Some(PressSource::Touch(*id));
                     shell.capture_event();
                     shell.request_redraw();
                 } else {
                     if self.register_focus {
-                        state.focused = false;
-                        state.focus_visible = false;
+                        state.focus.deactivate();
                     }
                 }
             }
@@ -423,8 +422,8 @@ where
                 key: keyboard::Key::Named(key::Named::Space),
                 repeat: false,
                 ..
-            }) if state.focused => {
-                state.focus_visible = true;
+            }) if state.focus.is_active() => {
+                state.focus.focus_from_keyboard();
                 state.press = Some(PressSource::Space);
                 shell.capture_event();
                 shell.request_redraw();
@@ -432,7 +431,7 @@ where
             Event::Keyboard(keyboard::Event::KeyReleased {
                 key: keyboard::Key::Named(key::Named::Space),
                 ..
-            }) if state.focused && state.press == Some(PressSource::Space) => {
+            }) if state.focus.is_active() && state.press == Some(PressSource::Space) => {
                 state.press = None;
                 shell.publish(
                     self.on_activate
@@ -444,8 +443,7 @@ where
             }
             Event::Window(iced::window::Event::Unfocused) => {
                 state.press = None;
-                state.focused = false;
-                state.focus_visible = false;
+                state.focus.deactivate();
                 shell.request_redraw();
             }
             _ => {}
@@ -657,23 +655,6 @@ where
     }
 }
 
-impl operation::Focusable for SingleChoiceState {
-    fn is_focused(&self) -> bool {
-        self.focused
-    }
-
-    fn focus(&mut self) {
-        self.focused = true;
-        self.focus_visible = true;
-    }
-
-    fn unfocus(&mut self) {
-        self.focused = false;
-        self.focus_visible = false;
-        self.press = None;
-    }
-}
-
 impl<'a, Message> From<SingleChoice<'a, Message>> for Element<'a, Message>
 where
     Message: Clone + 'a,
@@ -712,8 +693,11 @@ mod tests {
             pointer_click(&mut pointer, Point::new(8.0, 8.0)),
             ["toggle"]
         );
-        assert!(pointer.state::<SingleChoiceState>().focused);
-        assert!(!pointer.state::<SingleChoiceState>().focus_visible);
+        assert!(pointer.state::<SingleChoiceState>().focus.is_active());
+        assert!(!pointer
+            .state::<SingleChoiceState>()
+            .focus
+            .is_focus_visible());
 
         let mut touch = WidgetHarness::new(checkbox(Some("toggle")), Size::new(240.0, 80.0));
         assert!(touch.update(touch_press(1, Point::new(8.0, 8.0))).captured);
@@ -734,7 +718,10 @@ mod tests {
         .into();
         let mut keyboard = WidgetHarness::new(choice, Size::new(240.0, 80.0));
         keyboard.focus(id);
-        assert!(keyboard.state::<SingleChoiceState>().focus_visible);
+        assert!(keyboard
+            .state::<SingleChoiceState>()
+            .focus
+            .is_focus_visible());
         assert!(keyboard
             .update(key_pressed(key::Named::Space, key::Code::Space))
             .messages

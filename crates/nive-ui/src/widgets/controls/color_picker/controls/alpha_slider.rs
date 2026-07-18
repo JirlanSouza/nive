@@ -146,6 +146,12 @@ impl Widget<ColorPickerEvent, crate::theme::Theme, iced::Renderer> for AlphaSlid
             bounds.y + self.alpha * bounds.height,
         );
         draw_alpha_surface(renderer, state, bounds, self.color);
-        draw_marker(renderer, theme, marker, self.color, state.is_focused());
+        draw_marker(
+            renderer,
+            theme,
+            marker,
+            self.color,
+            state.is_focus_visible(),
+        );
     }
 }

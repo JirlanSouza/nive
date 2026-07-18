@@ -1,15 +1,13 @@
-use iced::{
-    advanced::widget::{operation, tree},
-    Point,
-};
+use iced::{advanced::widget::tree, Point};
 
+use crate::advanced::focus::FocusState;
 use crate::interaction::PointerGestureState;
 
 #[derive(Debug)]
 pub(super) struct SplitPaneState {
     pub gestures: PointerGestureState<SplitPaneRegion>,
     pub drag: Option<DragSession>,
-    pub focused: bool,
+    pub focus: FocusState,
     pub available_length: f32,
 }
 
@@ -18,7 +16,7 @@ impl Default for SplitPaneState {
         Self {
             gestures: PointerGestureState::new(),
             drag: None,
-            focused: false,
+            focus: FocusState::default(),
             available_length: 0.0,
         }
     }
@@ -27,20 +25,6 @@ impl Default for SplitPaneState {
 impl SplitPaneState {
     pub(super) fn new_state() -> tree::State {
         tree::State::new(Self::default())
-    }
-}
-
-impl operation::Focusable for SplitPaneState {
-    fn is_focused(&self) -> bool {
-        self.focused
-    }
-
-    fn focus(&mut self) {
-        self.focused = true;
-    }
-
-    fn unfocus(&mut self) {
-        self.focused = false;
     }
 }
 

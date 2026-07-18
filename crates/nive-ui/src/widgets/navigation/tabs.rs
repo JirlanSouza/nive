@@ -74,6 +74,7 @@ use iced::{
     window, Alignment, Event, Length, Padding, Point, Rectangle, Shadow, Size, Vector,
 };
 
+use crate::advanced::focus::FocusState;
 use crate::advanced::pressable::{draw_focus_ring_with_placement, FocusRingPlacement};
 use crate::interaction::dnd::{DragSession, DragSessionFeedback, DragSessionOutcome};
 use crate::interaction::{
@@ -192,7 +193,7 @@ pub struct TabTearOff<Id> {
     pub position: Point,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct TabBarState<Id: Clone + Eq + 'static> {
     overflow: Overflow,
     scroll_offset: f32,
@@ -208,7 +209,7 @@ struct TabBarState<Id: Clone + Eq + 'static> {
     hovered_id: Option<Id>,
     focused_id: Option<Id>,
     previous_focus_order: Vec<Id>,
-    focused: bool,
+    focus: FocusState,
     pressed_id: Option<Id>,
     invalid_target: bool,
     edge_scroll: Option<OverflowDirection>,
@@ -980,6 +981,18 @@ fn hit_geometry<Id: Clone + Eq>(
     }
 }
 
+fn event_position(event: &Event, cursor: mouse::Cursor) -> Option<Point> {
+    match event {
+        Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => cursor.position(),
+        Event::Touch(iced::touch::Event::FingerPressed { position, .. }) => Some(*position),
+        _ => None,
+    }
+}
+
+fn owns_wheel_event(has_overflow: bool, bounds: Rectangle, cursor: mouse::Cursor) -> bool {
+    has_overflow && cursor.is_over(bounds)
+}
+
 fn visible_slot_bounds(layout: Option<Layout<'_>>) -> Option<Rectangle> {
     layout
         .map(|layout| layout.bounds())
@@ -1040,7 +1053,7 @@ impl<Id: Clone + Eq + 'static> Default for TabBarState<Id> {
             hovered_id: None,
             focused_id: None,
             previous_focus_order: Vec::new(),
-            focused: false,
+            focus: FocusState::default(),
             pressed_id: None,
             invalid_target: false,
             edge_scroll: None,
@@ -1056,18 +1069,23 @@ impl<Id: Clone + Eq + 'static> Default for TabBarState<Id> {
     }
 }
 
-impl<Id: Clone + Eq + 'static> operation::Focusable for TabBarState<Id> {
+struct TabBarFocus<'a, Id> {
+    focus: &'a mut FocusState,
+    pressed_id: &'a mut Option<Id>,
+}
+
+impl<Id> operation::Focusable for TabBarFocus<'_, Id> {
     fn is_focused(&self) -> bool {
-        self.focused
+        operation::Focusable::is_focused(self.focus)
     }
 
     fn focus(&mut self) {
-        self.focused = true;
+        operation::Focusable::focus(self.focus);
     }
 
     fn unfocus(&mut self) {
-        self.focused = false;
-        self.pressed_id = None;
+        operation::Focusable::unfocus(self.focus);
+        *self.pressed_id = None;
     }
 }
 
@@ -1245,7 +1263,15 @@ where
         operation: &mut dyn operation::Operation,
     ) {
         let state = tree.state.downcast_mut::<TabBarState<Id>>();
-        operation.focusable(None, layout.bounds(), state);
+        state.focus.expose(operation, None, layout.bounds());
+        operation.focusable(
+            None,
+            layout.bounds(),
+            &mut TabBarFocus {
+                focus: &mut state.focus,
+                pressed_id: &mut state.pressed_id,
+            },
+        );
         let state = tree.state.downcast_ref::<TabBarState<Id>>();
         let mut content = self.content_element(state);
         content
@@ -1309,6 +1335,15 @@ where
         });
         self.reconcile_focus(state);
 
+        if matches!(
+            event,
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
+                | Event::Touch(iced::touch::Event::FingerPressed { .. })
+        ) && event_position(event, cursor).is_some_and(|position| bounds.contains(position))
+        {
+            state.focus.focus_from_pointer();
+        }
+
         if let Event::Window(window::Event::RedrawRequested(now)) = event {
             if state.dragged_id.is_some() {
                 if let Some(direction) = state.edge_scroll {
@@ -1326,6 +1361,10 @@ where
                     return;
                 }
             }
+        }
+
+        if matches!(event, Event::Window(window::Event::Unfocused)) {
+            state.focus.deactivate();
         }
 
         if matches!(event, Event::Window(window::Event::Unfocused)) && state.dragged_id.is_some() {
@@ -1348,7 +1387,7 @@ where
             _ => {}
         }
 
-        if state.focused {
+        if state.focus.is_active() {
             if let Event::Keyboard(keyboard::Event::KeyPressed {
                 key: keyboard::Key::Named(named),
                 repeat: false,
@@ -1364,6 +1403,7 @@ where
                 };
 
                 if let Some(movement) = movement {
+                    state.focus.focus_from_keyboard();
                     self.move_focus(state, movement);
                     shell.invalidate_layout();
                     shell.request_redraw();
@@ -1375,6 +1415,7 @@ where
                     named,
                     keyboard::key::Named::Enter | keyboard::key::Named::Space
                 ) {
+                    state.focus.focus_from_keyboard();
                     if let (Some(on_select), Some(focused)) = (&self.on_select, &state.focused_id) {
                         shell.publish(on_select(focused.clone()));
                         shell.capture_event();
@@ -1386,7 +1427,7 @@ where
         }
 
         if let Event::Mouse(iced::mouse::Event::WheelScrolled { delta }) = event {
-            if !state.has_overflow {
+            if !owns_wheel_event(state.has_overflow, bounds, cursor) {
                 return;
             }
             let delta_x = wheel_delta(OverflowAxis::Horizontal, *delta);
@@ -1851,7 +1892,7 @@ where
             }
         }
 
-        if state.focused {
+        if state.focus.is_focus_visible() {
             if let Some(focused) = &state.focused_id {
                 if let Some((_, bounds, _)) =
                     state.tab_bounds.iter().find(|(id, _, _)| id == focused)
@@ -2256,6 +2297,28 @@ mod tabs_tests {
         assert!(st.dragged_id.is_none());
         assert!(st.insertion_target.is_none());
         assert!(!st.menu_open);
+    }
+
+    #[test]
+    fn wheel_ownership_requires_overflow_and_pointer_inside_tab_bar() {
+        let bounds = Rectangle::new(Point::new(10.0, 20.0), Size::new(200.0, 28.0));
+
+        assert!(owns_wheel_event(
+            true,
+            bounds,
+            mouse::Cursor::Available(Point::new(30.0, 30.0))
+        ));
+        assert!(!owns_wheel_event(
+            true,
+            bounds,
+            mouse::Cursor::Available(Point::new(30.0, 60.0))
+        ));
+        assert!(!owns_wheel_event(
+            false,
+            bounds,
+            mouse::Cursor::Available(Point::new(30.0, 30.0))
+        ));
+        assert!(!owns_wheel_event(true, bounds, mouse::Cursor::Unavailable));
     }
 
     #[test]

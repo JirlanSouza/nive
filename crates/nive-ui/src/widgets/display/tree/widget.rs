@@ -24,6 +24,10 @@ use super::TreeNode;
 
 use dnd::loading_row;
 
+fn project_row_focus(tree_focus_visible: bool, row_focused: bool) -> bool {
+    tree_focus_visible && row_focused
+}
+
 /// Row-click expansion behavior for branch rows.
 ///
 /// Expander button clicks always toggle non-disabled branches. This setting
@@ -255,11 +259,12 @@ where
     }
 
     fn into_element(self) -> Element<'a, Message> {
-        let content = self.build_content();
-        TreeFocus::new(self, content).into()
+        let inactive_content = self.build_content(false);
+        let visible_content = self.build_content(true);
+        TreeFocus::new(self, inactive_content, visible_content).into()
     }
 
-    fn build_content(&self) -> Element<'a, Message> {
+    fn build_content(&self, tree_focus_visible: bool) -> Element<'a, Message> {
         let default_state;
         let state = if let Some(state) = self.state {
             state
@@ -274,7 +279,7 @@ where
             rows = rows.push(match entry {
                 VisibleTreeEntry::Row(row) => {
                     let selected = state.is_selected(&row.id);
-                    let focused = state.is_focused(&row.id);
+                    let focused = project_row_focus(tree_focus_visible, state.is_focused(&row.id));
                     let press = self.row_event(state, &row.id, row.expanded, row.disabled);
                     let toggle = self.toggle_event(row.id.clone(), row.expanded, row.disabled);
 
@@ -283,6 +288,7 @@ where
                         .selected(selected)
                         .disabled(row.disabled)
                         .focused(focused)
+                        .focusable(false)
                         .size(self.size)
                         .on_press_maybe(press)
                         .on_toggle_maybe(toggle);

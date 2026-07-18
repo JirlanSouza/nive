@@ -10,6 +10,7 @@ use iced::{
     Color, Event, Length, Rectangle, Shadow, Size, Vector,
 };
 
+use crate::advanced::focus::FocusState;
 use crate::widgets::controls::button::{self as theme_button, ButtonFocusRing};
 use crate::Element;
 
@@ -20,6 +21,7 @@ pub struct Pressable<'a, Message> {
     radius: Radius,
     ring: ButtonFocusRing,
     focus_placement: FocusRingPlacement,
+    focusable: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -33,8 +35,7 @@ pub(crate) enum FocusRingPlacement {
 
 #[derive(Debug, Default)]
 struct PressableState {
-    focused: bool,
-    focus_visible: bool,
+    focus: FocusState,
 }
 
 impl<'a, Message> Pressable<'a, Message> {
@@ -52,11 +53,17 @@ impl<'a, Message> Pressable<'a, Message> {
             radius,
             ring,
             focus_placement: FocusRingPlacement::Outset,
+            focusable: true,
         }
     }
 
     pub(crate) fn focus_placement(mut self, placement: FocusRingPlacement) -> Self {
         self.focus_placement = placement;
+        self
+    }
+
+    pub(crate) fn focusable(mut self, focusable: bool) -> Self {
+        self.focusable = focusable;
         self
     }
 }
@@ -160,7 +167,13 @@ where
     ) {
         let state = tree.state.downcast_mut::<PressableState>();
 
-        operation.focusable(self.id.as_ref(), layout.bounds(), state);
+        if self.focusable {
+            state
+                .focus
+                .register(operation, self.id.as_ref(), layout.bounds());
+        } else {
+            state.focus.clear();
+        }
         self.content
             .as_widget_mut()
             .operate(&mut tree.children[0], layout, renderer, operation);
@@ -179,28 +192,39 @@ where
     ) {
         let focus_changed = {
             let state = tree.state.downcast_mut::<PressableState>();
-            let previous = (state.focused, state.focus_visible);
+            let previous = (state.focus.is_active(), state.focus.is_focus_visible());
 
-            match event {
-                Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
-                    state.focused = cursor.is_over(layout.bounds());
-                    state.focus_visible = false;
+            if !self.focusable {
+                state.focus.clear();
+            } else {
+                match event {
+                    Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
+                        if cursor.is_over(layout.bounds()) {
+                            state.focus.focus_from_pointer();
+                        } else {
+                            state.focus.deactivate();
+                        }
+                    }
+                    Event::Touch(iced::touch::Event::FingerPressed { position, .. }) => {
+                        if layout.bounds().contains(*position) {
+                            state.focus.focus_from_pointer();
+                        } else {
+                            state.focus.deactivate();
+                        }
+                    }
+                    Event::Keyboard(_)
+                        if state.focus.is_active() && is_keyboard_activation(event) =>
+                    {
+                        state.focus.focus_from_keyboard();
+                    }
+                    Event::Window(iced::window::Event::Unfocused) => {
+                        state.focus.deactivate();
+                    }
+                    _ => {}
                 }
-                Event::Touch(iced::touch::Event::FingerPressed { position, .. }) => {
-                    state.focused = layout.bounds().contains(*position);
-                    state.focus_visible = false;
-                }
-                Event::Keyboard(_) if state.focused && is_keyboard_activation(event) => {
-                    state.focus_visible = true;
-                }
-                Event::Window(iced::window::Event::Unfocused) => {
-                    state.focused = false;
-                    state.focus_visible = false;
-                }
-                _ => {}
             }
 
-            previous != (state.focused, state.focus_visible)
+            previous != (state.focus.is_active(), state.focus.is_focus_visible())
         };
 
         if focus_changed {
@@ -224,7 +248,7 @@ where
 
         let state = tree.state.downcast_ref::<PressableState>();
 
-        if state.focused && is_keyboard_activation(event) {
+        if self.focusable && state.focus.is_active() && is_keyboard_activation(event) {
             shell.publish(self.on_press.clone());
             shell.capture_event();
             shell.request_redraw();
@@ -270,7 +294,7 @@ where
 
         let state = tree.state.downcast_ref::<PressableState>();
 
-        if state.focused && state.focus_visible {
+        if self.focusable && state.focus.is_focus_visible() {
             draw_focus_ring_with_placement(
                 renderer,
                 theme,
@@ -297,22 +321,6 @@ where
             viewport,
             translation,
         )
-    }
-}
-
-impl operation::Focusable for PressableState {
-    fn is_focused(&self) -> bool {
-        self.focused
-    }
-
-    fn focus(&mut self) {
-        self.focused = true;
-        self.focus_visible = true;
-    }
-
-    fn unfocus(&mut self) {
-        self.focused = false;
-        self.focus_visible = false;
     }
 }
 
@@ -579,11 +587,11 @@ mod pressable_tests {
         )));
 
         let state = harness.state::<PressableState>();
-        assert!(state.focused);
-        assert!(!state.focus_visible);
+        assert!(state.focus.is_active());
+        assert!(!state.focus.is_focus_visible());
 
         harness.update(key_pressed(Key::Named(Named::Enter)));
-        assert!(harness.state::<PressableState>().focus_visible);
+        assert!(harness.state::<PressableState>().focus.is_focus_visible());
     }
 
     #[test]

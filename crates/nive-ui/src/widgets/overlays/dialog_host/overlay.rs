@@ -1,14 +1,17 @@
 use iced::{
     advanced::{
         layout, mouse, overlay, renderer,
-        widget::{Operation, Tree},
+        widget::{operation, Operation as _, Tree},
         Clipboard, Layout, Shell,
     },
     widget::container,
     Background, Border, Color, Event, Point, Shadow, Size, Vector,
 };
 
-use crate::{focus_trap, Element, Renderer, Theme};
+use crate::{
+    focus::{contains_focus_target, FocusTarget, FocusTargetContext},
+    focus_trap, Element, Renderer, Theme,
+};
 
 pub(super) struct DialogOverlay<'a, 'b, Message> {
     dialog: &'b mut Element<'a, Message>,
@@ -16,6 +19,8 @@ pub(super) struct DialogOverlay<'a, 'b, Message> {
     backdrop_alpha: f32,
     on_backdrop: Option<Message>,
     on_escape: Option<Message>,
+    focus_context: &'b FocusTargetContext,
+    expected_target: &'b mut Option<FocusTarget>,
 }
 
 impl<'a, 'b, Message> DialogOverlay<'a, 'b, Message> {
@@ -25,6 +30,8 @@ impl<'a, 'b, Message> DialogOverlay<'a, 'b, Message> {
         backdrop_alpha: f32,
         on_backdrop: Option<Message>,
         on_escape: Option<Message>,
+        focus_context: &'b FocusTargetContext,
+        expected_target: &'b mut Option<FocusTarget>,
     ) -> Self {
         Self {
             dialog,
@@ -32,6 +39,8 @@ impl<'a, 'b, Message> DialogOverlay<'a, 'b, Message> {
             backdrop_alpha,
             on_backdrop,
             on_escape,
+            focus_context,
+            expected_target,
         }
     }
 }
@@ -51,7 +60,12 @@ where
         layout::Node::with_children(bounds, vec![dialog_node.move_to(position)])
     }
 
-    fn operate(&mut self, layout: Layout<'_>, renderer: &Renderer, operation: &mut dyn Operation) {
+    fn operate(
+        &mut self,
+        layout: Layout<'_>,
+        renderer: &Renderer,
+        operation: &mut dyn operation::Operation,
+    ) {
         let Some(dialog_layout) = layout.children().next() else {
             return;
         };
@@ -59,6 +73,7 @@ where
         self.dialog
             .as_widget_mut()
             .operate(self.state, dialog_layout, renderer, operation);
+        self.remember_dialog_target(dialog_layout, renderer);
     }
 
     fn update(
@@ -81,6 +96,7 @@ where
                     .as_widget_mut()
                     .operate(self.state, dialog_layout, renderer, operation);
             });
+            self.remember_dialog_target(dialog_layout, renderer);
             shell.capture_event();
             shell.invalidate_layout();
             shell.request_redraw();
@@ -98,6 +114,7 @@ where
             shell,
             &viewport,
         );
+        self.remember_dialog_target(dialog_layout, renderer);
 
         if shell.is_event_captured() {
             return;
@@ -191,6 +208,24 @@ where
             &viewport,
             Vector::ZERO,
         )
+    }
+}
+
+impl<Message> DialogOverlay<'_, '_, Message> {
+    fn remember_dialog_target(&mut self, layout: Layout<'_>, renderer: &Renderer) {
+        let Some(current) = self.focus_context.capture() else {
+            return;
+        };
+        let mut contains = contains_focus_target(current.clone());
+        self.dialog.as_widget_mut().operate(
+            self.state,
+            layout,
+            renderer,
+            &mut operation::black_box(&mut contains),
+        );
+        if matches!(contains.finish(), operation::Outcome::Some(true)) {
+            *self.expected_target = Some(current);
+        }
     }
 }
 

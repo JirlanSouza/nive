@@ -1,6 +1,13 @@
 use super::support::*;
 
 #[test]
+fn row_focus_border_is_projected_only_while_tree_focus_is_visible() {
+    assert!(super::super::project_row_focus(true, true));
+    assert!(!super::super::project_row_focus(false, true));
+    assert!(!super::super::project_row_focus(true, false));
+}
+
+#[test]
 fn defaults_match_tree_contract() {
     let tree = Tree::<_, Message>::new(Vec::<TreeNode<'_, &'static str>>::new());
 

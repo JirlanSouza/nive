@@ -11,6 +11,7 @@ use iced::{
     touch, Background, Border, Color, Event, Length, Point, Rectangle, Shadow, Size, Vector,
 };
 
+use crate::advanced::focus::FocusState;
 use crate::theme::{
     choice::{self, ChoiceMetrics, ChoicePersistentState, ChoiceStateInput},
     BorderRole, ControlRole, ControlSize, FieldValidation, TextRole, Theme, TypographyRole,
@@ -204,8 +205,7 @@ where
 
 #[derive(Debug, Default)]
 struct SegmentedState {
-    focused: bool,
-    focus_visible: bool,
+    focus: FocusState,
     focused_index: Option<usize>,
     pressed_index: Option<usize>,
     touch: Option<(touch::Finger, usize)>,
@@ -379,7 +379,7 @@ where
         );
 
         let state = tree.state.downcast_mut::<SegmentedState>();
-        if state.focused {
+        if state.focus.is_active() {
             state.focused_index = self
                 .selected_index()
                 .filter(|index| !self.options[*index].disabled)
@@ -482,7 +482,26 @@ where
     ) {
         let state = tree.state.downcast_mut::<SegmentedState>();
         if self.interactive() {
-            operation.focusable(self.id.as_ref(), layout.bounds(), state);
+            let SegmentedState {
+                focus,
+                focused_index,
+                pressed_index,
+                touch,
+                ..
+            } = state;
+            focus.expose(operation, self.id.as_ref(), layout.bounds());
+            operation.focusable(
+                self.id.as_ref(),
+                layout.bounds(),
+                &mut SegmentedFocus {
+                    focus,
+                    focused_index,
+                    pressed_index,
+                    touch,
+                },
+            );
+        } else {
+            state.focus.clear();
         }
         for (index, (tree, child_layout)) in
             tree.children.iter_mut().zip(layout.children()).enumerate()
@@ -522,8 +541,7 @@ where
         let interactive = self.interactive();
         let state = tree.state.downcast_mut::<SegmentedState>();
         if !interactive {
-            state.focused = false;
-            state.focus_visible = false;
+            state.focus.clear();
             state.focused_index = None;
             state.pressed_index = None;
             state.touch = None;
@@ -536,14 +554,12 @@ where
                     .position()
                     .and_then(|point| self.item_at(state, layout, point));
                 if let Some(index) = hit.filter(|index| !self.options[*index].disabled) {
-                    state.focused = true;
-                    state.focus_visible = false;
+                    state.focus.focus_from_pointer();
                     state.focused_index = Some(index);
                     state.pressed_index = Some(index);
                     shell.capture_event();
                 } else {
-                    state.focused = false;
-                    state.focus_visible = false;
+                    state.focus.deactivate();
                     state.pressed_index = None;
                 }
                 shell.request_redraw();
@@ -569,8 +585,7 @@ where
                     .item_at(state, layout, *position)
                     .filter(|index| !self.options[*index].disabled)
                 {
-                    state.focused = true;
-                    state.focus_visible = false;
+                    state.focus.focus_from_pointer();
                     state.focused_index = Some(index);
                     state.touch = Some((*id, index));
                     shell.capture_event();
@@ -602,7 +617,7 @@ where
                 key: keyboard::Key::Named(named),
                 repeat: false,
                 ..
-            }) if state.focused => {
+            }) if state.focus.is_active() => {
                 let focus_key = matches!(
                     named,
                     key::Named::ArrowLeft
@@ -612,7 +627,9 @@ where
                         | key::Named::Space
                         | key::Named::Enter
                 );
-                state.focus_visible |= focus_key;
+                if focus_key {
+                    state.focus.focus_from_keyboard();
+                }
                 let target = match named {
                     key::Named::ArrowLeft => self.move_bounded(state, -1),
                     key::Named::ArrowRight => self.move_bounded(state, 1),
@@ -631,8 +648,7 @@ where
                 }
             }
             Event::Window(iced::window::Event::Unfocused) => {
-                state.focused = false;
-                state.focus_visible = false;
+                state.focus.deactivate();
                 state.pressed_index = None;
                 state.touch = None;
                 shell.request_redraw();
@@ -705,7 +721,7 @@ where
             let pressed = state.pressed_index == Some(index)
                 || state.touch.is_some_and(|(_, pressed)| pressed == index);
             let focused =
-                state.focused && state.focus_visible && self.reconciled_focus(state) == Some(index);
+                state.focus.is_focus_visible() && self.reconciled_focus(state) == Some(index);
             let resolved = choice::resolve_state(ChoiceStateInput {
                 persistent: if selected {
                     ChoicePersistentState::Selected
@@ -818,23 +834,28 @@ where
     }
 }
 
-impl operation::Focusable for SegmentedState {
+struct SegmentedFocus<'a> {
+    focus: &'a mut FocusState,
+    focused_index: &'a mut Option<usize>,
+    pressed_index: &'a mut Option<usize>,
+    touch: &'a mut Option<(touch::Finger, usize)>,
+}
+
+impl operation::Focusable for SegmentedFocus<'_> {
     fn is_focused(&self) -> bool {
-        self.focused
+        operation::Focusable::is_focused(self.focus)
     }
 
     fn focus(&mut self) {
-        self.focused = true;
-        self.focus_visible = true;
-        self.focused_index = None;
+        operation::Focusable::focus(self.focus);
+        *self.focused_index = None;
     }
 
     fn unfocus(&mut self) {
-        self.focused = false;
-        self.focus_visible = false;
-        self.focused_index = None;
-        self.pressed_index = None;
-        self.touch = None;
+        operation::Focusable::unfocus(self.focus);
+        *self.focused_index = None;
+        *self.pressed_index = None;
+        *self.touch = None;
     }
 }
 
@@ -968,8 +989,8 @@ mod tests {
             pointer_click(&mut pointer, Point::new(150.0, 14.0)),
             [Message::Selected(Mode::Second)]
         );
-        assert!(pointer.state::<SegmentedState>().focused);
-        assert!(!pointer.state::<SegmentedState>().focus_visible);
+        assert!(pointer.state::<SegmentedState>().focus.is_active());
+        assert!(!pointer.state::<SegmentedState>().focus.is_focus_visible());
 
         let id = iced::widget::Id::new("segments");
         let keyboard_control: Element<'_, Message> =
@@ -979,7 +1000,7 @@ mod tests {
                 .into();
         let mut keyboard = WidgetHarness::new(keyboard_control, Size::new(300.0, 80.0));
         keyboard.focus(id);
-        assert!(keyboard.state::<SegmentedState>().focus_visible);
+        assert!(keyboard.state::<SegmentedState>().focus.is_focus_visible());
         assert_eq!(
             keyboard
                 .update(key_pressed(key::Named::ArrowRight, key::Code::ArrowRight))
@@ -1109,8 +1130,8 @@ mod tests {
         harness.focus(id);
 
         let state = harness.state::<SegmentedState>();
-        assert!(state.focused);
-        assert!(state.focus_visible);
+        assert!(state.focus.is_active());
+        assert!(state.focus.is_focus_visible());
         assert_eq!(state.focused_index, None);
     }
 
