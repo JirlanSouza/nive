@@ -101,6 +101,37 @@ fn prelude_exposes_complete_typed_form_contract() {
 }
 
 #[test]
+fn prelude_exposes_typed_select_and_field_conversion() {
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct Plan(u8);
+
+    #[derive(Debug, Clone)]
+    enum Message {
+        Selected(Plan),
+        Opened,
+        Closed,
+    }
+
+    let owned = String::from("Professional");
+    let options = vec![
+        SelectOption::new(Plan(1), "Free"),
+        SelectOption::new(Plan(2), owned).disabled(false),
+    ];
+    let control: FieldControl<'_, Message> = Select::new(options, Some(Plan(1)))
+        .placeholder("Choose a plan")
+        .semantic_name("Billing plan")
+        .validation(FieldValidation::Invalid)
+        .lg()
+        .fill_width()
+        .on_select(Message::Selected)
+        .on_open_maybe(Some(Message::Opened))
+        .on_close_maybe(Some(Message::Closed))
+        .into();
+
+    let _: Element<'_, Message> = Field::new("Plan", control).error("Required").into();
+}
+
+#[test]
 fn prelude_exposes_complete_selection_contract() {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     enum Choice {

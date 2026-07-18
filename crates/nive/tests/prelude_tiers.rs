@@ -258,6 +258,33 @@ mod card_and_content_action_contract {
     }
 }
 
+mod typed_select_contract {
+    use nive::prelude::*;
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct Plan(u8);
+
+    #[derive(Debug, Clone)]
+    enum Message {
+        Selected(Plan),
+    }
+
+    pub(super) fn _assert_typed_select_compiles_through_the_umbrella_prelude() {
+        let control: FieldControl<'_, Message> = Select::new(
+            [
+                SelectOption::new(Plan(1), "Free"),
+                SelectOption::new(Plan(2), String::from("Professional")),
+            ]
+            .into_iter()
+            .collect::<Vec<_>>(),
+            Some(Plan(1)),
+        )
+        .on_select(Message::Selected)
+        .into();
+        let _: Element<'_, Message> = Field::new("Plan", control).into();
+    }
+}
+
 mod workbench_chrome_prelude_contract {
     use nive::workbench::prelude::*;
 
