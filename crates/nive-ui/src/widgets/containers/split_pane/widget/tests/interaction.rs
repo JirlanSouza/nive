@@ -151,11 +151,11 @@ fn focus_and_unfocus_toggle_state() {
 
     let mut state = SplitPaneState::default();
 
-    operation::Focusable::focus(&mut state);
-    assert!(operation::Focusable::is_focused(&state));
+    operation::Focusable::focus(&mut state.focus);
+    assert!(operation::Focusable::is_focused(&state.focus));
 
-    operation::Focusable::unfocus(&mut state);
-    assert!(!operation::Focusable::is_focused(&state));
+    operation::Focusable::unfocus(&mut state.focus);
+    assert!(!operation::Focusable::is_focused(&state.focus));
 }
 
 #[test]
@@ -172,7 +172,7 @@ fn press_on_grip_focuses() {
         false,
     );
 
-    assert!(state.focused);
+    assert!(state.focus.is_active());
 }
 
 #[test]
@@ -235,7 +235,7 @@ fn primary_pointer_inside_hit_target_precedes_adjacent_children() {
 
         assert!(result.captured);
         assert!(result.messages.is_empty());
-        assert!(harness.state().focused);
+        assert!(harness.state().focus.is_active());
     }
 }
 
@@ -254,7 +254,7 @@ fn touch_inside_hit_target_outside_seam_resizes_and_focuses() {
 
         assert!(pressed.captured);
         assert!(pressed.messages.is_empty());
-        assert!(harness.state().focused);
+        assert!(harness.state().focus.is_active());
 
         let moved = match orientation {
             Orientation::Horizontal => Point::new(point.x + 10.0, point.y),
@@ -309,7 +309,7 @@ fn outside_non_primary_and_locked_input_continue_to_children() {
 
         assert!(!result.captured);
         assert_eq!(result.messages, vec![Message::Leading, Message::Trailing]);
-        assert!(!locked.state().focused);
+        assert!(!locked.state().focus.is_active());
     }
 }
 
@@ -364,7 +364,7 @@ fn display_only_splitter_preserves_child_flow_and_normal_cursor() {
 
         assert!(!result.captured);
         assert_eq!(result.messages, vec![Message::Leading, Message::Trailing]);
-        assert!(!harness.state().focused);
+        assert!(!harness.state().focus.is_active());
         assert_eq!(harness.mouse_interaction(), mouse::Interaction::None);
     }
 }
@@ -399,7 +399,7 @@ fn primary_press_outside_hit_releases_focus_before_forwarding() {
         false,
     );
     let _ = harness.press(mouse::Button::Left, harness.hit_only_point());
-    assert!(harness.state().focused);
+    assert!(harness.state().focus.is_active());
 
     let bounds = harness.bounds();
     let result = harness.press(
@@ -409,5 +409,5 @@ fn primary_press_outside_hit_releases_focus_before_forwarding() {
 
     assert!(!result.captured);
     assert_eq!(result.messages, vec![Message::Leading, Message::Trailing]);
-    assert!(!harness.state().focused);
+    assert!(!harness.state().focus.is_active());
 }

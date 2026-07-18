@@ -43,6 +43,7 @@ pub struct Input<'a, Message> {
     size: ControlSize,
     width: Length,
     id: Option<Id>,
+    generated_field_id: bool,
     semantic_name: Option<Cow<'a, str>>,
     disabled: bool,
     read_only: bool,
@@ -101,6 +102,7 @@ where
             size: ControlSize::Sm,
             width: Length::Fill,
             id: None,
+            generated_field_id: false,
             semantic_name: None,
             disabled: false,
             read_only: false,
@@ -171,6 +173,7 @@ where
     /// the same id across view rebuilds.
     pub fn id(mut self, id: impl Into<Id>) -> Self {
         self.id = Some(id.into());
+        self.generated_field_id = false;
         self
     }
 
@@ -254,6 +257,7 @@ where
             size: self.size,
             width: self.width,
             id: self.id,
+            generated_field_id: self.generated_field_id,
             semantic_name: self.semantic_name,
             disabled: self.disabled,
             read_only: self.read_only,
@@ -296,8 +300,15 @@ where
         validation: FieldValidation,
         disabled: bool,
     ) -> (Self, Id) {
-        let id = self.id.clone().unwrap_or_else(Id::unique);
-        self.id = Some(id.clone());
+        let id = match self.id.clone() {
+            Some(id) => id,
+            None => {
+                self.generated_field_id = true;
+                let id = Id::unique();
+                self.id = Some(id.clone());
+                id
+            }
+        };
         self.semantic_name = Some(label);
         self.size = size;
         self.validation = validation;
@@ -364,6 +375,8 @@ where
             .line_height(iced::widget::text::LineHeight::Relative(render.line_height))
             .secure(self.secure);
 
+        let id = self.id.clone();
+        let focus_identity = (!self.generated_field_id).then(|| id.clone()).flatten();
         if let Some(id) = self.id {
             input = input.id(id);
         }
@@ -395,6 +408,7 @@ where
             semantic_name: self.semantic_name,
             read_only: effective_read_only,
             disabled: self.disabled,
+            focus_identity,
         });
 
         input
@@ -593,7 +607,10 @@ mod text_input_tests {
                     .id(ids[2].clone())
                     .on_change(|value| value),
             );
-        let mut harness = WidgetHarness::new(column.into(), Size::new(240.0, 140.0));
+        let mut harness = WidgetHarness::new(
+            crate::accessibility::FocusRoot::new(column).into(),
+            Size::new(240.0, 140.0),
+        );
 
         harness.set_cursor(Point::new(20.0, 42.0));
         harness.update(Event::Mouse(mouse::Event::ButtonPressed(
@@ -609,6 +626,54 @@ mod text_input_tests {
 
         harness.focus_next();
         assert_eq!(harness.focused_ids(), [ids[2].clone()]);
+    }
+
+    #[test]
+    fn tab_continues_after_an_unidentified_pointer_focused_input_is_blurred() {
+        let next = Id::new("next-after-input");
+        let column = Column::new()
+            .push(crate::widgets::button::primary("Before").on_press("before"))
+            .push(Input::new("Value", "").on_change(|_| "changed"))
+            .push(
+                crate::widgets::button::primary("After")
+                    .id(next.clone())
+                    .on_press("after"),
+            );
+        let mut harness = WidgetHarness::new(
+            crate::accessibility::FocusRoot::new(iced::widget::scrollable(column)).into(),
+            Size::new(240.0, 160.0),
+        );
+
+        harness.set_cursor(Point::new(20.0, 42.0));
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        assert_eq!(
+            harness
+                .managed_focus()
+                .entries
+                .iter()
+                .filter(|entry| entry.active)
+                .count(),
+            1
+        );
+
+        harness.set_cursor(Point::new(220.0, 150.0));
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        assert_eq!(
+            harness
+                .managed_focus()
+                .entries
+                .iter()
+                .filter(|entry| entry.anchor_only)
+                .count(),
+            1
+        );
+
+        harness.focus_next();
+        assert_eq!(harness.focused_ids(), [next]);
     }
 
     #[test]

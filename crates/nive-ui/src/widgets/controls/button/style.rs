@@ -62,6 +62,7 @@ pub enum ButtonVariant {
 pub enum ButtonFocusRing {
     Default,
     OnPrimary,
+    OnDanger,
     Danger,
 }
 
@@ -242,6 +243,7 @@ pub fn focus_ring(theme: &crate::theme::Theme, ring: ButtonFocusRing, radius: Ra
     let color = match ring {
         ButtonFocusRing::Default => focus.color,
         ButtonFocusRing::OnPrimary => theme.tone(ToneRole::Accent).on_color,
+        ButtonFocusRing::OnDanger => theme.tone(ToneRole::Danger).on_color,
         ButtonFocusRing::Danger => theme.tone(ToneRole::Danger).color,
     };
 
@@ -326,6 +328,17 @@ mod button_tests {
         assert_eq!(style.border.color, expected.border.color);
         assert_eq!(style.border.width, expected.border.width);
         assert_eq!(style.border.radius, radius);
+    }
+
+    #[test]
+    fn on_danger_focus_ring_contrasts_with_the_solid_danger_fill() {
+        for theme in [Theme::Light, Theme::Dark] {
+            let ring = focus_ring(&theme, ButtonFocusRing::OnDanger, Radius::new(6.0));
+            let danger = theme.tone(ToneRole::Danger);
+
+            assert_eq!(ring.color, danger.on_color);
+            assert_ne!(ring.color, danger.color);
+        }
     }
 
     #[test]

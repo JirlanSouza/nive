@@ -14,6 +14,7 @@ use iced::{
     Event, Length, Rectangle, Size, Vector,
 };
 
+use crate::advanced::focus::{FocusState, FocusVisibility};
 use crate::Element;
 
 #[derive(Debug, Clone)]
@@ -31,12 +32,13 @@ pub(super) struct TextInputAdapter<'a, Message> {
     pub(super) semantic_name: Option<Cow<'a, str>>,
     pub(super) read_only: bool,
     pub(super) disabled: bool,
+    pub(super) focus_identity: Option<Id>,
 }
 
 #[derive(Debug)]
 struct AdapterState {
     disabled: bool,
-    logical_focus: bool,
+    focus: FocusState,
     visual_focus: bool,
 }
 
@@ -52,7 +54,7 @@ where
     fn state(&self) -> tree::State {
         tree::State::new(AdapterState {
             disabled: self.disabled,
-            logical_focus: false,
+            focus: FocusState::new(FocusVisibility::AlwaysWhileActive),
             visual_focus: false,
         })
     }
@@ -66,7 +68,7 @@ where
 
         if self.disabled && !state.disabled {
             tree.children[0] = Tree::new(&self.content);
-            state.logical_focus = false;
+            state.focus.clear();
             state.visual_focus = false;
             self.sync_focus_tracker(false);
         } else {
@@ -105,9 +107,12 @@ where
         if !self.disabled {
             let state = tree.state.downcast_mut::<AdapterState>();
             operation.custom(None, layout.bounds(), state);
+            state
+                .focus
+                .expose(operation, self.focus_identity.as_ref(), layout.bounds());
             let mut operation = LogicalFocusOperation {
                 operation,
-                logical_focus: &mut state.logical_focus,
+                focus: &mut state.focus,
             };
             self.content.as_widget_mut().operate(
                 &mut tree.children[0],
@@ -142,12 +147,10 @@ where
 
         if is_primary_press(event) {
             if cursor.is_over(layout.bounds()) {
-                state.logical_focus = true;
-            } else if shell.is_event_captured() {
-                state.logical_focus = false;
+                state.focus.focus_from_pointer();
             }
         } else if matches!(event, Event::Window(iced::window::Event::Unfocused)) {
-            state.logical_focus = false;
+            state.focus.deactivate();
         }
 
         if self.read_only && is_mutating_event(event) {
@@ -215,8 +218,10 @@ where
 
         let is_focused =
             child_has_native_focus(&mut self.content, &mut tree.children[0], layout, renderer);
-        if is_focused {
-            state.logical_focus = true;
+        if is_focused && !state.focus.is_active() {
+            operation::Focusable::focus(&mut state.focus);
+        } else if was_focused && !is_focused {
+            state.focus.deactivate();
         }
         state.visual_focus = is_focused;
         self.sync_focus_tracker(is_focused);
@@ -304,7 +309,7 @@ impl<Message> TextInputAdapter<'_, Message> {
 
 struct LogicalFocusOperation<'a> {
     operation: &'a mut dyn Operation,
-    logical_focus: &'a mut bool,
+    focus: &'a mut FocusState,
 }
 
 impl Operation for LogicalFocusOperation<'_> {
@@ -312,7 +317,7 @@ impl Operation for LogicalFocusOperation<'_> {
         self.operation.traverse(&mut |operation| {
             operate(&mut LogicalFocusOperation {
                 operation,
-                logical_focus: self.logical_focus,
+                focus: self.focus,
             });
         });
     }
@@ -339,7 +344,7 @@ impl Operation for LogicalFocusOperation<'_> {
             bounds,
             &mut LogicalFocus {
                 native: state,
-                logical: self.logical_focus,
+                focus: self.focus,
             },
         );
     }
@@ -359,22 +364,22 @@ impl Operation for LogicalFocusOperation<'_> {
 
 struct LogicalFocus<'a> {
     native: &'a mut dyn Focusable,
-    logical: &'a mut bool,
+    focus: &'a mut FocusState,
 }
 
 impl Focusable for LogicalFocus<'_> {
     fn is_focused(&self) -> bool {
-        self.native.is_focused() || *self.logical
+        self.native.is_focused() || Focusable::is_focused(self.focus)
     }
 
     fn focus(&mut self) {
         self.native.focus();
-        *self.logical = true;
+        Focusable::focus(self.focus);
     }
 
     fn unfocus(&mut self) {
         self.native.unfocus();
-        *self.logical = false;
+        Focusable::unfocus(self.focus);
     }
 }
 
@@ -533,9 +538,10 @@ mod adapter_tests {
         let mut operation = VisualFocus(false);
         let mut state = AdapterState {
             disabled: false,
-            logical_focus: true,
+            focus: FocusState::default(),
             visual_focus: false,
         };
+        Focusable::focus(&mut state.focus);
 
         operation.custom(None, Rectangle::default(), &mut state);
 

@@ -165,6 +165,12 @@ impl Widget<ColorPickerEvent, crate::theme::Theme, iced::Renderer> for Saturatio
             bounds.x + self.hsva.saturation() * bounds.width,
             bounds.y + (1.0 - self.hsva.value()) * bounds.height,
         );
-        draw_marker(renderer, theme, marker, self.color, state.is_focused());
+        draw_marker(
+            renderer,
+            theme,
+            marker,
+            self.color,
+            state.is_focus_visible(),
+        );
     }
 }

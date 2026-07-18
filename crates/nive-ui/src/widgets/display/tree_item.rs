@@ -39,6 +39,7 @@ pub struct TreeItem<'a, Message> {
     on_toggle: Option<Message>,
     on_context_request: Option<Message>,
     dragging: bool,
+    focusable: bool,
 }
 
 impl<'a, Message> TreeItem<'a, Message>
@@ -63,6 +64,7 @@ where
             on_toggle: None,
             on_context_request: None,
             dragging: false,
+            focusable: true,
         }
     }
 
@@ -199,6 +201,11 @@ where
         self
     }
 
+    pub(crate) fn focusable(mut self, focusable: bool) -> Self {
+        self.focusable = focusable;
+        self
+    }
+
     fn into_element(self) -> Element<'a, Message> {
         let metrics = theme_tree_item::metrics(self.size);
         let mut row = Row::new()
@@ -259,12 +266,18 @@ where
                     .height(Length::Fixed(metrics.height))
                     .on_press_maybe(activation.clone());
 
-                Pressable::maybe(
-                    button,
-                    activation,
-                    metrics.radius.into(),
-                    ButtonFocusRing::Default,
-                )
+                match activation {
+                    Some(message) => Pressable::new(
+                        button,
+                        message,
+                        None,
+                        metrics.radius.into(),
+                        ButtonFocusRing::Default,
+                    )
+                    .focusable(self.focusable)
+                    .into(),
+                    None => button.into(),
+                }
             }
             None => Space::new()
                 .width(Length::Fixed(metrics.expander_side))
@@ -283,6 +296,7 @@ where
         } else {
             self.on_press.clone()
         };
+        let focusable = self.focusable;
         let content = self.main_content(metrics);
 
         let button = button::Button::new(content)
@@ -292,12 +306,18 @@ where
             .height(Length::Fixed(metrics.height))
             .on_press_maybe(activation.clone());
 
-        Pressable::maybe(
-            button,
-            activation,
-            metrics.radius.into(),
-            ButtonFocusRing::Default,
-        )
+        match activation {
+            Some(message) => Pressable::new(
+                button,
+                message,
+                None,
+                metrics.radius.into(),
+                ButtonFocusRing::Default,
+            )
+            .focusable(focusable)
+            .into(),
+            None => button.into(),
+        }
     }
 
     fn main_content(self, metrics: theme_tree_item::TreeItemMetrics) -> Element<'a, Message> {

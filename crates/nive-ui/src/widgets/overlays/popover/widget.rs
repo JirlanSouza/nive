@@ -1,7 +1,7 @@
 use iced::{
     advanced::{
         layout, mouse, overlay,
-        widget::{operation, tree, Tree},
+        widget::{operation, tree, Operation as _, Tree},
         Clipboard, Layout, Shell, Widget,
     },
     Event, Length, Rectangle, Size, Vector,
@@ -12,7 +12,16 @@ use super::{
     placement::{translated_bounds, PopoverCollision, PopoverPlacement, PopoverWidth},
     PopoverFocusPolicy,
 };
-use crate::Element;
+use crate::{
+    focus::{contains_focus_target, FocusTarget, FocusTargetContext},
+    Element,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum PopoverDismissalCause {
+    RestoreAnchor,
+    TraversalExit,
+}
 
 pub(super) struct PopoverWidget<'a, Message> {
     pub(super) anchor: Element<'a, Message>,
@@ -27,10 +36,16 @@ pub(super) struct PopoverWidget<'a, Message> {
 }
 
 #[derive(Debug, Default)]
-struct PopoverState {
-    was_open: bool,
+pub(super) struct PopoverState {
+    pub(super) was_open: bool,
     focus_entered: bool,
     dismissal_requested: bool,
+    dismissal_cause: Option<PopoverDismissalCause>,
+    focus_context: FocusTargetContext,
+    pub(super) captured_target: Option<FocusTarget>,
+    pub(super) captured_target_available: bool,
+    expected_target: Option<FocusTarget>,
+    pub(super) invalid_anchor: bool,
 }
 
 impl<'a, Message> Widget<Message, crate::theme::Theme, iced::Renderer>
@@ -94,6 +109,20 @@ where
         renderer: &iced::Renderer,
         operation: &mut dyn operation::Operation,
     ) {
+        let state = tree.state.downcast_mut::<PopoverState>();
+        state.focus_context.expose(operation, layout.bounds());
+        state.captured_target_available = if let Some(captured) = state.captured_target.clone() {
+            let mut contains = contains_focus_target(captured);
+            self.anchor.as_widget_mut().operate(
+                &mut tree.children[0],
+                layout,
+                renderer,
+                &mut operation::black_box(&mut contains),
+            );
+            matches!(contains.finish(), operation::Outcome::Some(true))
+        } else {
+            false
+        };
         self.anchor
             .as_widget_mut()
             .operate(&mut tree.children[0], layout, renderer, operation);
@@ -172,9 +201,31 @@ where
         if self.open && !state.was_open {
             state.focus_entered = false;
             state.dismissal_requested = false;
-        } else if !self.open {
+            state.dismissal_cause = None;
+            state.captured_target = state.focus_context.capture();
+            state.captured_target_available = state.captured_target.is_some();
+            state.expected_target = None;
+            state.invalid_anchor = false;
+        } else if !self.open && state.was_open {
+            if state.dismissal_cause == Some(PopoverDismissalCause::RestoreAnchor)
+                && self.focus_policy != PopoverFocusPolicy::RetainAnchor
+            {
+                if let Some(captured) = state.captured_target.as_ref() {
+                    if state.captured_target_available && captured.is_valid() {
+                        let _restored = state
+                            .focus_context
+                            .restore(captured, state.expected_target.as_ref());
+                    } else {
+                        state.invalid_anchor = true;
+                    }
+                }
+            }
             state.focus_entered = false;
             state.dismissal_requested = false;
+            state.dismissal_cause = None;
+            state.captured_target = None;
+            state.captured_target_available = false;
+            state.expected_target = None;
         }
         state.was_open = self.open;
 
@@ -207,6 +258,9 @@ where
                     self.focus_policy,
                     &mut state.focus_entered,
                     &mut state.dismissal_requested,
+                    &mut state.dismissal_cause,
+                    &state.focus_context,
+                    &mut state.expected_target,
                 )
                 .with_nested_overlay_map(identity_message::<Message>),
             )))

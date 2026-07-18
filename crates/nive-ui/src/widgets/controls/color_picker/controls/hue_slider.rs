@@ -144,6 +144,12 @@ impl Widget<ColorPickerEvent, crate::theme::Theme, iced::Renderer> for HueSlider
             bounds.center_x(),
             bounds.y + self.hue / 360.0 * bounds.height,
         );
-        draw_marker(renderer, theme, marker, self.color, state.is_focused());
+        draw_marker(
+            renderer,
+            theme,
+            marker,
+            self.color,
+            state.is_focus_visible(),
+        );
     }
 }

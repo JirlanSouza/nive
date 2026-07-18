@@ -33,7 +33,7 @@ pub(super) fn handle_pointer_gestures(
 
         match gesture.kind {
             PointerGestureKind::Pressed => {
-                state.focused = true;
+                state.focus.focus_from_pointer();
             }
             PointerGestureKind::DragStarted => {
                 state.drag = Some(DragSession {
@@ -160,7 +160,7 @@ where
         event: &Event,
         shell: &mut Shell<'_, Message>,
     ) -> bool {
-        if !state.focused {
+        if !state.focus.is_active() {
             return false;
         }
 
@@ -177,6 +177,7 @@ where
         let Some(delta) = super::KEYBOARD_STEP.delta(key, *modifiers, self.orientation) else {
             return false;
         };
+        state.focus.focus_from_keyboard();
 
         let next_ratio = constrained_ratio(
             self.ratio + delta,

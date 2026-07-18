@@ -1,8 +1,13 @@
-use iced::{advanced::widget::operation, Color};
+use iced::{
+    advanced::widget::{operation, Id},
+    Color, Rectangle,
+};
 
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+use crate::advanced::focus::FocusState;
+
+#[derive(Debug, Default)]
 pub(super) struct ColorInputState {
-    focused: bool,
+    focus: FocusState,
     session: Option<ColorInputSession>,
 }
 
@@ -13,8 +18,29 @@ struct ColorInputSession {
 }
 
 impl ColorInputState {
-    pub(super) fn is_focused(&self) -> bool {
-        self.focused
+    pub(super) fn is_active(&self) -> bool {
+        self.focus.is_active()
+    }
+
+    pub(super) fn is_focus_visible(&self) -> bool {
+        self.focus.is_focus_visible()
+    }
+
+    pub(super) fn register(
+        &mut self,
+        operation: &mut dyn operation::Operation,
+        id: Option<&Id>,
+        bounds: Rectangle,
+    ) {
+        self.focus.register(operation, id, bounds);
+    }
+
+    pub(super) fn focus_from_pointer(&mut self) {
+        self.focus.focus_from_pointer();
+    }
+
+    pub(super) fn clear_focus(&mut self) {
+        self.focus.clear();
     }
 
     pub(super) fn is_open(&self) -> bool {
@@ -56,20 +82,6 @@ impl ColorInputState {
         let session = self.session.take()?;
 
         (!colors_match(session.initial, session.current)).then_some(session.initial)
-    }
-}
-
-impl operation::Focusable for ColorInputState {
-    fn is_focused(&self) -> bool {
-        self.focused
-    }
-
-    fn focus(&mut self) {
-        self.focused = true;
-    }
-
-    fn unfocus(&mut self) {
-        self.focused = false;
     }
 }
 
@@ -153,14 +165,14 @@ mod color_input_state_tests {
     fn focus_operation_tracks_focus_state() {
         let mut state = ColorInputState::default();
 
-        assert!(!state.is_focused());
+        assert!(!state.is_active());
 
-        operation::Focusable::focus(&mut state);
+        operation::Focusable::focus(&mut state.focus);
 
-        assert!(state.is_focused());
+        assert!(state.is_active());
 
-        operation::Focusable::unfocus(&mut state);
+        operation::Focusable::unfocus(&mut state.focus);
 
-        assert!(!state.is_focused());
+        assert!(!state.is_active());
     }
 }

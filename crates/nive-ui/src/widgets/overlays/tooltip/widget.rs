@@ -19,7 +19,7 @@ use crate::{
     Element,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(super) struct TooltipState {
     pub(super) owner_key: Option<u64>,
     pub(super) hovered: bool,
@@ -28,20 +28,6 @@ pub(super) struct TooltipState {
     pub(super) block_private_traversal: bool,
     entered_at: Option<iced::time::Instant>,
     pub(super) escape_suppressed: bool,
-}
-
-impl Default for TooltipState {
-    fn default() -> Self {
-        Self {
-            owner_key: None,
-            hovered: false,
-            focused: false,
-            visible: false,
-            block_private_traversal: false,
-            entered_at: None,
-            escape_suppressed: false,
-        }
-    }
 }
 
 pub(super) struct TooltipWidget<'a, Message> {
@@ -161,6 +147,7 @@ impl<Message> Widget<Message, crate::theme::Theme, iced::Renderer> for TooltipWi
         });
         let now = self.now_override.unwrap_or_else(|| event_now(event));
         let state = tree.state.downcast_mut::<TooltipState>();
+        let was_visible = state.visible;
         state.hovered = hovered;
         state.focused = focused;
 
@@ -187,6 +174,11 @@ impl<Message> Widget<Message, crate::theme::Theme, iced::Renderer> for TooltipWi
                 state.visible = false;
                 shell.request_redraw_at(deadline);
             }
+        }
+
+        if state.visible != was_visible {
+            shell.invalidate_layout();
+            request_redraw_after_visibility_change(event, shell);
         }
     }
 
@@ -352,6 +344,18 @@ impl<Message> overlay::Overlay<Message, crate::theme::Theme, iced::Renderer>
             cursor,
             &viewport,
         );
+    }
+}
+
+pub(super) fn request_redraw_after_visibility_change<Message>(
+    event: &Event,
+    shell: &mut Shell<'_, Message>,
+) {
+    if !matches!(
+        event,
+        Event::Window(iced::window::Event::RedrawRequested(_))
+    ) {
+        shell.request_redraw();
     }
 }
 

@@ -41,14 +41,16 @@ pub(super) fn operate_focus(
     operation: &mut dyn operation::Operation,
     control: ColorPickerControl,
 ) {
+    let state = tree.state.downcast_mut::<ControlState>();
     if disabled {
+        state.focus().clear();
         return;
     }
-
-    let state = tree.state.downcast_mut::<ControlState>();
     let id = control.id();
 
-    operation.focusable(Some(&id), layout.bounds(), state);
+    state
+        .focus()
+        .register(operation, Some(&id), layout.bounds());
 }
 
 pub(super) fn handle_keyboard(
@@ -58,7 +60,7 @@ pub(super) fn handle_keyboard(
     shell: &mut Shell<'_, ColorPickerEvent>,
     message: impl FnOnce(&Event) -> Option<ColorPickerEvent>,
 ) {
-    if disabled || !state.is_focused() {
+    if disabled || !state.is_active() {
         return;
     }
 

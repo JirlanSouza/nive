@@ -8,9 +8,10 @@ use iced::{
     touch, Event, Rectangle, Size, Vector,
 };
 
-use super::PopoverFocusPolicy;
+use super::{widget::PopoverDismissalCause, PopoverFocusPolicy};
 use crate::{
     advanced::shell_relay,
+    focus::{contains_focus_target, FocusTarget, FocusTargetContext},
     focus_trap,
     widgets::overlays::{
         anchored_overlay::{resolve_geometry, GeometryInput},
@@ -34,6 +35,9 @@ pub struct PopoverOverlay<'a, 'b, LocalMessage, Message, OnMessage> {
     focus_policy: PopoverFocusPolicy,
     focus_entered: Option<&'b mut bool>,
     dismissal_requested: Option<&'b mut bool>,
+    dismissal_cause: Option<&'b mut Option<PopoverDismissalCause>>,
+    focus_context: Option<&'b FocusTargetContext>,
+    expected_target: Option<&'b mut Option<FocusTarget>>,
 }
 
 impl<'a, 'b, LocalMessage, Message, OnMessage>
@@ -66,6 +70,9 @@ impl<'a, 'b, LocalMessage, Message, OnMessage>
             focus_policy: PopoverFocusPolicy::RetainAnchor,
             focus_entered: None,
             dismissal_requested: None,
+            dismissal_cause: None,
+            focus_context: None,
+            expected_target: None,
         }
     }
 
@@ -88,15 +95,21 @@ impl<'a, 'b, LocalMessage, Message, OnMessage>
         self
     }
 
-    pub fn focus_policy(
+    pub(super) fn focus_policy(
         mut self,
         focus_policy: PopoverFocusPolicy,
         focus_entered: &'b mut bool,
         dismissal_requested: &'b mut bool,
+        dismissal_cause: &'b mut Option<PopoverDismissalCause>,
+        focus_context: &'b FocusTargetContext,
+        expected_target: &'b mut Option<FocusTarget>,
     ) -> Self {
         self.focus_policy = focus_policy;
         self.focus_entered = Some(focus_entered);
         self.dismissal_requested = Some(dismissal_requested);
+        self.dismissal_cause = Some(dismissal_cause);
+        self.focus_context = Some(focus_context);
+        self.expected_target = Some(expected_target);
         self
     }
 }
@@ -165,6 +178,11 @@ where
                 &mut local_shell,
                 &viewport,
             );
+        }
+
+        self.refresh_owned_target(layout, renderer);
+        if !local_shell.is_empty() && is_owned_activation(event) {
+            self.mark_restoration_cause(PopoverDismissalCause::RestoreAnchor);
         }
 
         shell_relay::propagate_to_parent(&mut local_shell, shell);
@@ -254,9 +272,13 @@ impl<LocalMessage: Clone, Message, OnMessage>
         renderer: &iced::Renderer,
         shell: &mut Shell<'_, LocalMessage>,
     ) {
-        if self.focus_policy == PopoverFocusPolicy::RetainAnchor
-            || self.focus_entered.as_deref() == Some(&true)
-        {
+        if self.focus_policy == PopoverFocusPolicy::RetainAnchor {
+            return;
+        }
+        let Some(focus_entered) = self.focus_entered.as_deref_mut() else {
+            return;
+        };
+        if *focus_entered {
             return;
         }
 
@@ -265,9 +287,8 @@ impl<LocalMessage: Clone, Message, OnMessage>
                 .as_widget_mut()
                 .operate(self.content_state, layout, renderer, operation);
         });
-        if let Some(focus_entered) = self.focus_entered.as_deref_mut() {
-            *focus_entered = true;
-        }
+        *focus_entered = true;
+        self.refresh_owned_target(layout, renderer);
         shell.request_redraw();
     }
 
@@ -319,6 +340,7 @@ impl<LocalMessage: Clone, Message, OnMessage>
                 );
             });
         }
+        self.refresh_owned_target(layout, renderer);
         shell.capture_event();
         shell.invalidate_layout();
         shell.request_redraw();
@@ -357,13 +379,11 @@ impl<LocalMessage: Clone, Message, OnMessage>
             focus_trap::FocusDirection::Previous => count.focused == Some(0),
         };
 
-        if exits {
-            if !self.dismissal_already_requested() {
-                if let Some(message) = self.on_dismiss.clone() {
-                    self.mark_dismissal_requested();
-                    shell.publish(message);
-                    shell.request_redraw();
-                }
+        if exits && !self.dismissal_already_requested() {
+            if let Some(message) = self.on_dismiss.clone() {
+                self.mark_dismissal_requested(PopoverDismissalCause::TraversalExit);
+                shell.publish(message);
+                shell.request_redraw();
             }
         }
 
@@ -407,7 +427,7 @@ impl<LocalMessage: Clone, Message, OnMessage>
         };
 
         if !self.dismissal_already_requested() {
-            self.mark_dismissal_requested();
+            self.mark_dismissal_requested(PopoverDismissalCause::RestoreAnchor);
             shell.publish(message);
         }
         shell.capture_event();
@@ -436,7 +456,7 @@ impl<LocalMessage: Clone, Message, OnMessage>
         if pressed_outside {
             if let Some(message) = self.on_dismiss.clone() {
                 if !self.dismissal_already_requested() {
-                    self.mark_dismissal_requested();
+                    self.mark_dismissal_requested(PopoverDismissalCause::RestoreAnchor);
                     shell.publish(message);
                 }
                 shell.capture_event();
@@ -453,9 +473,50 @@ impl<LocalMessage: Clone, Message, OnMessage>
         self.dismissal_requested.as_deref() == Some(&true)
     }
 
-    fn mark_dismissal_requested(&mut self) {
+    fn mark_dismissal_requested(&mut self, cause: PopoverDismissalCause) {
         if let Some(dismissal_requested) = self.dismissal_requested.as_deref_mut() {
             *dismissal_requested = true;
         }
+        self.mark_restoration_cause(cause);
     }
+
+    fn mark_restoration_cause(&mut self, cause: PopoverDismissalCause) {
+        if let Some(dismissal_cause) = self.dismissal_cause.as_deref_mut() {
+            *dismissal_cause = Some(cause);
+        }
+    }
+
+    fn refresh_owned_target(&mut self, layout: Layout<'_>, renderer: &iced::Renderer) {
+        let Some(context) = self.focus_context else {
+            return;
+        };
+        let Some(current) = context.capture() else {
+            return;
+        };
+        let mut contains = contains_focus_target(current.clone());
+        self.content.as_widget_mut().operate(
+            self.content_state,
+            layout,
+            renderer,
+            &mut operation::black_box(&mut contains),
+        );
+        if matches!(contains.finish(), operation::Outcome::Some(true)) {
+            if let Some(expected_target) = self.expected_target.as_deref_mut() {
+                *expected_target = Some(current);
+            }
+        }
+    }
+}
+
+fn is_owned_activation(event: &Event) -> bool {
+    matches!(
+        event,
+        Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
+            | Event::Touch(touch::Event::FingerLifted { .. })
+            | Event::Keyboard(keyboard::Event::KeyPressed {
+                key: keyboard::Key::Named(Named::Enter | Named::Space),
+                repeat: false,
+                ..
+            })
+    )
 }

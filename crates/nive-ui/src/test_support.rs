@@ -124,12 +124,24 @@ impl<'a, Message> WidgetHarness<'a, Message> {
         );
     }
 
+    pub(crate) fn operation_outcome<T: 'static>(
+        &mut self,
+        operation: &mut dyn operation::Operation<T>,
+    ) -> operation::Outcome<T> {
+        self.operate(&mut operation::black_box(operation));
+        operation.finish()
+    }
+
     pub(crate) fn focus(&mut self, id: Id) {
         self.operate(&mut operation::focusable::focus(id));
     }
 
     pub(crate) fn focus_next(&mut self) {
         crate::focus_trap::FocusDirection::Next.operate(|operation| self.operate(operation));
+    }
+
+    pub(crate) fn focus_previous(&mut self) {
+        crate::focus_trap::FocusDirection::Previous.operate(|operation| self.operate(operation));
     }
 
     pub(crate) fn focused_count(&mut self) -> operation::focusable::Count {
@@ -264,6 +276,12 @@ impl<'a, Message> WidgetHarness<'a, Message> {
         ids.0
     }
 
+    pub(crate) fn managed_focus(&mut self) -> ManagedFocusSnapshot {
+        let mut probe = ManagedFocusProbe::default();
+        self.operate(&mut probe);
+        probe.finish()
+    }
+
     pub(crate) fn mouse_interaction(&self) -> mouse::Interaction {
         self.element.as_widget().mouse_interaction(
             &self.tree,
@@ -373,6 +391,7 @@ impl<'a, Message> WidgetHarness<'a, Message> {
         );
         let captured = shell.event_status() == event::Status::Captured;
         let layout_invalid = shell.is_layout_invalid();
+        let redraw_request = shell.redraw_request();
         let input_method_enabled = shell.input_method().is_enabled();
         drop(shell);
         drop(overlay);
@@ -385,6 +404,7 @@ impl<'a, Message> WidgetHarness<'a, Message> {
             messages,
             captured,
             layout_invalid,
+            redraw_request,
             input_method_enabled,
         })
     }
@@ -412,6 +432,30 @@ impl<'a, Message> WidgetHarness<'a, Message> {
             operation::Outcome::Some(count) => Some(count),
             _ => Some(operation::focusable::Count::default()),
         }
+    }
+
+    pub(crate) fn focus_overlay_next(&mut self) -> bool {
+        let mut operated = false;
+        crate::focus_trap::FocusDirection::Next.operate(|operation| {
+            let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+            let Some(mut overlay) = self.element.as_widget_mut().overlay(
+                &mut self.tree,
+                Layout::new(&self.node),
+                &self.renderer,
+                &viewport,
+                Vector::ZERO,
+            ) else {
+                return;
+            };
+            let node = overlay
+                .as_overlay_mut()
+                .layout(&self.renderer, self.maximum);
+            overlay
+                .as_overlay_mut()
+                .operate(Layout::new(&node), &self.renderer, operation);
+            operated = true;
+        });
+        operated
     }
 
     pub(crate) fn set_cursor(&mut self, position: Point) {
@@ -448,6 +492,7 @@ impl<'a, Message> WidgetHarness<'a, Message> {
 
         let captured = shell.event_status() == event::Status::Captured;
         let layout_invalid = shell.is_layout_invalid();
+        let redraw_request = shell.redraw_request();
         let input_method_enabled = shell.input_method().is_enabled();
         drop(shell);
 
@@ -463,10 +508,14 @@ impl<'a, Message> WidgetHarness<'a, Message> {
             messages,
             captured,
             layout_invalid,
+            redraw_request,
             input_method_enabled,
         }
     }
 }
+
+mod focus;
+pub(crate) use focus::*;
 
 fn overlay_content_bounds(node: &Node, maximum: Size) -> Rectangle {
     let bounds = node.bounds();
@@ -483,6 +532,7 @@ pub(crate) struct UpdateResult<Message> {
     pub(crate) messages: Vec<Message>,
     pub(crate) captured: bool,
     pub(crate) layout_invalid: bool,
+    pub(crate) redraw_request: iced::window::RedrawRequest,
     pub(crate) input_method_enabled: bool,
 }
 

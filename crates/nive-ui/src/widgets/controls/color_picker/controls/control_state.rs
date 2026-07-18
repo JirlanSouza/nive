@@ -1,14 +1,12 @@
 use std::cell::Cell;
 
-use iced::{
-    advanced::widget::{operation, tree},
-    widget::canvas,
-    Color,
-};
+use iced::{advanced::widget::tree, widget::canvas, Color};
+
+use crate::advanced::focus::FocusState;
 
 pub(super) struct ControlState {
     dragging: bool,
-    focused: bool,
+    focus: FocusState,
     surface_cache: canvas::Cache<iced::Renderer>,
     surface_key: Cell<Option<SurfaceCacheKey>>,
 }
@@ -30,8 +28,16 @@ impl ControlState {
         self.dragging = dragging;
     }
 
-    pub(super) fn is_focused(&self) -> bool {
-        self.focused
+    pub(super) fn is_active(&self) -> bool {
+        self.focus.is_active()
+    }
+
+    pub(super) fn is_focus_visible(&self) -> bool {
+        self.focus.is_focus_visible()
+    }
+
+    pub(super) fn focus(&mut self) -> &mut FocusState {
+        &mut self.focus
     }
 
     pub(super) fn surface_cache(&self, key: SurfaceCacheKey) -> &canvas::Cache<iced::Renderer> {
@@ -48,24 +54,10 @@ impl Default for ControlState {
     fn default() -> Self {
         Self {
             dragging: false,
-            focused: false,
+            focus: FocusState::default(),
             surface_cache: canvas::Cache::new(),
             surface_key: Cell::new(None),
         }
-    }
-}
-
-impl operation::Focusable for ControlState {
-    fn is_focused(&self) -> bool {
-        self.focused
-    }
-
-    fn focus(&mut self) {
-        self.focused = true;
-    }
-
-    fn unfocus(&mut self) {
-        self.focused = false;
     }
 }
 

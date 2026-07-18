@@ -446,7 +446,7 @@ where
                 ButtonFocusRing::OnPrimary
             }
             ButtonVariant::Solid if self.intent == ButtonIntent::Destructive => {
-                ButtonFocusRing::Danger
+                ButtonFocusRing::OnDanger
             }
             _ => ButtonFocusRing::Default,
         }
@@ -651,10 +651,10 @@ mod button_tests {
     }
 
     #[test]
-    fn destructive_solid_uses_the_danger_focus_treatment() {
+    fn destructive_solid_uses_the_contrasting_on_danger_focus_treatment() {
         let button = destructive::<()>("Delete");
 
-        assert_eq!(button.focus_ring(), ButtonFocusRing::Danger);
+        assert_eq!(button.focus_ring(), ButtonFocusRing::OnDanger);
     }
 
     #[test]
