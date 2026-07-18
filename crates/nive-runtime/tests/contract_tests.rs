@@ -14,7 +14,7 @@ enum TestWindow {
     Workspace,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct TestMessage;
 
 struct TestApp;
@@ -82,6 +82,10 @@ fn prelude_exposes_app_facing_runtime_contracts() {
     let _: ActionId = ActionId::new("test.action");
     let _: ActionMap<TestMessage> =
         ActionMap::new().action(Action::new("test.action", "Test action", TestMessage));
+    let _: ShortcutBinding = ShortcutBinding::named(
+        NamedShortcutKey::Escape,
+        ShortcutModifiers::CONTROL | ShortcutModifiers::SHIFT,
+    );
     let _: SettingsConfig = SettingsConfig::file("settings.json");
     let _: RuntimeSession = RuntimeSession::new().with_theme_preference(ThemePreference::Dark);
     let _: WindowSession = WindowSession::new("workspace")
@@ -108,6 +112,21 @@ fn prelude_exposes_app_facing_runtime_contracts() {
     let _: DiagnosticEventKind = DiagnosticEventKind::Info;
     let snapshot: DiagnosticSnapshot = DiagnosticSnapshot::default();
     let _: std::result::Result<String, serde_json::Error> = snapshot.to_json();
+}
+
+#[test]
+fn core_actions_interoperate_with_runtime_and_ui_without_conversion() {
+    let core_action = nive_core::Action::new("test.action", "Test action", TestMessage)
+        .description("Shared command")
+        .shortcut(nive_core::ShortcutBinding::primary_character('k'));
+    let runtime_action: &Action<TestMessage> = &core_action;
+
+    let row = nive_ui::widgets::CommandPaletteRow::from_action(runtime_action);
+    let toolbar = nive_ui::widgets::ToolbarAction::from_action(runtime_action);
+
+    assert_eq!(row.id, "test.action");
+    assert_eq!(row.activated(), Some(&TestMessage));
+    let _: nive_ui::widgets::ToolbarAction<'_, TestMessage> = toolbar;
 }
 
 #[test]
@@ -148,7 +167,7 @@ fn runtime_area_modules_expose_consolidated_contracts() {
     let _: &[nive_runtime::application::WindowRegistration<TestWindow>] = config.windows();
     let _: nive_runtime::application::Effect<TestMessage, TestWindow> =
         nive_runtime::application::Effect::none();
-    let _: nive_runtime::actions::ActionId = nive_runtime::actions::ActionId::new("test.action");
+    let _: nive_core::ActionId = nive_core::ActionId::new("test.action");
     let _: nive_runtime::input::ShortcutMap<TestMessage> = nive_runtime::input::ShortcutMap::new();
     let _: nive_runtime::lifecycle::WindowCommand<TestWindow> =
         nive_runtime::lifecycle::WindowCommand::Open(TestWindow::Workspace);

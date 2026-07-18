@@ -18,6 +18,7 @@ use crate::devtools::probe::{NoProbe, ProbeCatalogEntry};
 use crate::devtools::{DevtoolsConfig, DevtoolsHostState, DevtoolsWindowSpec};
 #[cfg(feature = "devtools")]
 use crate::devtools::{DevtoolsPanelEffect, DevtoolsPanelMessage};
+use crate::input::{action_message_for_event, shortcut_message_for_event};
 use crate::lifecycle::bootstrap::{
     minimum_duration_task, BootstrapController, BootstrapTransition,
 };
@@ -1481,9 +1482,8 @@ where
         return Some(message);
     }
 
-    actions
-        .message_for_event(&event)
-        .or_else(|| shortcuts.message_for_event(&event))
+    action_message_for_event(actions, &event)
+        .or_else(|| shortcut_message_for_event(shortcuts, &event))
         .map(|message| NiveMessage::App {
             window_id: None,
             source: MessageSource::Action,
@@ -1740,7 +1740,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        Action, DialogDismiss, ScreenView, ShortcutBinding, ThemePreference, Toast, WindowSession,
+        Action, DialogDismiss, NamedShortcutKey, ScreenView, ShortcutBinding, ShortcutModifiers,
+        ThemePreference, Toast, WindowSession,
     };
     use nive_ui::theme::{testing::ThemeTestGuard, Theme};
 
@@ -1859,11 +1860,11 @@ mod tests {
         fn shortcuts(&self, _context: Context<'_, Self::Window>) -> ShortcutMap<Self::Message> {
             ShortcutMap::new()
                 .bind(
-                    ShortcutBinding::character('k', keyboard::Modifiers::CTRL),
+                    ShortcutBinding::character('k', ShortcutModifiers::CONTROL),
                     TestMessage::Shortcut,
                 )
                 .bind(
-                    ShortcutBinding::named(keyboard::key::Named::Tab, keyboard::Modifiers::NONE),
+                    ShortcutBinding::named(NamedShortcutKey::Tab, ShortcutModifiers::NONE),
                     TestMessage::Shortcut,
                 )
         }
@@ -2438,7 +2439,7 @@ mod tests {
     fn product_shortcut_routes_to_unscoped_app_message() {
         let actions = ActionMap::new();
         let shortcuts = ShortcutMap::new().bind(
-            ShortcutBinding::character('K', keyboard::Modifiers::CTRL),
+            ShortcutBinding::character('K', ShortcutModifiers::CONTROL),
             TestMessage::Shortcut,
         );
         let event = key_pressed(
@@ -2461,7 +2462,7 @@ mod tests {
     fn repeated_product_shortcut_keypress_is_ignored() {
         let actions = ActionMap::new();
         let shortcuts = ShortcutMap::new().bind(
-            ShortcutBinding::character('k', keyboard::Modifiers::CTRL),
+            ShortcutBinding::character('k', ShortcutModifiers::CONTROL),
             TestMessage::Shortcut,
         );
         let event = key_pressed(
@@ -2479,10 +2480,10 @@ mod tests {
     fn action_shortcut_routes_before_legacy_shortcut() {
         let actions = ActionMap::new().action(
             Action::new("test.action", "Test action", TestMessage::Action)
-                .shortcut(ShortcutBinding::character('k', keyboard::Modifiers::CTRL)),
+                .shortcut(ShortcutBinding::character('k', ShortcutModifiers::CONTROL)),
         );
         let shortcuts = ShortcutMap::new().bind(
-            ShortcutBinding::character('k', keyboard::Modifiers::CTRL),
+            ShortcutBinding::character('k', ShortcutModifiers::CONTROL),
             TestMessage::LegacyShortcut,
         );
         let event = key_pressed(
@@ -2505,7 +2506,7 @@ mod tests {
     fn disabled_action_shortcut_does_not_dispatch() {
         let actions = ActionMap::new().action(
             Action::new("test.action", "Test action", TestMessage::Action)
-                .shortcut(ShortcutBinding::character('k', keyboard::Modifiers::CTRL))
+                .shortcut(ShortcutBinding::character('k', ShortcutModifiers::CONTROL))
                 .disabled(),
         );
         let shortcuts = ShortcutMap::new();
@@ -2524,7 +2525,7 @@ mod tests {
     fn framework_shortcut_wins_product_conflict() {
         let actions = ActionMap::new();
         let shortcuts = ShortcutMap::new().bind(
-            ShortcutBinding::named(keyboard::key::Named::Tab, keyboard::Modifiers::NONE),
+            ShortcutBinding::named(NamedShortcutKey::Tab, ShortcutModifiers::NONE),
             TestMessage::Shortcut,
         );
         let event = key_pressed(
@@ -2545,7 +2546,7 @@ mod tests {
     fn framework_shortcut_wins_action_conflict() {
         let actions = ActionMap::new().action(
             Action::new("test.action", "Test action", TestMessage::Shortcut).shortcut(
-                ShortcutBinding::named(keyboard::key::Named::Tab, keyboard::Modifiers::NONE),
+                ShortcutBinding::named(NamedShortcutKey::Tab, ShortcutModifiers::NONE),
             ),
         );
         let shortcuts = ShortcutMap::new();

@@ -6,12 +6,12 @@
 use nive_runtime::ActionMap;
 use nive_ui::widgets::CommandPaletteRow;
 
-/// Builds command palette rows from a runtime action map.
+/// Builds command palette rows from a shared action map.
 pub fn action_palette_rows<M>(actions: &ActionMap<M>) -> Vec<CommandPaletteRow<'_, M>>
 where
     M: Clone,
 {
-    nive_runtime::command_palette_rows(actions)
+    actions.iter().map(CommandPaletteRow::from_action).collect()
 }
 
 #[cfg(test)]

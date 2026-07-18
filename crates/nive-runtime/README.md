@@ -7,16 +7,15 @@ state machines, user-facing feedback, and an optional devtools layer that are
 reused by Rust/Iced apps without depending on app-domain services. It sits above
 [`nive-ui`](../nive-ui) and re-exports stable helper APIs from it. It also
 depends on [`nive-core`](../nive-core) directly, implementing its neutral
-presentation contracts (`ErrorPresentation`, `ResourceStatusPresentation`,
-`OperationStatusPresentation`, `ToastPresentation`) for `UserFacingError`,
-`Resource<T>`, `Operation<C>`, and `ToastItem`.
+presentation contracts for runtime state and adapting Iced keyboard events to
+its core-owned action and shortcut contracts.
 
 ## What's inside
 
 - `Application`, `ApplicationConfig`, `Context`, and `run` — the stable product
   contract and the private Iced program runner.
-- `Action`, `ActionId`, `ActionMap` — product action catalogs for shortcuts and
-  future command surfaces.
+- `Action`, `ActionId`, `ActionMap` — re-exported core-owned product action
+  catalogs shared with command surfaces.
 - `Effect` — ordered task and runtime-effect composition for application
   hooks, plus `MessageContext`/`MessageSource` for message-origin routing.
 - `BootstrapSpec` — repeatable startup task attempts, stale-result rejection,
@@ -32,8 +31,9 @@ presentation contracts (`ErrorPresentation`, `ResourceStatusPresentation`,
 - `SettingsConfig`, `RuntimeSession`, `WindowSession` — opt-in runtime
   settings/session persistence for framework-owned preferences and keyed window
   geometry.
-- `keyboard_navigation_subscription` and `ShortcutMap` — lower-level input
-  helpers.
+- `ShortcutBinding`, `ShortcutModifiers`, `NamedShortcutKey`, `ShortcutMap`,
+  and `keyboard_navigation_subscription` — neutral shortcut vocabulary plus
+  lower-level runtime input integration.
 - `Theme`, `ThemeBuilder`, `ThemeCatalog`, and `ThemeMode` reexports — runtime theme
   configuration for apps that need product-specific light/dark themes.
 
@@ -69,7 +69,8 @@ import directly from the public area modules (`application`, `actions`,
 surface includes:
 
 - `Application`, `ApplicationConfig`, `Context`, `WindowContext`, and `run`.
-- `Action`, `ActionId`, `ActionMap`, and duplicate-ID validation.
+- Core-owned `Action`, `ActionId`, `ActionMap`, neutral shortcut types, and
+  duplicate-ID validation re-exported through stable runtime paths.
 - `Effect`, `MessageContext`, `MessageSource`, and `perform`.
 - Lifecycle/window contracts such as `WindowSpec`, `WindowCommand`,
   `CloseDecision`, `ExitDecision`, `BootstrapSpec`, and `RuntimeEvent`.

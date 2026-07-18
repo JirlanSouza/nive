@@ -2,10 +2,10 @@ use std::{borrow::Cow, fmt::Debug, hash::Hash};
 
 use iced::Subscription;
 
-use crate::actions::ActionMap;
 use crate::input::ShortcutMap;
 use crate::ScreenView;
 use crate::ThemePreference;
+use nive_core::ActionMap;
 
 mod config;
 mod context;
