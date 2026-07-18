@@ -409,6 +409,65 @@ impl<'a, Message> WidgetHarness<'a, Message> {
         })
     }
 
+    pub(crate) fn update_nested_overlay(&mut self, event: Event) -> Option<UpdateResult<Message>> {
+        let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+        let mut messages = Vec::new();
+        let mut shell = Shell::new(&mut messages);
+        let overlay = self.element.as_widget_mut().overlay(
+            &mut self.tree,
+            Layout::new(&self.node),
+            &self.renderer,
+            &viewport,
+            Vector::ZERO,
+        )?;
+        let mut nested = overlay::Nested::new(overlay);
+        let node = nested.layout(&self.renderer, self.maximum);
+        nested.update(
+            &event,
+            Layout::new(&node),
+            self.cursor,
+            &self.renderer,
+            &mut self.clipboard,
+            &mut shell,
+        );
+        let captured = shell.event_status() == event::Status::Captured;
+        let layout_invalid = shell.is_layout_invalid();
+        let redraw_request = shell.redraw_request();
+        let input_method_enabled = shell.input_method().is_enabled();
+        drop(shell);
+        drop(nested);
+
+        if layout_invalid {
+            self.relayout(self.maximum);
+        }
+
+        Some(UpdateResult {
+            messages,
+            captured,
+            layout_invalid,
+            redraw_request,
+            input_method_enabled,
+        })
+    }
+
+    pub(crate) fn nested_overlay_bounds(&mut self) -> Vec<Rectangle> {
+        let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+        let Some(overlay) = self.element.as_widget_mut().overlay(
+            &mut self.tree,
+            Layout::new(&self.node),
+            &self.renderer,
+            &viewport,
+            Vector::ZERO,
+        ) else {
+            return Vec::new();
+        };
+        let mut nested = overlay::Nested::new(overlay);
+        let node = nested.layout(&self.renderer, self.maximum);
+        let mut bounds = Vec::new();
+        collect_nested_overlay_bounds(Layout::new(&node), &mut bounds);
+        bounds
+    }
+
     pub(crate) fn focused_overlay_count(&mut self) -> Option<operation::focusable::Count> {
         let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
         let mut overlay = self.element.as_widget_mut().overlay(
@@ -511,6 +570,17 @@ impl<'a, Message> WidgetHarness<'a, Message> {
             redraw_request,
             input_method_enabled,
         }
+    }
+}
+
+fn collect_nested_overlay_bounds(layout: Layout<'_>, bounds: &mut Vec<Rectangle>) {
+    let mut children = layout.children();
+    let Some(current) = children.next() else {
+        return;
+    };
+    bounds.push(current.bounds());
+    if let Some(nested) = children.next() {
+        collect_nested_overlay_bounds(nested, bounds);
     }
 }
 
