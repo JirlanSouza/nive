@@ -200,7 +200,7 @@ fn command_palette(app: &WidgetGallery) -> Element<'_, Message> {
 
     variant_grid([
         example_cell(
-            "DropdownMenu static overlay surface",
+            "Canonical anchored Menu",
             super::actions::view_menu_only(),
         ),
         example_cell(

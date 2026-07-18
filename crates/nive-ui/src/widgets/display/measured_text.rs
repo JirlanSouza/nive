@@ -125,7 +125,7 @@ where
     if truncated {
         #[cfg(test)]
         {
-            return tooltip::bottom_without_delay(content, tooltip_label);
+            return tooltip::immediate_for_test(content, tooltip_label);
         }
 
         #[cfg(not(test))]

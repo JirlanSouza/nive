@@ -13,8 +13,9 @@ use super::super::input::Input;
 use super::keyboard::{key_action, navigate_highlight, AutocompleteKeyAction};
 use super::state::{initial_highlight, AutocompleteState};
 use crate::advanced::shell_relay;
-use crate::widgets::overlays::popover::{
-    translated_bounds, PopoverCollision, PopoverOverlay, PopoverPlacement, PopoverWidth,
+use crate::widgets::overlays::{
+    anchored_overlay::{translated_bounds, AnchoredOverlay},
+    popover::{PopoverCollision, PopoverPlacement, PopoverWidth},
 };
 use crate::Element;
 
@@ -510,7 +511,7 @@ where
 
         let popover_overlay = match (open, content_tree.get_mut(0)) {
             (true, Some(content_state)) => {
-                Some(overlay::Element::new(Box::new(PopoverOverlay::new(
+                Some(overlay::Element::new(Box::new(AnchoredOverlay::new(
                     translated_bounds(layout.bounds(), translation),
                     &mut self.content,
                     content_state,

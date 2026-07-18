@@ -12,7 +12,7 @@ use crate::{
     theme::ShapeSize,
     widgets::{
         controls::button::ButtonFocusRing,
-        overlays::popover::{translated_bounds, PopoverOverlay},
+        overlays::anchored_overlay::{translated_bounds, ColorInputCompatOverlay},
     },
 };
 
@@ -277,7 +277,7 @@ where
         let state = state.downcast_mut::<ColorInputState>();
         let on_change = on_change.as_deref();
 
-        let popover = PopoverOverlay::new(
+        let popover = ColorInputCompatOverlay::new(
             translated_bounds(layout.bounds(), translation),
             content,
             content_state,

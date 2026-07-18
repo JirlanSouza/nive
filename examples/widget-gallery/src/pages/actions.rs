@@ -25,7 +25,7 @@ pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
             ),
             section("ActionGroup", action_groups(app.control_size)),
             section("Toolbar", toolbar(app.control_size)),
-            section("DropdownMenu", dropdown_menu()),
+            section("Menu", menu()),
             section("Card family", card_family()),
         ]
         .spacing(18),
@@ -416,34 +416,36 @@ fn segment(label: &'static str) -> SegmentedOption<'static, &'static str> {
     SegmentedOption::new(label, label)
 }
 
-fn dropdown_menu() -> Element<'static, Message> {
+fn menu() -> Element<'static, Message> {
     view_menu_only()
 }
 
 pub fn view_menu_only() -> Element<'static, Message> {
-    DropdownMenu::new()
-        .item(
-            DropdownMenuItem::new("Rename")
+    Menu::new(nive::widgets::button::secondary("Open menu").on_press(Message::Noop))
+        .open(true)
+        .on_dismiss(Message::Noop)
+        .command(
+            MenuCommand::new("Rename")
                 .icon(IconRole::EditModify)
-                .trailing("Enter")
+                .shortcut(ShortcutBinding::named(
+                    NamedShortcutKey::Enter,
+                    ShortcutModifiers::NONE,
+                ))
                 .on_press(Message::Noop),
         )
-        .item(
-            DropdownMenuItem::new("Copy link")
-                .icon(IconRole::EditCopy)
-                .trailing("Cmd+C")
-                .selected(true)
-                .on_press(Message::Noop),
+        .checkbox(
+            MenuCheckbox::new("Copy link", CheckboxState::Checked)
+                .shortcut(ShortcutBinding::primary_character('c'))
+                .on_toggle(|_| Message::Noop),
         )
         .separator()
-        .item(DropdownMenuItem::new("Disabled command").disabled(true))
-        .item(
-            DropdownMenuItem::new("Delete")
+        .command(MenuCommand::new("Disabled command").disabled(true))
+        .command(
+            MenuCommand::new("Delete")
                 .icon(IconRole::EditDelete)
                 .destructive()
                 .on_press(Message::Noop),
         )
-        .width(260)
         .into()
 }
 

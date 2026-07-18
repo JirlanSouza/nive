@@ -1,4 +1,5 @@
 use crate::Element;
+use nive_core::Action;
 
 use super::style as theme_toolbar;
 use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec};
@@ -21,6 +22,30 @@ pub struct ToolbarAction<'a, Message> {
 }
 
 impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
+    /// Projects a shared action into a text toolbar action.
+    pub fn from_action(action: &'a Action<Message>) -> Self {
+        Self::from_action_parts(action, None)
+    }
+
+    /// Projects a shared action while adding a UI-owned icon.
+    pub fn from_action_with_icon(action: &'a Action<Message>, icon: IconRole) -> Self {
+        Self::from_action_parts(action, Some(icon))
+    }
+
+    fn from_action_parts(action: &'a Action<Message>, icon: Option<IconRole>) -> Self {
+        Self {
+            label: Some(action.label()),
+            icon,
+            selected: false,
+            destructive: false,
+            disabled: !action.is_enabled(),
+            loading: false,
+            reserve_loading_indicator: false,
+            on_press: action.activate(),
+            tooltip: action.description_text(),
+        }
+    }
+
     pub fn icon(icon: IconRole) -> Self {
         Self {
             label: None,
@@ -132,5 +157,40 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
             destructive: self.destructive,
             kind: GroupedItemKind::Toolbar,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum Message {
+        Save,
+        Delete,
+    }
+
+    #[test]
+    fn projects_action_and_keeps_icon_in_ui() {
+        let action = Action::new("file.save", "Save", Message::Save)
+            .description("Persist the current buffer");
+
+        let projected = ToolbarAction::from_action_with_icon(&action, IconRole::ActionConfirm);
+
+        assert_eq!(projected.label, Some("Save"));
+        assert_eq!(projected.icon, Some(IconRole::ActionConfirm));
+        assert_eq!(projected.tooltip, Some("Persist the current buffer"));
+        assert_eq!(projected.on_press, Some(Message::Save));
+        assert!(!projected.disabled);
+    }
+
+    #[test]
+    fn disabled_action_has_no_press_message() {
+        let action = Action::new("file.delete", "Delete", Message::Delete).disabled();
+
+        let projected = ToolbarAction::from_action(&action);
+
+        assert!(projected.disabled);
+        assert_eq!(projected.on_press, None);
     }
 }
