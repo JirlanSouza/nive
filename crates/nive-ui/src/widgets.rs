@@ -24,7 +24,7 @@ pub use controls::{
     FieldGroup, FieldGroupLayout, FieldHint, FieldLabel, FieldRequirement, FieldValidation, Input,
     InputGroup, InputGroupVariant, LegacySegmentedControl, PathInput, RadioGroup, RadioGroupLayout,
     RadioOption, RgbHexColor, SegmentedControl, SegmentedControlVariant, SegmentedItem,
-    SegmentedOption, Select, SelectableItem, Switch, TextInputAppearance,
+    SegmentedOption, Select, SelectOption, SelectableItem, Switch, TextInputAppearance,
 };
 #[allow(deprecated)]
 pub use display::{
