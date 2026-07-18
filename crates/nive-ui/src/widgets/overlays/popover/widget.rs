@@ -7,21 +7,14 @@ use iced::{
     Event, Length, Rectangle, Size, Vector,
 };
 
-use super::{
-    overlay::PopoverOverlay,
-    placement::{translated_bounds, PopoverCollision, PopoverPlacement, PopoverWidth},
-    PopoverFocusPolicy,
-};
+use super::{PopoverCollision, PopoverFocusPolicy, PopoverPlacement, PopoverWidth};
 use crate::{
     focus::{contains_focus_target, FocusTarget, FocusTargetContext},
+    widgets::overlays::anchored_overlay::{
+        expose_node, translated_bounds, AnchoredOverlay, OverlayNodeState, PopoverDismissalCause,
+    },
     Element,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum PopoverDismissalCause {
-    RestoreAnchor,
-    TraversalExit,
-}
 
 pub(super) struct PopoverWidget<'a, Message> {
     pub(super) anchor: Element<'a, Message>,
@@ -46,6 +39,7 @@ pub(super) struct PopoverState {
     pub(super) captured_target_available: bool,
     expected_target: Option<FocusTarget>,
     pub(super) invalid_anchor: bool,
+    overlay_node: OverlayNodeState,
 }
 
 impl<'a, Message> Widget<Message, crate::theme::Theme, iced::Renderer>
@@ -110,6 +104,7 @@ where
         operation: &mut dyn operation::Operation,
     ) {
         let state = tree.state.downcast_mut::<PopoverState>();
+        expose_node(operation, layout.bounds(), &mut state.overlay_node);
         state.focus_context.expose(operation, layout.bounds());
         state.captured_target_available = if let Some(captured) = state.captured_target.clone() {
             let mut contains = contains_focus_target(captured);
@@ -243,7 +238,7 @@ where
 
         let popover_overlay = if self.open {
             Some(overlay::Element::new(Box::new(
-                PopoverOverlay::new(
+                AnchoredOverlay::new(
                     translated_bounds(layout.bounds(), translation),
                     &mut self.content,
                     content_state,
@@ -254,6 +249,7 @@ where
                     self.on_dismiss.clone(),
                     |message, shell: &mut Shell<'_, Message>| shell.publish(message),
                 )
+                .identity(state.overlay_node.identity().clone())
                 .focus_policy(
                     self.focus_policy,
                     &mut state.focus_entered,
