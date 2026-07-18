@@ -12,7 +12,7 @@ use crate::theme::{
     self, text as theme_text, ControlSize, FieldValidation, SpaceStep, TextRole, ToneRole,
     TypographyRole,
 };
-use crate::widgets::controls::{Input, InputGroup};
+use crate::widgets::controls::{Input, InputGroup, Select};
 use crate::widgets::primitives::{icon, IconRole};
 use crate::Element;
 
@@ -57,8 +57,19 @@ pub struct FieldControl<'a, Message> {
 enum FieldControlKind<'a, Message> {
     Input(Input<'a, Message>),
     InputGroup(Box<InputGroup<'a, Message>>),
+    Deferred(FieldControlFactory<'a, Message>),
     Custom(Element<'a, Message>),
 }
+
+type FieldControlFactory<'a, Message> = Box<
+    dyn FnOnce(
+            Cow<'a, str>,
+            ControlSize,
+            FieldValidation,
+            bool,
+        ) -> (Element<'a, Message>, Option<Id>)
+        + 'a,
+>;
 
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,6 +93,21 @@ impl<'a, Message> From<InputGroup<'a, Message>> for FieldControl<'a, Message> {
     fn from(group: InputGroup<'a, Message>) -> Self {
         Self {
             kind: FieldControlKind::InputGroup(Box::new(group)),
+        }
+    }
+}
+
+impl<'a, T, Message> From<Select<'a, T, Message>> for FieldControl<'a, Message>
+where
+    T: Clone + Eq + 'a,
+    Message: Clone + 'a,
+{
+    fn from(select: Select<'a, T, Message>) -> Self {
+        Self {
+            kind: FieldControlKind::Deferred(Box::new(move |label, size, validation, disabled| {
+                let (select, id) = select.apply_field_context(label, size, validation, disabled);
+                (select.into(), Some(id))
+            })),
         }
     }
 }
@@ -263,6 +289,7 @@ where
                 let (group, id) = group.apply_field_context(label, size, validation, disabled);
                 (group.into(), Some(id))
             }
+            FieldControlKind::Deferred(factory) => factory(label, size, validation, disabled),
             FieldControlKind::Custom(control) => (control, None),
         }
     }

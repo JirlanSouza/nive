@@ -1,16 +1,14 @@
+mod widget;
+
 use std::{borrow::Cow, fmt};
 
-use iced::{
-    overlay::menu,
-    widget::{container, pick_list, text},
-    Background, Border, Length, Padding, Shadow,
-};
+use iced::{widget::Id, Length};
 
-use crate::theme::{
-    self, control_metrics, text as theme_text, ControlRole, ControlSize, ControlState, SurfaceRole,
-    TextRole,
-};
+use crate::theme::{self, ControlSize, FieldValidation};
 use crate::Element;
+
+use self::widget::SelectWidget;
+use super::form_frame::{FormControlFrame, FormFrameAppearance};
 
 #[derive(Debug, Clone)]
 pub struct SelectOption<'a, T> {
@@ -66,14 +64,6 @@ impl<T> fmt::Display for SelectOption<'_, T> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct SelectMetrics {
-    font_size: f32,
-    padding_v: f32,
-    padding_h: f32,
-    radius: f32,
-}
-
 pub struct Select<'a, T, Message>
 where
     T: Clone + Eq,
@@ -83,7 +73,10 @@ where
     placeholder: Option<Cow<'a, str>>,
     size: ControlSize,
     width: Length,
+    validation: FieldValidation,
+    semantic_name: Option<Cow<'a, str>>,
     disabled: bool,
+    id: Option<Id>,
     on_select: Option<Box<dyn Fn(T) -> Message + 'a>>,
     on_open: Option<Message>,
     on_close: Option<Message>,
@@ -101,7 +94,10 @@ where
             placeholder: None,
             size: ControlSize::Sm,
             width: Length::Fill,
+            validation: FieldValidation::Valid,
+            semantic_name: None,
             disabled: false,
+            id: None,
             on_select: None,
             on_open: None,
             on_close: None,
@@ -153,6 +149,30 @@ where
 
     crate::impl_layout_builders!(width_direct, fill_width_direct, shrink_width_direct);
 
+    pub fn validation(mut self, validation: FieldValidation) -> Self {
+        self.validation = validation;
+        self
+    }
+
+    pub fn invalid(self, invalid: bool) -> Self {
+        self.validation(if invalid {
+            FieldValidation::Invalid
+        } else {
+            FieldValidation::Valid
+        })
+    }
+
+    pub fn semantic_name(mut self, name: impl Into<Cow<'a, str>>) -> Self {
+        self.semantic_name = Some(name.into());
+        self
+    }
+
+    /// Assigns the stable widget id used for focus operations.
+    pub fn id(mut self, id: impl Into<Id>) -> Self {
+        self.id = Some(id.into());
+        self
+    }
+
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
@@ -173,67 +193,94 @@ where
         self
     }
 
+    pub fn on_open_maybe(mut self, message: Option<Message>) -> Self {
+        self.on_open = message;
+        self
+    }
+
     pub fn on_close(mut self, message: Message) -> Self {
         self.on_close = Some(message);
         self
     }
 
+    pub fn on_close_maybe(mut self, message: Option<Message>) -> Self {
+        self.on_close = message;
+        self
+    }
+
+    pub fn control_size(&self) -> ControlSize {
+        self.size
+    }
+
+    pub fn field_validation(&self) -> FieldValidation {
+        self.validation
+    }
+
+    pub fn semantic_name_value(&self) -> Option<&str> {
+        self.semantic_name.as_deref()
+    }
+
+    pub fn is_disabled(&self) -> bool {
+        self.disabled
+    }
+
+    /// Returns whether every option carries a unique application value.
+    pub fn has_unique_values(&self) -> bool {
+        self.options.iter().enumerate().all(|(index, option)| {
+            self.options[..index]
+                .iter()
+                .all(|previous| previous.value() != option.value())
+        })
+    }
+
+    pub fn widget_id(&self) -> Option<&Id> {
+        self.id.as_ref()
+    }
+
+    pub(crate) fn apply_field_context(
+        mut self,
+        label: Cow<'a, str>,
+        size: ControlSize,
+        validation: FieldValidation,
+        disabled: bool,
+    ) -> (Self, Id) {
+        let id = self.id.clone().unwrap_or_else(Id::unique);
+        self.id = Some(id.clone());
+        self.semantic_name = Some(label);
+        self.size = size;
+        self.validation = validation;
+        self.disabled |= disabled;
+        (self, id)
+    }
+
     fn into_element(self) -> Element<'a, Message> {
-        let metrics = metrics(self.size);
+        let metrics = theme::form_control_metrics(self.size);
         let width = self.width;
-        let selected = self
-            .selected
-            .as_ref()
-            .and_then(|selected| {
-                self.options
-                    .iter()
-                    .find(|option| option.value() == selected)
-            })
-            .cloned();
-
-        if self.disabled || self.on_select.is_none() {
-            return disabled_select(
-                selected
-                    .as_ref()
-                    .map(|option| option.label().to_owned())
-                    .or_else(|| self.placeholder.as_deref().map(str::to_owned))
-                    .unwrap_or_default(),
-                selected.is_none(),
-                width,
-                metrics,
-            );
-        }
-
-        let on_select = self.on_select.expect("checked above");
-        let mut select = pick_list(
+        let validation = self.validation;
+        let disabled = self.disabled;
+        let interactive = self.on_select.is_some();
+        let _semantic_name = self.semantic_name.as_deref();
+        let select = SelectWidget::new(
             self.options,
-            selected,
-            move |option: SelectOption<'a, T>| on_select(option.value),
-        )
-        .padding(
-            Padding::ZERO
-                .vertical(metrics.padding_v)
-                .horizontal(metrics.padding_h),
-        )
-        .text_size(metrics.font_size)
-        .text_shaping(text::Shaping::Auto)
-        .width(width)
-        .style(style(metrics.radius))
-        .menu_style(menu_style(metrics.radius));
+            self.selected,
+            self.placeholder,
+            width,
+            metrics,
+            disabled,
+            self.id,
+            self.on_select,
+            self.on_open,
+            self.on_close,
+        );
 
-        if let Some(placeholder) = self.placeholder {
-            select = select.placeholder(placeholder);
-        }
-
-        if let Some(message) = self.on_open {
-            select = select.on_open(message);
-        }
-
-        if let Some(message) = self.on_close {
-            select = select.on_close(message);
-        }
-
-        select.into()
+        Element::new(FormControlFrame {
+            content: select.into(),
+            appearance: FormFrameAppearance::Default,
+            validation,
+            metrics,
+            disabled,
+            interactive,
+        })
     }
 }
 
@@ -247,154 +294,15 @@ where
     }
 }
 
-fn disabled_select<'a, Message>(
-    label: String,
-    is_placeholder: bool,
-    width: Length,
-    metrics: SelectMetrics,
-) -> Element<'a, Message>
-where
-    Message: Clone + 'a,
-{
-    let label = if is_placeholder && label.is_empty() {
-        "Select".to_owned()
-    } else {
-        label
-    };
-    let text = if is_placeholder {
-        text(label)
-            .size(metrics.font_size)
-            .shaping(text::Shaping::Auto)
-            .style(theme_text::style(TextRole::Muted))
-    } else {
-        text(label)
-            .size(metrics.font_size)
-            .shaping(text::Shaping::Auto)
-    };
-
-    container(text)
-        .style(disabled_style(metrics.radius))
-        .padding(
-            Padding::ZERO
-                .vertical(metrics.padding_v)
-                .horizontal(metrics.padding_h),
-        )
-        .width(width)
-        .into()
-}
-
-fn metrics(size: ControlSize) -> SelectMetrics {
-    let control = control_metrics(size);
-    let spacing = theme::spacing();
-
-    SelectMetrics {
-        font_size: control.font_size,
-        padding_v: match size {
-            ControlSize::Xs => spacing.xxs,
-            ControlSize::Sm => spacing.xs,
-            ControlSize::Md => spacing.xs + 1.0,
-            ControlSize::Lg => spacing.md,
-        },
-        padding_h: match size {
-            ControlSize::Xs => spacing.sm,
-            ControlSize::Sm => spacing.md,
-            ControlSize::Md => spacing.md + spacing.xxs,
-            ControlSize::Lg => spacing.lg,
-        },
-        radius: control.radius,
-    }
-}
-
-fn style(radius: f32) -> impl Fn(&crate::theme::Theme, pick_list::Status) -> pick_list::Style {
-    move |theme: &crate::theme::Theme, status: pick_list::Status| {
-        let theme = *theme;
-        let state = match status {
-            pick_list::Status::Active => ControlState::ENABLED,
-            pick_list::Status::Hovered => ControlState::HOVERED,
-            pick_list::Status::Opened { .. } => ControlState::FOCUSED,
-        };
-        let control = theme.control(ControlRole::Standard, state);
-
-        pick_list::Style {
-            text_color: control.foreground,
-            placeholder_color: theme.text(TextRole::Muted).color,
-            handle_color: theme.text(TextRole::Secondary).color,
-            background: Background::Color(control.background),
-            border: Border {
-                color: control.border.color,
-                width: control.border.width,
-                radius: radius.into(),
-            },
-        }
-    }
-}
-
-fn menu_style(radius: f32) -> impl Fn(&crate::theme::Theme) -> menu::Style {
-    move |theme: &crate::theme::Theme| {
-        let theme = *theme;
-        let surface = theme.surface(SurfaceRole::Popover);
-        let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
-
-        menu::Style {
-            background: Background::Color(surface.background),
-            border: Border {
-                color: surface.border.color,
-                width: surface.border.width,
-                radius: radius.into(),
-            },
-            text_color: theme.text(TextRole::Primary).color,
-            selected_text_color: selected.foreground,
-            selected_background: Background::Color(selected.background),
-            shadow: Shadow::default(),
-        }
-    }
-}
-
-fn disabled_style(radius: f32) -> impl Fn(&crate::theme::Theme) -> container::Style {
-    move |theme: &crate::theme::Theme| {
-        let theme = *theme;
-        let control = theme.control(ControlRole::Standard, ControlState::DISABLED);
-
-        container::Style {
-            text_color: Some(control.foreground),
-            background: Some(Background::Color(control.background)),
-            border: Border {
-                color: control.border.color,
-                width: control.border.width,
-                radius: radius.into(),
-            },
-            shadow: Default::default(),
-            ..container::Style::default()
-        }
-    }
-}
-
 #[cfg(test)]
 mod select_tests {
     use super::*;
-    use crate::theme::{BorderRole, Theme};
-    use iced::Color;
-
-    #[test]
-    fn active_select_uses_app_active_control_background() {
-        let theme = Theme::Dark;
-        let style = style(6.0)(&theme, pick_list::Status::Active);
-
-        assert_eq!(
-            background_color(style.background),
-            theme
-                .control(ControlRole::Standard, ControlState::ENABLED)
-                .background
-        );
-    }
-
-    #[test]
-    fn opened_select_uses_app_focus_border() {
-        let theme = Theme::Dark;
-        let style = style(6.0)(&theme, pick_list::Status::Opened { is_hovered: false });
-
-        assert_eq!(style.border.color, theme.border(BorderRole::Focus).color);
-    }
+    use crate::{
+        test_support::WidgetHarness,
+        theme::{testing::ThemeTestGuard, Theme, ThemeDensity, ThemeMode},
+        widgets::controls::{Field, FieldControl},
+    };
+    use iced::Size;
 
     #[test]
     fn layout_builders_set_select_width() {
@@ -436,10 +344,61 @@ mod select_tests {
         let _ = SelectOption::new(1_u8, "   ");
     }
 
-    fn background_color(background: Background) -> Color {
-        match background {
-            Background::Color(color) => color,
-            _ => panic!("Expected color background"),
+    #[test]
+    fn field_context_overrides_size_validation_disabled_and_semantic_name() {
+        let (select, _) = Select::<_, ()>::from_values(vec!["Free"], None::<&str>)
+            .semantic_name("Standalone plan")
+            .validation(FieldValidation::Invalid)
+            .apply_field_context(
+                Cow::Borrowed("Billing plan"),
+                ControlSize::Lg,
+                FieldValidation::Valid,
+                true,
+            );
+
+        assert_eq!(select.semantic_name_value(), Some("Billing plan"));
+        assert_eq!(select.control_size(), ControlSize::Lg);
+        assert_eq!(select.field_validation(), FieldValidation::Valid);
+        assert!(select.is_disabled());
+    }
+
+    #[test]
+    fn select_converts_through_the_opaque_field_control_boundary() {
+        let select = Select::<_, ()>::new(vec![SelectOption::new(1_u8, "One")], Some(1_u8));
+        let _: FieldControl<'_, ()> = select.into();
+
+        let field: Element<'_, ()> = Field::new(
+            "Choice",
+            Select::new(vec![SelectOption::new(1_u8, "One")], Some(1_u8)),
+        )
+        .into();
+        let _ = WidgetHarness::new(field, Size::new(240.0, 120.0));
+    }
+
+    #[test]
+    fn every_density_and_control_size_uses_exact_form_frame_height() {
+        for density in ThemeDensity::ALL {
+            let theme = Theme::builder("Select matrix", ThemeMode::Light)
+                .density(density)
+                .build();
+            let _guard = ThemeTestGuard::activate(theme);
+
+            for size in [
+                ControlSize::Xs,
+                ControlSize::Sm,
+                ControlSize::Md,
+                ControlSize::Lg,
+            ] {
+                let metrics = theme.form_control_metrics(size);
+                let select: Element<'_, ()> =
+                    Select::new(vec![SelectOption::new(1_u8, "One")], Some(1_u8))
+                        .size(size)
+                        .into();
+                let harness = WidgetHarness::new(select, Size::new(240.0, 120.0));
+
+                assert_eq!(harness.bounds().height, metrics.height);
+                assert_eq!(metrics.text_style.size, 14.0);
+            }
         }
     }
 }
