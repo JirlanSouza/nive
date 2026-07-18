@@ -183,14 +183,12 @@ impl WorkbenchMonitor {
                 column![
                     DocumentHeader::new("Fleet overview")
                         .icon(IconRole::DialogInformation)
-                        .title_tooltip("Fleet overview")
                         .trailing(
                             ActionGroup::new().action(
                                 ContentAction::icon_label(
                                     IconRole::ViewRefresh,
                                     "Run health check"
                                 )
-                                .tooltip("Run fleet health check")
                                 .on_press(Message::Command(AppCommand::RunHealthCheck))
                             )
                         ),

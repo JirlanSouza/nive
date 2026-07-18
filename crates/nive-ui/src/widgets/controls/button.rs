@@ -427,7 +427,7 @@ where
         };
 
         match tooltip_label {
-            Some(label) => tooltip_widget::bottom(button, label),
+            Some(label) => tooltip_widget::Tooltip::new(button, label).into(),
             None => button,
         }
     }

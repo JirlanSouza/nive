@@ -8,6 +8,7 @@ use iced::{
 use crate::theme::SurfaceRole;
 use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec};
 use crate::widgets::display::Badge;
+use crate::widgets::overlays::{Tooltip, TooltipPlacement, TooltipScope};
 use crate::widgets::primitives::{icon as icon_widget, IconRole};
 use crate::Element;
 
@@ -53,11 +54,13 @@ where
                 state.overflow.show_end_chevron(),
             ));
 
-        container(rail)
-            .style(rail_container_style(SurfaceRole::Chrome))
-            .width(Length::Fixed(metrics.width))
-            .height(self.height.unwrap_or(Length::Fill))
-            .into()
+        TooltipScope::new(
+            container(rail)
+                .style(rail_container_style(SurfaceRole::Chrome))
+                .width(Length::Fixed(metrics.width))
+                .height(self.height.unwrap_or(Length::Fill)),
+        )
+        .into()
     }
 
     pub(super) fn item_activation(&self, item: &VerticalRailItem<'a, Id>) -> Option<Message> {
@@ -137,10 +140,9 @@ where
 
         let button = button::Button::custom(content.into())
             .disabled(item.disabled)
-            .tooltip_maybe(tooltip)
             .on_press_maybe(self.item_activation(item));
 
-        button.into_grouped_item_inset(GroupedItemSpec {
+        let button = button.into_grouped_item_inset(GroupedItemSpec {
             size: metrics.size,
             radius: 0.0.into(),
             height: layout.height,
@@ -148,7 +150,17 @@ where
             selected: false,
             destructive: false,
             kind: GroupedItemKind::Embedded,
-        })
+        });
+
+        match tooltip {
+            Some(label) => Tooltip::new(button, label)
+                .placement(match self.side {
+                    super::RailSide::Left => TooltipPlacement::Right,
+                    super::RailSide::Right => TooltipPlacement::Left,
+                })
+                .into(),
+            None => button,
+        }
     }
 }
 

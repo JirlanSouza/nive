@@ -190,7 +190,7 @@ impl<'a, Message: Clone + 'a> ContentAction<'a, Message> {
         };
 
         match self.tooltip {
-            Some(label) => tooltip::bottom(action, label),
+            Some(label) => tooltip::Tooltip::new(action, label).into(),
             None => action,
         }
     }

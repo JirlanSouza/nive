@@ -72,7 +72,7 @@ where
             .into();
         let title: Element<'a, Message> = container(title).width(Length::Fill).clip(true).into();
         let title = match self.title_tooltip {
-            Some(label) => tooltip::bottom(title, label),
+            Some(label) => tooltip::Tooltip::new(title, label).into(),
             None => title,
         };
 

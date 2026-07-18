@@ -52,7 +52,13 @@ where
         color: TextRole,
     ) -> Self {
         let original = original.into();
-        let content = measured_content(original.clone(), original.clone(), typography, Some(color));
+        let content = measured_content(
+            original.clone(),
+            original.clone(),
+            typography,
+            Some(color),
+            false,
+        );
 
         Self {
             original,
@@ -70,7 +76,7 @@ where
         typography: TypographyRole,
     ) -> Self {
         let original = original.into();
-        let content = measured_content(original.clone(), original.clone(), typography, None);
+        let content = measured_content(original.clone(), original.clone(), typography, None, false);
 
         Self {
             original,
@@ -93,6 +99,7 @@ where
             self.original.clone(),
             self.typography,
             self.color,
+            state.truncated,
         )
     }
 }
@@ -102,6 +109,7 @@ fn measured_content<'a, Message>(
     tooltip_label: Cow<'a, str>,
     typography: TypographyRole,
     color: Option<TextRole>,
+    truncated: bool,
 ) -> Element<'a, Message>
 where
     Message: 'a,
@@ -114,15 +122,19 @@ where
         content
     };
 
-    #[cfg(test)]
-    {
-        tooltip::bottom_without_delay(content, tooltip_label)
+    if truncated {
+        #[cfg(test)]
+        {
+            return tooltip::bottom_without_delay(content, tooltip_label);
+        }
+
+        #[cfg(not(test))]
+        {
+            return tooltip::Tooltip::new(content, tooltip_label).into();
+        }
     }
 
-    #[cfg(not(test))]
-    {
-        tooltip::bottom(content, tooltip_label)
-    }
+    content.into()
 }
 
 impl<'a, Message> Widget<Message, crate::theme::Theme, iced::Renderer> for MeasuredText<'a, Message>
