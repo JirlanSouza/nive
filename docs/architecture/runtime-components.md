@@ -8,7 +8,7 @@ o loop do Iced.
 flowchart LR
     subgraph rt["nive-runtime"]
         direction TB
-        app["application<br/>módulo<br/>Trait Application, run(), program runner (ponte Iced), Effect, Context, Config, ThemeController"]
+        app["application<br/>módulo<br/>Trait Application, run(), program runner (ponte Iced), Effect, Context, Config, ThemeController, FocusRoot por janela"]
         actions["actions<br/>módulo<br/>ActionMap / Action: catálogo de comandos (alimenta atalhos e command palette)"]
         lifecycle["lifecycle<br/>módulo<br/>BootstrapSpec (splash), WindowSpec/Registry/Command (multi-janela), handshakes close/exit"]
         state["state<br/>módulo<br/>Resource&lt;T&gt;, Operation&lt;C&gt;, OperationRegistry, RequestId, clock"]
@@ -84,6 +84,10 @@ flowchart LR
 - **`application` é o orquestrador**; tudo o mais é biblioteca que ele compõe. O *program
   runner* (`application/program.rs`) permanece privado — apps emitem `Effect` e
   `WindowCommand`, não chamam helpers diretos de janela Iced.
+- **Cada view final de janela recebe exatamente um `FocusRoot`.** O runner o
+  aplica fora de conteúdo normal/secundário, bootstrap, devtools, `DialogHost`
+  e `ToastHost`, garantindo um coordenador independente por árvore/janela. A
+  aplicação não mantém estado ou id de foco e não deve adicionar outra raiz.
 - **`state` e `feedback` são headless:** máquinas de estado (`Resource`, `Operation`) e
   `UserFacingError` não desenham pixels; implementam os *contratos de apresentação*
   definidos em `nive-core` (`ResourceStatusPresentation`, etc.) que os widgets de `nive-ui`

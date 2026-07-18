@@ -39,6 +39,35 @@ The individual `theme::*` and `widgets::*` submodules remain public for advanced
 composition and tests, but apps should prefer the root/prelude/widget reexports
 unless a lower-level style function or widget state helper is needed.
 
+### Managed logical focus
+
+`nive-runtime` wraps the final content of every window in exactly one managed
+focus root. A standalone `nive-ui` application opts in explicitly; `FocusRoot`
+is intentionally absent from the ordinary prelude:
+
+```rust
+use nive_ui::accessibility::FocusRoot;
+
+let window_content = FocusRoot::new(content);
+```
+
+The root is layout- and paint-neutral. It preserves one logical sequential
+anchor across pointer blur, base content, and nested overlays while leaving
+next/previous ordering to native Iced focus operations. Without a root, Nive
+widgets retain compatible local focus behavior, but cross-widget anchor
+uniqueness and retention are not guaranteed.
+
+External custom widgets use `nive_ui::advanced::focus::{FocusState,
+FocusVisibility}`. Store one `FocusState` in persistent widget Tree state,
+call `register(operation, id, bounds)` from `Widget::operate`, call
+`focus_from_pointer()` only after the widget claims a primary pointer/touch
+press, and paint the ring from `is_focus_visible()` without changing layout.
+`Auto` hides pointer-origin rings and shows keyboard-origin rings;
+`AlwaysWhileActive` is for controls whose active frame communicates editing.
+On disablement or identity replacement call `clear()`, and on real blur call
+`deactivate()`. Keep durable selection and composite highlight/roving state
+separate from the outer logical focus state.
+
 ### Selection controls
 
 Use `Checkbox` for submitted independent choices, including controlled

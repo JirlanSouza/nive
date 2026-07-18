@@ -101,7 +101,42 @@ Multiple), `WindowMode` (Windowed | Maximized | Fullscreen), `WindowChrome`.
 
 ---
 
-## 4. Máquina de estado: `Resource<T>` (request/response)
+## 4. Navegação lógica por foco
+
+Cada `Program::view` envolve o elemento final da janela uma única vez em
+`nive_ui::accessibility::FocusRoot`, por fora de conteúdo, hosts e overlays.
+O coordenador permanece local à árvore daquela janela; a aplicação não recebe
+um manager nem mantém um grafo de foco.
+
+```mermaid
+sequenceDiagram
+    actor User as Usuário
+    participant Root as FocusRoot da janela
+    participant Child as Widget/overlay descendente
+    participant Sub as keyboard_navigation_subscription
+    participant Iced as Operação nativa Iced
+    participant State as FocusState compartilhado
+
+    User->>Root: Tab ou Shift+Tab
+    Root->>Root: registra origem Keyboard
+    Root->>Child: encaminha evento
+    Child-->>Root: Ignored (não capturou Tab)
+    Root-->>Sub: evento ignorado alcança subscription
+    Sub->>Iced: FocusDirection::Next/Previous
+    Iced->>State: focus()/unfocus() na ordem nativa da árvore
+    State-->>User: novo alvo ativo + indicação visível
+```
+
+Um press primário/touch em alvo gerenciado substitui o anchor e normalmente
+oculta a indicação com política `Auto`. Um press em conteúdo vazio remove o
+foco ativo/visível, mas preserva o anchor válido para o próximo Tab. Estados
+de composite e seleção não são transferidos para o runtime. A cadeia recursiva
+de overlays usa o mesmo coordenador; a política do overlay decide apenas
+entrada, contenção e restauração condicional.
+
+---
+
+## 5. Máquina de estado: `Resource<T>` (request/response)
 
 Valor carregado assincronamente, com *stale-while-revalidate* (retém o valor anterior
 enquanto recarrega) e descarte de respostas obsoletas por `RequestId`.
@@ -127,7 +162,7 @@ resultado em `Settled<T>` (o token vira plumbing invisível).
 
 ---
 
-## 5. Máquina de estado: `Operation<C>` (comando/ação)
+## 6. Máquina de estado: `Operation<C>` (comando/ação)
 
 Ação assíncrona sem valor de retorno persistente (ex.: salvar, deletar). Em sucesso devolve
 o `input` para o chamador; em falha, retém `input` + erro.
@@ -151,7 +186,7 @@ em paralelo numa tabela).
 
 ---
 
-## 6. Fila de Toasts
+## 7. Fila de Toasts
 
 `ToastState` mantém slots ativos + uma `VecDeque` de pendentes. Cada toast tem severidade
 (`ToastTone`) e posição (`ToastPosition`); duração curta/longa expira sozinha.

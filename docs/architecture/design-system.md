@@ -401,6 +401,33 @@ flowchart TB
 `DialogHost` / `ToastHost` (em `widgets::overlays`) · `BootstrapView` (splash) · `focus_trap`
 (ciclo de foco em overlays).
 
+### Domínios de estado de foco
+
+O design system mantém seis conceitos distintos:
+
+| Conceito | Dono | Regra |
+| --- | --- | --- |
+| Foco ativo | `FocusState` + coordenador da raiz | no máximo um alvo recebe interação focada |
+| Foco visível | política `FocusVisibility` | projeção visual sem alterar layout; `Auto` distingue teclado de pointer/touch |
+| Anchor lógico | um `FocusRoot` por árvore/janela | posição sequencial única, retida após blur quando ainda válida |
+| Foco interno de composite | RadioGroup, Segmented, TabBar, Tree, SplitPane etc. | highlight/roving/linha/handle local sob um único Tab stop externo |
+| Seleção durável | modelo controlado pelo app/componente | não é apagada por hover, blur ou navegação transitória |
+| Política de overlay | Popover/Menu/host correspondente | entrada, containment, causa de dismissal e restore condicional; nunca outro coordenador |
+
+Iced continua determinando a ordem de `focus_next`/`focus_previous`.
+`FocusRoot` apenas centraliza identidade, origem, visibilidade e validade do
+anchor, inclusive em overlays aninhados. O runtime envolve o conteúdo final de
+cada janela automaticamente; apps standalone usam
+`nive_ui::accessibility::FocusRoot` explicitamente. Autores externos usam
+`nive_ui::advanced::focus::FocusState`; sem raiz, o fallback local permanece
+funcional, mas não oferece retenção/unicidade entre widgets.
+
+`DialogHost` projeta o restore modal como anchor-only. Ao abrir, captura o alvo
+externo opaco; ao fechar por botão, Escape, backdrop ou mudança controlada,
+restaura esse alvo somente como posição sequencial, sem `active` nem ring. Um
+foco programático externo mais novo prevalece, e alvo removido/disabled segue
+para o fallback nativo do Iced.
+
 ### `SegmentedControl` vs `TabBar`
 
 Use `SegmentedControl` para escolher entre um conjunto pequeno e fixo de modos
