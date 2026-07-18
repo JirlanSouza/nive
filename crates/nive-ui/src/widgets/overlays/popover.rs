@@ -1,4 +1,4 @@
-mod overlay;
+#[cfg(test)]
 mod placement;
 mod widget;
 
@@ -15,10 +15,9 @@ use crate::{
 };
 
 use self::widget::PopoverWidget;
-
-pub(crate) use overlay::PopoverOverlay;
-pub(crate) use placement::translated_bounds;
-pub use placement::{PopoverCollision, PopoverPlacement, PopoverWidth};
+pub use super::anchored_overlay::{
+    PopoverCollision, PopoverFocusPolicy, PopoverPlacement, PopoverWidth,
+};
 
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -41,19 +40,6 @@ impl PopoverInset {
             Self::EdgeToEdge => 0.0,
         }
     }
-}
-
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-/// How keyboard focus behaves when a Popover opens.
-pub enum PopoverFocusPolicy {
-    /// Keep focus on the anchor. This is the default.
-    #[default]
-    RetainAnchor,
-    /// Focus the first focusable descendant and allow ordinary Tab traversal to leave.
-    FocusFirst,
-    /// Focus the first focusable descendant and cycle Tab traversal inside the Popover.
-    Trap,
 }
 
 /// A controlled floating surface anchored to one logical widget.
@@ -238,3 +224,7 @@ mod basic_tests;
 #[cfg(test)]
 #[path = "popover/focus_tests.rs"]
 mod focus_tests;
+
+#[cfg(test)]
+#[path = "popover/nested_tests.rs"]
+mod nested_tests;

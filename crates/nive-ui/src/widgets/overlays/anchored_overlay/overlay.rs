@@ -8,19 +8,21 @@ use iced::{
     touch, Event, Rectangle, Size, Vector,
 };
 
-use super::{widget::PopoverDismissalCause, PopoverFocusPolicy};
 use crate::{
     advanced::shell_relay,
     focus::{contains_focus_target, FocusTarget, FocusTargetContext},
     focus_trap,
-    widgets::overlays::{
-        anchored_overlay::{resolve_geometry, GeometryInput},
-        popover::placement::{content_limits, PopoverCollision, PopoverPlacement, PopoverWidth},
+    widgets::overlays::anchored_overlay::{
+        content_limits, resolve_geometry, GeometryInput, PopoverCollision, PopoverFocusPolicy,
+        PopoverPlacement, PopoverWidth,
     },
     Element,
 };
 
-pub struct PopoverOverlay<'a, 'b, LocalMessage, Message, OnMessage> {
+use super::PopoverDismissalCause;
+use super::{identity::bind_descendants, OverlayIdentity};
+
+pub(crate) struct AnchoredOverlay<'a, 'b, LocalMessage, Message, OnMessage> {
     anchor_bounds: Rectangle,
     content: &'b mut Element<'a, LocalMessage>,
     content_state: &'b mut Tree,
@@ -38,10 +40,11 @@ pub struct PopoverOverlay<'a, 'b, LocalMessage, Message, OnMessage> {
     dismissal_cause: Option<&'b mut Option<PopoverDismissalCause>>,
     focus_context: Option<&'b FocusTargetContext>,
     expected_target: Option<&'b mut Option<FocusTarget>>,
+    identity: OverlayIdentity,
 }
 
 impl<'a, 'b, LocalMessage, Message, OnMessage>
-    PopoverOverlay<'a, 'b, LocalMessage, Message, OnMessage>
+    AnchoredOverlay<'a, 'b, LocalMessage, Message, OnMessage>
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -73,6 +76,7 @@ impl<'a, 'b, LocalMessage, Message, OnMessage>
             dismissal_cause: None,
             focus_context: None,
             expected_target: None,
+            identity: OverlayIdentity::root(),
         }
     }
 
@@ -95,7 +99,12 @@ impl<'a, 'b, LocalMessage, Message, OnMessage>
         self
     }
 
-    pub(super) fn focus_policy(
+    pub(crate) fn identity(mut self, identity: OverlayIdentity) -> Self {
+        self.identity = identity;
+        self
+    }
+
+    pub(crate) fn focus_policy(
         mut self,
         focus_policy: PopoverFocusPolicy,
         focus_entered: &'b mut bool,
@@ -116,7 +125,7 @@ impl<'a, 'b, LocalMessage, Message, OnMessage>
 
 impl<'a, 'b, LocalMessage, Message, OnMessage>
     overlay::Overlay<Message, crate::theme::Theme, iced::Renderer>
-    for PopoverOverlay<'a, 'b, LocalMessage, Message, OnMessage>
+    for AnchoredOverlay<'a, 'b, LocalMessage, Message, OnMessage>
 where
     LocalMessage: Clone + 'a,
     Message: 'a,
@@ -140,10 +149,19 @@ where
         let final_limits = layout::Limits::new(Size::ZERO, geometry.frame.size())
             .width(geometry.frame.width)
             .max_height(geometry.frame.height);
-        self.content
+        let node = self
+            .content
             .as_widget_mut()
             .layout(self.content_state, renderer, &final_limits)
-            .move_to(geometry.frame.position())
+            .move_to(geometry.frame.position());
+        bind_descendants(
+            &self.identity,
+            self.content,
+            self.content_state,
+            Layout::new(&node),
+            renderer,
+        );
+        node
     }
 
     fn update(
@@ -180,6 +198,12 @@ where
             );
         }
 
+        if local_shell.event_status() == iced::event::Status::Ignored
+            && is_primary_press_inside(event, layout, cursor)
+        {
+            local_shell.capture_event();
+        }
+
         self.refresh_owned_target(layout, renderer);
         if !local_shell.is_empty() && is_owned_activation(event) {
             self.mark_restoration_cause(PopoverDismissalCause::RestoreAnchor);
@@ -201,13 +225,19 @@ where
     ) -> mouse::Interaction {
         let viewport = layout.bounds();
 
-        self.content.as_widget().mouse_interaction(
+        let interaction = self.content.as_widget().mouse_interaction(
             self.content_state,
             layout,
             cursor,
             &viewport,
             renderer,
-        )
+        );
+
+        if interaction == mouse::Interaction::None && cursor.is_over(layout.bounds()) {
+            mouse::Interaction::Idle
+        } else {
+            interaction
+        }
     }
 
     fn operate(
@@ -261,10 +291,14 @@ where
             )
             .map(|overlay| overlay.map(map_overlay))
     }
+
+    fn index(&self) -> f32 {
+        1.0 + self.identity.depth() as f32
+    }
 }
 
 impl<LocalMessage: Clone, Message, OnMessage>
-    PopoverOverlay<'_, '_, LocalMessage, Message, OnMessage>
+    AnchoredOverlay<'_, '_, LocalMessage, Message, OnMessage>
 {
     fn enter_focus_once(
         &mut self,
@@ -422,13 +456,11 @@ impl<LocalMessage: Clone, Message, OnMessage>
         if !matches!(key, keyboard::Key::Named(Named::Escape)) {
             return false;
         }
-        let Some(message) = self.on_dismiss.clone() else {
-            return false;
-        };
-
-        if !self.dismissal_already_requested() {
-            self.mark_dismissal_requested(PopoverDismissalCause::RestoreAnchor);
-            shell.publish(message);
+        if let Some(message) = self.on_dismiss.clone() {
+            if !self.dismissal_already_requested() {
+                self.mark_dismissal_requested(PopoverDismissalCause::RestoreAnchor);
+                shell.publish(message);
+            }
         }
         shell.capture_event();
         shell.invalidate_layout();
@@ -445,10 +477,12 @@ impl<LocalMessage: Clone, Message, OnMessage>
     ) -> bool {
         let pressed_outside = match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
-                !cursor.is_over(layout.bounds())
+                cursor.position().is_some_and(|position| {
+                    !layout.bounds().contains(position) && !self.anchor_bounds.contains(position)
+                })
             }
             Event::Touch(touch::Event::FingerPressed { position, .. }) => {
-                !layout.bounds().contains(*position)
+                !layout.bounds().contains(*position) && !self.anchor_bounds.contains(*position)
             }
             _ => false,
         };
@@ -519,4 +553,16 @@ fn is_owned_activation(event: &Event) -> bool {
                 ..
             })
     )
+}
+
+fn is_primary_press_inside(event: &Event, layout: Layout<'_>, cursor: mouse::Cursor) -> bool {
+    match event {
+        Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
+            cursor.is_over(layout.bounds())
+        }
+        Event::Touch(touch::Event::FingerPressed { position, .. }) => {
+            layout.bounds().contains(*position)
+        }
+        _ => false,
+    }
 }
