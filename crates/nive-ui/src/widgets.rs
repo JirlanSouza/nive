@@ -42,10 +42,10 @@ pub use feedback::{
     SkeletonControl, Spinner,
 };
 pub use navigation::{
-    command_palette_filter, command_palette_view, CommandPaletteRow, DropdownMenu,
-    DropdownMenuItem, RailSide, TabBar, TabCloseRequest, TabCloseTrigger, TabDrop, TabDropTarget,
-    TabItem, TabTearOff, Toolbar, ToolbarAction, ToolbarGroup, VerticalRail, VerticalRailBadge,
-    VerticalRailItem,
+    command_palette_filter, command_palette_view, CommandPaletteRow, Menu, MenuCheckbox,
+    MenuCommand, MenuDismissPolicy, MenuRadioGroup, MenuRadioOption, MenuSubmenu, RailSide, TabBar,
+    TabCloseRequest, TabCloseTrigger, TabDrop, TabDropTarget, TabItem, TabTearOff, Toolbar,
+    ToolbarAction, ToolbarGroup, VerticalRail, VerticalRailBadge, VerticalRailItem,
 };
 pub use overlays::{
     Dialog, DialogActionFooter, DialogFooter, DialogHeader, DialogHost, Popover, PopoverCollision,

@@ -92,12 +92,13 @@ mod style;
 #[cfg(test)]
 mod widget_tests;
 use crate::widgets::controls::button::{self, ButtonFocusRing, GroupedItemKind, GroupedItemSpec};
-use crate::widgets::navigation::dropdown_menu::{DropdownMenu, DropdownMenuItem};
-use crate::widgets::overlays::popover::{
-    PopoverCollision, PopoverOverlay, PopoverPlacement, PopoverWidth,
-};
+use crate::widgets::navigation::menu::{self, Menu, MenuRadioGroup, MenuRadioOption};
 use crate::widgets::overlays::tooltip as tooltip_widget;
 use crate::widgets::overlays::TooltipScope;
+use crate::widgets::overlays::{
+    anchored_overlay::AnchoredOverlay,
+    popover::{PopoverCollision, PopoverPlacement, PopoverWidth},
+};
 use crate::widgets::primitives::{icon as icon_widget, IconRole};
 
 type SelectCallback<'a, Id, Message> = Box<dyn Fn(Id) -> Message + 'a>;
@@ -661,23 +662,29 @@ where
             .collect()
     }
 
-    /// Returns the dropdown overlay content tree for the all-tabs menu.
+    /// Returns canonical surface-free Menu content for the all-tabs overlay.
     fn build_menu(&self) -> Element<'a, MenuMessage<Id>> {
-        let mut menu = DropdownMenu::<'a, MenuMessage<Id>>::new();
+        let mut group = MenuRadioGroup::new(self.active.clone()).on_select(MenuMessage::Select);
         for entry in self.menu_entries() {
-            let mut item = DropdownMenuItem::new(entry.label)
-                .selected(entry.active)
-                .disabled(entry.disabled)
-                .on_press_maybe((!entry.disabled).then(|| MenuMessage::Select(entry.id)));
+            let annotation = match (entry.pinned, entry.dirty) {
+                (true, true) => Some("Pinned · Unsaved"),
+                (true, false) => Some("Pinned"),
+                (false, true) => Some("Unsaved"),
+                (false, false) => None,
+            };
+            let mut option = MenuRadioOption::new(entry.id, entry.label).disabled(entry.disabled);
             if let Some(icon) = entry.icon.or(entry.pinned.then_some(IconRole::TabPinned)) {
-                item = item.icon(icon);
+                option = option.icon(icon);
             }
-            if entry.dirty {
-                item = item.trailing("●");
+            if let Some(annotation) = annotation {
+                option = option.annotation(annotation);
             }
-            menu = menu.push(item);
+            group = group.option(option);
         }
-        menu.into()
+
+        container(Menu::new(Space::new()).radio_group(group).into_content())
+            .style(menu::style::surface_style)
+            .into()
     }
 
     fn context_request(&self, region: TabRegion, position: Point) -> Option<ContextRequest<Id>> {
@@ -1998,7 +2005,7 @@ where
                 }
             };
 
-        let overlay = PopoverOverlay::new(
+        let overlay = AnchoredOverlay::new(
             trigger_bounds,
             menu,
             menu_state,

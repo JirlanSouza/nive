@@ -5,8 +5,8 @@ Reusable visual design system for Rust/Iced desktop applications.
 `nive-ui` is the design system layer of the [Nive](../) framework. It owns the
 design tokens, semantic theme contracts, and reusable primitive widgets that
 are independent of product-specific domain logic. It depends on `iced` and
-[`nive-core`](../nive-core) (zero-dependency presentation contracts) and does
-**not** depend on `nive-runtime` or any application crate.
+[`nive-core`](../nive-core) (zero-dependency presentation and interaction
+contracts) and does **not** depend on `nive-runtime` or any application crate.
 
 ## What's inside
 
@@ -23,9 +23,10 @@ are independent of product-specific domain logic. It depends on `iced` and
 - `BootstrapView` — generic startup loading/failure template.
 - `DialogHost` / `ToastHost` — modal and toast overlay composition.
 
-Presentation contracts such as `ToastPresentation` are defined in `nive-core`
-and reexported here, keeping runtime types out of the UI crate. See
-`docs/components.md` for contract details.
+Presentation contracts such as `ToastPresentation` and immutable application
+actions are defined in `nive-core`. UI controls project those shared contracts
+while keeping icons, hierarchy, and visual state in this crate; no runtime
+dependency is needed. See `docs/components.md` for details.
 
 ## Public API
 
