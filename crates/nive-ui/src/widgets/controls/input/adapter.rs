@@ -442,6 +442,9 @@ impl Operation<bool> for VisualFocus {
         if let Some(state) = state.downcast_ref::<AdapterState>() {
             self.0 |= state.visual_focus;
         }
+        if let Some(focus) = state.downcast_ref::<FocusState>() {
+            self.0 |= focus.is_focus_visible();
+        }
     }
 
     fn finish(&self) -> operation::Outcome<bool> {

@@ -362,6 +362,7 @@ where
                 validation,
                 metrics: frame_metrics,
                 disabled,
+                interactive: true,
             }),
             TextInputAppearance::Embedded => content,
         }
