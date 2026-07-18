@@ -96,6 +96,7 @@ use crate::widgets::overlays::popover::{
     PopoverCollision, PopoverOverlay, PopoverPlacement, PopoverWidth,
 };
 use crate::widgets::overlays::tooltip as tooltip_widget;
+use crate::widgets::overlays::TooltipScope;
 use crate::widgets::primitives::{icon as icon_widget, IconRole};
 
 type SelectCallback<'a, Id, Message> = Box<dyn Fn(Id) -> Message + 'a>;
@@ -522,7 +523,7 @@ where
             bar = bar.width(width);
         }
 
-        bar.into()
+        TooltipScope::new(bar).into()
     }
 
     fn chevron_button(
@@ -607,10 +608,10 @@ where
             .clip(true)
             .into();
 
-        tooltip_widget::bottom(
-            content,
-            tab.tooltip.as_deref().unwrap_or(tab.label.as_ref()),
-        )
+        match tab.tooltip.as_deref() {
+            Some(label) => tooltip_widget::Tooltip::new(content, label).into(),
+            None => content,
+        }
     }
 
     fn main_content<'b>(

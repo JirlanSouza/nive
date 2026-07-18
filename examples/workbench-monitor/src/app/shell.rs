@@ -16,13 +16,11 @@ impl WorkbenchMonitor {
                 ToolbarGroup::new()
                     .action(
                         ToolbarAction::icon_label(IconRole::ViewRefresh, "Run health check")
-                            .tooltip("Run fleet health check")
                             .loading(self.model.running_jobs() > 0)
                             .on_press(Message::Command(AppCommand::RunHealthCheck)),
                     )
                     .action(
                         ToolbarAction::icon_label(IconRole::EditFind, "Command palette")
-                            .tooltip("Open command palette")
                             .on_press(Message::OpenPalette),
                     ),
             )
@@ -31,12 +29,10 @@ impl WorkbenchMonitor {
                 ToolbarGroup::new()
                     .action(
                         ToolbarAction::icon_label(IconRole::PreferencesSystem, "Switch env")
-                            .tooltip("Switch monitor environment")
                             .on_press(Message::Command(AppCommand::SwitchEnvironment)),
                     )
                     .action(
                         ToolbarAction::icon_label(IconRole::DialogInformation, "Theme")
-                            .tooltip("Toggle light/dark theme")
                             .selected(matches!(self.theme, ThemePreference::Dark))
                             .on_press(Message::ToggleTheme),
                     ),
@@ -46,13 +42,11 @@ impl WorkbenchMonitor {
                 ToolbarGroup::new()
                     .action(
                         ToolbarAction::icon_label(IconRole::DialogWarning, "Latest alert")
-                            .tooltip("Open latest active alert")
                             .disabled(latest_alert.is_none())
                             .on_press_maybe(latest_alert),
                     )
                     .action(
                         ToolbarAction::icon_label(IconRole::WindowClose, "Clear selection")
-                            .tooltip("Clear inspector selection")
                             .disabled(matches!(self.selected, super::Selection::None))
                             .on_press(Message::ClearSelection),
                     ),

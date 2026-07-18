@@ -9,6 +9,7 @@ use iced::{
 };
 
 use crate::theme::{BorderRole, ControlSize, SurfaceRole};
+use crate::widgets::overlays::TooltipScope;
 use crate::Element;
 
 use self::style as theme_toolbar;
@@ -129,7 +130,7 @@ where
             with_edge = with_edge.width(width);
         }
 
-        with_edge.into()
+        TooltipScope::new(with_edge).into()
     }
 }
 

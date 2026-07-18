@@ -73,7 +73,12 @@ where
             },
             message,
         });
-        self.content = build_content(&self.items, self.size, self.active_index);
+        self.content = nive_ui::widgets::TooltipScope::new(build_content(
+            &self.items,
+            self.size,
+            self.active_index,
+        ))
+        .into();
         self
     }
 
@@ -184,7 +189,7 @@ where
             .tooltip
             .clone()
             .unwrap_or_else(|| item.metadata.label.clone());
-        items = items.push(nive_ui::widgets::tooltip::bottom(tab, tooltip));
+        items = items.push(nive_ui::widgets::Tooltip::new(tab, tooltip));
     }
 
     container(items)
@@ -274,7 +279,7 @@ where
         &mut self,
         tree: &mut Tree,
         layout: Layout<'_>,
-        _renderer: &nive_ui::Renderer,
+        renderer: &nive_ui::Renderer,
         operation: &mut dyn operation::Operation,
     ) {
         operation.focusable(
@@ -282,6 +287,9 @@ where
             layout.bounds(),
             tree.state.downcast_mut::<TrackState>(),
         );
+        self.content
+            .as_widget_mut()
+            .operate(&mut tree.children[0], layout, renderer, operation);
     }
 
     fn update(

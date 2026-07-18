@@ -123,7 +123,7 @@ where
         };
 
         match self.tooltip {
-            Some(label) => tooltip_widget::bottom(element, label),
+            Some(label) => tooltip_widget::Tooltip::new(element, label).into(),
             None => element,
         }
     }

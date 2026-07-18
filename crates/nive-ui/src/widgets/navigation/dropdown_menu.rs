@@ -212,7 +212,7 @@ impl<'a, Message: Clone + 'a> DropdownMenuItem<'a, Message> {
         );
 
         match self.tooltip {
-            Some(label) => tooltip_widget::bottom(button, label),
+            Some(label) => tooltip_widget::Tooltip::new(button, label).into(),
             None => button,
         }
     }

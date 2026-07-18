@@ -201,7 +201,7 @@ where
         );
 
         if let Some(label) = tooltip_label {
-            crate::widgets::overlays::tooltip::bottom(item, label)
+            crate::widgets::overlays::tooltip::Tooltip::new(item, label).into()
         } else {
             item
         }

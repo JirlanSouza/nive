@@ -182,7 +182,7 @@ where
             .into();
         let title: Element<'a, Message> = container(title).width(Length::Fill).clip(true).into();
         let title = match self.title_tooltip {
-            Some(tooltip) => crate::widgets::overlays::tooltip::bottom(title, tooltip),
+            Some(tooltip) => crate::widgets::overlays::tooltip::Tooltip::new(title, tooltip).into(),
             None => title,
         };
         let mut leading = row![]
@@ -221,7 +221,7 @@ where
                 .collect::<Vec<_>>())
             .spacing(metrics.action_gap)
             .align_y(Alignment::Center);
-            header = header.push(actions);
+            header = header.push(crate::widgets::overlays::TooltipScope::new(actions));
         }
         if let Some(trailing) = self.trailing {
             header = header.push(trailing);
@@ -298,12 +298,14 @@ where
         size: ControlSize,
     ) -> Element<'a, Message> {
         let metrics = theme_section_header::metrics(size);
-        row(actions
-            .into_iter()
-            .map(|action| action.into_element(metrics, size))
-            .collect::<Vec<_>>())
-        .spacing(metrics.action_gap)
-        .align_y(Alignment::Center)
+        crate::widgets::overlays::TooltipScope::new(
+            row(actions
+                .into_iter()
+                .map(|action| action.into_element(metrics, size))
+                .collect::<Vec<_>>())
+            .spacing(metrics.action_gap)
+            .align_y(Alignment::Center),
+        )
         .into()
     }
 
