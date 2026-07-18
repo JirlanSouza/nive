@@ -10,6 +10,7 @@ use iced::{
 use super::{
     overlay::PopoverOverlay,
     placement::{translated_bounds, PopoverCollision, PopoverPlacement, PopoverWidth},
+    PopoverFocusPolicy,
 };
 use crate::Element;
 
@@ -22,7 +23,14 @@ pub(super) struct PopoverWidget<'a, Message> {
     pub(super) collision: PopoverCollision,
     pub(super) gap: f32,
     pub(super) on_dismiss: Option<Message>,
-    pub(super) trap_focus: bool,
+    pub(super) focus_policy: PopoverFocusPolicy,
+}
+
+#[derive(Debug, Default)]
+struct PopoverState {
+    was_open: bool,
+    focus_entered: bool,
+    dismissal_requested: bool,
 }
 
 impl<'a, Message> Widget<Message, crate::theme::Theme, iced::Renderer>
@@ -31,7 +39,11 @@ where
     Message: Clone + 'a,
 {
     fn tag(&self) -> tree::Tag {
-        tree::Tag::stateless()
+        tree::Tag::of::<PopoverState>()
+    }
+
+    fn state(&self) -> tree::State {
+        tree::State::new(PopoverState::default())
     }
 
     fn children(&self) -> Vec<Tree> {
@@ -156,6 +168,16 @@ where
         viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, crate::theme::Theme, iced::Renderer>> {
+        let state = tree.state.downcast_mut::<PopoverState>();
+        if self.open && !state.was_open {
+            state.focus_entered = false;
+            state.dismissal_requested = false;
+        } else if !self.open {
+            state.focus_entered = false;
+            state.dismissal_requested = false;
+        }
+        state.was_open = self.open;
+
         let (anchor_tree, content_tree) = tree.children.split_at_mut(1);
         let anchor_state = &mut anchor_tree[0];
         let content_state = &mut content_tree[0];
@@ -181,7 +203,11 @@ where
                     self.on_dismiss.clone(),
                     |message, shell: &mut Shell<'_, Message>| shell.publish(message),
                 )
-                .trap_focus(self.trap_focus)
+                .focus_policy(
+                    self.focus_policy,
+                    &mut state.focus_entered,
+                    &mut state.dismissal_requested,
+                )
                 .with_nested_overlay_map(identity_message::<Message>),
             )))
         } else {
