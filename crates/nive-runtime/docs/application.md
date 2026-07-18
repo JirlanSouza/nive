@@ -8,7 +8,7 @@ Applications should import runtime contracts from those facades instead of
 depending on runner module paths. The public contract includes:
 
 - `Application`, `ApplicationConfig`, `Context`, `WindowContext` and `run`
-- `Action`, `ActionId`, `ActionMap` and `DuplicateActionId`
+- `Action`, `ActionId`, `ActionMap`, `DuplicateActionId` and neutral shortcut types
 - `Effect`, `MessageContext`, `MessageSource` and `perform`
 - lifecycle/window contracts such as `WindowSpec`, `WindowCommand`,
   `CloseDecision`, `ExitDecision`, `BootstrapSpec` and `RuntimeEvent`
@@ -32,8 +32,11 @@ associated type is required.
 
 ## Actions And Shortcuts
 
-Applications can expose product commands through `Application::actions`. An
-`ActionMap` contains ordered `Action` values with stable `ActionId`s,
+Applications can expose product commands through `Application::actions`. The
+immutable action types are owned by zero-dependency `nive-core` and re-exported
+by runtime and the umbrella crate, so `nive-ui` controls consume the exact same
+values without depending on runtime. An `ActionMap` contains ordered `Action`
+values with stable `ActionId`s,
 user-facing labels, optional descriptions, optional shortcut bindings, enabled
 state and the product message to emit when activated.
 
@@ -54,15 +57,31 @@ Use `ShortcutBinding::primary_character` for app commands that should follow
 the platform primary modifier (`Cmd` on macOS, `Ctrl` elsewhere) without
 depending on Iced keyboard modifier constants in app code.
 
-`Application::shortcuts` remains supported as a low-level compatibility hook
-for apps that have not migrated a binding into actions yet. New app-facing
-commands should prefer actions so the same command can later power toolbar,
-menu and command-palette surfaces.
+For explicit shortcuts, use the neutral `ShortcutModifiers` bit flags and
+`NamedShortcutKey` values:
 
-Apps that surface a `nive-ui` command palette can adapt their `ActionMap`
-through `nive_runtime::command_palette_rows(&ActionMap<M>)`, which returns
-a `Vec<CommandPaletteRow<'_, M>>` with label, description and shortcut
-display pre-filled. The palette view itself is in `nive-ui`; apps wrap it
+```rust
+# use nive_runtime::{NamedShortcutKey, ShortcutBinding, ShortcutModifiers};
+let save_as = ShortcutBinding::character(
+    's',
+    ShortcutModifiers::CONTROL | ShortcutModifiers::SHIFT,
+);
+let cancel = ShortcutBinding::named(
+    NamedShortcutKey::Escape,
+    ShortcutModifiers::NONE,
+);
+# let _ = (save_as, cancel);
+```
+
+`Application::shortcuts` remains the low-level hook for bindings that do not
+represent application actions. App-facing commands should prefer actions so
+the same command can power toolbar, menu and command-palette surfaces.
+
+Apps that surface a `nive-ui` command palette project each action through
+`CommandPaletteRow::from_action`. `ToolbarAction::from_action` provides the
+same command semantics for a text toolbar action, while
+`ToolbarAction::from_action_with_icon` accepts UI-owned icon decoration. The
+palette view itself is in `nive-ui`; apps wrap it
 in a `DialogRequest` and own open/closed, query, highlighted row, and
 keyboard navigation.
 
@@ -75,11 +94,11 @@ close on right-click of the title bar) on Windows and Linux. Nive
 therefore defers native menu integration until Iced adds upstream
 support.
 
-For now, app navigation uses `nive-ui::widgets::DropdownMenu` (and
-other in-app menus). When Nive adds a `DropdownMenuItem` adapter for
-`ActionMap<M>`, menus will share the same action catalog as shortcuts,
-toolbars, and the command palette, so the same product command
-powers every surface.
+For now, app navigation uses in-app menus. The canonical Menu work projects
+command entries from `Action<M>` so menus share the catalog used by shortcuts,
+toolbars, and the command palette. Checkbox, radio-group, separator, and
+submenu entries remain typed Menu categories because their state and hierarchy
+are surface-specific.
 
 ## Accessibility And Keyboard
 

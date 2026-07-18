@@ -6,14 +6,15 @@
 //! services. It sits above `nive-ui` and re-exports stable helper APIs from
 //! it. It also depends on `nive-core` directly, implementing its neutral
 //! presentation contracts for `UserFacingError`, `Resource`, `Operation`, and
-//! `ToastItem`.
+//! `ToastItem`, and adapting Iced keyboard events to core-owned action and
+//! shortcut contracts.
 //!
 //! # Scope
 //!
 //! - `Application`, `ApplicationConfig`, `Context`, and `run` — the stable
 //!   product contract and the private Iced program runner.
-//! - `Action`, `ActionId`, and `ActionMap` — product action catalogs that can
-//!   power shortcuts and future command surfaces.
+//! - `Action`, `ActionId`, and `ActionMap` — re-exported core-owned product
+//!   action catalogs that power shortcuts and action-aware controls.
 //! - `Effect` — ordered task and runtime-effect composition for application
 //!   hooks.
 //! - `BootstrapSpec` — repeatable startup task attempts, stale-result
@@ -35,8 +36,8 @@
 //!
 //! Application crates should treat `nive_runtime::prelude` as the default
 //! app-facing API. The crate root preserves the broad beta convenience export
-//! surface, while public area modules (`application`, `actions`, `feedback`,
-//! `input`, `lifecycle`, `screen`, `settings`, `state`, and `support`) provide
+//! surface, while public area modules (`application`, `feedback`, `input`,
+//! `lifecycle`, `screen`, `settings`, `state`, and `support`) provide
 //! predictable direct imports for larger apps and layer-specific consumers.
 //!
 //! Runner internals remain hidden in private submodules. App code should not
@@ -58,7 +59,6 @@
 //! See `docs/` for contract details on the application, lifecycle, and
 //! devtools layers.
 
-pub mod actions;
 pub mod application;
 #[cfg(feature = "devtools")]
 pub mod devtools;
@@ -73,7 +73,6 @@ pub mod settings;
 pub mod state;
 pub mod support;
 
-pub use actions::{command_palette_rows, Action, ActionId, ActionMap, DuplicateActionId};
 #[cfg(feature = "devtools")]
 pub use application::run_with_devtools;
 pub use application::{
@@ -93,13 +92,15 @@ pub use feedback::{
     ToastPosition, ToastState, ToastTone, UserFacingError, UserFacingErrorKind, UserFacingResult,
 };
 pub use input::{
-    keyboard_navigation_subscription, KeyboardNavigation, ShortcutBinding, ShortcutKey, ShortcutMap,
+    keyboard_navigation_subscription, KeyboardNavigation, NamedShortcutKey, ShortcutBinding,
+    ShortcutKey, ShortcutMap, ShortcutModifiers,
 };
 pub use lifecycle::{
     BackgroundFit, BootstrapSpec, BrandContent, CloseDecision, CommandRejected,
     CommandRejectionReason, ExitDecision, PlatformError, SplashBackground, WindowCardinality,
     WindowChrome, WindowCommand, WindowHandle, WindowMode, WindowRegistry, WindowRole, WindowSpec,
 };
+pub use nive_core::{Action, ActionId, ActionMap, DuplicateActionId};
 pub use nive_ui::focus_trap::{
     direction_from_event, direction_from_keyboard_event, FocusDirection,
 };
@@ -148,15 +149,15 @@ pub mod prelude {
     /// file-picker params, theming, or window-management types pull in
     /// [`crate::prelude::ui`] instead.
     pub use crate::{
-        command_palette_rows, install_diagnostic_panic_hook, keyboard_navigation_subscription,
-        relative_time_label, run, time, unix_now, window, Action, ActionId, ActionMap, Application,
-        ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason, Context,
-        DiagnosticEvent, DiagnosticEventKind, DiagnosticEventLog, DiagnosticSnapshot,
-        DuplicateActionId, Effect, Error, ExitDecision, KeyboardNavigation, MessageContext,
-        MessageSource, Never, PlatformError, Point, RequestId, Result, RuntimeEvent,
-        RuntimeSession, ScreenView, SettingsConfig, SettingsError, SettingsErrorKind,
-        ShortcutBinding, ShortcutKey, ShortcutMap, SimpleApplication, Size, Subscription, Task,
-        Theme, ThemeBuilder, ThemeCatalog, ThemeController, ThemeDensity, ThemeEvent, ThemeMode,
+        install_diagnostic_panic_hook, keyboard_navigation_subscription, relative_time_label, run,
+        time, unix_now, window, Action, ActionId, ActionMap, Application, ApplicationConfig,
+        CloseDecision, CommandRejected, CommandRejectionReason, Context, DiagnosticEvent,
+        DiagnosticEventKind, DiagnosticEventLog, DiagnosticSnapshot, DuplicateActionId, Effect,
+        Error, ExitDecision, KeyboardNavigation, MessageContext, MessageSource, NamedShortcutKey,
+        Never, PlatformError, Point, RequestId, Result, RuntimeEvent, RuntimeSession, ScreenView,
+        SettingsConfig, SettingsError, SettingsErrorKind, ShortcutBinding, ShortcutKey,
+        ShortcutMap, ShortcutModifiers, SimpleApplication, Size, Subscription, Task, Theme,
+        ThemeBuilder, ThemeCatalog, ThemeController, ThemeDensity, ThemeEvent, ThemeMode,
         ThemePreference, Toast, ToastPosition, WindowCardinality, WindowCommand, WindowContext,
         WindowQuery, WindowRole, WindowSession, WindowSessionPosition, WindowSessionSize,
         WindowSpec,
@@ -169,12 +170,12 @@ pub mod prelude {
         pub use super::*;
         pub use crate::{
             BackgroundFit, BootstrapSpec, BrandContent, DialogDismiss, DialogRequest, ErrorCode,
-            InvalidErrorCode, Operation, OperationDescriptor, OperationEntry, OperationId,
-            OperationProgress, OperationRegistry, OperationStatus, Resource, ScreenEffect, Settled,
-            ShortcutBinding, ShortcutKey, ShortcutMap, SplashBackground, ThemeBuilder,
-            ThemeCatalog, ThemeMode, ToastDuration, ToastTone, UserFacingError,
-            UserFacingErrorKind, UserFacingResult, WindowChrome, WindowHandle, WindowMode,
-            WindowRegistry,
+            InvalidErrorCode, NamedShortcutKey, Operation, OperationDescriptor, OperationEntry,
+            OperationId, OperationProgress, OperationRegistry, OperationStatus, Resource,
+            ScreenEffect, Settled, ShortcutBinding, ShortcutKey, ShortcutMap, ShortcutModifiers,
+            SplashBackground, ThemeBuilder, ThemeCatalog, ThemeMode, ToastDuration, ToastTone,
+            UserFacingError, UserFacingErrorKind, UserFacingResult, WindowChrome, WindowHandle,
+            WindowMode, WindowRegistry,
         };
 
         /// File-picker param structs surfaced in the extended tier only when

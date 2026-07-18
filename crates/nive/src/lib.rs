@@ -60,17 +60,17 @@ pub mod prelude {
     // template without extra `use` statements. The extended surface lives
     // in `nive::prelude::ui::*`.
     pub use nive_runtime::prelude::{
-        command_palette_rows, install_diagnostic_panic_hook, keyboard_navigation_subscription,
-        relative_time_label, run, time, unix_now, window, Action, ActionId, ActionMap, Application,
-        ApplicationConfig, CloseDecision, CommandRejected, CommandRejectionReason, Context,
-        DiagnosticEvent, DiagnosticEventKind, DiagnosticEventLog, DiagnosticSnapshot,
-        DuplicateActionId, Effect, Error, ExitDecision, KeyboardNavigation, MessageContext,
-        MessageSource, Never, PlatformError, Point, RequestId, Result, RuntimeEvent,
-        RuntimeSession, ScreenView, SettingsConfig, SettingsError, SettingsErrorKind,
-        ShortcutBinding, ShortcutKey, ShortcutMap, SimpleApplication, Size, Subscription, Task,
-        Theme, ThemeBuilder, ThemeCatalog, ThemeController, ThemeEvent, ThemeMode, ThemePreference,
-        Toast, ToastPosition, WindowCardinality, WindowCommand, WindowContext, WindowQuery,
-        WindowRole, WindowSession, WindowSessionPosition, WindowSessionSize, WindowSpec,
+        install_diagnostic_panic_hook, keyboard_navigation_subscription, relative_time_label, run,
+        time, unix_now, window, Action, ActionId, ActionMap, Application, ApplicationConfig,
+        CloseDecision, CommandRejected, CommandRejectionReason, Context, DiagnosticEvent,
+        DiagnosticEventKind, DiagnosticEventLog, DiagnosticSnapshot, DuplicateActionId, Effect,
+        Error, ExitDecision, KeyboardNavigation, MessageContext, MessageSource, NamedShortcutKey,
+        Never, PlatformError, Point, RequestId, Result, RuntimeEvent, RuntimeSession, ScreenView,
+        SettingsConfig, SettingsError, SettingsErrorKind, ShortcutBinding, ShortcutKey,
+        ShortcutMap, ShortcutModifiers, SimpleApplication, Size, Subscription, Task, Theme,
+        ThemeBuilder, ThemeCatalog, ThemeController, ThemeEvent, ThemeMode, ThemePreference, Toast,
+        ToastPosition, WindowCardinality, WindowCommand, WindowContext, WindowQuery, WindowRole,
+        WindowSession, WindowSessionPosition, WindowSessionSize, WindowSpec,
     };
     pub use nive_ui::prelude::*;
     pub use nive_workbench::prelude::*;
