@@ -1,7 +1,42 @@
+use std::{cell::Cell, rc::Rc};
+
 use iced::{
     advanced::widget::{operation, Id},
     Rectangle, Vector,
 };
+
+#[derive(Debug, Clone)]
+pub(crate) struct EnsureVisibleHandle {
+    scrollable: Id,
+    target: Rc<Cell<Option<Rectangle>>>,
+}
+
+impl EnsureVisibleHandle {
+    pub(crate) fn new() -> Self {
+        Self {
+            scrollable: Id::unique(),
+            target: Rc::new(Cell::new(None)),
+        }
+    }
+
+    pub(crate) fn scrollable(&self) -> Id {
+        self.scrollable.clone()
+    }
+
+    pub(crate) fn request(&self, target: Rectangle) {
+        self.target.set(Some(target));
+    }
+
+    pub(crate) fn take(&self) -> Option<Rectangle> {
+        self.target.take()
+    }
+}
+
+impl Default for EnsureVisibleHandle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 pub(crate) fn ensure_visible(scrollable: Id, target: Rectangle) -> impl operation::Operation {
     struct EnsureVisible {
@@ -26,9 +61,13 @@ pub(crate) fn ensure_visible(scrollable: Id, target: Rectangle) -> impl operatio
                 return;
             }
 
-            let current_offset = finite_nonnegative(-translation.y);
+            let current_offset = finite_nonnegative(translation.y);
+            let target = Rectangle {
+                y: self.target.y - current_offset,
+                ..self.target
+            };
             let offset =
-                ensure_visible_offset(bounds, self.target, current_offset, content_bounds.height);
+                ensure_visible_offset(bounds, target, current_offset, content_bounds.height);
             state.scroll_to(operation::scrollable::AbsoluteOffset {
                 x: None,
                 y: Some(offset),
@@ -143,10 +182,10 @@ mod tests {
             Some(&id),
             Rectangle::with_size(Size::new(100.0, 100.0)),
             Rectangle::with_size(Size::new(100.0, 300.0)),
-            Vector::new(0.0, -40.0),
+            Vector::new(0.0, 40.0),
             &mut state,
         );
 
-        assert_eq!(state.0.and_then(|offset| offset.y), Some(100.0));
+        assert_eq!(state.0.and_then(|offset| offset.y), Some(60.0));
     }
 }

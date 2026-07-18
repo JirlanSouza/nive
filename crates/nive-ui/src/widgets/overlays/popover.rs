@@ -8,6 +8,7 @@ use iced::{
     Background, Border, Length, Padding,
 };
 
+use crate::widgets::overlays::anchored_overlay::scroll::EnsureVisibleHandle;
 use crate::{
     theme::{BorderRole, SurfaceRole},
     widgets::scrollable::overlay_scrollbar,
@@ -58,6 +59,7 @@ pub struct Popover<'a, Message> {
     on_dismiss: Option<Message>,
     inset: PopoverInset,
     focus_policy: PopoverFocusPolicy,
+    ensure_visible: Option<EnsureVisibleHandle>,
 }
 
 impl<'a, Message> Popover<'a, Message>
@@ -76,6 +78,7 @@ where
             on_dismiss: None,
             inset: PopoverInset::default(),
             focus_policy: PopoverFocusPolicy::default(),
+            ensure_visible: None,
         }
     }
 
@@ -145,6 +148,11 @@ where
         self
     }
 
+    pub(crate) fn ensure_visible(mut self, handle: EnsureVisibleHandle) -> Self {
+        self.ensure_visible = Some(handle);
+        self
+    }
+
     #[deprecated(note = "use focus_policy(PopoverFocusPolicy::Trap)")]
     pub fn trap_focus(self, trap_focus: bool) -> Self {
         self.focus_policy(if trap_focus {
@@ -155,7 +163,8 @@ where
     }
 
     fn into_element(self) -> Element<'a, Message> {
-        let content = surface(self.content, self.inset);
+        let content =
+            surface_with_ensure_visible(self.content, self.inset, self.ensure_visible.as_ref());
         Element::new(PopoverWidget {
             anchor: self.anchor,
             content,
@@ -166,21 +175,29 @@ where
             gap: self.gap,
             on_dismiss: self.on_dismiss,
             focus_policy: self.focus_policy,
+            ensure_visible: self.ensure_visible,
         })
     }
 }
 
-fn surface<'a, Message>(content: Element<'a, Message>, inset: PopoverInset) -> Element<'a, Message>
+pub(crate) fn surface_with_ensure_visible<'a, Message>(
+    content: Element<'a, Message>,
+    inset: PopoverInset,
+    ensure_visible: Option<&EnsureVisibleHandle>,
+) -> Element<'a, Message>
 where
     Message: 'a,
 {
     let content = container(content)
         .padding(Padding::from(inset.value()))
         .width(Length::Fill);
-    let viewport = scrollable(content)
+    let mut viewport = scrollable(content)
         .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
         .width(Length::Shrink)
         .height(Length::Shrink);
+    if let Some(handle) = ensure_visible {
+        viewport = viewport.id(handle.scrollable());
+    }
 
     container(viewport)
         .style(surface_style)

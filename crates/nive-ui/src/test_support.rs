@@ -493,6 +493,46 @@ impl<'a, Message> WidgetHarness<'a, Message> {
         }
     }
 
+    pub(crate) fn overlay_scroll_offsets(&mut self) -> Vec<Vector> {
+        struct ScrollOffsets(Vec<Vector>);
+
+        impl operation::Operation for ScrollOffsets {
+            fn scrollable(
+                &mut self,
+                _id: Option<&Id>,
+                _bounds: Rectangle,
+                _content_bounds: Rectangle,
+                translation: Vector,
+                _state: &mut dyn operation::Scrollable,
+            ) {
+                self.0.push(translation);
+            }
+
+            fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn operation::Operation)) {
+                operate(self);
+            }
+        }
+
+        let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+        let Some(mut overlay) = self.element.as_widget_mut().overlay(
+            &mut self.tree,
+            Layout::new(&self.node),
+            &self.renderer,
+            &viewport,
+            Vector::ZERO,
+        ) else {
+            return Vec::new();
+        };
+        let node = overlay
+            .as_overlay_mut()
+            .layout(&self.renderer, self.maximum);
+        let mut offsets = ScrollOffsets(Vec::new());
+        overlay
+            .as_overlay_mut()
+            .operate(Layout::new(&node), &self.renderer, &mut offsets);
+        offsets.0
+    }
+
     pub(crate) fn focus_overlay_next(&mut self) -> bool {
         let mut operated = false;
         crate::focus_trap::FocusDirection::Next.operate(|operation| {
