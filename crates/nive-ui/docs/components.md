@@ -342,10 +342,18 @@ Apps wrap the result in a `DialogRequest` (or an app-owned overlay) and route
 `ArrowUp`/`ArrowDown`/`Enter`/`Escape` themselves. The runtime shortcut
 `Cmd+K` / `Ctrl+K` should activate the host wrapper.
 
-`nive-runtime::command_palette_rows(&ActionMap<M>)` adapts an
-`ActionMap<M>` into a `Vec<CommandPaletteRow<'_, M>>` so apps can drop the
-palette directly on top of their existing action catalog without manually
-mapping label/description/shortcut fields.
+Apps project an `ActionMap<M>` by iterating its actions and calling
+`CommandPaletteRow::from_action(&Action<M>)`. The types are owned by
+zero-dependency `nive-core`, so this projection needs no runtime dependency and
+preserves identity, label, description, shortcut, enabled state, and activation
+semantics.
+
+`ToolbarAction::from_action(&Action<M>)` projects the same command as a text
+toolbar action. `ToolbarAction::from_action_with_icon(&Action<M>, IconRole)`
+adds UI-owned icon decoration; icons, selection, destructive tone, loading,
+and menu hierarchy do not become core action data. This follows Qt's useful
+single-command-source idea without adopting mutable action objects or signals:
+the application still rebuilds immutable actions from current state.
 
 ## Accessibility Contract
 
