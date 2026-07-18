@@ -141,15 +141,6 @@ fn pointer_leave_closes_without_intercepting_anchor_events() {
     assert!(visible_keys(&mut harness).is_empty());
 }
 
-#[test]
-#[allow(deprecated)]
-fn deprecated_bottom_forwarder_remains_source_compatible() {
-    let element: Element<'_, ()> = bottom(iced::widget::Space::new(), "Legacy help");
-    let harness = WidgetHarness::new(element, Size::new(200.0, 80.0));
-
-    assert_eq!(harness.bounds().position(), Point::ORIGIN);
-}
-
 fn redraw(now: iced::time::Instant) -> Event {
     Event::Window(iced::window::Event::RedrawRequested(now))
 }

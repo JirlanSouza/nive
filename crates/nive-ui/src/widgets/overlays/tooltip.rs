@@ -105,25 +105,8 @@ where
     }
 }
 
-/// Compatibility forwarder for the first release containing [`Tooltip`].
-#[deprecated(
-    since = "0.1.0",
-    note = "use Tooltip::new(anchor, label); this forwarder is removed in the next published release"
-)]
-pub fn bottom<'a, Message>(
-    anchor: impl Into<Element<'a, Message>>,
-    label: impl Into<Cow<'a, str>>,
-) -> Element<'a, Message>
-where
-    Message: 'a,
-{
-    Tooltip::new(anchor, label)
-        .placement(TooltipPlacement::Bottom)
-        .into()
-}
-
 #[cfg(test)]
-pub(crate) fn bottom_without_delay<'a, Message>(
+pub(crate) fn immediate_for_test<'a, Message>(
     anchor: impl Into<Element<'a, Message>>,
     label: impl Into<Cow<'a, str>>,
 ) -> Element<'a, Message>

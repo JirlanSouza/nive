@@ -1,4 +1,4 @@
-mod anchored_overlay;
+pub(crate) mod anchored_overlay;
 
 pub mod dialog;
 pub mod dialog_host;

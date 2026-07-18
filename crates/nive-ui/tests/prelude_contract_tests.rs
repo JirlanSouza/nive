@@ -238,6 +238,32 @@ fn command_palette_exposes_filter_view_and_row_types() {
 }
 
 #[test]
+fn canonical_menu_projects_core_actions_from_the_ui_prelude() {
+    let action = nive_core::Action::new("file.save", "Save", ())
+        .shortcut(nive_core::ShortcutBinding::primary_character('s'));
+    let child: Menu<'_, ()> =
+        Menu::new(button("More")).command(MenuCommand::new("Child").on_press(()));
+    let _: Element<'_, ()> = Menu::new(button("Actions"))
+        .open(false)
+        .on_dismiss(())
+        .command(MenuCommand::from_action(&action).icon(IconRole::ActionConfirm))
+        .checkbox(
+            MenuCheckbox::new("Pinned", CheckboxState::Unchecked)
+                .on_toggle(|_| ())
+                .dismiss_policy(MenuDismissPolicy::KeepOpen),
+        )
+        .radio_group(
+            MenuRadioGroup::new(Some(1))
+                .option(MenuRadioOption::new(1, "One"))
+                .option(MenuRadioOption::new(2, "Two").annotation("Secondary"))
+                .on_select(|_| ()),
+        )
+        .separator()
+        .submenu(MenuSubmenu::new("More", child))
+        .into();
+}
+
+#[test]
 fn feedback_presentation_contracts_are_reexported_from_nive_core() {
     use nive_ui::widgets::overlays::{ToastPresentation, ToastTone};
     use nive_ui::widgets::{
