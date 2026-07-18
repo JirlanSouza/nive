@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, cell::Cell, rc::Rc};
 
 use iced::{
     advanced::{
@@ -38,6 +38,7 @@ pub(crate) struct MeasuredText<'a, Message> {
     typography: TypographyRole,
     color: Option<TextRole>,
     maximum_width: Option<f32>,
+    logical_focus: Option<Rc<Cell<bool>>>,
     content: Element<'a, Message>,
 }
 
@@ -58,6 +59,7 @@ where
             typography,
             Some(color),
             false,
+            None,
         );
 
         Self {
@@ -66,6 +68,7 @@ where
             typography,
             color: Some(color),
             maximum_width: None,
+            logical_focus: None,
             content,
         }
     }
@@ -76,7 +79,14 @@ where
         typography: TypographyRole,
     ) -> Self {
         let original = original.into();
-        let content = measured_content(original.clone(), original.clone(), typography, None, false);
+        let content = measured_content(
+            original.clone(),
+            original.clone(),
+            typography,
+            None,
+            false,
+            None,
+        );
 
         Self {
             original,
@@ -84,12 +94,18 @@ where
             typography,
             color: None,
             maximum_width: None,
+            logical_focus: None,
             content,
         }
     }
 
     pub(crate) fn max_width(mut self, maximum_width: f32) -> Self {
         self.maximum_width = maximum_width.is_finite().then_some(maximum_width.max(0.0));
+        self
+    }
+
+    pub(crate) fn logical_focus_candidate(mut self, focused: Rc<Cell<bool>>) -> Self {
+        self.logical_focus = Some(focused);
         self
     }
 
@@ -100,6 +116,7 @@ where
             self.typography,
             self.color,
             state.truncated,
+            self.logical_focus.clone(),
         )
     }
 }
@@ -110,6 +127,7 @@ fn measured_content<'a, Message>(
     typography: TypographyRole,
     color: Option<TextRole>,
     truncated: bool,
+    logical_focus: Option<Rc<Cell<bool>>>,
 ) -> Element<'a, Message>
 where
     Message: 'a,
@@ -123,6 +141,10 @@ where
     };
 
     if truncated {
+        let content: Element<'a, Message> = match logical_focus {
+            Some(focused) => LogicalFocusCandidate::new(content, focused).into(),
+            None => content.into(),
+        };
         #[cfg(test)]
         {
             return tooltip::immediate_for_test(content, tooltip_label);
@@ -317,6 +339,181 @@ where
     }
 }
 
+#[derive(Debug, Default)]
+struct LogicalFocusState {
+    focused: bool,
+}
+
+impl operation::Focusable for LogicalFocusState {
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
+
+    fn focus(&mut self) {}
+
+    fn unfocus(&mut self) {}
+}
+
+struct LogicalFocusCandidate<'a, Message> {
+    content: Element<'a, Message>,
+    focused: Rc<Cell<bool>>,
+}
+
+impl<'a, Message> LogicalFocusCandidate<'a, Message> {
+    fn new(content: impl Into<Element<'a, Message>>, focused: Rc<Cell<bool>>) -> Self {
+        Self {
+            content: content.into(),
+            focused,
+        }
+    }
+}
+
+impl<Message> Widget<Message, crate::theme::Theme, iced::Renderer>
+    for LogicalFocusCandidate<'_, Message>
+{
+    fn tag(&self) -> tree::Tag {
+        tree::Tag::of::<LogicalFocusState>()
+    }
+
+    fn state(&self) -> tree::State {
+        tree::State::new(LogicalFocusState::default())
+    }
+
+    fn children(&self) -> Vec<Tree> {
+        vec![Tree::new(&self.content)]
+    }
+
+    fn diff(&self, tree: &mut Tree) {
+        tree.diff_children(&[self.content.as_widget()]);
+    }
+
+    fn size(&self) -> Size<Length> {
+        self.content.as_widget().size()
+    }
+
+    fn size_hint(&self) -> Size<Length> {
+        self.content.as_widget().size_hint()
+    }
+
+    fn layout(
+        &mut self,
+        tree: &mut Tree,
+        renderer: &iced::Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        self.content
+            .as_widget_mut()
+            .layout(&mut tree.children[0], renderer, limits)
+    }
+
+    fn operate(
+        &mut self,
+        tree: &mut Tree,
+        layout: Layout<'_>,
+        renderer: &iced::Renderer,
+        operation: &mut dyn operation::Operation,
+    ) {
+        let state = tree.state.downcast_mut::<LogicalFocusState>();
+        state.focused = self.focused.get();
+        operation.focusable(None, layout.bounds(), state);
+        operation.traverse(&mut |operation| {
+            self.content.as_widget_mut().operate(
+                &mut tree.children[0],
+                layout,
+                renderer,
+                operation,
+            );
+        });
+    }
+
+    fn update(
+        &mut self,
+        tree: &mut Tree,
+        event: &Event,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        renderer: &iced::Renderer,
+        clipboard: &mut dyn Clipboard,
+        shell: &mut Shell<'_, Message>,
+        viewport: &Rectangle,
+    ) {
+        self.content.as_widget_mut().update(
+            &mut tree.children[0],
+            event,
+            layout,
+            cursor,
+            renderer,
+            clipboard,
+            shell,
+            viewport,
+        );
+    }
+
+    fn mouse_interaction(
+        &self,
+        tree: &Tree,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        viewport: &Rectangle,
+        renderer: &iced::Renderer,
+    ) -> mouse::Interaction {
+        self.content.as_widget().mouse_interaction(
+            &tree.children[0],
+            layout,
+            cursor,
+            viewport,
+            renderer,
+        )
+    }
+
+    fn draw(
+        &self,
+        tree: &Tree,
+        renderer: &mut iced::Renderer,
+        theme: &crate::theme::Theme,
+        style: &renderer::Style,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        viewport: &Rectangle,
+    ) {
+        self.content.as_widget().draw(
+            &tree.children[0],
+            renderer,
+            theme,
+            style,
+            layout,
+            cursor,
+            viewport,
+        );
+    }
+
+    fn overlay<'a>(
+        &'a mut self,
+        tree: &'a mut Tree,
+        layout: Layout<'a>,
+        renderer: &iced::Renderer,
+        viewport: &Rectangle,
+        translation: Vector,
+    ) -> Option<overlay::Element<'a, Message, crate::theme::Theme, iced::Renderer>> {
+        self.content.as_widget_mut().overlay(
+            &mut tree.children[0],
+            layout,
+            renderer,
+            viewport,
+            translation,
+        )
+    }
+}
+
+impl<'a, Message> From<LogicalFocusCandidate<'a, Message>> for Element<'a, Message>
+where
+    Message: 'a,
+{
+    fn from(candidate: LogicalFocusCandidate<'a, Message>) -> Self {
+        Element::new(candidate)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Projection {
     pub(super) visible: String,
@@ -434,7 +631,7 @@ fn tooltip_source<'a>(state: &State, original: &'a str) -> Option<&'a str> {
     state.truncated.then_some(original)
 }
 
-pub(super) fn measure_width(_renderer: &iced::Renderer, content: &str, style: TextStyle) -> f32 {
+pub(crate) fn measure_width(_renderer: &iced::Renderer, content: &str, style: TextStyle) -> f32 {
     type Paragraph = <iced::Renderer as advanced_text::Renderer>::Paragraph;
 
     Paragraph::with_text(advanced_text::Text {
