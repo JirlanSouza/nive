@@ -183,7 +183,7 @@ para hierarquia de texto (`TextRole::Primary`) e para ação sugerida em botões
 Widgets que expõem `tone(ToneRole)` também expõem
 `neutral()`, `accent()`, `info()`, `success()`, `warning()` e `danger()`.
 `danger()` é linguagem de status. Ações que podem destruir dados usam
-`destructive()` em `Button`, `DropdownMenuItem`, `ToolbarAction` e
+`destructive()` em `Button`, `MenuCommand`, `ToolbarAction` e
 `ContentAction`; esses
 widgets não expõem `danger()`. `ToolbarAction` também não tem `suggested()`
 para evitar hierarquia visual forte dentro de toolbars.
@@ -374,7 +374,7 @@ flowchart TB
     subgraph navigation["Navigation"]
         Tabs["TabBar / TabItem"]
         Toolbar
-        DropdownMenu
+        Menu
         CommandPalette["command_palette"]
     end
     subgraph overlays["Overlays"]

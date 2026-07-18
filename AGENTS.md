@@ -4,7 +4,7 @@
 
 Nive is centered on the Rust/Iced framework stack:
 
-- `crates/nive-core`: shared presentation contracts (zero dependencies)
+- `crates/nive-core`: shared presentation and interaction contracts (zero dependencies)
 - `crates/nive-ui`: visual design system
 - `crates/nive-runtime`: application lifecycle
 - `crates/nive-runtime-derive`: proc macros

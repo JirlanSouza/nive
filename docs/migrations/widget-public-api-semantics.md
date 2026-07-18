@@ -28,8 +28,12 @@ radius.
 | status widgets using primary-tone wording | `accent()` or `tone(ToneRole::Accent)` |
 
 Use `danger()` for status tone and `destructive()` for destructive actions.
-`Button`, `DropdownMenuItem`, and `ToolbarAction` use `destructive()`;
+`Button`, `MenuCommand`, and `ToolbarAction` use `destructive()`;
 `Badge` and `InlineAlert` use `danger()`.
+
+`DropdownMenu` and `DropdownMenuItem` were removed. Use anchored `Menu` with
+typed `MenuCommand`, `MenuCheckbox`, `MenuRadioGroup`, and `MenuSubmenu`
+entries. Menu width is popup-managed and has no generic `Length` builders.
 
 ## Layout
 
@@ -41,7 +45,6 @@ Use `danger()` for status tone and `destructive()` for destructive actions.
 | `fill()` on `SegmentedControl` | `fill_width()` |
 | `fill()` on `DataRow` | `fill_width()` |
 | `fill()` on `KeyValueList` | `fill_width()` |
-| `fill()` on `DropdownMenu` | `fill_width()` |
 | `fill()` on `Toolbar` | `fill_width()` |
 | `fill()` on `ToolbarActionGroup` | `fill_width()` |
 | `fill()` on `TabBar` | `fill_width()` |

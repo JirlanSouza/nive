@@ -4,7 +4,7 @@
 
 Nive is a Rust/Iced desktop application framework. Active Cargo workspace members are:
 
-- `crates/nive-core`: neutral presentation contracts shared by nive-ui and nive-runtime (zero dependencies)
+- `crates/nive-core`: neutral presentation and interaction contracts shared by nive-ui and nive-runtime (zero dependencies)
 - `crates/nive-ui`: visual design system (tokens, theme, widgets, icons)
 - `crates/nive-runtime`: application lifecycle, window management, feedback, devtools
 - `crates/nive-runtime-derive`: proc macros for devtools
@@ -57,7 +57,7 @@ Run package-specific `cargo` commands only for focused verification while iterat
 
 ## Package Roles
 
-- `nive-core`: neutral presentation contracts (`ErrorPresentation`, `ResourceStatusPresentation`, `OperationStatusPresentation`, `ToastPresentation`, `ToastTone`) that `nive-ui` re-exports and `nive-runtime` implements. Zero dependencies — no `iced`, no widgets, no runtime types. Fix the ownership boundary only; do not add concrete runtime types, UI vocabulary, or opinionated helpers here.
+- `nive-core`: neutral presentation contracts (`ErrorPresentation`, `ResourceStatusPresentation`, `OperationStatusPresentation`, `ToastPresentation`, `ToastTone`) plus immutable application actions and toolkit-neutral shortcuts shared by `nive-ui` and `nive-runtime`. Zero dependencies — no `iced`, no widgets, no runtime lifecycle types. Add only cross-layer neutral contracts; concrete runtime state, UI vocabulary such as icons/menu hierarchy, and opinionated rendering helpers stay in their owning layers.
 - `nive-ui`: shared visual design system for tokens, semantic theme contracts, reusable UI primitives, bundled Inter/Geist Mono assets, and icon management. Control widgets share combined-state precedence through `ControlState`, while each widget category owns its final paint. `surface::style()` supplies fill and shadow only; composing regions own borders and structural seams.
 - `nive-runtime`: shared app runtime foundation for application/update contracts, `Resource`/`Operation` async state, request IDs, user-facing errors, lifecycle contracts, and optional devtools simulator (feature `devtools`). It auto-registers `nive-ui` bundled fonts and defaults applications to Inter unless configured otherwise. The `Inspect` trait + derive walk app state to discover simulatable fields; `SimulableState` exposes snapshots, explicit capabilities, and simulator actions.
 - `nive-runtime-derive`: proc macro `#[derive(Inspect)]` that generates recursive `Inspect::inspect` implementations for app state structs.
