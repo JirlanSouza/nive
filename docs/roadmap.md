@@ -61,8 +61,9 @@ Resumo honesto do que já existe (crates `nive-ui`, `nive-runtime`, `nive-runtim
   (`Resource`, `Operation`, `OperationRegistry`), feedback (toasts em fila com severidade,
   `UserFacingError`), settings/session persistidos (serde).
 * **DX:** devtools opt-in (inspeção + simuladores via `#[derive(Inspect)]`),
-  atalhos/navegação por teclado (`ShortcutMap`, `focus_trap`), command palette, CLI de
-  scaffolding e de ícones, sistema de ícones Lucide tipado e empacotado em build-time.
+  atalhos/navegação por teclado (`ShortcutMap`, `FocusRoot`, `FocusState`, `focus_trap`),
+  command palette, CLI de scaffolding e de ícones, sistema de ícones Lucide tipado e
+  empacotado em build-time.
 * **Qualidade:** testes de contrato + `trybuild`, docs por crate, CI de readiness.
 
 ---
@@ -166,7 +167,14 @@ real está em [§4](#4-plano-de-execução-milestones).
 
 - **Navegação via Teclado** ✅
   - ✅ Atalhos globais customizáveis e fluxo de foco (`Tab`) — `ShortcutMap`,
-    `keyboard_navigation`, `focus_trap`, command palette.
+    `keyboard_navigation`, uma raiz automática por janela, anchor lógico único
+    compartilhado com overlays, `focus_trap` e command palette. Apps
+    `nive-ui` standalone fazem opt-in com `accessibility::FocusRoot`; autores
+    de widgets usam `advanced::focus::FocusState` sem expor um manager ao app.
+  - ⏳ A fundação automatizada está coberta por testes de estado/operação; a
+    aprovação óptica de rings pointer-hidden/keyboard-visible e restauração em
+    fluxos reais continua no protocolo manual de screenshots do Gallery e
+    Workbench Monitor.
 - **Internacionalização** (item dividido por valor/custo)
   - ⬜ **Formatação localizada** de números, datas e durações (micro/segundos). *Alto valor
     para apps de dados, baixo custo — fazer primeiro.*

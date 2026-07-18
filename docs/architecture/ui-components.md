@@ -12,7 +12,8 @@ flowchart BT
         widgets["widgets<br/>módulo<br/>40+ widgets type-safe organizados por primitives, controls, display, containers, navigation, overlays (inclui DialogHost/ToastHost) e feedback"]
         layoutfacade["layout<br/>facade<br/>Surfaces e contêineres para imports focados"]
         graphicsfacade["graphics<br/>facade<br/>Ícones, swatches e SVG"]
-        a11yfacade["accessibility<br/>facade<br/>FocusDirection e helpers de foco/teclado"]
+        a11yfacade["accessibility<br/>facade<br/>FocusRoot, FocusDirection e helpers de foco/teclado"]
+        advancedfocus["advanced::focus<br/>autoria de widget<br/>FocusState e FocusVisibility"]
         bootstrapview["bootstrap<br/>módulo<br/>BootstrapView: template genérico de splash/loading/falha"]
         focustrap["focus_trap<br/>módulo<br/>Ciclo de foco Tab/Shift+Tab para overlays"]
     end
@@ -27,6 +28,7 @@ flowchart BT
     layoutfacade -->|reexporta| widgets
     graphicsfacade -->|reexporta| widgets
     a11yfacade -->|reexporta| focustrap
+    a11yfacade -->|coordena estados de| advancedfocus
     bootstrapview -->|compõe| widgets
     focustrap -->|lê eventos de teclado de| iced
     theme -->|implementa Catalog de| iced
@@ -34,7 +36,7 @@ flowchart BT
 
     classDef component fill:#e8f1ff,stroke:#4b77be,color:#111;
     classDef external fill:#eee,stroke:#999,color:#333;
-    class tokens,theme,widgets,layoutfacade,graphicsfacade,a11yfacade,bootstrapview,focustrap component;
+    class tokens,theme,widgets,layoutfacade,graphicsfacade,a11yfacade,advancedfocus,bootstrapview,focustrap component;
     class iced,core external;
 ```
 
@@ -67,4 +69,14 @@ flowchart BT
 - **`active()` expõe um tema global** (estado em thread-local) para que widgets leiam o tema
   ativo sem prop-drilling — útil em densidade alta onde passar `&Theme` em todo lugar
   seria ruído.
+- **Foco gerenciado tem um único dono por árvore/janela.** `FocusRoot` mantém
+  um anchor lógico sequencial único e o propaga pela cadeia completa de
+  overlays; a ordem next/previous continua sendo calculada pelas operações
+  nativas do Iced. `nive-runtime` instala a raiz automaticamente, enquanto um
+  app `nive-ui` standalone faz opt-in explícito na composição final.
+- **`FocusState` é superfície avançada de autoria, não estado de aplicação.**
+  Cada alvo externo registra um estado persistente; foco ativo e indicação
+  visível pertencem a essa camada. O item roving/highlight de um composite,
+  seleção durável e política de entrada/restauração de overlay permanecem com
+  seus respectivos componentes.
 - Catálogo de widgets detalhado em [`design-system.md`](design-system.md).

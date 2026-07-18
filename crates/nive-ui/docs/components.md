@@ -368,6 +368,35 @@ upstream APIs.
   may still use `FieldValidation`; silent or color-only failures are not
   acceptable.
 
+### Managed Logical Focus
+
+These state domains are related but not interchangeable:
+
+- **Active focus** identifies the one target currently receiving focused
+  interaction. Window deactivation or a press on empty content may remove it.
+- **Visible focus** is only the paint decision for that active target. With
+  `FocusVisibility::Auto`, keyboard origin shows the ring and pointer/touch
+  origin hides it; it never changes geometry.
+- **Logical anchor** is the unique retained sequential position owned by one
+  `FocusRoot`. It may survive pointer blur so the next native Iced Tab
+  operation continues from the last interacted control.
+- **Composite-internal focus** is the highlighted row, roving tab, Tree row,
+  range anchor, or active split handle owned by a composite. The composite has
+  one outer `FocusState`; its internal item is not another window Tab stop.
+- **Durable selection** is controlled application/domain state and persists
+  independently of hover, focus, highlight, or ring visibility.
+- **Overlay focus policy** decides entry, containment, dismissal-cause, and
+  conditional restoration. It shares the root coordinator and never creates
+  a popup-local focus manager.
+
+`nive-runtime` installs one `FocusRoot` outside all content and overlay hosts
+for each window. Standalone `nive-ui` applications wrap their final content
+with `nive_ui::accessibility::FocusRoot`; unrooted widgets retain local focus
+behavior without the cross-widget uniqueness/retention guarantee. External
+custom focusables store `nive_ui::advanced::focus::FocusState` in persistent
+Tree state, register it during `operate`, notify it after claimed pointer/touch
+focus, and derive focus paint from `is_focus_visible()`.
+
 ### Overlay Keyboard Contract
 
 - **Escape** dismisses modal dialogs and popovers. The framework helper
@@ -378,7 +407,8 @@ upstream APIs.
 - **Tab and Shift+Tab** cycle focus through the overlay's focusable
   controls. `nive_ui::focus_trap::direction_from_event` resolves the
   direction from the keyboard event and `FocusDirection::Next` /
-  `FocusDirection::Previous` execute the chained Iced focus operation.
+  `FocusDirection::Previous` execute the chained native Iced focus operation
+  over the same root coordinator.
   Modifier-only Tab (Ctrl/Alt/Cmd+Tab) is left to the application so
   platform shortcuts still work.
 - **Enter** activates the focused button. Custom widgets that accept
@@ -387,6 +417,11 @@ upstream APIs.
 - **Backdrop clicks** dismiss modal dialogs unless the dialog explicitly
   disables the behavior through `DialogDismiss::OnEscape` or
   `DialogDismiss::None`.
+- **Dialog focus return** captures the managed target that preceded the modal.
+  Closing from a dialog button, Escape, backdrop, or controlled state restores
+  a still-valid target only as the logical anchor: no target remains actively
+  focused and no ring is painted. A newer programmatic external target wins;
+  a removed or disabled target falls back to native Iced traversal.
 
 ### New Widget Checklist
 

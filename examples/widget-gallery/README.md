@@ -21,6 +21,10 @@ The gallery exercises:
   theme/catalog selection
 - app-owned state for inputs, selections, overlays, feedback controls, and
   theme preference
+- runtime-owned one-root-per-window logical focus across real Nive controls:
+  pointer/touch entry hides `Auto` rings, keyboard traversal shows them, empty
+  presses retain the sequential anchor, and composite highlight/selection stay
+  independent
 - semantic icon roles, a fixture app symbol, and a theme catalog override on
   the icons page
 - real overlay behavior for popovers, dialogs, autocomplete, and command
@@ -96,6 +100,14 @@ SelectableItem focus, and SplitPane hover, drag, focus, locked, and display-only
 states. On the Actions page, traverse cards and content actions with Tab,
 Enter, and Space; compare all three densities and constrain the window until
 ActionGroup wraps without splitting a control.
+
+For managed-focus sign-off, enter representative Input, Button, selection,
+TabBar, Tree, SplitPane, and Popover paths by pointer/touch and keyboard. Check
+that only keyboard-origin focus paints an `Auto` ring, inputs retain native
+caret/blur behavior, empty presses do not reset the following Tab position,
+composites keep one outer Tab stop, and overlay dismissal restores only when
+its cause permits. These optical assertions require the user-supplied review
+below; automated focus tests do not replace it.
 
 On Inputs, also exercise Checkbox pointer/Space transitions and error wrapping,
 RadioGroup arrows/Space/disabled skipping and horizontal wrapping, immediate

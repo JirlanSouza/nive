@@ -11,6 +11,11 @@ the migrated Input contract and preserves focus, horizontal long-value
 behavior, filtered actions, overlay placement, and shell geometry at narrow
 viewports.
 
+The runtime installs one logical-focus root around the complete window,
+including workbench content and overlay hosts. The bottom-panel tab track uses
+one outer managed target while preserving its active/roving tab internally;
+no application focus manager or second overlay root is required.
+
 The settings area uses a titled immediate `Switch::setting`, a two-option typed
 environment `SegmentedControl`, and a persistent typed filter selector. Toolbar
 theme actions and document/panel navigation keep their specialized ownership;
@@ -84,6 +89,12 @@ orphaned separator or split action.
 
 Also confirm the titled Switch and both typed selectors preserve their values,
 focus, and finite geometry in Light/Dark at all three reference viewports.
+For logical-focus review, alternate pointer and keyboard entry through the
+command Input, document tabs, bottom tabs, SplitPane, dialogs, and popovers;
+verify pointer-hidden versus keyboard-visible rings, empty-press continuation,
+window deactivate/reactivate behavior, and conditional nested-overlay restore.
+This remains a user-screenshot/manual boundary even though state and traversal
+are covered by automated tests.
 
 Run it:
 
