@@ -86,6 +86,7 @@ pub(super) enum MenuTrailingMeasure {
 }
 
 impl<Message> MenuSlot<Message> {
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn row(
         eligible: bool,
         activation: Option<Message>,
@@ -322,6 +323,7 @@ where
         self.content.as_widget().size()
     }
 
+    #[allow(clippy::manual_clamp)]
     fn layout(
         &mut self,
         tree: &mut Tree,

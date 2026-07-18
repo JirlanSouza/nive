@@ -29,7 +29,7 @@ pub(super) fn separator_style() -> impl Fn(&crate::theme::Theme) -> container::S
     }
 }
 
-pub(super) fn row_style(
+pub(crate) fn row_style(
     selected: bool,
     destructive: bool,
     explicitly_disabled: bool,
