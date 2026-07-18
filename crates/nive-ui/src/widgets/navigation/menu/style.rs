@@ -1,11 +1,7 @@
-use iced::{
-    widget::{button, container},
-    Background, Color, Shadow,
-};
+use iced::{widget::container, Background, Color, Shadow};
 
 use crate::advanced::control_style::{transparent_border, transparent_border_with_radius};
 use crate::theme::{BorderRole, ControlRole, ControlState, TextRole, ToneRole};
-use crate::widgets::controls::button::button_control_state;
 
 pub(in crate::widgets::navigation) fn surface_style(
     theme: &crate::theme::Theme,
@@ -33,47 +29,61 @@ pub(super) fn separator_style() -> impl Fn(&crate::theme::Theme) -> container::S
     }
 }
 
-pub(super) fn item_style(
+pub(super) fn row_style(
     selected: bool,
     destructive: bool,
     explicitly_disabled: bool,
     radius: f32,
-) -> impl Fn(&crate::theme::Theme, button::Status) -> button::Style {
-    move |theme, status| {
-        let status = if status == button::Status::Disabled && !explicitly_disabled {
-            button::Status::Active
-        } else {
-            status
-        };
-        let control = theme.control(ControlRole::Standard, button_control_state(status));
+) -> impl Fn(&crate::theme::Theme) -> container::Style {
+    move |theme| {
         let selected_control = theme.control(ControlRole::Selectable, ControlState::SELECTED);
         let disabled_control = theme.control(ControlRole::Standard, ControlState::DISABLED);
         let danger = theme.tone(ToneRole::Danger);
 
-        let background = match (selected, status) {
-            (true, button::Status::Hovered) => selected_control.background.scale_alpha(1.20),
-            (true, button::Status::Pressed) => selected_control.background.scale_alpha(0.88),
-            (true, button::Status::Disabled) => selected_control.background.scale_alpha(0.55),
-            (true, _) => selected_control.background,
-            (false, button::Status::Hovered | button::Status::Pressed) => control.background,
-            (false, _) => Color::TRANSPARENT,
-        };
-        let text_color = match (destructive, selected, status) {
-            (_, _, button::Status::Disabled) => disabled_control.foreground,
-            (true, _, _) => danger.color,
-            (false, true, _) => selected_control.foreground,
-            (false, false, button::Status::Hovered | button::Status::Pressed) => {
-                theme.text(TextRole::Primary).color
-            }
-            (false, false, _) => theme.text(TextRole::Secondary).color,
+        let text_color = match (explicitly_disabled, destructive, selected) {
+            (true, _, _) => disabled_control.foreground,
+            (false, true, _) => danger.color,
+            (false, false, true) => selected_control.foreground,
+            (false, false, false) => theme.text(TextRole::Secondary).color,
         };
 
-        button::Style {
-            background: Some(Background::Color(background)),
-            text_color,
+        container::Style {
+            background: Some(Background::Color(Color::TRANSPARENT)),
+            text_color: Some(text_color),
             border: transparent_border_with_radius(radius),
             shadow: Shadow::default(),
-            ..button::Style::default()
+            ..container::Style::default()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::theme::{Theme, ThemeMode};
+
+    #[test]
+    fn row_and_separator_styles_resolve_from_the_supplied_custom_theme() {
+        let theme = Theme::builder("Menu Test", ThemeMode::Dark)
+            .text(Color::from_rgb8(0xEE, 0xED, 0xF4))
+            .danger(Color::from_rgb8(0xFF, 0x66, 0x77))
+            .build();
+
+        let ordinary = row_style(false, false, false, 4.0)(&theme);
+        let destructive = row_style(false, true, false, 4.0)(&theme);
+        let separator = separator_style()(&theme);
+
+        assert_eq!(
+            ordinary.text_color,
+            Some(theme.text(TextRole::Secondary).color)
+        );
+        assert_eq!(
+            destructive.text_color,
+            Some(theme.tone(ToneRole::Danger).color)
+        );
+        assert_eq!(
+            separator.background,
+            Some(Background::Color(theme.border(BorderRole::Subtle).color))
+        );
     }
 }
