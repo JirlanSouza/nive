@@ -597,7 +597,7 @@ fn size_stack(size: ControlSize, app: &WidgetGallery) -> Element<'_, Message> {
         )
         .size(size)
         .on_select(Message::SelectSegment),
-        Select::new(PLANS.to_vec(), app.form.selected_plan)
+        Select::from_values(PLANS.to_vec(), app.form.selected_plan)
             .size(size)
             .on_select(Message::SelectPlan),
     ]

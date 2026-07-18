@@ -38,6 +38,6 @@ pub use segmented_control::{
     LegacySegmentedControl, SegmentedControl, SegmentedControlVariant, SegmentedItem,
     SegmentedOption,
 };
-pub use select::Select;
+pub use select::{Select, SelectOption};
 pub use selectable_item::SelectableItem;
 pub use switch::Switch;

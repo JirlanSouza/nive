@@ -1,3 +1,5 @@
+use std::{borrow::Cow, fmt};
+
 use iced::{
     overlay::menu,
     widget::{container, pick_list, text},
@@ -10,6 +12,60 @@ use crate::theme::{
 };
 use crate::Element;
 
+#[derive(Debug, Clone)]
+pub struct SelectOption<'a, T> {
+    value: T,
+    label: Cow<'a, str>,
+    disabled: bool,
+}
+
+impl<'a, T> SelectOption<'a, T> {
+    pub fn new(value: T, label: impl Into<Cow<'a, str>>) -> Self {
+        let label = label.into();
+        debug_assert!(
+            !label.trim().is_empty(),
+            "SelectOption requires a nonempty visible label"
+        );
+
+        Self {
+            value,
+            label,
+            disabled: false,
+        }
+    }
+
+    pub fn value(&self) -> &T {
+        &self.value
+    }
+
+    pub fn label(&self) -> &str {
+        self.label.as_ref()
+    }
+
+    pub fn is_disabled(&self) -> bool {
+        self.disabled
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+}
+
+impl<T: Eq> PartialEq for SelectOption<'_, T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl<T: Eq> Eq for SelectOption<'_, T> {}
+
+impl<T> fmt::Display for SelectOption<'_, T> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.label.as_ref())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct SelectMetrics {
     font_size: f32,
@@ -20,11 +76,11 @@ struct SelectMetrics {
 
 pub struct Select<'a, T, Message>
 where
-    T: ToString + PartialEq + Clone,
+    T: Clone + Eq,
 {
-    options: Vec<T>,
+    options: Vec<SelectOption<'a, T>>,
     selected: Option<T>,
-    placeholder: Option<&'a str>,
+    placeholder: Option<Cow<'a, str>>,
     size: ControlSize,
     width: Length,
     disabled: bool,
@@ -35,10 +91,10 @@ where
 
 impl<'a, T, Message> Select<'a, T, Message>
 where
-    T: ToString + PartialEq + Clone + 'a,
+    T: Clone + Eq + 'a,
     Message: Clone + 'a,
 {
-    pub fn new(options: impl Into<Vec<T>>, selected: Option<T>) -> Self {
+    pub fn new(options: impl Into<Vec<SelectOption<'a, T>>>, selected: Option<T>) -> Self {
         Self {
             options: options.into(),
             selected,
@@ -52,8 +108,25 @@ where
         }
     }
 
-    pub fn placeholder(mut self, placeholder: &'a str) -> Self {
-        self.placeholder = Some(placeholder);
+    pub fn from_values(options: impl Into<Vec<T>>, selected: Option<T>) -> Self
+    where
+        T: ToString,
+    {
+        Self::new(
+            options
+                .into()
+                .into_iter()
+                .map(|value| {
+                    let label = value.to_string();
+                    SelectOption::new(value, label)
+                })
+                .collect::<Vec<_>>(),
+            selected,
+        )
+    }
+
+    pub fn placeholder(mut self, placeholder: impl Into<Cow<'a, str>>) -> Self {
+        self.placeholder = Some(placeholder.into());
         self
     }
 
@@ -108,24 +181,34 @@ where
     fn into_element(self) -> Element<'a, Message> {
         let metrics = metrics(self.size);
         let width = self.width;
+        let selected = self
+            .selected
+            .as_ref()
+            .and_then(|selected| {
+                self.options
+                    .iter()
+                    .find(|option| option.value() == selected)
+            })
+            .cloned();
 
         if self.disabled || self.on_select.is_none() {
             return disabled_select(
-                self.selected
+                selected
                     .as_ref()
-                    .map(ToString::to_string)
-                    .or_else(|| self.placeholder.map(str::to_owned))
+                    .map(|option| option.label().to_owned())
+                    .or_else(|| self.placeholder.as_deref().map(str::to_owned))
                     .unwrap_or_default(),
-                self.selected.is_none(),
+                selected.is_none(),
                 width,
                 metrics,
             );
         }
 
+        let on_select = self.on_select.expect("checked above");
         let mut select = pick_list(
             self.options,
-            self.selected,
-            self.on_select.expect("checked above"),
+            selected,
+            move |option: SelectOption<'a, T>| on_select(option.value),
         )
         .padding(
             Padding::ZERO
@@ -156,7 +239,7 @@ where
 
 impl<'a, T, Message> From<Select<'a, T, Message>> for Element<'a, Message>
 where
-    T: ToString + PartialEq + Clone + 'a,
+    T: Clone + Eq + 'a,
     Message: Clone + 'a,
 {
     fn from(select: Select<'a, T, Message>) -> Self {
@@ -315,13 +398,42 @@ mod select_tests {
 
     #[test]
     fn layout_builders_set_select_width() {
-        let default = Select::<_, ()>::new(vec!["Free"], None::<&str>);
-        let shrunk = Select::<_, ()>::new(vec!["Free"], None::<&str>).shrink_width();
-        let filled = Select::<_, ()>::new(vec!["Free"], None::<&str>).fill_width();
+        let default = Select::<_, ()>::from_values(vec!["Free"], None::<&str>);
+        let shrunk = Select::<_, ()>::from_values(vec!["Free"], None::<&str>).shrink_width();
+        let filled = Select::<_, ()>::from_values(vec!["Free"], None::<&str>).fill_width();
 
         assert_eq!(default.width, Length::Fill);
         assert_eq!(shrunk.width, Length::Shrink);
         assert_eq!(filled.width, Length::Fill);
+    }
+
+    #[test]
+    fn typed_options_separate_value_label_and_disabled_state() {
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        struct Plan(u8);
+
+        let owned = String::from("Professional");
+        let option = SelectOption::new(Plan(2), owned).disabled(true);
+
+        assert_eq!(option.value(), &Plan(2));
+        assert_eq!(option.label(), "Professional");
+        assert!(option.is_disabled());
+    }
+
+    #[test]
+    fn option_identity_depends_on_the_typed_value() {
+        let first = SelectOption::new(7_u8, "Seven");
+        let renamed = SelectOption::new(7_u8, String::from("Siete")).disabled(true);
+        let different = SelectOption::new(8_u8, "Eight");
+
+        assert_eq!(first, renamed);
+        assert_ne!(first, different);
+    }
+
+    #[test]
+    #[should_panic(expected = "SelectOption requires a nonempty visible label")]
+    fn typed_option_rejects_an_empty_label() {
+        let _ = SelectOption::new(1_u8, "   ");
     }
 
     fn background_color(background: Background) -> Color {

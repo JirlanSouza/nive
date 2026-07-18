@@ -180,7 +180,7 @@ fn controls(app: &WidgetGallery) -> Element<'_, Message> {
 
     column![
         ntext::body_small(format!("Current local feedback mode: {current}")),
-        Select::new(FeedbackMode::ALL.to_vec(), Some(app.feedback))
+        Select::from_values(FeedbackMode::ALL.to_vec(), Some(app.feedback))
             .on_select(Message::FeedbackModeChanged)
             .fill_width(),
         InlineAlert::new("Devtools optional")
