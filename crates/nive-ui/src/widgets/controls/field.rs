@@ -643,7 +643,8 @@ mod field_tests {
     use super::*;
     use crate::test_support::{named_probe, WidgetHarness};
     use crate::theme::{Theme, ThemeBuilder, ThemeDensity, ThemeMode};
-    use iced::{mouse, Event, Point, Size};
+    use crate::widgets::controls::{choice_test_support::key_pressed, SelectOption};
+    use iced::{keyboard::key, mouse, Event, Point, Size};
 
     #[test]
     fn style_uses_primary_text_color() {
@@ -1139,6 +1140,36 @@ mod field_tests {
             mouse::Button::Left,
         )));
         assert_eq!(harness.focused_widgets(), 1);
+    }
+
+    #[test]
+    fn typed_select_receives_field_context_and_label_focus_before_erasure() {
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        enum Message {
+            Opened,
+            Selected(u8),
+        }
+
+        let field: Element<'_, Message> = Field::new(
+            "Billing plan",
+            Select::new(vec![SelectOption::new(1_u8, "Professional")], Some(1))
+                .on_select(Message::Selected)
+                .on_open(Message::Opened),
+        )
+        .error("Choose a valid plan")
+        .lg()
+        .into();
+        let mut harness = WidgetHarness::new(field, Size::new(320.0, 160.0));
+        harness.set_cursor(Point::new(4.0, 4.0));
+
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        assert_eq!(harness.focused_widgets(), 1);
+        let opened = harness.update(key_pressed(key::Named::Enter, key::Code::Enter));
+
+        assert_eq!(opened.messages, vec![Message::Opened]);
+        assert!(harness.has_overlay());
     }
 
     #[test]
