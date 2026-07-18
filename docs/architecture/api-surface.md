@@ -47,7 +47,7 @@ diretos da camada runtime:
 | Módulo | Papel |
 |--------|-------|
 | `nive_runtime::application` | Contrato `Application`, `ApplicationConfig`, `Context`, `Effect`, `MessageContext`, eventos de runtime e runner público. |
-| `nive_runtime::actions` | `Action`, `ActionId`, `ActionMap` e helpers de command palette. |
+| `nive_core::actions` | `Action`, `ActionId`, `ActionMap` e atalhos neutros compartilhados. |
 | `nive_runtime::input` | Atalhos e navegação por teclado. |
 | `nive_runtime::lifecycle` | Bootstrap, decisões de close/exit, `WindowCommand`, specs e registry de janelas. |
 | `nive_runtime::state` | `Resource`, `Operation`, `OperationRegistry`, `RequestId`, `Settled` e helpers de tempo. |
