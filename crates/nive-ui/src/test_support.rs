@@ -334,6 +334,86 @@ impl<'a, Message> WidgetHarness<'a, Message> {
         true
     }
 
+    pub(crate) fn overlay_bounds(&mut self) -> Option<Rectangle> {
+        let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+        let mut overlay = self.element.as_widget_mut().overlay(
+            &mut self.tree,
+            Layout::new(&self.node),
+            &self.renderer,
+            &viewport,
+            Vector::ZERO,
+        )?;
+        let node = overlay
+            .as_overlay_mut()
+            .layout(&self.renderer, self.maximum);
+        Some(overlay_content_bounds(&node, self.maximum))
+    }
+
+    pub(crate) fn update_overlay(&mut self, event: Event) -> Option<UpdateResult<Message>> {
+        let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+        let mut messages = Vec::new();
+        let mut shell = Shell::new(&mut messages);
+        let mut overlay = self.element.as_widget_mut().overlay(
+            &mut self.tree,
+            Layout::new(&self.node),
+            &self.renderer,
+            &viewport,
+            Vector::ZERO,
+        )?;
+        let node = overlay
+            .as_overlay_mut()
+            .layout(&self.renderer, self.maximum);
+        overlay.as_overlay_mut().update(
+            &event,
+            Layout::new(&node),
+            self.cursor,
+            &self.renderer,
+            &mut self.clipboard,
+            &mut shell,
+        );
+        let captured = shell.event_status() == event::Status::Captured;
+        let layout_invalid = shell.is_layout_invalid();
+        let input_method_enabled = shell.input_method().is_enabled();
+        drop(shell);
+        drop(overlay);
+
+        if layout_invalid {
+            self.relayout(self.maximum);
+        }
+
+        Some(UpdateResult {
+            messages,
+            captured,
+            layout_invalid,
+            input_method_enabled,
+        })
+    }
+
+    pub(crate) fn focused_overlay_count(&mut self) -> Option<operation::focusable::Count> {
+        let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+        let mut overlay = self.element.as_widget_mut().overlay(
+            &mut self.tree,
+            Layout::new(&self.node),
+            &self.renderer,
+            &viewport,
+            Vector::ZERO,
+        )?;
+        let node = overlay
+            .as_overlay_mut()
+            .layout(&self.renderer, self.maximum);
+        let mut count = operation::focusable::count();
+        overlay.as_overlay_mut().operate(
+            Layout::new(&node),
+            &self.renderer,
+            &mut operation::black_box(&mut count),
+        );
+
+        match count.finish() {
+            operation::Outcome::Some(count) => Some(count),
+            _ => Some(operation::focusable::Count::default()),
+        }
+    }
+
     pub(crate) fn set_cursor(&mut self, position: Point) {
         self.cursor = mouse::Cursor::Available(position);
     }
@@ -388,6 +468,17 @@ impl<'a, Message> WidgetHarness<'a, Message> {
     }
 }
 
+fn overlay_content_bounds(node: &Node, maximum: Size) -> Rectangle {
+    let bounds = node.bounds();
+    if bounds.position() == Point::ORIGIN && bounds.size() == maximum {
+        node.children()
+            .last()
+            .map_or(bounds, |child| overlay_content_bounds(child, maximum))
+    } else {
+        bounds
+    }
+}
+
 pub(crate) struct UpdateResult<Message> {
     pub(crate) messages: Vec<Message>,
     pub(crate) captured: bool,
@@ -430,6 +521,78 @@ pub(crate) struct FormStateFixture {
     pub(crate) pressed: bool,
     pub(crate) read_only: bool,
     pub(crate) disabled: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct FakeClock {
+    now_ms: u64,
+}
+
+impl FakeClock {
+    pub(crate) const fn at(now_ms: u64) -> Self {
+        Self { now_ms }
+    }
+
+    pub(crate) const fn now_ms(self) -> u64 {
+        self.now_ms
+    }
+
+    pub(crate) fn advance(&mut self, elapsed_ms: u64) {
+        self.now_ms = self.now_ms.saturating_add(elapsed_ms);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct AnchoredGeometryFixture {
+    pub(crate) anchor: Rectangle,
+    pub(crate) viewport: Rectangle,
+    pub(crate) intrinsic_content: Size,
+}
+
+impl AnchoredGeometryFixture {
+    pub(crate) const fn new(
+        anchor: Rectangle,
+        viewport: Rectangle,
+        intrinsic_content: Size,
+    ) -> Self {
+        Self {
+            anchor,
+            viewport,
+            intrinsic_content,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct EnsureVisibleFixture {
+    pub(crate) viewport: Rectangle,
+    pub(crate) target: Rectangle,
+    pub(crate) current_offset: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PopupStateFixture {
+    pub(crate) capable: bool,
+    pub(crate) disabled: bool,
+    pub(crate) open: bool,
+    pub(crate) selected: bool,
+    pub(crate) highlighted: bool,
+    pub(crate) focused: bool,
+    pub(crate) pressed: bool,
+}
+
+impl PopupStateFixture {
+    pub(crate) const fn enabled() -> Self {
+        Self {
+            capable: true,
+            disabled: false,
+            open: false,
+            selected: false,
+            highlighted: false,
+            focused: false,
+            pressed: false,
+        }
+    }
 }
 
 impl FormStateFixture {
@@ -691,7 +854,10 @@ impl<Message: Clone> Widget<Message, crate::theme::Theme, iced::Renderer> for Ev
 mod tests {
     use iced::{advanced::clipboard, mouse, widget::Space};
 
-    use super::{event_probe, named_probe, FormStateFixture, WidgetHarness};
+    use super::{
+        event_probe, named_probe, AnchoredGeometryFixture, EnsureVisibleFixture, FakeClock,
+        FormStateFixture, PopupStateFixture, WidgetHarness,
+    };
 
     #[test]
     fn named_probe_reports_bounds_without_child_indices() {
@@ -739,5 +905,38 @@ mod tests {
             .any(|state| state.pressed));
         assert!(FormStateFixture::read_only().read_only);
         assert!(FormStateFixture::disabled().disabled);
+    }
+
+    #[test]
+    fn overlay_fixtures_are_deterministic_and_finite() {
+        let mut clock = FakeClock::at(100);
+        clock.advance(500);
+        assert_eq!(clock.now_ms(), 600);
+
+        let geometry = AnchoredGeometryFixture::new(
+            iced::Rectangle::new(iced::Point::new(20.0, 20.0), iced::Size::new(80.0, 24.0)),
+            iced::Rectangle::new(iced::Point::ORIGIN, iced::Size::new(320.0, 200.0)),
+            iced::Size::new(180.0, 120.0),
+        );
+        assert!(geometry.anchor.width.is_finite());
+        assert!(geometry.viewport.height.is_finite());
+        assert!(geometry.intrinsic_content.width.is_finite());
+
+        let ensure_visible = EnsureVisibleFixture {
+            viewport: geometry.viewport,
+            target: geometry.anchor,
+            current_offset: 0.0,
+        };
+        assert_eq!(ensure_visible.current_offset, 0.0);
+        assert_eq!(ensure_visible.target, geometry.anchor);
+
+        let state = PopupStateFixture::enabled();
+        assert!(state.capable);
+        assert!(!state.disabled);
+        assert!(!state.open);
+        assert!(!state.selected);
+        assert!(!state.highlighted);
+        assert!(!state.focused);
+        assert!(!state.pressed);
     }
 }
