@@ -74,7 +74,8 @@ package-check:
     cargo package --package nive-ui --config 'patch.crates-io.nive-core.path="crates/nive-core"'
     cargo package --package nive-runtime-derive
     cargo package --package nive-runtime --config 'patch.crates-io.nive-core.path="crates/nive-core"' --config 'patch.crates-io.nive-runtime-derive.path="crates/nive-runtime-derive"' --config 'patch.crates-io.nive-ui.path="crates/nive-ui"'
-    cargo package --package nive --config 'patch.crates-io.nive-core.path="crates/nive-core"' --config 'patch.crates-io.nive-runtime-derive.path="crates/nive-runtime-derive"' --config 'patch.crates-io.nive-runtime.path="crates/nive-runtime"' --config 'patch.crates-io.nive-ui.path="crates/nive-ui"'
+    cargo package --package nive-workbench --config 'patch.crates-io.nive-core.path="crates/nive-core"' --config 'patch.crates-io.nive-runtime.path="crates/nive-runtime"' --config 'patch.crates-io.nive-ui.path="crates/nive-ui"'
+    cargo package --package nive --config 'patch.crates-io.nive-core.path="crates/nive-core"' --config 'patch.crates-io.nive-runtime-derive.path="crates/nive-runtime-derive"' --config 'patch.crates-io.nive-runtime.path="crates/nive-runtime"' --config 'patch.crates-io.nive-ui.path="crates/nive-ui"' --config 'patch.crates-io.nive-workbench.path="crates/nive-workbench"'
     cargo package --package nive-cli
 
 # Run local readiness checks that mirror CI categories
