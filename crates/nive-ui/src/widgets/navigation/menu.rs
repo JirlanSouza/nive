@@ -7,7 +7,7 @@ use iced::{
 use nive_core::{Action, ActionId, ShortcutBinding};
 
 use super::command_palette::format_shortcut;
-mod relay;
+pub(crate) mod relay;
 pub(crate) mod style;
 mod widget;
 
@@ -47,6 +47,37 @@ pub enum MenuDismissPolicy {
 }
 
 /// A canonical anchored Menu with fluent, category-specific entries.
+///
+/// The former static menu models are removed:
+///
+/// ```compile_fail
+/// use nive_ui::widgets::{DropdownMenu, DropdownMenuItem};
+/// ```
+///
+/// Menu owns its fixed desktop metrics and internal Tree/row adapters. Generic
+/// `Length` and `ControlSize` builders are deliberately unsupported:
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let menu: Menu<'_, ()> = Menu::new(text("Menu"));
+/// let _ = menu.width(Length::Fill);
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let menu: Menu<'_, ()> = Menu::new(text("Menu"));
+/// let _ = menu.size(theme::ControlSize::Sm);
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::widgets::navigation::menu::widget::{
+///     MenuListState, MenuSlot, MenuTrailingTrack,
+/// };
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::widgets::navigation::menu::relay::MessageRelay;
+/// ```
 pub struct Menu<'a, Message> {
     trigger: Element<'a, Message>,
     entries: Vec<MenuEntry<'a, Message>>,
@@ -257,10 +288,12 @@ impl<'a, Message: Clone + 'a> Menu<'a, Message> {
         popover.into()
     }
 
+    #[cfg(test)]
     pub(super) fn into_content(mut self) -> Element<'a, Message> {
         self.take_content()
     }
 
+    #[cfg(test)]
     fn take_content(&mut self) -> Element<'a, Message> {
         self.take_content_with_context(MenuLevelContext::root())
     }
