@@ -5,6 +5,7 @@ use iced::{
         widget::Tree,
         Shell,
     },
+    keyboard::{self, key, Location},
     Event, Font, Pixels, Point, Rectangle, Size, Vector,
 };
 
@@ -196,7 +197,10 @@ impl<'a> Harness<'a> {
             .as_overlay_mut()
             .layout(&self.renderer, viewport.size());
         let layout = Layout::new(&node);
-        let bounds = layout.bounds();
+        let bounds = layout
+            .children()
+            .next()
+            .map_or_else(|| layout.bounds(), |child| child.bounds());
         let position = Point::new(bounds.x + offset.x, bounds.y + offset.y);
         let mut messages = Vec::new();
         let mut captured = false;
@@ -221,6 +225,52 @@ impl<'a> Harness<'a> {
             layout_invalid |= shell.is_layout_invalid();
         }
 
+        drop(overlay);
+
+        if layout_invalid {
+            self.layout();
+            self.sync_geometry();
+        }
+
+        UpdateResult {
+            messages,
+            captured,
+            layout_invalid,
+        }
+    }
+
+    fn update_overlay(&mut self, event: Event, cursor: mouse::Cursor) -> UpdateResult {
+        let viewport = Rectangle::new(Point::ORIGIN, Size::new(4096.0, 4096.0));
+        let mut overlay = self
+            .element
+            .as_widget_mut()
+            .overlay(
+                &mut self.tree,
+                Layout::with_offset(ORIGIN, &self.node),
+                &self.renderer,
+                &viewport,
+                Vector::ZERO,
+            )
+            .expect("overlay");
+        let node = overlay
+            .as_overlay_mut()
+            .layout(&self.renderer, viewport.size());
+        let mut messages = Vec::new();
+        let mut clipboard = iced::advanced::clipboard::Null;
+        let mut shell = Shell::new(&mut messages);
+
+        overlay.as_overlay_mut().update(
+            &event,
+            Layout::new(&node),
+            cursor,
+            &self.renderer,
+            &mut clipboard,
+            &mut shell,
+        );
+
+        let captured = shell.is_event_captured();
+        let layout_invalid = shell.is_layout_invalid();
+        drop(shell);
         drop(overlay);
 
         if layout_invalid {
@@ -337,12 +387,54 @@ fn overflow_menu_selection_uses_on_select() {
     let open = harness.click(mouse::Button::Left, harness.all_tabs_button_center());
 
     assert!(open.captured);
-    assert!(harness.state().menu_open);
+    assert!(harness.state().menu_open.get());
 
     let result = harness.click_overlay(Vector::new(20.0, 16.0));
 
     assert_eq!(result.messages, vec![Msg::Select(1)]);
-    assert!(!harness.state().menu_open);
+    assert!(!harness.state().menu_open.get());
+}
+
+#[test]
+fn overflow_menu_escape_closes_without_domain_selection() {
+    let mut harness = Harness::new(overflow_bar(5).into(), Size::new(320.0, 80.0));
+    harness.click(mouse::Button::Left, harness.all_tabs_button_center());
+    assert!(harness.state().menu_open.get());
+
+    let result = harness.update_overlay(escape_pressed(), mouse::Cursor::Unavailable);
+
+    assert!(result.captured);
+    assert!(result.messages.is_empty());
+    assert!(!harness.state().menu_open.get());
+}
+
+#[test]
+fn overflow_menu_outside_press_closes_without_domain_selection() {
+    let mut harness = Harness::new(overflow_bar(5).into(), Size::new(320.0, 80.0));
+    harness.click(mouse::Button::Left, harness.all_tabs_button_center());
+    assert!(harness.state().menu_open.get());
+
+    let outside = Point::new(800.0, 600.0);
+    let result = harness.update_overlay(
+        Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
+        mouse::Cursor::Available(outside),
+    );
+
+    assert!(result.captured);
+    assert!(result.messages.is_empty());
+    assert!(!harness.state().menu_open.get());
+}
+
+fn escape_pressed() -> Event {
+    Event::Keyboard(keyboard::Event::KeyPressed {
+        key: keyboard::Key::Named(key::Named::Escape),
+        modified_key: keyboard::Key::Named(key::Named::Escape),
+        physical_key: keyboard::key::Physical::Code(key::Code::Escape),
+        location: Location::Standard,
+        modifiers: keyboard::Modifiers::NONE,
+        text: None,
+        repeat: false,
+    })
 }
 
 #[test]

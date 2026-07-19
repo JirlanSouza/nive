@@ -3,20 +3,6 @@ use iced::{widget::container, Background, Color, Shadow};
 use crate::advanced::control_style::{transparent_border, transparent_border_with_radius};
 use crate::theme::{BorderRole, ControlRole, ControlState, TextRole, ToneRole};
 
-pub(in crate::widgets::navigation) fn surface_style(
-    theme: &crate::theme::Theme,
-) -> container::Style {
-    let surface = theme.surface(crate::theme::SurfaceRole::Popover);
-
-    container::Style {
-        text_color: Some(surface.foreground),
-        background: Some(Background::Color(surface.background)),
-        border: crate::advanced::control_style::border_with_radius(surface.border, 8.0),
-        shadow: surface.shadow,
-        ..container::Style::default()
-    }
-}
-
 pub(super) fn separator_style() -> impl Fn(&crate::theme::Theme) -> container::Style {
     |theme: &crate::theme::Theme| {
         let border = theme.border(BorderRole::Subtle);
