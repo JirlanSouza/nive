@@ -200,3 +200,39 @@ flowchart LR
     promote --> active
     queued -.-> promote
 ```
+
+---
+
+## 8. Hospedagem de Dialog (`ScreenView` → `DialogHost`)
+
+`Application::view()` devolve um `ScreenView` com conteúdo + um `DialogRequest` opcional.
+`ScreenView::into_element()` (chamado pelo runner, não pelo app) desmonta o request e monta
+o `DialogHost` automaticamente — o app nunca instancia `DialogHost` diretamente. Dispensa e
+ações do dialog (backdrop, Escape, botões do footer) são apenas `Message`s comuns que voltam
+pelo mesmo loop da seção 1; não há um segundo canal de estado. O app fecha o dialog
+simplesmente devolvendo `dialog: None` (ou um `DialogRequest` diferente) no próximo `view()`.
+
+```mermaid
+sequenceDiagram
+    participant App as Application (seu app)
+    participant Runner as Nive program runner
+    participant SV as ScreenView::into_element
+    participant Host as DialogHost (nive-ui)
+
+    App->>Runner: view(ctx, window) → ScreenView { content, dialog: Some(DialogRequest) }
+    Runner->>SV: into_element()
+    SV->>SV: dialog.into_parts() → (content, dismiss, initial_focus, id)
+    SV->>Host: DialogHost::new(content).dialog(...).dialog_id(id?)
+    Host-->>Runner: Element (base + Scrim + Dialog compostos)
+    Note over Host: modalidade, foco, Escape/backdrop e<br/>identidade são internos ao DialogHost —<br/>ver crates/nive-ui/docs/components.md
+    Host->>Runner: Message (backdrop/Escape/ação do footer)
+    Runner->>App: update(ctx, message_context, Message)
+    App-->>Runner: Effect { ... } (tipicamente limpa/troca o DialogRequest)
+    App->>Runner: view(ctx, window) → ScreenView { dialog: None }
+    Note right of Host: fechamento restaura o foco do<br/>invocador original como âncora inativa
+```
+
+Uma única `ScreenView` por janela impõe estruturalmente no máximo um dialog modal por
+janela (`Option<DialogRequest>`); um novo `dialog(...)` substitui o anterior em vez de
+empilhar. Hospedar um `DialogHost` manualmente dentro do conteúdo do app (fora deste
+caminho automático) não é suportado.
