@@ -69,6 +69,18 @@ mod minimal_tier_counter {
     pub(super) fn _assert_application_compiles_with_only_minimal_prelude() {
         fn _assert<A: Application>() {}
         _assert::<CounterApp>();
+
+        // The canonical UI Dialog family (widgets, not runtime request
+        // hosting) is available in the minimal tier.
+        let _: Element<'_, CounterMessage> = Dialog::new(text("Body"))
+            .size(DialogSize::Sm)
+            .header(DialogHeader::new("Title"))
+            .footer(DialogActionFooter::new(DialogTerminalAction::primary(
+                "OK",
+                CounterMessage::Increment,
+            )))
+            .into();
+        let _: DialogInitialFocus = DialogInitialFocus::default();
     }
 }
 
@@ -146,6 +158,20 @@ mod extended_tier_dashboard {
         let _descriptor = OperationDescriptor::new("sync", "Sync");
         let _registry = OperationRegistry::new();
         let _dialog: Option<DialogRequest<'static, DashboardMessage>> = None;
+
+        // Composable runtime request: distinct backdrop/Escape messages,
+        // initial focus, and a stable identity, then mapped into a parent
+        // Message type without direct field access.
+        let dialog_content: Dialog<'static, DashboardMessage> =
+            Dialog::new(text("Body")).footer(DialogActionFooter::new(
+                DialogTerminalAction::primary("Save", DashboardMessage::DismissDialog),
+            ));
+        let request = DialogRequest::new(dialog_content)
+            .dismiss_on_backdrop(DashboardMessage::DismissDialog)
+            .dismiss_on_escape(DashboardMessage::DismissDialog)
+            .initial_focus(DialogInitialFocus::First)
+            .id(nive::widget::Id::new("workflow-step"));
+        let _mapped: DialogRequest<'static, u8> = request.map(|_message| 0_u8);
         let _theme = ThemeBuilder::new("contract", ThemeMode::Light).build();
         let _shortcuts = ShortcutMap::<DashboardMessage>::new();
         let _windows = WindowRegistry::<()>::default();
