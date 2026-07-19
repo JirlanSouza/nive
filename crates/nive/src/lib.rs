@@ -55,6 +55,17 @@ pub use nive_runtime as runtime;
 pub use nive_ui as ui;
 pub use nive_workbench as workbench;
 
+/// The minimal `nive::prelude::*` tier compiles the canonical UI Dialog
+/// family (widgets, not runtime hosting): `Dialog`, `DialogHeader`,
+/// `DialogActionFooter`, and friends. Runtime request/dismissal policy
+/// (`DialogRequest`/`DialogDismiss`) needs the extended
+/// `nive::prelude::ui::*` tier:
+///
+/// ```compile_fail
+/// use nive::prelude::*;
+///
+/// let _dialog: Option<DialogRequest<'static, ()>> = None;
+/// ```
 pub mod prelude {
     // Minimal template-stable surface. Compiles the scaffolded counter
     // template without extra `use` statements. The extended surface lives
