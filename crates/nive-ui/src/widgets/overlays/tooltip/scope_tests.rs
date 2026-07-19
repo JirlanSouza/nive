@@ -4,6 +4,20 @@ use iced::{advanced::widget::operation, widget::row, Event, Size};
 
 use super::*;
 use crate::test_support::WidgetHarness;
+use crate::widgets::Popover;
+
+#[test]
+fn scope_delegates_non_tooltip_descendant_overlays() {
+    let popover: Popover<'static, ()> =
+        Popover::new(iced::widget::Space::new().width(40).height(24))
+            .content(iced::widget::Space::new().width(120).height(48))
+            .open(true);
+    let mut harness =
+        WidgetHarness::new(TooltipScope::new(popover).into(), Size::new(320.0, 180.0));
+
+    assert!(harness.has_overlay());
+    assert!(harness.overlay_bounds().is_some());
+}
 
 #[test]
 fn scoped_neighbor_uses_warm_delay_and_pointer_wins() {
