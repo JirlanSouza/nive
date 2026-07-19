@@ -22,12 +22,11 @@ use crate::widgets::controls::CheckboxState;
 use crate::widgets::display::measured_text::{EllipsisStrategy, MeasuredText};
 use crate::widgets::overlays::popover;
 use crate::widgets::overlays::{
-    Popover, PopoverCollision, PopoverFocusPolicy, PopoverInset, PopoverPlacement,
+    Popover, PopoverCollision, PopoverFocusPolicy, PopoverInset, PopoverPlacement, PopoverWidth,
 };
 use crate::widgets::primitives::{icon as icon_widget, text as text_widget, IconRole};
 use crate::Element;
 
-const MENU_MIN_WIDTH: f32 = 180.0;
 const MENU_MAX_WIDTH: f32 = 320.0;
 pub(crate) const MENU_LIST_INSET: f32 = 4.0;
 pub(crate) const MENU_ROW_HEIGHT: f32 = 28.0;
@@ -793,6 +792,7 @@ fn menu_level_content<'a, Message: Clone + 'a>(
                         child_content,
                         PopoverInset::EdgeToEdge,
                         Some(&ensure_visible),
+                        PopoverWidth::Content,
                     ),
                     branch,
                     ensure_visible,
@@ -1013,11 +1013,14 @@ mod tests {
 
     #[test]
     fn natural_width_is_renderer_measured_and_clamped() {
+        // No artificial floor: a menu with a short label shrinks to its
+        // natural content width instead of stretching to a fixed minimum.
         let short = Menu::new(Space::new())
             .command(MenuCommand::new("Save").on_press(Message::Save))
             .into_content();
         let short = WidgetHarness::new(short, Size::new(800.0, 300.0));
-        assert_eq!(short.bounds().width, MENU_MIN_WIDTH);
+        assert!(short.bounds().width < 180.0);
+        assert!(short.bounds().width > 0.0);
 
         let long = Menu::new(Space::new())
             .command(
@@ -1029,6 +1032,58 @@ mod tests {
             .into_content();
         let long = WidgetHarness::new(long, Size::new(800.0, 300.0));
         assert_eq!(long.bounds().width, MENU_MAX_WIDTH);
+    }
+
+    #[test]
+    fn popover_frame_matches_content_natural_width() {
+        // Regression test: the Popover surface used to wrap its content in a
+        // `Length::Fill` container regardless of `PopoverWidth` mode, so a
+        // `Content`-sized Menu's visible frame silently stretched to the
+        // safe-viewport cap instead of shrinking to the menu's own natural
+        // width (see `surface_with_constraints` in overlays/popover.rs).
+        fn build(open: bool) -> Menu<'static, Message> {
+            Menu::new(Space::new().width(120).height(24))
+                .open(open)
+                .command(
+                    MenuCommand::new("Rename")
+                        .icon(IconRole::EditModify)
+                        .shortcut(ShortcutBinding::named(
+                            nive_core::NamedShortcutKey::Enter,
+                            nive_core::ShortcutModifiers::NONE,
+                        ))
+                        .on_press(Message::Save),
+                )
+                .checkbox(
+                    MenuCheckbox::new("Copy link", CheckboxState::Checked)
+                        .shortcut(ShortcutBinding::primary_character('c'))
+                        .on_toggle(Message::Toggle),
+                )
+                .separator()
+                .command(MenuCommand::new("Disabled command").disabled(true))
+                .command(MenuCommand::new("Callback absent"))
+                .command(
+                    MenuCommand::new("Delete")
+                        .icon(IconRole::EditDelete)
+                        .destructive()
+                        .on_press(Message::Save),
+                )
+        }
+
+        let content_only = build(false).into_content();
+        let content_harness = WidgetHarness::new(content_only, Size::new(800.0, 400.0));
+        let natural_width = content_harness.bounds().width;
+
+        let mut full_harness = WidgetHarness::new(build(true).into(), Size::new(800.0, 400.0));
+        full_harness.set_cursor(Point::new(10.0, 10.0));
+        full_harness.update(Event::Window(iced::window::Event::RedrawRequested(
+            iced::time::Instant::now(),
+        )));
+        let overlay_width = full_harness.overlay_bounds().expect("open overlay").width;
+
+        assert_eq!(
+            overlay_width, natural_width,
+            "popover frame width ({overlay_width}) should match the menu content's natural width ({natural_width})"
+        );
     }
 
     #[test]
@@ -1051,7 +1106,7 @@ mod tests {
             .into_content();
         let content = WidgetHarness::new(content, Size::new(400.0, 300.0));
 
-        assert_eq!(content.bounds().width, MENU_MIN_WIDTH);
+        assert!(content.bounds().width < 180.0);
         assert_eq!(
             content.bounds().height,
             MENU_LIST_INSET * 2.0 + MENU_ROW_HEIGHT * 2.0 + 1.0 + MENU_SEPARATOR_MARGIN * 2.0
@@ -1417,9 +1472,15 @@ mod tests {
 
         let outside = Point::new(400.0, 200.0);
         harness.set_cursor(outside);
-        harness.update(Event::Mouse(mouse::Event::CursorMoved {
-            position: outside,
-        }));
+        let leave = Event::Mouse(mouse::Event::CursorMoved { position: outside });
+        harness.update(leave.clone());
+        // The real runtime dispatches every pointer event to each active
+        // overlay in the chain, refreshing the branch's own pointer-inside
+        // tracking; mirror that here so the transfer-grace check below sees
+        // the same "pointer has left" signal a live app would.
+        harness
+            .update_nested_overlay(leave)
+            .expect("child receives the leave event");
         harness.update(Event::Window(iced::window::Event::RedrawRequested(
             start + Duration::from_millis(799),
         )));
