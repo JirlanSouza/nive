@@ -1842,7 +1842,7 @@ mod tests {
             if self.show_dialog {
                 ScreenView::new(base).dialog(
                     DialogRequest::new(iced::widget::text("dialog"))
-                        .dismiss(DialogDismiss::OnEscape(TestMessage::Shortcut)),
+                        .dismiss(DialogDismiss::escape(TestMessage::Shortcut)),
                 )
             } else {
                 ScreenView::new(base)
