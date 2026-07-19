@@ -51,7 +51,27 @@ impl PopoverInset {
 ///
 /// The Popover owns its border, eight-pixel radius, shadow, clipping, inset, and
 /// vertical overflow viewport. Supply surface-free content instead of wrapping
-/// it in another Panel or Scrollable.
+/// it in another Panel or Scrollable. Iced currently clips arbitrary
+/// descendants to the rectangular outer bounds; Nive-owned edge-to-edge lists
+/// add their own inset to remain visually contained by the rounded surface.
+///
+/// Geometry defaults to [`PopoverPlacement::BottomStart`],
+/// [`PopoverCollision::FlipAndShift`], a four-pixel anchor gap, an eight-pixel
+/// safe viewport, and [`PopoverWidth::Content`]. Placement `Start`/`End` values
+/// use physical LTR semantics. Invalid supplied geometry is normalized and the
+/// final frame is bounded to finite nonnegative space on the selected side.
+///
+/// `open` is application-controlled. Escape, an outside primary press, or a
+/// FocusFirst traversal exit publishes `on_dismiss` exactly once only when
+/// that capability is configured. Without it, the widget manufactures no
+/// close state and does not capture an outside press merely to simulate one.
+/// Programmatic closure is silent. Focus entry and conditional restoration are
+/// governed by [`PopoverFocusPolicy`] through the shared logical-focus root.
+///
+/// Open, close, placement, and focus visuals move directly to their terminal
+/// state; this API does not implement local opacity or translation animation.
+/// Retained open/name/focus metadata is preparatory and does not claim native
+/// accessibility roles, names, expanded state, relations, or announcements.
 ///
 /// Low-level overlay, geometry, focus, and rendering kernels are intentionally
 /// unavailable to application code:

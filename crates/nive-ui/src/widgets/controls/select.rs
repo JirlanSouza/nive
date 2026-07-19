@@ -11,6 +11,11 @@ use self::widget::SelectWidget;
 use super::form_frame::{FormControlFrame, FormFrameAppearance};
 
 #[derive(Debug, Clone)]
+/// One labelled application value rendered by [`Select`].
+///
+/// The value is the durable identity and must be unique among peer options.
+/// Disabled options remain visible with stable geometry but cannot be
+/// highlighted or activated.
 pub struct SelectOption<'a, T> {
     value: T,
     label: Cow<'a, str>,
@@ -65,6 +70,28 @@ impl<T> fmt::Display for SelectOption<'_, T> {
 }
 
 /// A typed selection control backed by explicit [`SelectOption`] models.
+///
+/// The supplied `Option<T>` is application-owned committed state. Select keeps
+/// only ephemeral open, highlight, typeahead, pressed, and scroll state;
+/// opening or navigating never mutates the supplied value. Activation publishes
+/// `T`, and the selection changes only after the application rebuilds the view.
+///
+/// Select is a fill-width, density-aware form control with Sm as its default
+/// [`ControlSize`]. Converting it into a typed `Field` lets the Field propagate
+/// size, disabled, validation, name, and focus context before element erasure;
+/// the Field remains the sole visible label and support/error owner. Placeholder
+/// text is not a semantic name.
+///
+/// `on_select` absence makes the control display-only without disabled colors.
+/// Explicit `disabled(true)` has stronger precedence, suppresses interaction,
+/// and preserves value, chevron, frame, and geometry. Open/close callbacks
+/// report user transitions exactly once when configured; programmatic rebuilds
+/// are silent. Popup and chevron state changes are immediate and use no local
+/// motion preference or animator.
+///
+/// The retained name, open state, value, and logical highlight are preparatory
+/// metadata. Select does not currently emit native combobox roles, names,
+/// expanded state, active-descendant relations, or announcements.
 ///
 /// The former PickList-shaped value list and the private popup row/Tree
 /// adapters are intentionally unsupported:

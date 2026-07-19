@@ -20,7 +20,11 @@ const WARM_WINDOW: Duration = Duration::from_millis(600);
 ///
 /// Each scope owns an independent persistent session in its Widget tree. A
 /// different neighbor may reveal after 100ms for 600ms after a Tooltip was
-/// actually shown; the same neighbor always waits 500ms.
+/// actually shown; the same neighbor always waits 500ms. A candidate that
+/// never became visible does not warm the session. Pointer intent wins over a
+/// retained focus candidate, and at most one descendant Tooltip is shown.
+/// Nested scopes are independent timing boundaries, as are separate widget
+/// trees and windows.
 ///
 /// Timing state and the operations used to arbitrate descendants remain
 /// private implementation details:

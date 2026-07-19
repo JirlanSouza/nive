@@ -22,7 +22,7 @@ taxonomy of category facades:
   states and version badges.
 - `widgets::containers` — cards, action/selectable cards, panels and split
   panes.
-- `widgets::navigation` — tabs, toolbars, dropdown menus and command palette
+- `widgets::navigation` — tabs, toolbars, canonical menus and command palette
   helpers.
 - `widgets::overlays` — dialogs, popovers, tooltips, `DialogHost` and
   `ToastHost`.
@@ -304,6 +304,179 @@ rather than requiring callers to compensate with different per-widget sizes.
 logical pixel while its centered resize target is derived from the selected
 control size, so interaction ergonomics do not change pane-ratio geometry.
 
+## Anchored Overlays And Popup Controls
+
+Anchored composition follows one ownership chain:
+
+```text
+private anchored geometry/lifecycle
+        ├── Tooltip
+        └── Popover
+              └── Menu
+                    ├── Select
+                    └── Autocomplete
+```
+
+The private kernel owns translated anchor measurement, collision, an 8 px safe
+viewport, a 4 px default gap, bounded overflow, nested event priority, message
+relay, and integration with the shared logical-focus root. Application code
+uses only the high-level types and policies.
+
+### Tooltip and Popover
+
+`Tooltip::new(anchor, text)` accepts passive supplementary text. Isolated
+disclosure waits 500 ms. A `TooltipScope` gives different neighbors a 100 ms
+delay while a shown Tooltip is visible or during its 600 ms warm window; the
+same neighbor still waits 500 ms, and unshown candidates do not warm the scope.
+Pointer intent wins over retained focus, nested scopes/windows remain isolated,
+and at most one Tooltip appears per scope. Tooltip uses 12 px BodySmall text,
+4x8 px padding, a 4 px radius and gap, a 280 px wrapping cap, and shared
+flip-and-shift collision. Tooltip text never supplies the anchor's semantic
+name. Disabled anchors may remain pointer-explainable but are not made
+keyboard-focusable.
+
+`Popover` is controlled through `open(bool)` and owns exactly one
+`SurfaceRole::Popover` frame: fill, subtle 1 px perimeter, 8 px radius, compact
+shadow, rectangular outer clip, semantic inset, and one bounded vertical
+Scrollable. Insets are Standard 12 px, Compact 8 px, and EdgeToEdge 0 px.
+Callers supply surface-free content without another `Panel`, radius, or
+Scrollable. Arbitrary EdgeToEdge descendants do not receive a generic rounded
+mask under Iced 0.14; Nive-owned lists add a 4 px inset for corner containment.
+
+Default geometry is BottomStart, FlipAndShift, Content width, a 4 px gap, and
+an 8 px safe viewport. Width is domain-specific:
+
+| Policy | Contract before chosen-side clamp |
+| --- | --- |
+| `Content` | intrinsic content capped at 360 px |
+| `MatchAnchor` | safe-clamped anchor width |
+| `AtLeastAnchor` | anchor floor plus content growth capped at 360 px |
+| `Fixed(x)` | finite nonnegative requested width |
+
+`PopoverFocusPolicy::RetainAnchor` is the default. `FocusFirst` enters the
+first enabled descendant and permits ordinary Tab exit; `Trap` cycles Tab
+inside. Escape, outside primary press, or owned activation requests exactly
+one dismissal when `on_dismiss` exists and conditionally restores the still-
+valid opaque anchor after controlled closure. Callback absence creates no
+hidden close and does not capture an outside press merely to simulate one;
+programmatic close is silent.
+
+```rust
+use nive_ui::prelude::*;
+
+let help = Tooltip::new(
+    button::icon(IconRole::DialogInformation, "Deployment details"),
+    "Inspect deployment health",
+)
+.placement(TooltipPlacement::Right);
+
+let details = Popover::new(button::secondary("Details").on_press(()))
+    .content(text("Surface-free content"))
+    .open(true)
+    .focus_policy(PopoverFocusPolicy::RetainAnchor)
+    .on_dismiss(());
+```
+
+### Menu
+
+`Menu::new(trigger)` internally owns the canonical EdgeToEdge FocusFirst
+Popover. It uses fixed 28 px rows across density, stable independent choice and
+icon tracks, one shortcut/annotation/submenu track, renderer-measured
+truncation Tooltip, one root-composite focus target, bounded arrows, Home/End,
+700 ms prefix typeahead, and Popover-owned scrolling. Physical Right/Left opens
+and closes submenus under the current LTR contract.
+
+```rust
+use nive_core::Action;
+use nive_ui::prelude::*;
+
+let action = Action::new("project.rename", "Rename", ());
+let menu = Menu::new(button::secondary("Actions").on_press(()))
+    .open(true)
+    .on_dismiss(())
+    .command(MenuCommand::from_action(&action))
+    .checkbox(
+        MenuCheckbox::new("Pinned", CheckboxState::Checked)
+            .on_toggle(|_| ())
+            .dismiss_policy(MenuDismissPolicy::KeepOpen),
+    )
+    .separator()
+    .command(MenuCommand::new("Delete").destructive().on_press(()));
+```
+
+Checkbox/radio state is app-controlled and distinct from transient highlight.
+`DismissAll` publishes the leaf message first and then one dismiss message when
+that capability exists; otherwise it publishes only the leaf and stays open.
+`KeepOpen` never dismisses. Callback-less leaves are normal display-only rows,
+not disabled rows; explicit disabled wins and preserves durable marks and
+geometry.
+
+### Select and Autocomplete
+
+`SelectOption<T>` separates a unique application value from its Cow-compatible
+label and disabled state. `Select<T>` accepts `Option<T>` committed selection,
+defaults to fill width and Sm, converts to typed `FieldControl`, and renders
+Menu-derived choices in one AtLeastAnchor Popover. Opening and bounded
+navigation never commit. Enter/Space publishes a different highlighted value;
+Escape/Tab cancel, and Tab continues traversal. Empty, duplicate, and missing-
+selection models remain finite and never invent app state.
+
+`AutocompleteSuggestion<T>` carries a unique value, label, optional leading
+icon, optional trailing Secondary text, and disabled state.
+`AutocompleteResults::{Suggestions, Loading, Empty, Error}` is atomic. The app
+owns query, filtering/order, async retrieval, results, and committed
+`Option<T>`. Input focus/caret remains in the field while logical highlight is
+bounded and preserved by value. Enter without highlight passes to Input submit;
+selection publishes only `on_select(T)` before blur and not `on_dismiss`.
+Retrieval Error remains popup content and does not imply Field invalid state.
+
+```rust
+use nive_ui::prelude::*;
+
+let tier = Field::new(
+    "Account tier",
+    Select::new(
+        vec![SelectOption::new("starter", "Starter"),
+             SelectOption::new("team", "Team")],
+        Some("team"),
+    )
+    .on_select(|_| ()),
+);
+
+let organization = Field::new(
+    "Organization",
+    Autocomplete::new(
+        "niv",
+        None,
+        AutocompleteResults::suggestions(vec![
+            AutocompleteSuggestion::new(1_u64, "Nive Labs"),
+        ]),
+    )
+    .open(true)
+    .on_change(|_| ())
+    .on_select(|_| ())
+    .on_dismiss(()),
+);
+```
+
+For both controls, Field owns the visible label, hint/error, validation,
+ControlSize, disabled context, and focus association. Missing callbacks remove
+only their capabilities and do not request disabled colors. Explicit disabled
+has stronger precedence and suppresses interaction without changing geometry.
+
+All Popover/Menu/Select/Autocomplete state changes are immediate in this wave;
+visual interpolation belongs to `adopt-motion-preference-in-anchored-overlays`
+after shared motion-preference plumbing. Start/End and submenu arrows are
+physical LTR. Names, open/expanded state, values, result state, and logical
+active rows are preparatory metadata only; no native accessibility-tree role,
+name, expanded state, active-descendant relation, or announcement is claimed.
+
+Keep category ownership explicit: TabBar owns documents, Toolbar owns chrome,
+VerticalRail owns edge navigation, Dialog owns modal interaction,
+CommandPalette owns command search, and specialized inputs retain their domain
+contracts. Popup mechanics do not justify replacing those categories with
+Select, Menu, or generic Popover.
+
 ## Bootstrap Template
 
 `BootstrapView` owns the generic loading and startup-failure composition,
@@ -407,16 +580,19 @@ focus, and derive focus paint from `is_focus_visible()`.
 
 ### Overlay Keyboard Contract
 
-- **Escape** dismisses modal dialogs and popovers. The framework helper
+- **Escape** dismisses modal dialogs through their configured policy. The framework helper
   `nive_runtime::is_escape_key_press(&Event)` detects the key, and
   `DialogRequest::dismiss_on_escape` / `dismiss_on_backdrop_or_escape`
-  routes the dismiss message. The popover overlay also maps Escape to
-  its own dismissal.
-- **Tab and Shift+Tab** cycle focus through the overlay's focusable
-  controls. `nive_ui::focus_trap::direction_from_event` resolves the
-  direction from the keyboard event and `FocusDirection::Next` /
-  `FocusDirection::Previous` execute the chained native Iced focus operation
-  over the same root coordinator.
+  routes the dismiss message. Tooltip closes on Escape. Popover and the
+  innermost Menu level publish one controlled dismissal only when that
+  capability exists; Select/Autocomplete follow their documented cancel paths.
+- **Tab and Shift+Tab** follow the overlay category. RetainAnchor keeps focus
+  on the anchor, FocusFirst permits ordinary traversal exit, and Trap cycles
+  inside the Popover. Menu contributes one composite Tab stop; Select and
+  Autocomplete keep focus on their trigger/Input while popup highlight remains
+  logical. Dialog trapping uses
+  `nive_ui::focus_trap::direction_from_event`, `FocusDirection::Next`, and
+  `FocusDirection::Previous` over the same root coordinator.
   Modifier-only Tab (Ctrl/Alt/Cmd+Tab) is left to the application so
   platform shortcuts still work.
 - **Enter** activates the focused button. Custom widgets that accept

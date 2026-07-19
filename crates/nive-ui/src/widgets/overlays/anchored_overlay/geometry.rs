@@ -4,6 +4,12 @@ pub(crate) const SAFE_VIEWPORT_MARGIN: f32 = 8.0;
 const AUTOMATIC_CONTENT_WIDTH_CAP: f32 = 360.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Preferred side and physical alignment for an anchored
+/// [`Popover`](crate::widgets::overlays::Popover).
+///
+/// `Start` and `End` currently mean physical LTR alignment; they are not
+/// resolved from a logical text direction. The collision policy may choose the
+/// opposite side or shift the alignment without changing this vocabulary.
 pub enum PopoverPlacement {
     TopStart,
     TopCenter,
@@ -61,20 +67,38 @@ impl PopoverPlacement {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
+/// Width policy for a Popover's floating frame.
+///
+/// Automatic content growth is capped at 360px and then clamped to the safe
+/// viewport and chosen side. `AtLeastAnchor` preserves a wider safe anchor as
+/// its floor. Negative and non-finite fixed values normalize to zero.
 pub enum PopoverWidth {
+    /// Use intrinsic content width, capped at 360px and safe available width.
     #[default]
     Content,
+    /// Match the anchor width, clamped to safe available width.
     MatchAnchor,
+    /// Use at least the anchor width while capping only automatic content growth.
     AtLeastAnchor,
+    /// Request an exact logical-pixel width before safe-viewport clamping.
     Fixed(f32),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Collision correction applied to a preferred [`PopoverPlacement`].
+///
+/// Every policy still bounds the frame to the nonnegative space available on
+/// its chosen side. Flipping selects a side first; shifting corrects only the
+/// perpendicular alignment axis.
 pub enum PopoverCollision {
+    /// Flip when needed, then shift the chosen side into safe alignment.
     #[default]
     FlipAndShift,
+    /// Flip when needed without alignment-axis shifting.
     Flip,
+    /// Keep the preferred side and shift only its alignment axis.
     Shift,
+    /// Keep the requested side and alignment without flip or shift correction.
     None,
 }
 
