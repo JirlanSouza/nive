@@ -215,7 +215,8 @@ do botão. Links terão controle dedicado quando a área de navegação precisar
 ### Controles de formulário
 
 `FormControlMetrics` projeta `ControlSize` nas métricas compartilhadas por
-`Input`, `InputGroup`, `Field`, `FieldGroup` e `Button`. O texto de valor usa
+`Input`, `InputGroup`, `Select`, `Autocomplete`, `Field`, `FieldGroup` e
+`Button`. O texto de valor usa
 `TypographyRole::Control` (Inter Regular 14 px) e labels de botão usam
 `ControlStrong` (Inter Semibold 14 px); tamanho local altera geometria, não a
 tipografia.
@@ -231,7 +232,8 @@ sobreposto num retângulo 1 px interno. Disabled prevalece sobre foco, hover,
 read-only e ações; Invalid preserva o perímetro Danger mesmo com foco. O frame
 não reserva faixa extra nem multiplica opacidade local.
 
-`Field::new(label, Input/InputGroup)` é a composição canônica: Field propaga
+`Field::new(label, Input/InputGroup/Select/Autocomplete)` é a composição
+canônica: Field propaga
 tamanho/disabled, é o único dono de validação quando o erro não é vazio e
 compartilha a faixa de suporte entre hint e erro. `Field::custom` é uma saída
 limitada, com foco, semântica, clipping e propagação sob responsabilidade do
@@ -319,7 +321,9 @@ A densidade é resolvida durante a construção do tema:
 
 ## 5. Catálogo de Widgets (40+)
 
-Todos são `nive-ui` puros (dependem só de `iced`), type-safe e estilizados por role.
+Todos pertencem a `nive-ui`, são type-safe e estilizados por role. O crate
+depende de `iced` e dos contratos zero-dependency de `nive-core`, mas não de
+`nive-runtime` nem de crates de aplicação.
 O contrato público é duplo: `nive_ui::widgets::*` continua sendo o facade plano
 para app code, enquanto `nive_ui::widgets::{primitives, controls, display,
 containers, navigation, overlays e feedback` organiza a taxonomia
@@ -428,6 +432,76 @@ restaura esse alvo somente como posição sequencial, sem `active` nem ring. Um
 foco programático externo mais novo prevalece, e alvo removido/disabled segue
 para o fallback nativo do Iced.
 
+### Overlays ancorados e popup controls
+
+A dependência e o ownership seguem uma única direção:
+
+```text
+kernel privado de geometria/lifecycle
+        ├── Tooltip
+        └── Popover
+              └── Menu
+                    ├── Select
+                    └── Autocomplete
+```
+
+O kernel privado mede anchors traduzidos, resolve collision, safe viewport de
+8 px, gap default de 4 px, overflow limitado, prioridade de overlays aninhados,
+relay de mensagens e integração com o `FocusRoot`. Nenhum renderer, Tree state,
+clock, adaptador de foco, target de restore ou `PopoverOverlay` faz parte da API
+de app.
+
+`Tooltip` é disclosure passivo: texto BodySmall 12 px, padding vertical 4 px e
+horizontal 8 px, raio/gap de 4 px, máximo de 280 px, FlipAndShift e reveal por
+pointer ou foco. Isolado usa 500 ms; `TooltipScope` permite 100 ms entre vizinhos
+distintos durante a janela warm de 600 ms, mantendo scopes e janelas isolados.
+O tooltip nunca substitui o nome semântico independente do anchor.
+
+`Popover` controla `open(bool)` e é o único dono de `SurfaceRole::Popover`,
+perímetro de 1 px, raio de 8 px, shadow, clip externo retangular, inset semântico
+Standard/Compact/EdgeToEdge de 12/8/0 px e um Scrollable vertical limitado.
+Conteúdo não adiciona `Panel`, segundo raio ou segundo Scrollable. Em Iced 0.14,
+descendentes EdgeToEdge arbitrários não recebem máscara arredondada genérica;
+listas canônicas usam inset interno de 4 px. A geometria default é BottomStart,
+FlipAndShift, Content, gap 4 px e safe viewport 8 px; largura automática para em
+360 px, enquanto AtLeastAnchor preserva um anchor seguro mais largo.
+
+`PopoverFocusPolicy` separa RetainAnchor, FocusFirst e Trap sobre o mesmo
+coordenador da raiz. Dismissal por Escape, press primário externo ou ativação
+owned publica uma mensagem apenas quando a capability existe e restaura o alvo
+opaco ainda válido somente após o app fornecer estado fechado. Ausência de
+callback não cria close oculto nem aparência Disabled; close programático é
+silencioso.
+
+`Menu` configura internamente Popover EdgeToEdge + FocusFirst e mantém um único
+Tab stop para toda a cadeia. Linhas são fixas em 28 px, com colunas estáveis,
+navegação bounded, Home/End, typeahead de 700 ms e submenu por Right/Left físico
+LTR. Commands projetam `nive_core::Action<M>`; checkbox/radio continuam modelos
+tipados controlados pelo app. DismissAll publica leaf primeiro e dismissal uma
+vez quando disponível; KeepOpen nunca fecha. Callback ausente torna apenas a
+leaf display-only, enquanto `disabled(true)` tem precedência e preserva estado e
+geometria.
+
+`SelectOption<T>` separa valor único de label e Select mantém `Option<T>`
+controlado pelo app. O campo é fill width, Sm por default, integra o
+`FieldControl` tipado e abre rows de Menu em um único Popover AtLeastAnchor.
+`AutocompleteSuggestion<T>` e
+`AutocompleteResults::{Suggestions, Loading, Empty, Error}` mantêm resultados
+atômicos; o app possui query, filtering/order, retrieval e seleção. O caret
+permanece no Input e highlight lógico não altera a query. Retrieval Error é
+conteúdo do popup, nunca `FieldValidation::Invalid` implícito.
+
+Mudanças visuais de overlay, highlight, result state e chevron são imediatas.
+Interpolação pertence ao follow-up `adopt-motion-preference-in-anchored-overlays`
+depois do plumbing compartilhado. Start/End e submenus permanecem físicos LTR.
+Nome, open/expanded, valores, result state e active row são metadados
+preparatórios: ainda não há claim de roles, nomes, expanded, active-descendant
+ou anúncios nativos na accessibility tree.
+
+Mecânica de popup não muda categoria: `TabBar` continua dono de documentos,
+`Toolbar` de chrome, `VerticalRail` de navegação lateral, `Dialog` de modal,
+`CommandPalette` de busca de commands e inputs especializados de seus domínios.
+
 ### `SegmentedControl` vs `TabBar`
 
 Use `SegmentedControl` para escolher entre um conjunto pequeno e fixo de modos
@@ -465,7 +539,7 @@ Principais defaults:
 
 | Família | Default |
 | --- | --- |
-| Campos (`Input`, `PathInput`, `Select`, `Field`, `FieldGroup`) | fill width |
+| Campos (`Input`, `PathInput`, `Select`, `Autocomplete`, `Field`, `FieldGroup`) | fill width |
 | Ações inline (`Button`, `Checkbox`, `Switch`, `SegmentedControl`) | shrink width |
 | Superfícies (`Card`, `Panel`, `ActionCard`, `SelectableCard`) | shrink both |
 | Viewports (`SplitPane`, `Tree`) | fill both |

@@ -17,9 +17,17 @@ one outer managed target while preserving its active/roving tab internally;
 no application focus manager or second overlay root is required.
 
 The settings area uses a titled immediate `Switch::setting`, a two-option typed
-environment `SegmentedControl`, and a persistent typed filter selector. Toolbar
+environment `SegmentedControl`, and a genuine dashboard
+`Select<ServiceScope>` that filters application-owned service data. Toolbar
 theme actions and document/panel navigation keep their specialized ownership;
 they are not modeled as form selection controls.
+
+Framework-owned icon-only, truncated, and non-obvious actions use shared
+Tooltip disclosure while retaining independent semantic names. Complete visible
+action labels do not duplicate themselves in Tooltip. TabBar's all-tabs
+overflow uses canonical typed Menu in one Popover while preserving pinned-first
+order, current/disabled state, dirty/pinned metadata, selection, dismissal, and
+focus return.
 
 ## Chrome sizing
 
@@ -96,10 +104,25 @@ window deactivate/reactivate behavior, and conditional nested-overlay restore.
 This remains a user-screenshot/manual boundary even though state and traversal
 are covered by automated tests.
 
+For the anchored-popup pass, verify icon-only Tooltip disclosure without
+redundant labelled-action copies, all-tabs Menu order/selection/focus/overflow,
+nested and outside dismissal, and the dashboard `Select<ServiceScope>` filter.
+Start/End and submenu keys are currently physical LTR; popup and chevron visuals
+change immediately without interpolated motion; arbitrary EdgeToEdge Popover
+descendants use rectangular Iced 0.14 clipping; and retained semantics do not
+yet emit native accessibility-tree roles, names, expanded state,
+active-descendant relations, or announcements.
+
 Run it:
 
 ```sh
 rtk just example-dev workbench-monitor
+```
+
+Equivalent standalone run from the repository root:
+
+```sh
+rtk cargo run --manifest-path examples/workbench-monitor/Cargo.toml
 ```
 
 Check it:
@@ -113,6 +136,8 @@ rtk just examples-check
 For manual sign-off, the agent launches
 `rtk just example-dev workbench-monitor` and keeps
 it running. The user captures and attaches Light/Dark screenshots at
-`1440x900`, constrained, and low viewports. The agent reviews only those
-user-supplied images and requests replacements after rendered corrections; it
-does not capture screenshots itself.
+`1440x900`, `800x600`, and `1024x480`, including Tooltip, all-tabs Menu,
+nested/outside dismissal, and service-filter states. The agent reviews only
+those user-supplied images, applies corrections, and requests replacements; it
+does not capture screenshots itself. Sign-off remains open until the user
+confirms the final supplied evidence.
