@@ -94,6 +94,35 @@ pub enum PopoverKind {
     End,
     Wide,
     Collision,
+    MatchAnchor,
+    RetainAnchor,
+    EdgeToEdge,
+    LowHeight,
+    FocusFirst,
+    Trap,
+    Nested,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MenuKind {
+    Typed,
+    Persistent,
+    CallbackAbsent,
+    Nested,
+    LongList,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutocompleteKind {
+    SuggestionsFirst,
+    SuggestionsNone,
+    Loading,
+    Empty,
+    Error,
+    Validation,
+    CallbackAbsent,
+    Duplicate,
+    Disabled,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -145,10 +174,16 @@ pub struct FormState {
     pub color: Color,
 }
 
-#[derive(Default)]
 pub struct OverlayState {
     pub active_dialog: Option<DialogKind>,
     pub active_popover: Option<PopoverKind>,
+    pub nested_popover_open: bool,
+    pub active_menu: Option<MenuKind>,
+    pub menu_pinned: CheckboxState,
+    pub menu_mode: Option<&'static str>,
+    pub active_autocomplete: Option<AutocompleteKind>,
+    pub autocomplete_query: String,
+    pub autocomplete_selected: Option<String>,
     pub command_query: String,
     pub selected_command: Option<&'static str>,
 }
@@ -227,6 +262,7 @@ pub enum Message {
     PickPath,
     FocusInvalidInput,
     FocusProgrammaticInput,
+    FocusSelect,
     SelectTab(DemoTab),
     TabCloseRequested(TabCloseRequest<DemoTab>),
     TabContextRequested(ContextRequest<DemoTab>),
@@ -245,6 +281,17 @@ pub enum Message {
     CloseDialog,
     TogglePopover(PopoverKind),
     ClosePopover,
+    ToggleNestedPopover,
+    CloseNestedPopover,
+    ToggleMenu(MenuKind),
+    CloseMenu,
+    MenuPinnedChanged(CheckboxState),
+    MenuModeChanged(&'static str),
+    ToggleAutocomplete(AutocompleteKind),
+    CloseAutocomplete,
+    AutocompleteQueryChanged(String),
+    AutocompleteSelected(String),
+    ClearAutocomplete,
     CommandQueryChanged(String),
     SelectCommand(&'static str),
     FeedbackModeChanged(FeedbackMode),
@@ -265,6 +312,24 @@ impl Default for FormState {
             radio: None,
             segment: "Preview",
             color: Color::from_rgb8(64, 123, 255),
+        }
+    }
+}
+
+impl Default for OverlayState {
+    fn default() -> Self {
+        Self {
+            active_dialog: None,
+            active_popover: None,
+            nested_popover_open: false,
+            active_menu: None,
+            menu_pinned: CheckboxState::Unchecked,
+            menu_mode: Some("standard"),
+            active_autocomplete: None,
+            autocomplete_query: "niv".to_owned(),
+            autocomplete_selected: None,
+            command_query: String::new(),
+            selected_command: None,
         }
     }
 }
@@ -391,6 +456,11 @@ impl Application for WidgetGallery {
             Message::FocusInvalidInput => {
                 effect = effect.with_task(nive::widget::operation::focus(
                     crate::pages::inputs::invalid_input_id(),
+                ));
+            }
+            Message::FocusSelect => {
+                effect = effect.with_task(nive::widget::operation::focus(
+                    crate::pages::inputs::select_focus_id(),
                 ));
             }
             Message::SelectTab(tab) => {
@@ -526,8 +596,44 @@ impl Application for WidgetGallery {
             Message::TogglePopover(popover) => {
                 self.overlays.active_popover =
                     (self.overlays.active_popover != Some(popover)).then_some(popover);
+                if self.overlays.active_popover != Some(PopoverKind::Nested) {
+                    self.overlays.nested_popover_open = false;
+                }
             }
-            Message::ClosePopover => self.overlays.active_popover = None,
+            Message::ClosePopover => {
+                self.overlays.active_popover = None;
+                self.overlays.nested_popover_open = false;
+            }
+            Message::ToggleNestedPopover => {
+                if self.overlays.active_popover == Some(PopoverKind::Nested) {
+                    self.overlays.nested_popover_open = !self.overlays.nested_popover_open;
+                }
+            }
+            Message::CloseNestedPopover => self.overlays.nested_popover_open = false,
+            Message::ToggleMenu(menu) => {
+                self.overlays.active_menu =
+                    (self.overlays.active_menu != Some(menu)).then_some(menu);
+            }
+            Message::CloseMenu => self.overlays.active_menu = None,
+            Message::MenuPinnedChanged(state) => self.overlays.menu_pinned = state,
+            Message::MenuModeChanged(mode) => self.overlays.menu_mode = Some(mode),
+            Message::ToggleAutocomplete(kind) => {
+                self.overlays.active_autocomplete =
+                    (self.overlays.active_autocomplete != Some(kind)).then_some(kind);
+            }
+            Message::CloseAutocomplete => self.overlays.active_autocomplete = None,
+            Message::AutocompleteQueryChanged(query) => {
+                self.overlays.autocomplete_query = query;
+                self.overlays.autocomplete_selected = None;
+            }
+            Message::AutocompleteSelected(value) => {
+                self.overlays.autocomplete_query.clone_from(&value);
+                self.overlays.autocomplete_selected = Some(value);
+            }
+            Message::ClearAutocomplete => {
+                self.overlays.autocomplete_query.clear();
+                self.overlays.autocomplete_selected = None;
+            }
             Message::CommandQueryChanged(value) => self.overlays.command_query = value,
             Message::SelectCommand(id) => self.overlays.selected_command = Some(id),
             Message::FeedbackModeChanged(mode) => self.feedback = mode,
@@ -703,4 +809,42 @@ pub fn page_shell<'a>(
     content: impl Into<Element<'a, Message>>,
 ) -> Element<'a, Message> {
     layout::page_shell(entry_for(id), content)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_catalog_page_builds_from_the_deterministic_fixture() {
+        let mut app = WidgetGallery::test_fixture();
+
+        for route in [
+            PageId::Actions,
+            PageId::Inputs,
+            PageId::Display,
+            PageId::LayoutNav,
+            PageId::Overlays,
+            PageId::Feedback,
+            PageId::Theme,
+            PageId::Icons,
+            PageId::Motion,
+        ] {
+            app.route = route;
+            let _: Element<'_, Message> = app.page();
+        }
+    }
+
+    #[test]
+    fn popup_fixture_state_is_controlled_and_independent() {
+        let state = OverlayState::default();
+
+        assert_eq!(state.active_popover, None);
+        assert_eq!(state.active_menu, None);
+        assert_eq!(state.active_autocomplete, None);
+        assert!(!state.nested_popover_open);
+        assert_eq!(state.menu_mode, Some("standard"));
+        assert_eq!(state.autocomplete_query, "niv");
+        assert_eq!(state.autocomplete_selected, None);
+    }
 }

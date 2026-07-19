@@ -1,12 +1,12 @@
 use nive::prelude::*;
 use nive::ui::{
-    theme::{ControlSize, SurfaceRole},
+    theme::ControlSize,
     widgets::controls::button as nbutton,
     widgets::primitives::text as ntext,
 };
 use nive::widget::{column, Id};
 
-use crate::app::{Message, WidgetGallery};
+use crate::app::{AutocompleteKind, Message, WidgetGallery};
 use crate::catalog::PageId;
 use crate::layout::{example_cell, section, variant_grid};
 
@@ -20,6 +20,10 @@ pub(crate) fn invalid_input_id() -> Id {
     Id::new("gallery-invalid-input")
 }
 
+pub(crate) fn select_focus_id() -> Id {
+    Id::new("gallery-select-focus")
+}
+
 pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
     crate::app::page_shell(
         PageId::Inputs,
@@ -28,6 +32,8 @@ pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
             section("Grouped input controls", grouped_inputs(app)),
             section("Field groups", field_groups(app)),
             section("Choice controls", choices(app)),
+            section("Select matrix", select_matrix(app)),
+            section("Autocomplete matrix", autocomplete_matrix(app)),
             section("Color and path controls", color_path(app)),
             section("Control sizes", sizes(app)),
         ]
@@ -259,17 +265,32 @@ fn grouped_inputs(app: &WidgetGallery) -> Element<'_, Message> {
         example_cell(
             "Autocomplete",
             Autocomplete::new(
-                Input::new("Type to search commands", &app.form.search)
-                    .on_change(Message::InputSearchChanged),
+                &app.form.search,
+                None::<String>,
+                AutocompleteResults::suggestions(vec![
+                    AutocompleteSuggestion::new(
+                        "Open settings".to_owned(),
+                        "Open settings",
+                    )
+                    .leading(IconRole::EditFind),
+                    AutocompleteSuggestion::new(
+                        "Refresh project".to_owned(),
+                        "Refresh project",
+                    )
+                    .leading(IconRole::ViewRefresh),
+                    AutocompleteSuggestion::new(
+                        "Delete project".to_owned(),
+                        "Delete project",
+                    )
+                    .leading(IconRole::EditDelete),
+                ]),
             )
+            .placeholder("Type to search commands")
             .open(!app.form.search.is_empty())
-            .suggestions(vec![
-                "Open settings".to_owned(),
-                "Refresh project".to_owned(),
-                "Delete project".to_owned(),
-            ])
+            .highlight(AutocompleteHighlight::First)
+            .on_change(Message::InputSearchChanged)
             .on_select(Message::InputSearchChanged)
-            .content_with(|highlighted| suggestions(highlighted)),
+            .on_clear(Message::InputSearchChanged(String::new())),
         ),
     ])
 }
@@ -343,29 +364,6 @@ fn field_groups(app: &WidgetGallery) -> Element<'_, Message> {
             .hint("Explicitly outside canonical typed guarantees"),
         ),
     ])
-}
-
-fn suggestions(highlighted: Option<usize>) -> Element<'static, Message> {
-    let labels = ["Open settings", "Refresh project", "Delete project"];
-    let mut rows = column![].spacing(2).padding(6).width(Length::Fill);
-
-    for (index, label) in labels.iter().enumerate() {
-        rows = rows.push(
-            SelectableItem::new(label)
-                .selected(highlighted == Some(index))
-                .leading_icon(if index == 2 {
-                    IconRole::EditDelete
-                } else {
-                    IconRole::EditFind
-                })
-                .on_press(Message::InputSearchChanged((*label).to_owned())),
-        );
-    }
-
-    Panel::new(rows)
-        .role(SurfaceRole::Popover)
-        .width(260)
-        .into()
 }
 
 fn choices(app: &WidgetGallery) -> Element<'_, Message> {
@@ -543,6 +541,352 @@ fn color_path(app: &WidgetGallery) -> Element<'_, Message> {
     ])
 }
 
+fn select_matrix(app: &WidgetGallery) -> Element<'_, Message> {
+    let selected = Select::new(
+        vec![
+            SelectOption::new("free", "Free"),
+            SelectOption::new("pro", "Pro"),
+            SelectOption::new("enterprise", "Enterprise").disabled(true),
+        ],
+        app.form.selected_plan.map(|plan| match plan {
+            "Free" => "free",
+            "Pro" => "pro",
+            "Enterprise" => "enterprise",
+            _ => "missing",
+        }),
+    )
+    .placeholder("Choose a plan")
+    .id(select_focus_id())
+    .on_select(|value| {
+        Message::SelectPlan(match value {
+            "free" => "Free",
+            "pro" => "Pro",
+            "enterprise" => "Enterprise",
+            _ => "Free",
+        })
+    })
+    .on_open(Message::Noop)
+    .on_close(Message::Noop);
+
+    let long_options = (1..=18)
+        .map(|index| {
+            SelectOption::new(
+                index,
+                format!("Environment {index:02} with a deliberately long visible label"),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    variant_grid([
+        example_cell(
+            "Selected + focused + disabled option",
+            column![
+                Field::new("Plan", selected)
+                    .hint("Open to inspect the selected check and skip disabled rows"),
+                nbutton::tertiary("Focus Select").on_press(Message::FocusSelect),
+            ]
+            .spacing(8),
+        ),
+        example_cell(
+            "Placeholder + lifecycle",
+            Field::new(
+                "Deployment target",
+                Select::new(
+                    vec![
+                        SelectOption::new("preview", "Preview"),
+                        SelectOption::new("production", "Production"),
+                    ],
+                    None,
+                )
+                .placeholder("Select a target")
+                .on_select(Message::SelectRadio)
+                .on_open(Message::Noop)
+                .on_close(Message::Noop),
+            )
+            .required("Required"),
+        ),
+        example_cell(
+            "Invalid Field integration",
+            Field::new(
+                "Region",
+                Select::new(
+                    vec![
+                        SelectOption::new("us", "US East"),
+                        SelectOption::new("eu", "EU West"),
+                    ],
+                    None,
+                )
+                .placeholder("Choose a region")
+                .on_select(Message::SelectRadio),
+            )
+            .error("Select a region before continuing")
+            .reserve_support_line(true),
+        ),
+        example_cell(
+            "Callback-absent display-only",
+            Field::new(
+                "Current channel",
+                Select::<_, Message>::new(
+                    vec![
+                        SelectOption::new("stable", "Stable"),
+                        SelectOption::new("preview", "Preview"),
+                    ],
+                    Some("stable"),
+                ),
+            )
+            .optional("Read only"),
+        ),
+        example_cell(
+            "Disabled",
+            Field::new(
+                "Managed plan",
+                Select::<_, Message>::new(
+                    vec![SelectOption::new("enterprise", "Enterprise")],
+                    Some("enterprise"),
+                )
+                .disabled(true)
+                .on_select(Message::SelectRadio),
+            )
+            .optional("Policy managed"),
+        ),
+        example_cell(
+            "Empty options",
+            Field::new(
+                "No environments",
+                Select::<&str, Message>::new(Vec::new(), None)
+                    .placeholder("No options available")
+                    .on_select(Message::SelectRadio),
+            )
+            .hint("The popup model is empty without substituting another control"),
+        ),
+        example_cell(
+            "Duplicate values",
+            Field::new(
+                "Ambiguous model",
+                Select::new(
+                    vec![
+                        SelectOption::new("same", "First duplicate"),
+                        SelectOption::new("same", "Second duplicate"),
+                    ],
+                    Some("same"),
+                )
+                .on_select(Message::SelectRadio),
+            )
+            .hint("Duplicate diagnostics preserve finite presentation"),
+        ),
+        example_cell(
+            "Missing selected value",
+            Field::new(
+                "Stale selection",
+                Select::new(
+                    vec![
+                        SelectOption::new("one", "One"),
+                        SelectOption::new("two", "Two"),
+                    ],
+                    Some("missing"),
+                )
+                .on_select(Message::SelectRadio),
+            )
+            .hint("The app-owned value is not present in current options"),
+        ),
+        example_cell(
+            "Long list + constrained width",
+            container(Field::new(
+                "Environment",
+                Select::new(long_options, Some(12))
+                    .on_select(|_| Message::Noop)
+                    .on_open(Message::Noop)
+                    .on_close(Message::Noop),
+            ))
+            .width(190),
+        ),
+    ])
+}
+
+fn autocomplete_matrix(app: &WidgetGallery) -> Element<'_, Message> {
+    let callback_absent = Autocomplete::<String, Message>::new(
+        &app.overlays.autocomplete_query,
+        app.overlays.autocomplete_selected.clone(),
+        AutocompleteResults::suggestions(vec![
+            AutocompleteSuggestion::new("display-one".to_owned(), "Display-only result"),
+            AutocompleteSuggestion::new("display-two".to_owned(), "Another result"),
+        ]),
+    )
+    .placeholder("No callbacks installed")
+    .open(app.overlays.active_autocomplete == Some(AutocompleteKind::CallbackAbsent));
+
+    let duplicate = autocomplete_fixture(
+        app,
+        AutocompleteKind::Duplicate,
+        AutocompleteResults::suggestions(vec![
+            AutocompleteSuggestion::new("same".to_owned(), "First duplicate"),
+            AutocompleteSuggestion::new("same".to_owned(), "Second duplicate"),
+        ]),
+        AutocompleteHighlight::First,
+    );
+
+    let disabled = autocomplete_fixture(
+        app,
+        AutocompleteKind::Disabled,
+        AutocompleteResults::suggestions(command_suggestions()),
+        AutocompleteHighlight::First,
+    )
+    .disabled(true);
+
+    variant_grid([
+        autocomplete_cell(
+            "Suggestions · First · clear · long list",
+            AutocompleteKind::SuggestionsFirst,
+            autocomplete_fixture(
+                app,
+                AutocompleteKind::SuggestionsFirst,
+                AutocompleteResults::suggestions(command_suggestions()),
+                AutocompleteHighlight::First,
+            ),
+        ),
+        autocomplete_cell(
+            "Suggestions · None · Enter pass-through",
+            AutocompleteKind::SuggestionsNone,
+            autocomplete_fixture(
+                app,
+                AutocompleteKind::SuggestionsNone,
+                AutocompleteResults::suggestions(vec![
+                    AutocompleteSuggestion::new("nive-core".to_owned(), "Nive Core")
+                        .leading(IconRole::Folder)
+                        .trailing("Rust"),
+                    AutocompleteSuggestion::new("nive-ui".to_owned(), "Nive UI")
+                        .leading(IconRole::DialogInformation)
+                        .trailing("Design system"),
+                ]),
+                AutocompleteHighlight::None,
+            ),
+        ),
+        autocomplete_cell(
+            "Loading · Spinner reservation",
+            AutocompleteKind::Loading,
+            autocomplete_fixture(
+                app,
+                AutocompleteKind::Loading,
+                AutocompleteResults::Loading,
+                AutocompleteHighlight::None,
+            ),
+        ),
+        autocomplete_cell(
+            "Empty results",
+            AutocompleteKind::Empty,
+            autocomplete_fixture(
+                app,
+                AutocompleteKind::Empty,
+                AutocompleteResults::empty("No commands match this query"),
+                AutocompleteHighlight::None,
+            ),
+        ),
+        autocomplete_cell(
+            "Retrieval error",
+            AutocompleteKind::Error,
+            autocomplete_fixture(
+                app,
+                AutocompleteKind::Error,
+                AutocompleteResults::error("Could not retrieve remote commands"),
+                AutocompleteHighlight::None,
+            ),
+        ),
+        example_cell(
+            "Field validation remains separate",
+            column![
+                nbutton::tertiary("Toggle validation fixture")
+                    .on_press(Message::ToggleAutocomplete(AutocompleteKind::Validation)),
+                Field::new(
+                    "Required command",
+                    autocomplete_fixture(
+                        app,
+                        AutocompleteKind::Validation,
+                        AutocompleteResults::suggestions(command_suggestions()),
+                        AutocompleteHighlight::First,
+                    ),
+                )
+                .error("Choose an allowed command before submitting")
+                .reserve_support_line(true),
+            ]
+            .spacing(8),
+        ),
+        autocomplete_cell(
+            "Callback absence",
+            AutocompleteKind::CallbackAbsent,
+            callback_absent,
+        ),
+        autocomplete_cell("Duplicate values", AutocompleteKind::Duplicate, duplicate),
+        autocomplete_cell("Disabled precedence", AutocompleteKind::Disabled, disabled),
+    ])
+}
+
+fn autocomplete_fixture<'a>(
+    app: &'a WidgetGallery,
+    kind: AutocompleteKind,
+    results: AutocompleteResults<'a, String>,
+    highlight: AutocompleteHighlight,
+) -> Autocomplete<'a, String, Message> {
+    Autocomplete::new(
+        &app.overlays.autocomplete_query,
+        app.overlays.autocomplete_selected.clone(),
+        results,
+    )
+    .placeholder("Search commands")
+    .semantic_name("Command search")
+    .open(app.overlays.active_autocomplete == Some(kind))
+    .highlight(highlight)
+    .on_change(Message::AutocompleteQueryChanged)
+    .on_select(Message::AutocompleteSelected)
+    .on_clear(Message::ClearAutocomplete)
+    .on_submit(Message::Noop)
+    .on_blur(Message::Noop)
+    .on_dismiss(Message::CloseAutocomplete)
+}
+
+fn autocomplete_cell<'a>(
+    label: &'a str,
+    kind: AutocompleteKind,
+    autocomplete: impl Into<Element<'a, Message>>,
+) -> Element<'a, Message> {
+    example_cell(
+        label,
+        column![
+            nbutton::tertiary("Toggle result fixture")
+                .on_press(Message::ToggleAutocomplete(kind)),
+            autocomplete.into(),
+        ]
+        .spacing(8),
+    )
+}
+
+fn command_suggestions() -> Vec<AutocompleteSuggestion<'static, String>> {
+    let mut suggestions = vec![
+        AutocompleteSuggestion::new("nive-core".to_owned(), "Nive Core")
+            .leading(IconRole::Folder)
+            .trailing("Rust"),
+        AutocompleteSuggestion::new("café-telemetry".to_owned(), "Café telemetry")
+            .leading(IconRole::DialogInformation)
+            .trailing("Unicode"),
+        AutocompleteSuggestion::new(
+            "long-command".to_owned(),
+            "A deliberately long command result that exercises stable columns and clipping",
+        )
+        .trailing("Remote"),
+        AutocompleteSuggestion::new("disabled-command".to_owned(), "Disabled command")
+            .leading(IconRole::EditDelete)
+            .trailing("Unavailable")
+            .disabled(true),
+    ];
+    suggestions.extend((1..=14).map(|index| {
+        AutocompleteSuggestion::new(
+            format!("project-{index:02}"),
+            format!("Project command {index:02}"),
+        )
+        .trailing("Workspace")
+    }));
+    suggestions
+}
+
 fn sizes(app: &WidgetGallery) -> Element<'_, Message> {
     variant_grid([
         example_cell("XS", size_stack(ControlSize::Xs, app)),
@@ -615,18 +959,37 @@ mod tests {
 
     #[test]
     fn deterministic_form_review_matrices_build_at_extreme_sizes() {
-        let app = WidgetGallery::test_fixture();
+        let mut app = WidgetGallery::test_fixture();
         let _: Element<'_, Message> = text_inputs(&app);
         let _: Element<'_, Message> = grouped_inputs(&app);
         let _: Element<'_, Message> = field_groups(&app);
+        let _: Element<'_, Message> = select_matrix(&app);
+        let _: Element<'_, Message> = autocomplete_matrix(&app);
         let _: Element<'_, Message> = sizes(&app);
         let _: Element<'_, Message> = size_stack(ControlSize::Xs, &app);
         let _: Element<'_, Message> = size_stack(ControlSize::Lg, &app);
+
+        for kind in [
+            AutocompleteKind::SuggestionsFirst,
+            AutocompleteKind::SuggestionsNone,
+            AutocompleteKind::Loading,
+            AutocompleteKind::Empty,
+            AutocompleteKind::Error,
+            AutocompleteKind::Validation,
+            AutocompleteKind::CallbackAbsent,
+            AutocompleteKind::Duplicate,
+            AutocompleteKind::Disabled,
+        ] {
+            app.overlays.active_autocomplete = Some(kind);
+            let _: Element<'_, Message> = autocomplete_matrix(&app);
+        }
     }
 
     #[test]
     fn deterministic_focus_targets_are_distinct_and_stable() {
         assert_ne!(programmatic_input_id(), invalid_input_id());
+        assert_ne!(programmatic_input_id(), select_focus_id());
+        assert_ne!(invalid_input_id(), select_focus_id());
         assert_eq!(programmatic_input_id(), programmatic_input_id());
         assert_eq!(invalid_input_id(), invalid_input_id());
     }

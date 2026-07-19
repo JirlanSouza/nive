@@ -8,7 +8,7 @@ use nive::{
     widget::column,
 };
 
-use crate::app::{Message, WidgetGallery};
+use crate::app::{MenuKind, Message, WidgetGallery};
 use crate::catalog::PageId;
 use crate::layout::{example_cell, section, variant_grid, variant_row};
 
@@ -25,7 +25,7 @@ pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
             ),
             section("ActionGroup", action_groups(app.control_size)),
             section("Toolbar", toolbar(app.control_size)),
-            section("Menu", menu()),
+            section("Menu", menu(app)),
             section("Card family", card_family()),
         ]
         .spacing(18),
@@ -416,14 +416,23 @@ fn segment(label: &'static str) -> SegmentedOption<'static, &'static str> {
     SegmentedOption::new(label, label)
 }
 
-fn menu() -> Element<'static, Message> {
-    view_menu_only()
+fn menu(app: &WidgetGallery) -> Element<'_, Message> {
+    variant_grid([
+        example_cell("Typed entries", view_menu_only(app)),
+        example_cell("Persistent checkbox and radio", persistent_menu(app)),
+        example_cell("Callback-absent leaves", callback_absent_menu(app)),
+        example_cell("Nested submenu", nested_menu(app)),
+        example_cell("Long list, typeahead, Home / End", long_list_menu(app)),
+    ])
 }
 
-pub fn view_menu_only() -> Element<'static, Message> {
-    Menu::new(nive::widgets::button::secondary("Open menu").on_press(Message::Noop))
-        .open(true)
-        .on_dismiss(Message::Noop)
+pub fn view_menu_only(app: &WidgetGallery) -> Element<'_, Message> {
+    Menu::new(
+        nive::widgets::button::secondary("Open typed menu")
+            .on_press(Message::ToggleMenu(MenuKind::Typed)),
+    )
+        .open(app.overlays.active_menu == Some(MenuKind::Typed))
+        .on_dismiss(Message::CloseMenu)
         .command(
             MenuCommand::new("Rename")
                 .icon(IconRole::EditModify)
@@ -440,6 +449,7 @@ pub fn view_menu_only() -> Element<'static, Message> {
         )
         .separator()
         .command(MenuCommand::new("Disabled command").disabled(true))
+        .command(MenuCommand::new("Callback absent"))
         .command(
             MenuCommand::new("Delete")
                 .icon(IconRole::EditDelete)
@@ -447,6 +457,101 @@ pub fn view_menu_only() -> Element<'static, Message> {
                 .on_press(Message::Noop),
         )
         .into()
+}
+
+fn persistent_menu(app: &WidgetGallery) -> Element<'_, Message> {
+    Menu::new(
+        nive::widgets::button::secondary("Open persistent choices")
+            .on_press(Message::ToggleMenu(MenuKind::Persistent)),
+    )
+    .open(app.overlays.active_menu == Some(MenuKind::Persistent))
+    .on_dismiss(Message::CloseMenu)
+    .checkbox(
+        MenuCheckbox::new("Keep project pinned", app.overlays.menu_pinned)
+            .on_toggle(Message::MenuPinnedChanged)
+            .dismiss_policy(MenuDismissPolicy::KeepOpen),
+    )
+    .separator()
+    .radio_group(
+        MenuRadioGroup::new(app.overlays.menu_mode)
+            .option(MenuRadioOption::new("compact", "Compact").annotation("Dense"))
+            .option(MenuRadioOption::new("standard", "Standard").annotation("Default"))
+            .option(
+                MenuRadioOption::new("comfortable", "Comfortable")
+                    .annotation("Roomy")
+                    .icon(IconRole::ViewMore),
+            )
+            .option(MenuRadioOption::new("unavailable", "Unavailable").disabled(true))
+            .on_select(Message::MenuModeChanged)
+            .dismiss_policy(MenuDismissPolicy::KeepOpen),
+    )
+    .into()
+}
+
+fn callback_absent_menu(app: &WidgetGallery) -> Element<'_, Message> {
+    Menu::new(
+        nive::widgets::button::secondary("Open display-only entries")
+            .on_press(Message::ToggleMenu(MenuKind::CallbackAbsent)),
+    )
+    .open(app.overlays.active_menu == Some(MenuKind::CallbackAbsent))
+    .on_dismiss(Message::CloseMenu)
+    .command(MenuCommand::new("Command without activation"))
+    .checkbox(MenuCheckbox::new("Checkbox without toggle", CheckboxState::Mixed))
+    .radio_group(
+        MenuRadioGroup::<_, Message>::new(Some("selected"))
+            .option(MenuRadioOption::new("selected", "Selected display value"))
+            .option(MenuRadioOption::new("other", "Other display value")),
+    )
+    .separator()
+    .command(MenuCommand::new("Explicitly disabled").disabled(true))
+    .into()
+}
+
+fn nested_menu(app: &WidgetGallery) -> Element<'_, Message> {
+    let grandchild = Menu::new(nive::widget::Space::new())
+        .command(MenuCommand::new("Reset zoom").on_press(Message::Noop));
+    let child = Menu::new(nive::widget::Space::new())
+        .command(MenuCommand::new("Zoom in").on_press(Message::Noop))
+        .command(MenuCommand::new("Zoom out").on_press(Message::Noop))
+        .submenu(MenuSubmenu::new("More zoom", grandchild));
+
+    Menu::new(
+        nive::widgets::button::secondary("Open nested menu")
+            .on_press(Message::ToggleMenu(MenuKind::Nested)),
+    )
+    .open(app.overlays.active_menu == Some(MenuKind::Nested))
+    .on_dismiss(Message::CloseMenu)
+    .command(MenuCommand::new("New window").on_press(Message::Noop))
+    .submenu(MenuSubmenu::new("View", child).icon(IconRole::ViewReveal))
+    .submenu(
+        MenuSubmenu::new("Disabled branch", Menu::new(nive::widget::Space::new())).disabled(true),
+    )
+    .into()
+}
+
+fn long_list_menu(app: &WidgetGallery) -> Element<'_, Message> {
+    let mut menu = Menu::new(
+        nive::widgets::button::secondary("Open long menu")
+            .on_press(Message::ToggleMenu(MenuKind::LongList)),
+    )
+    .open(app.overlays.active_menu == Some(MenuKind::LongList))
+    .on_dismiss(Message::CloseMenu)
+    .command(MenuCommand::new("Callback-absent first row"))
+    .command(MenuCommand::new("Disabled second row").disabled(true))
+    .command(
+        MenuCommand::new("A very long eligible command label that exercises stable columns")
+            .shortcut(ShortcutBinding::primary_character('l'))
+            .on_press(Message::Noop),
+    );
+
+    for index in 1..=18 {
+        menu = menu.command(
+            MenuCommand::new(format!("Project command {index:02}"))
+                .on_press(Message::Noop),
+        );
+    }
+
+    menu.into()
 }
 
 fn card_family() -> Element<'static, Message> {
@@ -575,5 +680,23 @@ mod tests {
             let _: Element<'static, Message> = advanced_buttons(size);
         }
         let _: Element<'static, Message> = button_states();
+    }
+
+    #[test]
+    fn canonical_menu_matrix_builds_every_controlled_state() {
+        let mut app = WidgetGallery::test_fixture();
+
+        for kind in [
+            MenuKind::Typed,
+            MenuKind::Persistent,
+            MenuKind::CallbackAbsent,
+            MenuKind::Nested,
+            MenuKind::LongList,
+        ] {
+            app.overlays.active_menu = Some(kind);
+            app.overlays.menu_pinned = CheckboxState::Checked;
+            app.overlays.menu_mode = Some("comfortable");
+            let _: Element<'_, Message> = menu(&app);
+        }
     }
 }
