@@ -160,3 +160,58 @@ where
         toolbar.into_element()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use iced::{Event, Point, Size};
+
+    use super::*;
+    use crate::{test_support::WidgetHarness, widgets::IconRole};
+
+    #[test]
+    fn icon_action_uses_shared_tooltip_without_changing_toolbar_height() {
+        let toolbar: Element<'_, ()> = Toolbar::new()
+            .group(
+                ToolbarGroup::new().action(
+                    ToolbarAction::icon(IconRole::ViewRefresh)
+                        .tooltip("Refresh")
+                        .on_press(()),
+                ),
+            )
+            .sm()
+            .into();
+        let mut harness = WidgetHarness::new(toolbar, Size::new(240.0, 80.0));
+        let start = iced::time::Instant::now();
+
+        assert_eq!(
+            harness.bounds().height,
+            theme_toolbar::metrics(ControlSize::Sm).height
+        );
+        harness.set_cursor(Point::new(12.0, harness.bounds().center_y()));
+        harness.update(redraw(start));
+        assert!(!harness.has_overlay());
+        harness.update(redraw(start + Duration::from_millis(500)));
+        assert!(harness.has_overlay());
+    }
+
+    #[test]
+    fn complete_visible_label_does_not_duplicate_itself_as_tooltip() {
+        let toolbar: Element<'_, ()> = Toolbar::new()
+            .group(ToolbarGroup::new().action(ToolbarAction::label("Save").on_press(())))
+            .into();
+        let mut harness = WidgetHarness::new(toolbar, Size::new(240.0, 80.0));
+        let start = iced::time::Instant::now();
+
+        harness.set_cursor(Point::new(20.0, harness.bounds().center_y()));
+        harness.update(redraw(start));
+        harness.update(redraw(start + Duration::from_millis(500)));
+
+        assert!(!harness.has_overlay());
+    }
+
+    fn redraw(now: iced::time::Instant) -> Event {
+        Event::Window(iced::window::Event::RedrawRequested(now))
+    }
+}

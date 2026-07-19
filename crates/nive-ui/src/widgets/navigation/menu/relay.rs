@@ -12,13 +12,13 @@ use crate::{advanced::shell_relay, Element};
 type OnMessage<'a, LocalMessage, Message> =
     dyn for<'shell> Fn(LocalMessage, &mut Shell<'shell, Message>) + 'a;
 
-pub(super) struct MessageRelay<'a, LocalMessage, Message> {
+pub(crate) struct MessageRelay<'a, LocalMessage, Message> {
     content: Element<'a, LocalMessage>,
     on_message: Box<OnMessage<'a, LocalMessage, Message>>,
 }
 
 impl<'a, LocalMessage, Message> MessageRelay<'a, LocalMessage, Message> {
-    pub(super) fn new(
+    pub(crate) fn new(
         content: impl Into<Element<'a, LocalMessage>>,
         on_message: impl for<'shell> Fn(LocalMessage, &mut Shell<'shell, Message>) + 'a,
     ) -> Self {

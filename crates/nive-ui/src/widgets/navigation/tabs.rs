@@ -25,7 +25,7 @@
 //! application of `scroll_offset` shifts the visible tab strip
 //! left by that many pixels. Chevrons appear when measured content overflow is
 //! detected and disappear again when no overflow remains. An all-tabs trigger
-//! opens a dropdown overlay listing every `TabItem` (visible or not).
+//! opens a canonical anchored Menu listing every `TabItem` (visible or not).
 //!
 //! Reorder and tear-off drives go through the shared gesture-driven
 //! [`DragSession`]; TabBar is its first consumer. The dragged tab is tracked by
@@ -60,7 +60,7 @@
 //!
 //! [`DragSession`]: crate::interaction::dnd
 
-use std::{borrow::Cow, time::Duration};
+use std::{borrow::Cow, cell::Cell, rc::Rc, time::Duration};
 
 use iced::{
     advanced::{
@@ -92,16 +92,15 @@ mod style;
 #[cfg(test)]
 mod widget_tests;
 use crate::widgets::controls::button::{self, ButtonFocusRing, GroupedItemKind, GroupedItemSpec};
-use crate::widgets::navigation::menu::{self, Menu, MenuRadioGroup, MenuRadioOption};
+use crate::widgets::navigation::menu::{
+    relay::MessageRelay, Menu, MenuRadioGroup, MenuRadioOption,
+};
 use crate::widgets::overlays::tooltip as tooltip_widget;
 use crate::widgets::overlays::TooltipScope;
-use crate::widgets::overlays::{
-    anchored_overlay::AnchoredOverlay,
-    popover::{PopoverCollision, PopoverPlacement, PopoverWidth},
-};
+use crate::widgets::overlays::{PopoverCollision, PopoverPlacement};
 use crate::widgets::primitives::{icon as icon_widget, IconRole};
 
-type SelectCallback<'a, Id, Message> = Box<dyn Fn(Id) -> Message + 'a>;
+type SelectCallback<'a, Id, Message> = Rc<dyn Fn(Id) -> Message + 'a>;
 type CloseCallback<'a, Id, Message> = Box<dyn Fn(TabCloseRequest<Id>) -> Message + 'a>;
 type ContextCallback<'a, Id, Message> = Box<dyn Fn(ContextRequest<Id>) -> Message + 'a>;
 type ReorderCallback<'a, Id, Message> = Box<dyn Fn(TabDrop<Id>) -> Message + 'a>;
@@ -125,8 +124,8 @@ pub struct TabBar<'a, Id, Message> {
     on_context: Option<ContextCallback<'a, Id, Message>>,
     on_reorder: Option<ReorderCallback<'a, Id, Message>>,
     on_tear_off: Option<TearOffCallback<'a, Id, Message>>,
-    /// Cached menu element used by the all-tabs dropdown overlay.
-    menu: Element<'a, MenuMessage<Id>>,
+    /// Rebuilt canonical child retained so Iced can borrow its overlay.
+    overlay_content: Element<'a, Message>,
 }
 
 /// Data for one tab.
@@ -219,7 +218,7 @@ struct TabBarState<Id: Clone + Eq + 'static> {
     left_chevron: Option<Rectangle>,
     right_chevron: Option<Rectangle>,
     all_tabs_button: Option<Rectangle>,
-    menu_open: bool,
+    menu_open: Rc<Cell<bool>>,
     gestures: PointerGestureState<TabRegion>,
     drag_session: DragSession<CollectionTransferPayload<Id>, (), TabDropTarget<Id>>,
 }
@@ -269,9 +268,10 @@ struct AllTabsMenuEntry<'a, Id> {
     disabled: bool,
 }
 
-/// Internal messages produced by the all-tabs dropdown overlay.
+/// Internal messages produced by the canonical all-tabs Menu.
 #[derive(Debug, Clone)]
 enum MenuMessage<Id> {
+    Open,
     Select(Id),
     Dismiss,
 }
@@ -295,28 +295,25 @@ where
             on_context: None,
             on_reorder: None,
             on_tear_off: None,
-            menu: iced::widget::Space::new().into(),
+            overlay_content: Space::new().into(),
         }
     }
 
     /// Replaces the app-owned active tab id.
     pub fn active(mut self, active: impl Into<Option<Id>>) -> Self {
         self.active = active.into();
-        self.menu = self.build_menu();
         self
     }
 
     /// Replaces all tabs from an iterator.
     pub fn tabs(mut self, tabs: impl IntoIterator<Item = TabItem<'a, Id>>) -> Self {
         self.tabs = tabs.into_iter().collect();
-        self.menu = self.build_menu();
         self
     }
 
     /// Adds one tab as a small-builder convenience.
     pub fn push(mut self, tab: TabItem<'a, Id>) -> Self {
         self.tabs.push(tab);
-        self.menu = self.build_menu();
         self
     }
 
@@ -327,13 +324,13 @@ where
 
     /// Maps tab selection into app messages.
     pub fn on_select(mut self, f: impl Fn(Id) -> Message + 'a) -> Self {
-        self.on_select = Some(Box::new(f));
+        self.on_select = Some(Rc::new(f));
         self
     }
 
     /// Conditionally maps tab selection into app messages.
     pub fn on_select_maybe(mut self, f: Option<impl Fn(Id) -> Message + 'a>) -> Self {
-        self.on_select = f.map(|f| Box::new(f) as SelectCallback<'a, Id, Message>);
+        self.on_select = f.map(|f| Rc::new(f) as SelectCallback<'a, Id, Message>);
         self
     }
 
@@ -457,7 +454,7 @@ where
         pinned
     }
 
-    fn content_element(&self, state: &TabBarState<Id>) -> Element<'_, Message> {
+    fn content_element(&self, state: &TabBarState<Id>) -> Element<'a, Message> {
         let metrics = theme_tabs::metrics(self.size);
         let visible = self.displayed_tabs();
         let close_enabled = self.on_close_request.is_some();
@@ -479,13 +476,7 @@ where
             state.has_overflow,
             "Scroll tabs toward end",
         );
-        let all_tabs_button = self.chevron_button(
-            metrics,
-            IconRole::ViewMore,
-            state.has_overflow,
-            state.has_overflow,
-            "Show all tabs",
-        );
+        let all_tabs_button = self.all_tabs_menu(metrics, state);
 
         let mut tabs_row = Row::new()
             .spacing(metrics.tab_gap)
@@ -535,7 +526,7 @@ where
         actionable: bool,
         reserve: bool,
         tooltip: &'static str,
-    ) -> Element<'_, Message> {
+    ) -> Element<'a, Message> {
         button::Button::custom(
             icon_widget::role(role)
                 .custom_size(metrics.icon_size)
@@ -560,13 +551,64 @@ where
         })
     }
 
-    fn tab_element<'b>(
-        &'b self,
-        displayed: DisplayedTab<'b, 'a, Id>,
+    fn all_tabs_menu(
+        &self,
+        metrics: theme_tabs::TabBarMetrics,
+        state: &TabBarState<Id>,
+    ) -> Element<'a, Message> {
+        let actionable = state.has_overflow;
+        let trigger = button::Button::custom(
+            icon_widget::role(IconRole::ViewMore)
+                .custom_size(metrics.icon_size)
+                .color_maybe((!actionable).then_some(iced::Color::TRANSPARENT))
+                .into(),
+        )
+        .disabled(!actionable)
+        .tooltip("Show all tabs")
+        .on_press_maybe(actionable.then_some(MenuMessage::Open))
+        .width(Length::Fixed(if state.has_overflow {
+            metrics.close_side
+        } else {
+            HIDDEN_AFFORDANCE_WIDTH
+        }))
+        .into_grouped_item(GroupedItemSpec {
+            size: metrics.size,
+            radius: metrics.radius.into(),
+            height: metrics.tab_height,
+            padding_h: 0.0,
+            selected: false,
+            destructive: false,
+            kind: GroupedItemKind::Embedded,
+        });
+        let menu = self.build_menu(trigger, state.menu_open.get());
+        let menu_open = Rc::clone(&state.menu_open);
+        let on_select = self.on_select.clone();
+
+        MessageRelay::new(menu, move |message, shell| {
+            match message {
+                MenuMessage::Open => menu_open.set(true),
+                MenuMessage::Select(id) => {
+                    menu_open.set(false);
+                    if let Some(on_select) = &on_select {
+                        shell.publish(on_select(id));
+                    }
+                }
+                MenuMessage::Dismiss => menu_open.set(false),
+            }
+            shell.capture_event();
+            shell.invalidate_layout();
+            shell.request_redraw();
+        })
+        .into()
+    }
+
+    fn tab_element(
+        &self,
+        displayed: DisplayedTab<'_, 'a, Id>,
         metrics: theme_tabs::TabBarMetrics,
         close_enabled: bool,
         state: &TabBarState<Id>,
-    ) -> Element<'b, Message> {
+    ) -> Element<'a, Message> {
         let tab = displayed.item;
         let selected = self.active.as_ref().is_some_and(|active| active == &tab.id);
         let has_close = tab.closable && close_enabled;
@@ -610,18 +652,18 @@ where
             .clip(true)
             .into();
 
-        match tab.tooltip.as_deref() {
+        match tab.tooltip.clone() {
             Some(label) => tooltip_widget::Tooltip::new(content, label).into(),
             None => content,
         }
     }
 
-    fn main_content<'b>(
-        &'b self,
-        tab: &'b TabItem<'a, Id>,
+    fn main_content(
+        &self,
+        tab: &TabItem<'a, Id>,
         metrics: theme_tabs::TabBarMetrics,
-    ) -> Row<'b, Message, crate::theme::Theme, iced::Renderer> {
-        let label = text(tab.label.as_ref())
+    ) -> Row<'a, Message, crate::theme::Theme, iced::Renderer> {
+        let label = text(tab.label.clone())
             .size(metrics.font_size)
             .shaping(text::Shaping::Auto)
             .wrapping(text::Wrapping::None);
@@ -662,9 +704,16 @@ where
             .collect()
     }
 
-    /// Returns canonical surface-free Menu content for the all-tabs overlay.
-    fn build_menu(&self) -> Element<'a, MenuMessage<Id>> {
-        let mut group = MenuRadioGroup::new(self.active.clone()).on_select(MenuMessage::Select);
+    /// Returns the canonical anchored Menu for the all-tabs overflow.
+    fn build_menu(
+        &self,
+        trigger: impl Into<Element<'a, MenuMessage<Id>>>,
+        open: bool,
+    ) -> Element<'a, MenuMessage<Id>> {
+        let mut group = MenuRadioGroup::new(self.active.clone());
+        if self.on_select.is_some() {
+            group = group.on_select(MenuMessage::Select);
+        }
         for entry in self.menu_entries() {
             let annotation = match (entry.pinned, entry.dirty) {
                 (true, true) => Some("Pinned · Unsaved"),
@@ -682,8 +731,12 @@ where
             group = group.option(option);
         }
 
-        container(Menu::new(Space::new()).radio_group(group).into_content())
-            .style(menu::style::surface_style)
+        Menu::new(trigger)
+            .open(open)
+            .on_dismiss(MenuMessage::Dismiss)
+            .placement(PopoverPlacement::BottomStart)
+            .collision(PopoverCollision::FlipAndShift)
+            .radio_group(group)
             .into()
     }
 
@@ -1069,7 +1122,7 @@ impl<Id: Clone + Eq + 'static> Default for TabBarState<Id> {
             left_chevron: None,
             right_chevron: None,
             all_tabs_button: None,
-            menu_open: false,
+            menu_open: Rc::new(Cell::new(false)),
             gestures: PointerGestureState::default(),
             drag_session: DragSession::default(),
         }
@@ -1168,10 +1221,7 @@ where
 
     fn children(&self) -> Vec<Tree> {
         let state = TabBarState::<Id>::default();
-        vec![
-            Tree::new(self.content_element(&state)),
-            Tree::new(&self.menu),
-        ]
+        vec![Tree::new(self.content_element(&state))]
     }
 
     fn diff(&self, tree: &mut Tree) {
@@ -1180,14 +1230,8 @@ where
 
         if tree.children.is_empty() {
             tree.children.push(Tree::new(&content));
-            tree.children.push(Tree::new(&self.menu));
         } else {
             tree.children[0].diff(content.as_widget());
-            if tree.children.len() > 1 {
-                tree.children[1].diff(self.menu.as_widget());
-            } else {
-                tree.children.push(Tree::new(&self.menu));
-            }
         }
     }
 
@@ -1468,20 +1512,6 @@ where
             }
         }
 
-        // Esc closes the open all-tabs menu.
-        if state.menu_open {
-            if let Event::Keyboard(keyboard::Event::KeyPressed {
-                key: keyboard::Key::Named(keyboard::key::Named::Escape),
-                ..
-            }) = event
-            {
-                state.menu_open = false;
-                shell.request_redraw();
-                shell.capture_event();
-                return;
-            }
-        }
-
         let bounds_for_gestures = bounds;
         // Snapshot the data needed by `tab_region_at` so the closure does not
         // borrow `state` (which `handle_event` mutably borrows through the
@@ -1586,15 +1616,6 @@ where
                         .page_step(OverflowDirection::Forward, CHEVRON_SCROLL_STEP_FACTOR);
                     state.scroll_offset = state.overflow.offset;
                     shell.invalidate_layout();
-                    shell.request_redraw();
-                    shell.capture_event();
-                }
-                (
-                    PointerButton::Primary,
-                    PointerGestureKind::Clicked { .. },
-                    TabRegion::AllTabsButton,
-                ) => {
-                    state.menu_open = true;
                     shell.request_redraw();
                     shell.capture_event();
                 }
@@ -1963,68 +1984,17 @@ where
         viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, crate::theme::Theme, iced::Renderer>> {
-        let _ = (renderer, viewport);
-        let anchor_bounds = translation_applied_bounds(layout.bounds(), translation);
-        let trigger_for_anchor = tree.state.downcast_ref::<TabBarState<Id>>().all_tabs_button;
-        let state = tree.state.downcast_mut::<TabBarState<Id>>();
-
-        if !state.menu_open {
-            return None;
-        }
-
-        let trigger_bounds = trigger_for_anchor
-            .map(|bounds| Rectangle {
-                x: bounds.x + translation.x,
-                y: bounds.y + translation.y,
-                width: bounds.width,
-                height: bounds.height,
-            })
-            .unwrap_or(anchor_bounds);
-
-        // The menu element is refreshed in `update` before `overlay` runs, so it
-        // reflects the latest tab set.
-        let on_select_ref = self.on_select.as_ref();
-        let menu_state = &mut tree.children[1];
-        let menu: &'b mut Element<'a, MenuMessage<Id>> = &mut self.menu;
-        let on_dismiss_message = MenuMessage::<Id>::Dismiss;
-
-        let on_message =
-            move |message: MenuMessage<Id>, parent_shell: &mut Shell<'_, Message>| match message {
-                MenuMessage::Select(id) => {
-                    if let Some(on_select) = on_select_ref {
-                        parent_shell.publish(on_select(id));
-                    }
-                    state.menu_open = false;
-                    parent_shell.capture_event();
-                    parent_shell.request_redraw();
-                }
-                MenuMessage::Dismiss => {
-                    state.menu_open = false;
-                    parent_shell.capture_event();
-                    parent_shell.request_redraw();
-                }
-            };
-
-        let overlay = AnchoredOverlay::new(
-            trigger_bounds,
-            menu,
-            menu_state,
-            PopoverPlacement::BottomEnd,
-            PopoverWidth::MatchAnchor,
-            PopoverCollision::default(),
-            0.0,
-            Some(on_dismiss_message),
-            on_message,
+        self.overlay_content = {
+            let state = tree.state.downcast_ref::<TabBarState<Id>>();
+            self.content_element(state)
+        };
+        self.overlay_content.as_widget_mut().overlay(
+            &mut tree.children[0],
+            layout,
+            renderer,
+            viewport,
+            translation,
         )
-        .on_key_press(|event| match event {
-            keyboard::Event::KeyPressed {
-                key: keyboard::Key::Named(keyboard::key::Named::Escape),
-                ..
-            } => Some(MenuMessage::<Id>::Dismiss),
-            _ => None,
-        });
-
-        Some(overlay::Element::new(Box::new(overlay)))
     }
 }
 
@@ -2071,15 +2041,6 @@ fn gesture_to_pointer<Region>(
         region,
         position: gesture.position,
         modifiers: gesture.modifiers,
-    }
-}
-
-fn translation_applied_bounds(bounds: Rectangle, translation: Vector) -> Rectangle {
-    Rectangle {
-        x: bounds.x + translation.x,
-        y: bounds.y + translation.y,
-        width: bounds.width,
-        height: bounds.height,
     }
 }
 
@@ -2303,7 +2264,7 @@ mod tabs_tests {
         assert_eq!(st.max_scroll, 0.0);
         assert!(st.dragged_id.is_none());
         assert!(st.insertion_target.is_none());
-        assert!(!st.menu_open);
+        assert!(!st.menu_open.get());
     }
 
     #[test]
