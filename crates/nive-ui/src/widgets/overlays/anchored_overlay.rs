@@ -16,13 +16,24 @@ pub use geometry::{PopoverCollision, PopoverPlacement, PopoverWidth};
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// How keyboard focus behaves when a Popover opens.
+///
+/// These policies consume the enclosing shared logical-focus root. They do not
+/// expose or create a popup-local focus coordinator. Focus restoration uses an
+/// internal opaque target and never treats a public widget id as restoration
+/// identity.
 pub enum PopoverFocusPolicy {
-    /// Keep focus on the anchor. This is the default.
+    /// Keep actual focus on the logical anchor. This is the default.
     #[default]
     RetainAnchor,
-    /// Focus the first focusable descendant and allow ordinary Tab traversal to leave.
+    /// Focus the first enabled descendant and let ordinary Tab traversal leave.
+    ///
+    /// A traversal exit requests dismissal only when the Popover has dismissal
+    /// capability and does not restore over the traversal destination.
     FocusFirst,
-    /// Focus the first focusable descendant and cycle Tab traversal inside the Popover.
+    /// Focus the first enabled descendant and cycle Tab traversal inside.
+    ///
+    /// Escape, outside press, or owned activation may conditionally restore the
+    /// captured anchor after the application supplies the closed state.
     Trap,
 }
 

@@ -75,8 +75,9 @@ Use `Checkbox` for submitted independent choices, including controlled
 `CheckboxState::Mixed`; `RadioGroup` for one visible choice among labelled
 options; `Switch::inline` or `Switch::setting` for an immediate binary setting;
 and typed `SegmentedControl` for two through five fixed modes or filters. Use
-popup-backed `Select` for longer or open-ended option sets and `TabBar` for
-documents or views with their own lifecycle.
+popup-backed `Select<T>` with labelled `SelectOption<T>` values for longer or
+open-ended option sets and `TabBar` for documents or views with their own
+lifecycle.
 
 All four controls are controlled: callbacks request the next typed value and the
 application supplies the next view state. Missing callbacks mean display-only,
@@ -88,11 +89,86 @@ native accessibility-tree emission.
 See [the selection-controls migration guide](../../docs/migrations/selection-controls.md)
 for callback and compatibility changes.
 
+### Anchored overlays and popup controls
+
+The composition direction is intentionally one-way:
+
+```text
+anchored geometry/lifecycle
+        ├── Tooltip
+        └── Popover
+              └── Menu
+                    ├── Select
+                    └── Autocomplete
+```
+
+- `Tooltip` is passive supplementary disclosure. It reveals from pointer or
+  keyboard focus after scoped timing, flips/shifts inside the viewport, and
+  never replaces an icon-only anchor's independent semantic name.
+- `Popover` owns the only floating fill, perimeter, 8 px radius, shadow,
+  rectangular outer clip, semantic inset, and bounded vertical Scrollable.
+  Supply surface-free content; do not add another `Panel`, radius, or
+  `Scrollable`.
+- `Menu` owns its EdgeToEdge FocusFirst Popover, fixed 28 px desktop rows, one
+  composite focus target, typed command/checkbox/radio/submenu entries, and
+  dismissal policy. `MenuCommand::from_action(&Action<M>)` projects the shared
+  `nive-core` action without creating another command catalog.
+- `Select<T>` is the typed bounded-choice form control. `Autocomplete<T>` is
+  the typed query input whose app owns query, filtering, retrieval state,
+  ordering, and committed value. Both integrate with `Field`; retrieval Error
+  is popup content, not Field invalid state.
+
+```rust
+use nive_ui::prelude::*;
+
+let tier = Field::new(
+    "Account tier",
+    Select::new(
+        vec![
+            SelectOption::new("starter", "Starter"),
+            SelectOption::new("team", "Team"),
+        ],
+        Some("team"),
+    )
+    .on_select(|_| ()),
+);
+
+let results = AutocompleteResults::suggestions(vec![
+    AutocompleteSuggestion::new(1_u64, "Nive Labs"),
+]);
+let organization = Field::new(
+    "Organization",
+    Autocomplete::new("niv", None, results)
+        .open(true)
+        .on_change(|_| ())
+        .on_select(|_| ())
+        .on_dismiss(()),
+);
+```
+
+Callback absence removes only that capability and does not apply disabled
+colors. Explicit `disabled(true)` has stronger precedence and suppresses
+interaction without changing geometry. Overlay, highlight, result, and
+chevron visuals move immediately to their terminal state; interpolated motion
+belongs to the later `adopt-motion-preference-in-anchored-overlays` work.
+`Start`/`End` and submenu arrows currently use physical LTR semantics. Retained
+names, open state, values, and logical highlight are preparatory metadata only:
+Nive does not yet emit native accessibility-tree roles, names, expanded state,
+active-descendant relations, or announcements.
+
+Category-specific controllers keep their ownership. Use `TabBar` for document
+navigation, `Toolbar` for application chrome, `VerticalRail` for edge
+navigation, `Dialog` for modal interaction, `CommandPalette` for command
+search, and specialized inputs such as `ColorInput` for their domains; do not
+replace them with `Select`, `Menu`, or a generic Popover merely because they
+also open floating content.
+
 ## Structural widget contracts
 
 ### Form controls and composition
 
-`Input`, `InputGroup`, `Field`, `FieldGroup`, and `Button` share
+`Input`, `InputGroup`, `Select`, `Autocomplete`, `Field`, `FieldGroup`, and
+`Button` share
 `theme::FormControlMetrics`. Built-in outer heights by density are:
 
 | Density | Xs | Sm | Md | Lg |
@@ -103,7 +179,8 @@ for callback and compatibility changes.
 
 Form value text uses `TypographyRole::Control` (Inter Regular 14 px) and
 button labels use `ControlStrong` (Inter Semibold 14 px), both with 1.25 line
-height. `Field::new(label, Input/InputGroup)` is the canonical typed boundary:
+height. `Field::new(label, Input/InputGroup/Select/Autocomplete)` is the
+canonical typed boundary:
 the Field owns validation from its nonempty error, Required/Optional text,
 label focus, and the shared hint/error slot. `Field::custom` is an explicit
 escape hatch whose focus, state, size, semantics, and clipping remain

@@ -28,6 +28,10 @@ use crate::widgets::overlays::anchored_overlay::scroll::EnsureVisibleHandle;
 use widget::{AutocompleteCallbacks, AutocompleteHandles, AutocompleteWidget, HighlightVisibility};
 
 /// One typed application value rendered by [`Autocomplete`].
+///
+/// The value is durable identity and must be unique within a Suggestions
+/// result. Leading icons and trailing secondary text are presentation metadata;
+/// a disabled suggestion remains visible but cannot be activated.
 #[derive(Debug, Clone)]
 pub struct AutocompleteSuggestion<'a, T>
 where
@@ -112,15 +116,23 @@ where
 impl<T> Eq for AutocompleteSuggestion<'_, T> where T: Clone + Eq {}
 
 /// One atomic result state supplied to [`Autocomplete`].
+///
+/// The application supplies exactly one complete state per view. Loading,
+/// Empty, and Error remain visible popup content with no selectable rows.
+/// Retrieval Error is independent from [`FieldValidation::Invalid`].
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AutocompleteResults<'a, T>
 where
     T: Clone + Eq,
 {
+    /// The complete ordered suggestion set for this view.
     Suggestions(Vec<AutocompleteSuggestion<'a, T>>),
+    /// Results are being retrieved.
     Loading,
+    /// Retrieval completed without suggestions and supplies visible help text.
     Empty(Cow<'a, str>),
+    /// Retrieval failed and supplies visible popup error text.
     Error(Cow<'a, str>),
 }
 
@@ -128,8 +140,10 @@ where
 #[non_exhaustive]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum AutocompleteHighlight {
+    /// Open a fresh suggestion session without an implicit choice.
     #[default]
     None,
+    /// Highlight the first eligible suggestion in a fresh session.
     First,
 }
 
@@ -173,7 +187,30 @@ where
 ///
 /// Query editing and committed selection remain application-owned. Semantic
 /// names and selected values are retained as preparatory metadata; Nive does
-/// not currently claim native expanded or active-descendant emission.
+/// not currently claim native expanded or active-descendant emission. The
+/// application also owns filtering, ordering, retrieval, and result-state
+/// transitions; retrieval Error does not invalidate the Field.
+///
+/// Actual focus and caret remain in the Input while suggestions use logical
+/// highlight. Arrow navigation is bounded and does not change query text;
+/// Enter without a highlight remains available to Input submit. Pointer
+/// selection publishes `on_select(T)` before blur processing and does not also
+/// publish `on_dismiss`.
+///
+/// Each optional callback controls only its own capability. Missing change,
+/// clear, select, or dismiss callbacks do not imply disabled styling or create
+/// hidden application state. Explicit `disabled(true)` wins over all callbacks
+/// and suppresses interaction while preserving frame and content geometry.
+/// A dismiss-capable Escape, outside press, Tab, or real blur publishes exactly
+/// one dismissal and latches that semantic query/results/focus session closed;
+/// without dismissal capability no latch or simulated close is created.
+/// Programmatic `open` changes are silent.
+///
+/// Popup, result, and trailing-slot visuals update immediately with no local
+/// animator or motion preference. Retained names, open state, values, result
+/// state, and logical highlight are preparatory metadata only: Autocomplete
+/// does not emit native combobox roles, names, expanded state,
+/// active-descendant relations, or announcements.
 ///
 /// Legacy message adapters are intentionally absent:
 ///

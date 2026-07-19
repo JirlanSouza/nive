@@ -21,13 +21,20 @@ const COLD_DELAY: Duration = Duration::from_millis(500);
 const TOOLTIP_MAX_WIDTH: f32 = 280.0;
 
 /// Preferred physical side for passive Tooltip disclosure.
+///
+/// Placement uses physical screen edges. The shared overlay resolver may flip
+/// the Tooltip to the opposite side and shift it within the safe viewport.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TooltipPlacement {
+    /// Prefer the edge above the anchor.
     Top,
+    /// Prefer the edge to the right of the anchor.
     Right,
+    /// Prefer the edge below the anchor. This is the default.
     #[default]
     Bottom,
+    /// Prefer the edge to the left of the anchor.
     Left,
 }
 
@@ -35,7 +42,19 @@ pub enum TooltipPlacement {
 ///
 /// Tooltip text supplements rather than replaces the anchor's semantic name.
 /// It reveals after 500ms when isolated, uses scoped neighboring timing inside
-/// [`TooltipScope`], and emits no native accessibility node.
+/// [`TooltipScope`], and closes on pointer exit, focus loss, or Escape. A
+/// disabled anchor can still be explained by pointer hover, but remains
+/// unavailable to keyboard focus.
+///
+/// The Tooltip is passive: it does not accept interactive content, take focus,
+/// or intercept anchor activation. It renders with a four-pixel anchor gap,
+/// flip-and-shift collision handling, and a 280px wrapping cap. Reveal happens
+/// immediately at the terminal visual state after the behavioral delay; no
+/// opacity or translation animation is implemented in this API wave.
+///
+/// Tooltip text and focus behavior do not emit a native accessibility node or
+/// semantic name. Icon-only and non-obvious anchors must retain independent
+/// semantic-name metadata for a future accessibility-tree integration.
 ///
 /// The former placement helper is not retained as a compatibility facade:
 ///
