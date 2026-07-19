@@ -31,8 +31,8 @@ pub use display::{
     reveal, row_height, scroll_offset_to, visible_index_of, AvatarClass, AvatarKind, AvatarSize,
     AvatarStatus, Badge, BadgeContent, BadgeKind, DataRow, EmptyState, InitialAvatar, KeyValueList,
     MetadataItem, MetadataTag, MetricCard, Tree, TreeChildren, TreeDrag, TreeDrop, TreeDropTarget,
-    TreeEvent, TreeEventKind, TreeExpandBehavior, TreeItem, TreeNode, TreePasteTarget, TreeState,
-    TreeStateChange, VersionBadge,
+    TreeEvent, TreeEventKind, TreeExpandBehavior, TreeItem, TreeItemDropEdge, TreeNode,
+    TreePasteTarget, TreeState, TreeStateChange, VersionBadge,
 };
 pub use feedback::{
     ErrorDetailsDialog, ErrorEmptyState, ErrorFeedback, ErrorFeedbackAction,
@@ -48,9 +48,11 @@ pub use navigation::{
     ToolbarAction, ToolbarGroup, VerticalRail, VerticalRailBadge, VerticalRailItem,
 };
 pub use overlays::{
-    Dialog, DialogActionFooter, DialogFooter, DialogHeader, DialogHost, Popover, PopoverCollision,
-    PopoverFocusPolicy, PopoverInset, PopoverPlacement, PopoverWidth, ToastHost, ToastPosition,
-    ToastPresentation, ToastTone, Tooltip, TooltipPlacement, TooltipScope,
+    Dialog, DialogAction, DialogActionFooter, DialogActionFooterError, DialogActionRole,
+    DialogFooter, DialogHeader, DialogHost, DialogInitialFocus, DialogSize, DialogTerminalAction,
+    Popover, PopoverCollision, PopoverFocusPolicy, PopoverInset, PopoverPlacement, PopoverWidth,
+    ToastHost, ToastPosition, ToastPresentation, ToastTone, Tooltip, TooltipPlacement,
+    TooltipScope,
 };
 pub use primitives::{
     space, svg, ColorSwatch, Icon, IconGlyph, IconRole, IconSource, Separator, SeparatorExtent,

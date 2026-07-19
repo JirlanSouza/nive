@@ -1,152 +1,93 @@
+//! Canonical Dialog anatomy: [`Dialog`], [`DialogHeader`], [`DialogFooter`],
+//! typed [`DialogAction`]/[`DialogTerminalAction`]/[`DialogActionFooter`],
+//! and [`DialogSize`]. Hosting, the semantic backdrop, event routing, and
+//! focus lifecycle live in [`super::DialogHost`]; the declarative runtime
+//! request/dismissal policy lives in `nive_runtime::DialogRequest` and
+//! `nive_runtime::DialogDismiss`.
+//!
+//! # Anatomy
+//!
+//! A canonical Dialog is `Dialog::new(body)` plus optional `.header(...)`,
+//! `.footer(...)`, and `.size(DialogSize)`. The frame, insets, seams, and
+//! internal body viewport are private: Dialog exposes no generic `Length`,
+//! raw width/height, raw padding, raw radius, or `ControlSize` builder.
+//!
+//! ```
+//! use nive_ui::prelude::*;
+//!
+//! #[derive(Clone)]
+//! enum Message {
+//!     Cancel,
+//!     Save,
+//! }
+//!
+//! let _dialog: Element<'_, Message> = Dialog::new(text("Body content"))
+//!     .size(DialogSize::Md)
+//!     .header(DialogHeader::new("Title").description("Supporting copy"))
+//!     .footer(DialogActionFooter::with_one(
+//!         DialogAction::cancel("Cancel", Message::Cancel),
+//!         DialogTerminalAction::primary("Save", Message::Save),
+//!     ))
+//!     .into();
+//! ```
+//!
+//! # Platform limits
+//!
+//! This family implements widget-event modality, logical-focus containment,
+//! retained semantic copy, and semantic visual roles — it does not claim
+//! platform features Iced 0.14 does not expose. In particular:
+//!
+//! - No native dialog role, `aria-modal`, title/description relationships,
+//!   busy/live announcements, or accessibility-tree inertness are claimed
+//!   before an AccessKit bridge exists; keyboard trapping and widget-level
+//!   inertness are implemented and tested today.
+//! - The frame paints the semantic large radius, but Iced 0.14 container
+//!   clipping is rectangular — there is no true rounded descendant mask.
+//! - Action placement is physical LTR and direction-ready, not full RTL.
+//! - The modal capture boundary suppresses ordinary ignored-event listeners
+//!   (`keyboard::listen()`, the runtime shortcut map), but a deliberately
+//!   raw `event::listen_raw` subscription can still observe captured input
+//!   by Iced design.
+//! - Mount, Scrim appearance, state changes, and unmount are immediate: no
+//!   duration, easing, timer, or retained exit subtree exists yet.
+//!
+//! # Private implementation surface
+//!
+//! Frame/geometry, action-layout, and focus-marker internals are not part
+//! of the public API:
+//!
+//! ```compile_fail
+//! use nive_ui::widgets::overlays::dialog::widget::Dialog;
+//! ```
+//!
+//! ```compile_fail
+//! use nive_ui::widgets::overlays::dialog::footer::{
+//!     DialogActionFooterWidget, TerminalActionMarker, TerminalActionTag,
+//! };
+//! ```
+//!
+//! ```compile_fail
+//! use nive_ui::prelude::*;
+//! let dialog: Dialog<'_, ()> = Dialog::new(text("Body"));
+//! let _ = dialog.width(iced::Length::Fill);
+//! ```
+//!
+//! ```compile_fail
+//! use nive_ui::prelude::*;
+//! let _footer: DialogActionFooter<'_, ()> =
+//!     DialogActionFooter::new(DialogAction::cancel("Cancel", ()));
+//! ```
+
 mod footer;
+mod header;
+mod size;
+mod widget;
 
-use iced::{
-    widget::{column, row, text},
-    Length,
+pub(crate) use footer::TerminalActionTag;
+pub use footer::{
+    DialogAction, DialogActionFooter, DialogActionFooterError, DialogActionRole, DialogFooter,
+    DialogTerminalAction,
 };
-
-pub use footer::DialogActionFooter;
-
-use crate::theme::{self, text as theme_text, SurfaceRole, TextRole, TypographyRole};
-use crate::widgets::containers::Panel;
-use crate::Element;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct DialogMetrics {
-    width: f32,
-    padding: f32,
-    header_gap: f32,
-    title_size: f32,
-    description_size: f32,
-}
-
-pub struct Dialog<'a, Message> {
-    content: Element<'a, Message>,
-}
-
-impl<'a, Message> Dialog<'a, Message>
-where
-    Message: Clone + 'a,
-{
-    pub fn new(content: impl Into<Element<'a, Message>>) -> Self {
-        Self {
-            content: content.into(),
-        }
-    }
-
-    fn into_element(self) -> Element<'a, Message> {
-        let metrics = metrics();
-
-        Panel::new(self.content)
-            .role(SurfaceRole::Dialog)
-            .body_padding(metrics.padding)
-            .width(metrics.width)
-            .into()
-    }
-}
-
-impl<'a, Message> From<Dialog<'a, Message>> for Element<'a, Message>
-where
-    Message: Clone + 'a,
-{
-    fn from(dialog: Dialog<'a, Message>) -> Self {
-        dialog.into_element()
-    }
-}
-
-pub struct DialogHeader<'a> {
-    title: &'a str,
-    description: Option<&'a str>,
-}
-
-impl<'a> DialogHeader<'a> {
-    pub fn new(title: &'a str) -> Self {
-        Self {
-            title,
-            description: None,
-        }
-    }
-
-    pub fn description(mut self, description: &'a str) -> Self {
-        self.description = Some(description);
-        self
-    }
-
-    fn into_element<Message>(self) -> Element<'a, Message>
-    where
-        Message: 'a,
-    {
-        let metrics = metrics();
-        let mut content = column![text(self.title)
-            .size(metrics.title_size)
-            .style(title_style())]
-        .spacing(metrics.header_gap);
-
-        if let Some(description) = self.description {
-            content = content.push(
-                text(description)
-                    .size(metrics.description_size)
-                    .style(description_style()),
-            );
-        }
-
-        content.into()
-    }
-}
-
-impl<'a, Message> From<DialogHeader<'a>> for Element<'a, Message>
-where
-    Message: 'a,
-{
-    fn from(header: DialogHeader<'a>) -> Self {
-        header.into_element()
-    }
-}
-
-pub struct DialogFooter<'a, Message> {
-    content: Element<'a, Message>,
-}
-
-impl<'a, Message> DialogFooter<'a, Message>
-where
-    Message: Clone + 'a,
-{
-    pub fn new(content: impl Into<Element<'a, Message>>) -> Self {
-        Self {
-            content: content.into(),
-        }
-    }
-
-    fn into_element(self) -> Element<'a, Message> {
-        row![self.content].width(Length::Fill).into()
-    }
-}
-
-impl<'a, Message> From<DialogFooter<'a, Message>> for Element<'a, Message>
-where
-    Message: Clone + 'a,
-{
-    fn from(footer: DialogFooter<'a, Message>) -> Self {
-        footer.into_element()
-    }
-}
-
-fn metrics() -> DialogMetrics {
-    let spacing = theme::spacing();
-
-    DialogMetrics {
-        width: 420.0,
-        padding: spacing.xl + spacing.xs,
-        header_gap: spacing.xs,
-        title_size: theme::typography(TypographyRole::Heading).size,
-        description_size: theme::typography(TypographyRole::Body).size,
-    }
-}
-
-fn title_style() -> impl Fn(&crate::theme::Theme) -> text::Style {
-    theme_text::style(TextRole::Primary)
-}
-
-fn description_style() -> impl Fn(&crate::theme::Theme) -> text::Style {
-    theme_text::style(TextRole::Muted)
-}
+pub use header::DialogHeader;
+pub use size::DialogSize;
+pub use widget::Dialog;

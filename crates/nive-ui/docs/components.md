@@ -69,12 +69,53 @@ dropped.
 
 ## Dialog Infrastructure
 
-`DialogHost` owns modal composition, backdrop rendering, pointer blocking and
-focus trapping. Runtime integrations provide optional backdrop and Escape
-messages; the host publishes those messages without changing product state.
+`Dialog` owns one canonical anatomy: a fixed `DialogHeader`, a body that owns
+the only vertical scroll region, and an optional fixed footer, painted as one
+borderless `SurfaceRole::Dialog` frame (`ShapeSize::Lg`). `DialogSize::{Sm,
+Md, Lg}` (420/560/720 px, `Sm` default) is the only width control — there is
+no generic `Length`, raw width/height, raw padding, or raw radius builder.
 
-Dialog content remains composed with `Dialog`, `DialogHeader`,
-`DialogFooter` and `DialogActionFooter`.
+```rust
+Dialog::new(body)
+    .size(DialogSize::Md)
+    .header(DialogHeader::new("Title").description("Supporting copy"))
+    .footer(DialogActionFooter::with_one(
+        DialogAction::cancel("Cancel", Message::Cancel),
+        DialogTerminalAction::primary("Save", Message::Save),
+    ))
+```
+
+`DialogHeader` accepts owned/borrowed `Cow` title and description text, an
+optional semantic `IconRole`, and an optional safe icon-only close action
+(`.close(name, message)`) that is never destructive. `DialogFooter` hosts
+arbitrary non-action footer content; `DialogActionFooter` is the canonical
+action row — one required terminal `Primary`/`Destructive`
+`DialogTerminalAction` plus at most two preceding `Cancel`/`Secondary`
+`DialogAction`s, with measured responsive reflow (single row → status above
+actions → stacked actions) and non-repeated-Enter activation of an enabled
+Primary action (never Destructive).
+
+`DialogHost` owns modal composition: it resolves the backdrop from the
+theme's `SurfaceRole::Scrim` (no raw alpha), makes base content externally
+inert (pointer/touch/keyboard/wheel/focus operations) while still drawing it,
+gives Dialog-owned nested overlays (Select/Popover/Menu) first event
+priority, and captures every remaining modal event so nothing clicks or
+types through. Backdrop dismissal recognizes only a primary mouse/touch
+press with a concrete position outside the frame; Escape recognizes only a
+non-repeated keypress. `DialogInitialFocus::{First, Target(Id)}` resolves
+initial focus (body content, then footer Cancel/Secondary, then the header
+close affordance — never the terminal action), and a still-valid invoker is
+restored as an inactive logical anchor on close. `.dialog_id(Id)` names a
+declarative session so a rebuild with the same id doesn't recapture or
+re-resolve focus, while a changed id replaces the workflow step.
+
+At the runtime layer, `DialogRequest` (private fields; `dismiss(policy)`,
+`dismiss_on_backdrop(...)`, `dismiss_on_escape(...)`,
+`dismiss_on_backdrop_or_escape(...)`, `initial_focus(...)`, `id(...)`) and
+`DialogDismiss` (non-exhaustive, composable backdrop/Escape routes) declare
+what `ScreenView` hosts. `dismiss_on_backdrop`/`dismiss_on_escape` each
+replace only their own route and preserve the other — chaining both no
+longer silently drops the first.
 
 ## Feedback And Status
 
@@ -598,9 +639,13 @@ focus, and derive focus paint from `is_focus_visible()`.
 - **Enter** activates the focused button. Custom widgets that accept
   Enter (autocomplete, command palette) handle the key internally and
   surface the action through their message API.
-- **Backdrop clicks** dismiss modal dialogs unless the dialog explicitly
-  disables the behavior through `DialogDismiss::OnEscape` or
-  `DialogDismiss::None`.
+- **Backdrop clicks** dismiss modal dialogs only when the request configures
+  a backdrop route (`DialogDismiss::backdrop(...)`,
+  `DialogRequest::dismiss_on_backdrop(...)`, or
+  `dismiss_on_backdrop_or_escape(...)`). Backdrop and Escape are independent
+  routes on `DialogDismiss`: an absent route is still captured (never clicks
+  or types through) but publishes nothing, and configuring one route never
+  erases the other. `DialogDismiss::none()`/`Default` configures neither.
 - **Dialog focus return** captures the managed target that preceded the modal.
   Closing from a dialog button, Escape, backdrop, or controlled state restores
   a still-valid target only as the logical anchor: no target remains actively
