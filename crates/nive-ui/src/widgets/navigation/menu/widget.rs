@@ -30,8 +30,8 @@ use crate::{
 };
 
 use super::{
-    MENU_COLUMN_GAP, MENU_ICON_SIZE, MENU_LIST_INSET, MENU_MAX_WIDTH, MENU_MIN_WIDTH,
-    MENU_ROW_HEIGHT, MENU_ROW_PADDING_H, MENU_ROW_RADIUS, MENU_SEPARATOR_MARGIN,
+    MENU_COLUMN_GAP, MENU_ICON_SIZE, MENU_LIST_INSET, MENU_MAX_WIDTH, MENU_ROW_HEIGHT,
+    MENU_ROW_PADDING_H, MENU_ROW_RADIUS, MENU_SEPARATOR_MARGIN,
 };
 
 const SEPARATOR_HEIGHT: f32 = 1.0 + MENU_SEPARATOR_MARGIN * 2.0;
@@ -323,15 +323,13 @@ where
         self.content.as_widget().size()
     }
 
-    #[allow(clippy::manual_clamp)]
     fn layout(
         &mut self,
         tree: &mut Tree,
         renderer: &iced::Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        let maximum = limits.max().width.max(0.0).min(MENU_MAX_WIDTH);
-        let minimum = MENU_MIN_WIDTH.min(maximum);
+        let maximum = limits.max().width.clamp(0.0, MENU_MAX_WIDTH);
         self.trailing_width
             .set(max_trailing_width(renderer, &self.slots));
         let width = natural_width(
@@ -340,7 +338,7 @@ where
             self.reserve_choice,
             self.reserve_icon,
         )
-        .clamp(minimum, maximum);
+        .min(maximum);
         self.content
             .as_widget_mut()
             .layout(&mut tree.children[0], renderer, &limits.width(width))
