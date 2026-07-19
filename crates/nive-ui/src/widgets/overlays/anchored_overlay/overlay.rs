@@ -495,11 +495,12 @@ impl<LocalMessage: Clone, Message, OnMessage>
         if !matches!(key, keyboard::Key::Named(Named::Escape)) {
             return false;
         }
-        if let Some(message) = self.on_dismiss.clone() {
-            if !self.dismissal_already_requested() {
-                self.mark_dismissal_requested(PopoverDismissalCause::RestoreAnchor);
-                shell.publish(message);
-            }
+        let Some(message) = self.on_dismiss.clone() else {
+            return false;
+        };
+        if !self.dismissal_already_requested() {
+            self.mark_dismissal_requested(PopoverDismissalCause::RestoreAnchor);
+            shell.publish(message);
         }
         shell.capture_event();
         shell.invalidate_layout();

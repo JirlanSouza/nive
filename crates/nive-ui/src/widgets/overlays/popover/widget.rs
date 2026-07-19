@@ -28,6 +28,7 @@ pub(super) struct PopoverWidget<'a, Message> {
     pub(super) on_dismiss: Option<Message>,
     pub(super) focus_policy: PopoverFocusPolicy,
     pub(super) ensure_visible: Option<EnsureVisibleHandle>,
+    pub(super) anchor_width_cap: Option<f32>,
 }
 
 #[derive(Debug, Default)]
@@ -42,6 +43,18 @@ pub(super) struct PopoverState {
     expected_target: Option<FocusTarget>,
     pub(super) invalid_anchor: bool,
     overlay_node: OverlayNodeState,
+}
+
+pub(super) fn take_dismissal_request(tree: &mut Tree) -> bool {
+    if tree.tag == tree::Tag::of::<PopoverState>() {
+        return std::mem::take(
+            &mut tree
+                .state
+                .downcast_mut::<PopoverState>()
+                .dismissal_requested,
+        );
+    }
+    tree.children.iter_mut().any(take_dismissal_request)
 }
 
 impl<'a, Message> Widget<Message, crate::theme::Theme, iced::Renderer>
@@ -239,12 +252,21 @@ where
         );
 
         let popover_overlay = if self.open {
+            let anchor_bounds = translated_bounds(layout.bounds(), translation);
+            let width = self.anchor_width_cap.map_or(self.width, |cap| {
+                let anchor_width = if anchor_bounds.width.is_finite() {
+                    anchor_bounds.width.max(0.0)
+                } else {
+                    0.0
+                };
+                PopoverWidth::Fixed(anchor_width.min(cap))
+            });
             let anchored = AnchoredOverlay::new(
-                translated_bounds(layout.bounds(), translation),
+                anchor_bounds,
                 &mut self.content,
                 content_state,
                 self.placement,
-                self.width,
+                width,
                 self.collision,
                 self.gap,
                 self.on_dismiss.clone(),
