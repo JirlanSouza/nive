@@ -5,7 +5,7 @@ use iced::{
     Alignment, Length,
 };
 use nive_ui::theme::{self, TextRole, TypographyRole};
-use nive_ui::widgets::{icon, tooltip};
+use nive_ui::widgets::{icon, Tooltip};
 use nive_ui::{Element, IconRole};
 
 /// Principal document-title composition for application-owned document content.
@@ -72,7 +72,7 @@ where
             .into();
         let title: Element<'a, Message> = container(title).width(Length::Fill).clip(true).into();
         let title = match self.title_tooltip {
-            Some(label) => tooltip::Tooltip::new(title, label).into(),
+            Some(label) => Tooltip::new(title, label).into(),
             None => title,
         };
 

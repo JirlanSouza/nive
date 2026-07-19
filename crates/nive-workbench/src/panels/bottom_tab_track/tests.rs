@@ -138,6 +138,46 @@ fn tab(label: &'static str, disabled: bool) -> BottomHeaderTab<'static, &'static
 }
 
 #[test]
+fn renderer_measurement_only_marks_labels_that_exceed_the_tab_cap() {
+    let track = BottomPanelTabTrack::new(ControlSize::Sm, 0)
+        .push(tab("Output", false), Some(()))
+        .push(
+            tab(
+                "A renderer-measured bottom panel label that is intentionally much too long",
+                false,
+            ),
+            Some(()),
+        );
+    let renderer = iced_renderer::fallback::Renderer::Secondary(iced_tiny_skia::Renderer::new(
+        Font::default(),
+        Pixels(14.0),
+    ));
+
+    assert_eq!(
+        measured_truncation(&track.items, ControlSize::Sm, 0, &renderer),
+        vec![false, true]
+    );
+}
+
+#[test]
+fn tooltip_is_only_truncation_disclosure_or_explicit_supplementary_text() {
+    let short = tab("Output", false);
+    assert_eq!(tab_tooltip(&short, false), None);
+    assert_eq!(tab_tooltip(&short, true).as_deref(), Some("Output"));
+
+    let mut described = tab("Output", false);
+    described.tooltip = Some(Cow::Borrowed("Build output and diagnostics"));
+    assert_eq!(
+        tab_tooltip(&described, false).as_deref(),
+        Some("Build output and diagnostics")
+    );
+    assert_eq!(
+        tab_tooltip(&described, true).as_deref(),
+        Some("Build output and diagnostics")
+    );
+}
+
+#[test]
 fn composite_focus_starts_active_and_skips_disabled_tabs() {
     let track = BottomPanelTabTrack::new(ControlSize::Sm, 1)
         .push(tab("Output", false), Some(1_u8))
