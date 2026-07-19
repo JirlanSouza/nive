@@ -31,6 +31,16 @@ where
         renderer: &nive_ui::Renderer,
         limits: &layout::Limits,
     ) -> Node {
+        let truncated = measured_truncation(&self.items, self.size, self.active_index, renderer);
+        self.content = nive_ui::widgets::TooltipScope::new(build_content(
+            &self.items,
+            self.size,
+            self.active_index,
+            TrackBuild::Actual(&truncated),
+        ))
+        .into();
+        tree.children[0].diff(self.content.as_widget());
+
         let state = tree.state.downcast_ref::<TrackState>();
         let node = self
             .content

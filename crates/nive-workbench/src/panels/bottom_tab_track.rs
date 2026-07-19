@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use iced::{
     advanced::{
         layout::{self, Layout, Node},
@@ -78,6 +80,7 @@ where
             &self.items,
             self.size,
             self.active_index,
+            TrackBuild::Actual(&[]),
         ))
         .into();
         self
@@ -121,6 +124,7 @@ fn build_content<'a, Message>(
     items_data: &[TrackItem<'a, Message>],
     size: ControlSize,
     active_index: usize,
+    build: TrackBuild<'_>,
 ) -> Element<'a, Message>
 where
     Message: Clone + 'a,
@@ -178,26 +182,74 @@ where
                 .push(text(status.label().to_owned()));
         }
 
-        let tab: Element<'_, Message> = container(content)
+        let mut tab = container(content)
             .style(tab_content_style(active, item.metadata.disabled))
             .padding(Padding::ZERO.horizontal(metrics.padding_h))
-            .height(Length::Fixed(metrics.height))
-            .max_width(MAX_TAB_WIDTH)
-            .clip(true)
-            .into();
-        let tooltip = item
-            .metadata
-            .tooltip
-            .clone()
-            .unwrap_or_else(|| item.metadata.label.clone());
-        items = items.push(nive_ui::widgets::Tooltip::new(tab, tooltip));
+            .height(Length::Fixed(metrics.height));
+        if matches!(build, TrackBuild::Actual(_)) {
+            tab = tab.max_width(MAX_TAB_WIDTH).clip(true);
+        }
+        let tab: Element<'_, Message> = tab.into();
+        let truncated = match build {
+            TrackBuild::Actual(truncated) => truncated.get(index).copied().unwrap_or(false),
+            TrackBuild::Measure => false,
+        };
+        let tab = match tab_tooltip(&item.metadata, truncated) {
+            Some(tooltip) => nive_ui::widgets::Tooltip::new(tab, tooltip).into(),
+            None => tab,
+        };
+        items = items.push(tab);
     }
 
-    container(items)
-        .width(Length::Fill)
-        .height(Length::Fixed(metrics.height))
-        .clip(true)
-        .into()
+    let mut content = container(items).height(Length::Fixed(metrics.height));
+    if matches!(build, TrackBuild::Actual(_)) {
+        content = content.width(Length::Fill).clip(true);
+    }
+    content.into()
+}
+
+#[derive(Debug, Clone, Copy)]
+enum TrackBuild<'a> {
+    Actual(&'a [bool]),
+    Measure,
+}
+
+fn tab_tooltip<'a, PanelId>(
+    tab: &BottomHeaderTab<'a, PanelId>,
+    truncated: bool,
+) -> Option<Cow<'a, str>> {
+    tab.tooltip
+        .clone()
+        .or_else(|| truncated.then(|| tab.label.clone()))
+}
+
+fn measured_truncation<Message>(
+    items: &[TrackItem<'_, Message>],
+    size: ControlSize,
+    active_index: usize,
+    renderer: &nive_ui::Renderer,
+) -> Vec<bool>
+where
+    Message: Clone,
+{
+    let mut content = build_content(items, size, active_index, TrackBuild::Measure);
+    let mut tree = tree::Tree::new(&content);
+    let height = nive_ui::theme::control_metrics(size).height;
+    let node = content.as_widget_mut().layout(
+        &mut tree,
+        renderer,
+        &layout::Limits::new(Size::ZERO, Size::new(100_000.0, height)),
+    );
+
+    node.children()
+        .first()
+        .map(|row| {
+            row.children()
+                .iter()
+                .map(|item| item.size().width > MAX_TAB_WIDTH)
+                .collect()
+        })
+        .unwrap_or_else(|| vec![false; items.len()])
 }
 
 #[derive(Debug, Clone, Copy)]
