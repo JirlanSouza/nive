@@ -9,6 +9,8 @@ A Rust/Iced framework for building desktop applications.
 - **Design System**: Semantic theme contracts, tokens, and reusable widgets
 - **Application Lifecycle**: Window management, bootstrap, feedback, and devtools
 - **Workbench Shell**: Fixed-region document, panel, diagnostics, command, and status surfaces
+- **Anchored Popup Controls**: Collision-safe Tooltip/Popover, typed Menu,
+  Select, and Autocomplete composition with one shared logical-focus root
 - **Icon Management**: Theme-owned icon roles, app symbols, and provider-neutral `nive icons` CLI
 - **Scaffolding**: `nive new` CLI for quick project setup
 
@@ -73,15 +75,51 @@ On first launch, Nive installs a `.desktop` entry and icon PNG to `~/.local/shar
 ## Examples
 
 - [Counter](examples/counter/README.md) — Minimal app with `Application`, `Effect`, and `ScreenView`
-- [Forms](examples/forms/README.md) — Typed form composition with submitted Checkbox/RadioGroup, immediate Switch settings, validation, and dialogs
+- [Forms](examples/forms/README.md) — Typed form composition with submitted
+  Checkbox/RadioGroup/Select, atomic Autocomplete results, immediate Switch
+  settings, validation, and dialogs
 - [Async Data](examples/async-data/README.md) — `Resource` with guarded `begin`/`settle` loading and app-owned operations
 - [Multi Window](examples/multi-window/README.md) — Multiple windows with explicit `Window` enum
 - [Theming](examples/theming/README.md) — Runtime theme switching with `Application::theme` override
 - [Icons](examples/icons/README.md) — Roles, symbols, custom SVGs, and theme icon catalog overrides
-- [Widget Gallery](examples/widget-gallery/README.md) — Deterministic visual matrices for public widgets, including typed selection controls
-- [Workbench Monitor](examples/workbench-monitor/README.md) — Fixed-region monitor validating typed setting/filter selection without replacing navigation-owned controls
+- [Widget Gallery](examples/widget-gallery/README.md) — Deterministic public
+  Tooltip, Popover, Menu, Select, and Autocomplete matrices alongside the full
+  widget catalog
+- [Workbench Monitor](examples/workbench-monitor/README.md) — Fixed-region
+  monitor validating shared Tooltip/Menu consumers and a genuine typed service
+  filter without replacing navigation-owned controls
 - [File Picker](examples/file-picker/README.md) — Native file picker dialogs (feature-gated)
 - [Devtools](examples/devtools/README.md) — Runtime state inspection panel (feature-gated)
+
+### Popup-control reference runs
+
+From the repository root:
+
+```bash
+rtk just widget-gallery-dev
+rtk just example-dev forms
+rtk just example-dev workbench-monitor
+
+rtk cargo test --manifest-path examples/widget-gallery/Cargo.toml
+rtk cargo test --manifest-path examples/forms/Cargo.toml
+rtk cargo test --manifest-path examples/workbench-monitor/Cargo.toml
+rtk just examples-check
+```
+
+The current anchored-overlay contract uses physical LTR Start/End alignment and
+submenu arrows, immediate terminal visual states without interpolated popup
+motion, and Iced 0.14 rectangular clipping for arbitrary EdgeToEdge Popover
+descendants. Semantic names and popup state are retained for future
+accessibility integration, but native accessibility-tree roles, names,
+expanded state, active-descendant relations, and announcements are not yet
+claimed.
+
+For manual validation, the implementing agent launches and keeps each app
+available. The user captures and attaches the named Light/Dark, density,
+open/focus, nested, narrow, and low-viewport screenshots. The agent reviews
+only those supplied images, lands corrections, and requests replacement images;
+manual sign-off remains incomplete until the user confirms the final evidence.
+The agent does not capture manual-validation screenshots.
 
 ## Development
 

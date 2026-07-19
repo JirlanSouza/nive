@@ -15,6 +15,16 @@ A responsive typed contact form with validation feedback and a confirmation dial
 - primary/secondary action hierarchy and error-owned validation chrome
 - submitted tri-state `Checkbox`, required typed `RadioGroup`, and an immediate
   `Switch::setting` alongside display-only/disabled selection states
+- typed `Select<AccountTier>` inside `Field`, with app-owned selection,
+  placeholder, disabled Enterprise option, open/close messages, empty fixture,
+  invalid correction, and submission
+- typed organization `Autocomplete<Organization>` inside `Field`, with
+  app-owned query/filter/order/selection and atomic Suggestions, Loading,
+  Empty, and retrieval Error fixtures; retrieval failure remains separate from
+  Field validation
+- distinct Autocomplete query change, clear, selection, Input submit, blur,
+  and controlled dismissal paths, including Enter without highlight and
+  pointer selection before blur
 - `DialogRequest` with `dismiss_on_backdrop` and `dismiss_on_escape`
 - `Toast::success` for submission feedback
 - `ScreenView::dialog` for modal presentation
@@ -25,17 +35,31 @@ A responsive typed contact form with validation feedback and a confirmation dial
 rtk just example-dev forms
 ```
 
+Equivalent standalone run from the repository root:
+
+```sh
+rtk cargo run --manifest-path examples/forms/Cargo.toml
+```
+
 Check it from the repository root:
 
 ```sh
 rtk cargo test --manifest-path examples/forms/Cargo.toml
 rtk cargo check --manifest-path examples/forms/Cargo.toml
+rtk just examples-check
 ```
 
+Select and Autocomplete use the public Nive popup contracts without a second
+Panel, Scrollable, field frame, local focus coordinator, or styling repair.
+Popup visuals are immediate; Start/End placement is physical LTR; and retained
+name/open/value/highlight metadata does not yet emit native accessibility-tree
+roles, names, expanded state, active-descendant relations, or announcements.
+
 For manual sign-off, the agent launches the dev command and keeps the app
-available. The user captures and attaches initial, invalid-submit,
-Mixed-to-Checked, required RadioGroup correction, immediate Switch,
-corrected/valid-submit, disabled, label-focus, and narrow-wrap screenshots in
-representative Light/Dark densities. The agent
-reviews only those supplied images and requests replacements after visual
-corrections; it does not capture screenshots itself.
+available. The user captures and attaches initial, Select open, Autocomplete
+Suggestions/Loading/Empty/retrieval-error, invalid submit, corrected typed
+choices, clear, Enter-without-highlight submit, pointer-before-blur, disabled/
+display-only, submitted, narrow, and low-viewport screenshots in representative
+Light/Dark densities. The agent reviews only those supplied images, applies
+corrections, and requests replacements; it does not capture screenshots itself.
+Sign-off remains open until the user confirms the final supplied evidence.
