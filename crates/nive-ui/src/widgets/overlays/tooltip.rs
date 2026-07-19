@@ -36,6 +36,12 @@ pub enum TooltipPlacement {
 /// Tooltip text supplements rather than replaces the anchor's semantic name.
 /// It reveals after 500ms when isolated, uses scoped neighboring timing inside
 /// [`TooltipScope`], and emits no native accessibility node.
+///
+/// The former placement helper is not retained as a compatibility facade:
+///
+/// ```compile_fail
+/// use nive_ui::widgets::overlays::tooltip::bottom;
+/// ```
 pub struct Tooltip<'a, Message> {
     anchor: Element<'a, Message>,
     label: Cow<'a, str>,

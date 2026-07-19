@@ -2,11 +2,11 @@ use std::time::Duration;
 
 use iced::{
     advanced::{
-        layout, mouse, renderer,
+        layout, mouse, overlay, renderer,
         widget::{operation, tree, Tree},
         Clipboard, Layout, Shell, Widget,
     },
-    Event, Length, Rectangle, Size,
+    Event, Length, Rectangle, Size, Vector,
 };
 
 use super::widget::{request_redraw_after_visibility_change, TooltipState};
@@ -21,6 +21,19 @@ const WARM_WINDOW: Duration = Duration::from_millis(600);
 /// Each scope owns an independent persistent session in its Widget tree. A
 /// different neighbor may reveal after 100ms for 600ms after a Tooltip was
 /// actually shown; the same neighbor always waits 500ms.
+///
+/// Timing state and the operations used to arbitrate descendants remain
+/// private implementation details:
+///
+/// ```compile_fail
+/// use nive_ui::widgets::overlays::tooltip::scope::{
+///     ApplyWinner, CollectCandidates, ScopeState, WARM_DELAY, WARM_WINDOW,
+/// };
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::widgets::overlays::tooltip::widget::{TooltipState, TooltipWidget};
+/// ```
 pub struct TooltipScope<'a, Message> {
     content: Element<'a, Message>,
     now_override: Option<iced::time::Instant>,
@@ -207,6 +220,23 @@ impl<Message> Widget<Message, crate::theme::Theme, iced::Renderer> for TooltipSc
             cursor,
             viewport,
         );
+    }
+
+    fn overlay<'b>(
+        &'b mut self,
+        tree: &'b mut Tree,
+        layout: Layout<'b>,
+        renderer: &iced::Renderer,
+        viewport: &Rectangle,
+        translation: Vector,
+    ) -> Option<overlay::Element<'b, Message, crate::theme::Theme, iced::Renderer>> {
+        self.content.as_widget_mut().overlay(
+            &mut tree.children[0],
+            layout,
+            renderer,
+            viewport,
+            translation,
+        )
     }
 }
 
