@@ -6,8 +6,11 @@ pub mod popover;
 pub mod toast_host;
 pub mod tooltip;
 
-pub use dialog::{Dialog, DialogActionFooter, DialogFooter, DialogHeader};
-pub use dialog_host::DialogHost;
+pub use dialog::{
+    Dialog, DialogAction, DialogActionFooter, DialogActionFooterError, DialogActionRole,
+    DialogFooter, DialogHeader, DialogSize, DialogTerminalAction,
+};
+pub use dialog_host::{DialogHost, DialogInitialFocus};
 pub use popover::{
     Popover, PopoverCollision, PopoverFocusPolicy, PopoverInset, PopoverPlacement, PopoverWidth,
 };
