@@ -253,6 +253,21 @@ not yet imply native AccessKit name/relationship emission.
   Hover/focus/drag presentation is geometry-neutral; locked and callback-free
   panes are fully inert. Invalid minima normalize to zero and impossible minima
   use deterministic proportional allocation.
+- `Tree` is the controlled hierarchy widget: the app owns `TreeState`,
+  rebuilds `TreeNode`s every view pass, and applies each intent-only
+  `TreeEvent`. `TreeChildren` models `Loaded`, `Deferred`, and `Failed`
+  branches; build a failed branch with `TreeNode::branch_failed(id, label,
+  &error)` from a value implementing the core `ErrorPresentation` contract
+  (`nive-runtime`'s `UserFacingError` already does). Deferred, failed, and
+  empty branches each render one canonical chrome row — loading placeholder,
+  error row with retry, or empty affordance — excluded from selection, focus,
+  navigation, type-ahead, clipboard, and drag/drop. Context requests are
+  intent only: Tree emits `ContextRequested` and hosts no menu, so the
+  application hosts the canonical `Menu` at the request position. Rename is
+  also intent only (`RenameRequested`); Tree hosts no inline editor. `TreeItem`
+  is the stateless primitive row for custom hierarchies; both render row focus
+  independently from durable selection. Tree renders every expanded-visible
+  row and does not virtualize the viewport.
 
 ## Usage (monorepo path dependency)
 

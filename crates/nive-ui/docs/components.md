@@ -176,6 +176,41 @@ then pass `nive icons check`. Renderer limits remain explicit: Nive does not
 claim native definition-list/accessibility nodes or enforce OpenType `tnum`;
 tooltips supplement, but never replace, complete visible identity/status text.
 
+## Tree
+
+| Contract | Canonical API | Fixed semantics |
+| --- | --- | --- |
+| Controlled hierarchy | `Tree::new(nodes).state(&TreeState).on_event(...)` | app-owned `TreeState`, rebuilt `TreeNode`s, intent-only `TreeEvent` |
+| Loaded branch | `TreeNode::branch(id, label, children)` | empty `Vec` renders one canonical empty-affordance row |
+| Deferred branch | `TreeNode::branch_deferred(id, label)` | emits `ExpandRequested`, renders one loading placeholder row |
+| Failed branch | `TreeNode::branch_failed(id, label, &error)` | `error: &impl ErrorPresentation`; renders one error row with retry (re-emits `ExpandRequested`) |
+| Stateless row | `TreeItem::new(label)` | indentation, expander, hover/selection/disabled/focus styling, drag affordances; owns no state |
+
+Node IDs are app-domain values, stable and unique within one rendered tree;
+call `TreeState::retain_ids` when domain data changes. `TreeChildren` is
+`Loaded`/`Deferred`/`Failed` and non-exhaustive. Loading, failed, and empty
+rows are chrome: they never become selected, focused, type-ahead matched,
+copied, or dragged, but they do count in `visible_index_of`/`scroll_offset_to`
+rendered order.
+
+`Tree` never depends on `nive-runtime`; `branch_failed` consumes the neutral
+`nive_core::ErrorPresentation` contract (summary plus diagnostic detail), and
+apps pass their own `Resource<T>`/`UserFacingError` failure without
+conversion since `UserFacingError` already implements it. Context requests,
+rename, clipboard, paste, and drop are intent only — Tree performs no domain
+mutation, touches no system clipboard, and hosts no menu or inline editor.
+Context requests carry a `SelectionSnapshot` and honor
+`ContextSelectionBehavior`; the application hosts the canonical `Menu` at the
+request position. Selection follows `SelectionMode::{None, Single, Multiple}`;
+`Multiple` supports additive and Shift-range selection with a Tree-owned
+anchor. Row focus renders independently from durable selection in both `Tree`
+and `TreeItem`. Tree renders every expanded-visible row — it does not
+virtualize the viewport, though the uniform-row geometry stays
+virtualization-ready for a dedicated later change. Visible-traversal metadata
+(depth, level, parentage, order, expanded/selected/disabled state, placeholder
+rows) is recorded in the widget layer, but no native accessibility-tree role,
+`aria-*` value, or active-descendant relation is claimed yet.
+
 ## Action Surfaces
 
 `Card`, `ActionCard`, and `SelectableCard` share this frame:

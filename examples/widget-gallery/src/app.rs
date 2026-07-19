@@ -86,6 +86,7 @@ pub enum DialogKind {
     Basic,
     Destructive,
     LongContent,
+    NestedOverlay,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

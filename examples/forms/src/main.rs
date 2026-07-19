@@ -538,35 +538,40 @@ impl Application for FormsApp {
         let view = ScreenView::new(form);
 
         if self.show_dialog {
-            let dialog_content = column![
-                text("Confirm Submission"),
-                text(format!(
-                    "Name: {}\nEmail: {}\nTerms: {:?}\nDeployment: {:?}\nTier: {:?}\nOrganization: {:?}",
-                    self.name,
-                    self.email,
-                    self.terms,
-                    self.deployment,
-                    self.account_tier,
-                    self.organization,
-                )),
-                row![
-                    nive::widgets::button::secondary("Cancel")
-                        .on_press(Message::CloseDialog),
-                    nive::widgets::button::primary("Confirm").on_press(Message::Submit),
-                ]
-                .spacing(12),
-            ]
-            .padding(24)
-            .spacing(12);
-
-            view.dialog(
-                DialogRequest::new(dialog_content)
-                    .dismiss_on_backdrop(Message::CloseDialog)
-                    .dismiss_on_escape(Message::CloseDialog),
-            )
+            view.dialog(self.confirmation_dialog_request())
         } else {
             view
         }
+    }
+}
+
+impl FormsApp {
+    fn confirmation_dialog_request(&self) -> DialogRequest<'_, Message> {
+        let dialog_body = text(format!(
+            "Name: {}\nEmail: {}\nTerms: {:?}\nDeployment: {:?}\nTier: {:?}\nOrganization: {:?}",
+            self.name,
+            self.email,
+            self.terms,
+            self.deployment,
+            self.account_tier,
+            self.organization,
+        ));
+
+        let dialog = Dialog::new(dialog_body)
+            .size(DialogSize::Md)
+            .header(
+                DialogHeader::new("Confirm submission")
+                    .description("Review the current form values before they are submitted."),
+            )
+            .footer(DialogActionFooter::with_one(
+                DialogAction::cancel("Cancel", Message::CloseDialog),
+                DialogTerminalAction::primary("Confirm", Message::Submit),
+            ));
+
+        // No backdrop dismissal: an outside click must not silently discard
+        // edited form data. Escape follows the same safe Cancel path as the
+        // footer's Cancel action.
+        DialogRequest::new(dialog).dismiss_on_escape(Message::CloseDialog)
     }
 }
 
@@ -734,5 +739,55 @@ mod tests {
 
         assert_eq!(window.spec.min_size, Some(Size::new(480.0, 480.0)));
         assert_eq!(config.initial_windows(), &[()]);
+    }
+
+    fn fixture_app() -> FormsApp {
+        FormsApp {
+            name: "Ada Lovelace".to_string(),
+            email: "ada@example.com".to_string(),
+            terms: CheckboxState::Checked,
+            deployment: Some(Deployment::Preview),
+            account_tier: Some(AccountTier::Team),
+            organization_query: String::new(),
+            organization: Some(Organization::NiveCore),
+            organization_results: OrganizationResultMode::Suggestions,
+            organization_open: false,
+            organization_feedback: "Autocomplete: idle",
+            sync_updates: true,
+            submit_attempted: false,
+            show_dialog: true,
+        }
+    }
+
+    #[test]
+    fn confirmation_dialog_does_not_enable_backdrop_dismissal_for_edited_data() {
+        let app = fixture_app();
+        let request = app.confirmation_dialog_request();
+
+        assert!(request.dismiss_policy().on_backdrop().is_none());
+    }
+
+    #[test]
+    fn confirmation_dialog_escape_follows_the_same_route_as_the_footer_cancel() {
+        let app = fixture_app();
+        let request = app.confirmation_dialog_request();
+
+        assert!(matches!(
+            request.dismiss_policy().on_escape(),
+            Some(Message::CloseDialog)
+        ));
+    }
+
+    #[test]
+    fn confirmation_dialog_first_focus_lands_inside_the_dialog_not_the_invoker() {
+        // The dialog declares no explicit initial-focus target, so it uses
+        // `DialogInitialFocus::First`, which resolves to the footer's
+        // Cancel action here (the body is static review text with nothing
+        // focusable) rather than leaving focus on the base "Preview
+        // dialog" invoker button.
+        let app = fixture_app();
+        let request = app.confirmation_dialog_request();
+
+        assert_eq!(request.initial_focus_policy(), &DialogInitialFocus::First);
     }
 }
