@@ -151,13 +151,13 @@ fn outside_mouse_and_touch_request_one_dismissal() {
 }
 
 #[test]
-fn callback_absence_owns_escape_but_does_not_capture_outside_press() {
+fn callback_absence_does_not_capture_escape_or_outside_press() {
     let mut harness = popover_harness(None);
     let escape = harness
         .update_overlay(key_pressed(key::Named::Escape, key::Code::Escape))
         .expect("open Popover overlay");
     assert!(escape.messages.is_empty());
-    assert!(escape.captured);
+    assert!(!escape.captured);
 
     harness.set_cursor(Point::new(300.0, 180.0));
     let outside = harness
