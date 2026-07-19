@@ -67,6 +67,30 @@ impl FocusTargetContext {
     pub(crate) fn bind(&mut self, coordinator: &SharedFocusCoordinator) {
         self.coordinator = Arc::downgrade(coordinator);
     }
+
+    /// Marks `target`'s token live for the current liveness generation
+    /// without routing through the normal `FocusState`-registration path.
+    ///
+    /// A modal host (`DialogHost`) independently re-confirms its captured
+    /// invoker still exists in the base tree on every `operate()` pass
+    /// (via [`contains_focus_target`]), even while that same pass makes
+    /// base content otherwise unreachable to ordinary operations. Without
+    /// this, the invoker's token would never be touched by the shared
+    /// coordinator's per-generation liveness bookkeeping for as long as the
+    /// modal stays open, so the next liveness pass to finish (driven by the
+    /// modal's own overlay content) would prune it as dead and refuse the
+    /// eventual anchor-only restoration on close.
+    pub(crate) fn keep_alive(&self, target: &FocusTarget) {
+        let Some(coordinator) = self.coordinator.upgrade() else {
+            return;
+        };
+        if !target.matches_root(&coordinator) {
+            return;
+        }
+        let mut coordinator = lock_coordinator(&coordinator);
+        let generation = coordinator.ensure_liveness();
+        coordinator.observe_live(target.token, generation);
+    }
 }
 
 /// Opaque crate-private reference to one managed focus target and activation.
