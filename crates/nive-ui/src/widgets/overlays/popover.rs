@@ -20,6 +20,10 @@ pub use super::anchored_overlay::{
     PopoverCollision, PopoverFocusPolicy, PopoverPlacement, PopoverWidth,
 };
 
+pub(crate) fn take_dismissal_request(tree: &mut iced::advanced::widget::Tree) -> bool {
+    widget::take_dismissal_request(tree)
+}
+
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Padding owned by the canonical Popover surface.
@@ -48,6 +52,23 @@ impl PopoverInset {
 /// The Popover owns its border, eight-pixel radius, shadow, clipping, inset, and
 /// vertical overflow viewport. Supply surface-free content instead of wrapping
 /// it in another Panel or Scrollable.
+///
+/// Low-level overlay, geometry, focus, and rendering kernels are intentionally
+/// unavailable to application code:
+///
+/// ```compile_fail
+/// use nive_ui::widgets::overlays::popover::PopoverOverlay;
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::widgets::overlays::anchored_overlay::{
+///     translated_bounds, AnchoredOverlay, PopoverDismissalCause,
+/// };
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::widgets::overlays::popover::widget::{PopoverState, PopoverWidget};
+/// ```
 pub struct Popover<'a, Message> {
     anchor: Element<'a, Message>,
     content: Element<'a, Message>,
@@ -60,6 +81,8 @@ pub struct Popover<'a, Message> {
     inset: PopoverInset,
     focus_policy: PopoverFocusPolicy,
     ensure_visible: Option<EnsureVisibleHandle>,
+    anchor_width_cap: Option<f32>,
+    max_height: Option<f32>,
 }
 
 impl<'a, Message> Popover<'a, Message>
@@ -79,6 +102,8 @@ where
             inset: PopoverInset::default(),
             focus_policy: PopoverFocusPolicy::default(),
             ensure_visible: None,
+            anchor_width_cap: None,
+            max_height: None,
         }
     }
 
@@ -153,18 +178,24 @@ where
         self
     }
 
-    #[deprecated(note = "use focus_policy(PopoverFocusPolicy::Trap)")]
-    pub fn trap_focus(self, trap_focus: bool) -> Self {
-        self.focus_policy(if trap_focus {
-            PopoverFocusPolicy::Trap
-        } else {
-            PopoverFocusPolicy::RetainAnchor
-        })
+    pub(crate) fn capped_anchor_width(mut self, cap: f32) -> Self {
+        self.width = PopoverWidth::MatchAnchor;
+        self.anchor_width_cap = Some(finite_nonnegative(cap));
+        self
+    }
+
+    pub(crate) fn max_height(mut self, max_height: f32) -> Self {
+        self.max_height = Some(finite_nonnegative(max_height));
+        self
     }
 
     fn into_element(self) -> Element<'a, Message> {
-        let content =
-            surface_with_ensure_visible(self.content, self.inset, self.ensure_visible.as_ref());
+        let content = surface_with_constraints(
+            self.content,
+            self.inset,
+            self.ensure_visible.as_ref(),
+            self.max_height,
+        );
         Element::new(PopoverWidget {
             anchor: self.anchor,
             content,
@@ -176,6 +207,7 @@ where
             on_dismiss: self.on_dismiss,
             focus_policy: self.focus_policy,
             ensure_visible: self.ensure_visible,
+            anchor_width_cap: self.anchor_width_cap,
         })
     }
 }
@@ -184,6 +216,18 @@ pub(crate) fn surface_with_ensure_visible<'a, Message>(
     content: Element<'a, Message>,
     inset: PopoverInset,
     ensure_visible: Option<&EnsureVisibleHandle>,
+) -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    surface_with_constraints(content, inset, ensure_visible, None)
+}
+
+fn surface_with_constraints<'a, Message>(
+    content: Element<'a, Message>,
+    inset: PopoverInset,
+    ensure_visible: Option<&EnsureVisibleHandle>,
+    max_height: Option<f32>,
 ) -> Element<'a, Message>
 where
     Message: 'a,
@@ -199,12 +243,23 @@ where
         viewport = viewport.id(handle.scrollable());
     }
 
-    container(viewport)
+    let mut surface = container(viewport)
         .style(surface_style)
         .clip(true)
         .width(Length::Shrink)
-        .height(Length::Shrink)
-        .into()
+        .height(Length::Shrink);
+    if let Some(max_height) = max_height {
+        surface = surface.max_height(max_height);
+    }
+    surface.into()
+}
+
+fn finite_nonnegative(value: f32) -> f32 {
+    if value.is_finite() {
+        value.max(0.0)
+    } else {
+        0.0
+    }
 }
 
 fn surface_style(theme: &crate::theme::Theme) -> container::Style {
