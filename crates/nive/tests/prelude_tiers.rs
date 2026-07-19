@@ -225,6 +225,191 @@ mod app_icon_contract {
     }
 }
 
+mod typed_autocomplete_contract {
+    use nive::prelude::*;
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct Service(String);
+
+    #[derive(Debug, Clone)]
+    #[allow(dead_code)]
+    enum Message {
+        Query(String),
+        Select(Service),
+        Dismiss,
+    }
+
+    pub(super) fn _assert_umbrella_prelude_exposes_typed_autocomplete() {
+        let results = AutocompleteResults::suggestions(vec![AutocompleteSuggestion::new(
+            Service("api".into()),
+            "API",
+        )
+        .leading(IconRole::EditFind)
+        .trailing(String::from("Online"))]);
+        let _: Element<'_, Message> = Autocomplete::new("a", None, results)
+            .highlight(AutocompleteHighlight::None)
+            .on_change(Message::Query)
+            .on_select(Message::Select)
+            .on_dismiss(Message::Dismiss)
+            .into();
+    }
+}
+
+mod minimal_popup_control_contract {
+    use nive::prelude::*;
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct Destination(String);
+
+    #[derive(Debug, Clone)]
+    #[allow(dead_code)]
+    enum Message {
+        Command,
+        Toggle(CheckboxState),
+        Choose(Destination),
+        Query(String),
+        Dismiss,
+    }
+
+    pub(super) fn _assert_minimal_prelude_exposes_popup_control_chain() {
+        let tooltip: Element<'_, Message> = Tooltip::new(text("Anchor"), "Tooltip")
+            .placement(TooltipPlacement::Top)
+            .into();
+        let _: Element<'_, Message> = TooltipScope::new(tooltip).into();
+
+        let _: Element<'_, Message> = Popover::new(text("Anchor"))
+            .content(text("Content"))
+            .open(true)
+            .placement(PopoverPlacement::RightCenter)
+            .collision(PopoverCollision::FlipAndShift)
+            .width(PopoverWidth::AtLeastAnchor)
+            .inset(PopoverInset::Compact)
+            .focus_policy(PopoverFocusPolicy::Trap)
+            .on_dismiss(Message::Dismiss)
+            .into();
+
+        let action = Action::new("contract.open", "Open", Message::Command)
+            .shortcut(ShortcutBinding::primary_character('o'));
+        let child = Menu::new(text("Child trigger"))
+            .command(MenuCommand::new("Child").on_press(Message::Command));
+        let _: Element<'_, Message> = Menu::new(text("Menu trigger"))
+            .open(true)
+            .on_dismiss(Message::Dismiss)
+            .placement(PopoverPlacement::BottomStart)
+            .collision(PopoverCollision::FlipAndShift)
+            .command(MenuCommand::from_action(&action))
+            .checkbox(
+                MenuCheckbox::new("Toggle", CheckboxState::Unchecked)
+                    .on_toggle(Message::Toggle)
+                    .dismiss_policy(MenuDismissPolicy::KeepOpen),
+            )
+            .radio_group(
+                MenuRadioGroup::new(Some(Destination("one".into())))
+                    .option(MenuRadioOption::new(
+                        Destination("one".into()),
+                        "Destination",
+                    ))
+                    .on_select(Message::Choose),
+            )
+            .submenu(MenuSubmenu::new("More", child))
+            .into();
+
+        let select = Field::new(
+            "Destination",
+            Select::new(
+                vec![SelectOption::new(Destination("one".into()), "One")],
+                Some(Destination("one".into())),
+            )
+            .size(theme::ControlSize::Md)
+            .fill_width()
+            .on_select(Message::Choose),
+        );
+        let autocomplete = Field::new(
+            "Search",
+            Autocomplete::new(
+                "o",
+                Some(Destination("one".into())),
+                AutocompleteResults::suggestions(vec![AutocompleteSuggestion::new(
+                    Destination("one".into()),
+                    "One",
+                )]),
+            )
+            .size(theme::ControlSize::Md)
+            .highlight(AutocompleteHighlight::First)
+            .on_change(Message::Query)
+            .on_select(Message::Choose)
+            .on_dismiss_maybe(Some(Message::Dismiss)),
+        );
+        let _: Element<'_, Message> =
+            FieldGroup::new("Popup controls", [select, autocomplete]).into();
+    }
+}
+
+mod extended_popup_control_contract {
+    use nive::prelude::ui::*;
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct Destination(u8);
+
+    #[derive(Debug, Clone)]
+    #[allow(dead_code)]
+    enum Message {
+        Command,
+        Choose(Destination),
+        Query(String),
+        Dismiss,
+    }
+
+    pub(super) fn _assert_extended_prelude_exposes_popup_control_chain() {
+        let tooltip: Element<'_, Message> =
+            Tooltip::new(text("Anchor"), String::from("Owned tooltip")).into();
+        let _: Element<'_, Message> = TooltipScope::new(tooltip).into();
+        let _: Element<'_, Message> = Popover::new(text("Anchor"))
+            .content(text("Content"))
+            .placement(PopoverPlacement::LeftEnd)
+            .collision(PopoverCollision::Shift)
+            .match_anchor_width()
+            .inset(PopoverInset::EdgeToEdge)
+            .focus_policy(PopoverFocusPolicy::FocusFirst)
+            .on_dismiss_maybe(Some(Message::Dismiss))
+            .into();
+
+        let action = Action::new("contract.save", "Save", Message::Command);
+        let _: Element<'_, Message> = Menu::new(text("Menu trigger"))
+            .open(true)
+            .on_dismiss_maybe(Some(Message::Dismiss))
+            .command(MenuCommand::from_action(&action))
+            .command(
+                MenuCommand::new(String::from("Owned command"))
+                    .on_press_maybe(Some(Message::Command))
+                    .dismiss_policy(MenuDismissPolicy::DismissAll),
+            )
+            .into();
+
+        let select = Field::new(
+            "Destination",
+            Select::new(
+                vec![SelectOption::new(Destination(1), "One")],
+                Some(Destination(1)),
+            )
+            .on_select_maybe(Some(Message::Choose)),
+        );
+        let autocomplete = Field::new(
+            "Search",
+            Autocomplete::new(
+                "",
+                None::<Destination>,
+                AutocompleteResults::empty(String::from("No results")),
+            )
+            .highlight(AutocompleteHighlight::None)
+            .on_change_maybe(Some(Message::Query))
+            .on_select_maybe(Some(Message::Choose)),
+        );
+        let _: Element<'_, Message> =
+            FieldGroup::new("Popup controls", [select, autocomplete]).into();
+    }
+}
+
 mod card_and_content_action_contract {
     use nive::prelude::*;
 
@@ -265,6 +450,7 @@ mod typed_select_contract {
     struct Plan(u8);
 
     #[derive(Debug, Clone)]
+    #[allow(dead_code)]
     enum Message {
         Selected(Plan),
     }
@@ -427,4 +613,20 @@ fn umbrella_prelude_exposes_typed_form_contract() {
 fn public_preludes_expose_typed_selection_contracts() {
     umbrella_selection_contract::_assert_typed_selection_compiles();
     extended_selection_contract::_assert_ui_prelude_selection_compiles();
+}
+
+#[test]
+fn umbrella_prelude_exposes_typed_autocomplete_contract() {
+    typed_autocomplete_contract::_assert_umbrella_prelude_exposes_typed_autocomplete();
+}
+
+#[test]
+fn umbrella_prelude_exposes_typed_select_contract() {
+    typed_select_contract::_assert_typed_select_compiles_through_the_umbrella_prelude();
+}
+
+#[test]
+fn public_umbrella_preludes_expose_popup_control_contracts() {
+    minimal_popup_control_contract::_assert_minimal_prelude_exposes_popup_control_chain();
+    extended_popup_control_contract::_assert_extended_prelude_exposes_popup_control_chain();
 }
