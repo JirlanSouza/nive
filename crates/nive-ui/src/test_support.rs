@@ -282,6 +282,18 @@ impl<'a, Message> WidgetHarness<'a, Message> {
         probe.finish()
     }
 
+    /// Mirrors the base-tree visit `iced_runtime::UserInterface::operate()`
+    /// always performs before touching an overlay, so a subsequent
+    /// overlay-only `operate()` call shares its liveness generation with
+    /// base content instead of running in isolation. Without this, base
+    /// content untouched by an overlay-scoped probe goes stale and is
+    /// pruned by the very next `finish_liveness()`, which would wrongly
+    /// invalidate an outer invoker's managed focus target while a modal
+    /// remains open.
+    fn prime_root_liveness(&mut self) {
+        self.operate(&mut operation::black_box(&mut operation::focusable::count()));
+    }
+
     pub(crate) fn mouse_interaction(&self) -> mouse::Interaction {
         self.element.as_widget().mouse_interaction(
             &self.tree,
@@ -464,11 +476,12 @@ impl<'a, Message> WidgetHarness<'a, Message> {
         let mut nested = overlay::Nested::new(overlay);
         let node = nested.layout(&self.renderer, self.maximum);
         let mut bounds = Vec::new();
-        collect_nested_overlay_bounds(Layout::new(&node), &mut bounds);
+        collect_nested_overlay_bounds(Layout::new(&node), self.maximum, &mut bounds);
         bounds
     }
 
     pub(crate) fn focused_overlay_count(&mut self) -> Option<operation::focusable::Count> {
+        self.prime_root_liveness();
         let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
         let mut overlay = self.element.as_widget_mut().overlay(
             &mut self.tree,
@@ -491,6 +504,93 @@ impl<'a, Message> WidgetHarness<'a, Message> {
             operation::Outcome::Some(count) => Some(count),
             _ => Some(operation::focusable::Count::default()),
         }
+    }
+
+    pub(crate) fn focused_overlay_ids(&mut self) -> Vec<Id> {
+        struct FocusedIds(Vec<Id>);
+
+        impl operation::Operation for FocusedIds {
+            fn focusable(
+                &mut self,
+                id: Option<&Id>,
+                _bounds: Rectangle,
+                state: &mut dyn operation::Focusable,
+            ) {
+                if state.is_focused() {
+                    if let Some(id) = id {
+                        self.0.push(id.clone());
+                    }
+                }
+            }
+
+            fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn operation::Operation)) {
+                operate(self);
+            }
+        }
+
+        self.prime_root_liveness();
+        let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+        let Some(mut overlay) = self.element.as_widget_mut().overlay(
+            &mut self.tree,
+            Layout::new(&self.node),
+            &self.renderer,
+            &viewport,
+            Vector::ZERO,
+        ) else {
+            return Vec::new();
+        };
+        let node = overlay
+            .as_overlay_mut()
+            .layout(&self.renderer, self.maximum);
+        let mut focused = FocusedIds(Vec::new());
+        overlay
+            .as_overlay_mut()
+            .operate(Layout::new(&node), &self.renderer, &mut focused);
+        focused.0
+    }
+
+    /// Same as [`Self::focused_overlay_ids`], but walks the complete
+    /// [`overlay::Nested`] chain instead of only the first overlay level —
+    /// use this to inspect focus inside a Dialog-owned nested overlay
+    /// (Select/Popover/Menu) rather than the Dialog itself.
+    pub(crate) fn focused_nested_overlay_ids(&mut self) -> Vec<Id> {
+        struct FocusedIds(Vec<Id>);
+
+        impl operation::Operation for FocusedIds {
+            fn focusable(
+                &mut self,
+                id: Option<&Id>,
+                _bounds: Rectangle,
+                state: &mut dyn operation::Focusable,
+            ) {
+                if state.is_focused() {
+                    if let Some(id) = id {
+                        self.0.push(id.clone());
+                    }
+                }
+            }
+
+            fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn operation::Operation)) {
+                operate(self);
+            }
+        }
+
+        self.prime_root_liveness();
+        let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+        let Some(overlay) = self.element.as_widget_mut().overlay(
+            &mut self.tree,
+            Layout::new(&self.node),
+            &self.renderer,
+            &viewport,
+            Vector::ZERO,
+        ) else {
+            return Vec::new();
+        };
+        let mut nested = overlay::Nested::new(overlay);
+        let node = nested.layout(&self.renderer, self.maximum);
+        let mut focused = FocusedIds(Vec::new());
+        nested.operate(Layout::new(&node), &self.renderer, &mut focused);
+        focused.0
     }
 
     pub(crate) fn overlay_scroll_offsets(&mut self) -> Vec<Vector> {
@@ -534,8 +634,16 @@ impl<'a, Message> WidgetHarness<'a, Message> {
     }
 
     pub(crate) fn focus_overlay_next(&mut self) -> bool {
+        self.focus_overlay_direction(crate::focus_trap::FocusDirection::Next)
+    }
+
+    pub(crate) fn focus_overlay_previous(&mut self) -> bool {
+        self.focus_overlay_direction(crate::focus_trap::FocusDirection::Previous)
+    }
+
+    fn focus_overlay_direction(&mut self, direction: crate::focus_trap::FocusDirection) -> bool {
         let mut operated = false;
-        crate::focus_trap::FocusDirection::Next.operate(|operation| {
+        direction.operate(|operation| {
             let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
             let Some(mut overlay) = self.element.as_widget_mut().overlay(
                 &mut self.tree,
@@ -613,14 +721,29 @@ impl<'a, Message> WidgetHarness<'a, Message> {
     }
 }
 
-fn collect_nested_overlay_bounds(layout: Layout<'_>, bounds: &mut Vec<Rectangle>) {
+fn collect_nested_overlay_bounds(layout: Layout<'_>, maximum: Size, bounds: &mut Vec<Rectangle>) {
     let mut children = layout.children();
     let Some(current) = children.next() else {
         return;
     };
-    bounds.push(current.bounds());
+    bounds.push(overlay_content_layout_bounds(current, maximum));
     if let Some(nested) = children.next() {
-        collect_nested_overlay_bounds(nested, bounds);
+        collect_nested_overlay_bounds(nested, maximum, bounds);
+    }
+}
+
+/// Mirrors [`overlay_content_bounds`]'s "skip the full-viewport passthrough"
+/// rule for a `Layout` rather than a `Node`: a level whose own bounds exactly
+/// cover the maximum viewport is a wrapper with no visual footprint of its
+/// own (a scrim, a `Group`), so the real content is its last child.
+fn overlay_content_layout_bounds(layout: Layout<'_>, maximum: Size) -> Rectangle {
+    let bounds = layout.bounds();
+    if bounds.position() == Point::ORIGIN && bounds.size() == maximum {
+        layout.children().last().map_or(bounds, |child| {
+            overlay_content_layout_bounds(child, maximum)
+        })
+    } else {
+        bounds
     }
 }
 
