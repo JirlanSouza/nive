@@ -64,6 +64,21 @@ impl<T> fmt::Display for SelectOption<'_, T> {
     }
 }
 
+/// A typed selection control backed by explicit [`SelectOption`] models.
+///
+/// The former PickList-shaped value list and the private popup row/Tree
+/// adapters are intentionally unsupported:
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = Select::<_, ()>::new(vec![String::from("One")], None);
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::widgets::controls::select::widget::{
+///     SelectListState, SelectState, SelectWidget,
+/// };
+/// ```
 pub struct Select<'a, T, Message>
 where
     T: Clone + Eq,

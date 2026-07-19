@@ -10,7 +10,6 @@ pub mod scrollable;
 
 // Namespace modules for the iced-style `button::primary(...)` call idiom.
 pub use controls::{button, input};
-pub use overlays::tooltip;
 pub use primitives::{icon, text};
 
 pub use containers::{
@@ -19,12 +18,13 @@ pub use containers::{
 };
 #[allow(deprecated)]
 pub use controls::{
-    ActionGroup, Autocomplete, AutocompleteMessage, Button, ButtonIntent, ButtonVariant, Checkbox,
-    CheckboxState, ColorInput, ColorPicker, ContentAction, Field, FieldControl, FieldError,
-    FieldGroup, FieldGroupLayout, FieldHint, FieldLabel, FieldRequirement, FieldValidation, Input,
-    InputGroup, InputGroupVariant, LegacySegmentedControl, PathInput, RadioGroup, RadioGroupLayout,
-    RadioOption, RgbHexColor, SegmentedControl, SegmentedControlVariant, SegmentedItem,
-    SegmentedOption, Select, SelectOption, SelectableItem, Switch, TextInputAppearance,
+    ActionGroup, Autocomplete, AutocompleteHighlight, AutocompleteResults, AutocompleteSuggestion,
+    Button, ButtonIntent, ButtonVariant, Checkbox, CheckboxState, ColorInput, ColorPicker,
+    ContentAction, Field, FieldControl, FieldError, FieldGroup, FieldGroupLayout, FieldHint,
+    FieldLabel, FieldRequirement, FieldValidation, Input, InputGroup, InputGroupVariant,
+    LegacySegmentedControl, PathInput, RadioGroup, RadioGroupLayout, RadioOption, RgbHexColor,
+    SegmentedControl, SegmentedControlVariant, SegmentedItem, SegmentedOption, Select,
+    SelectOption, SelectableItem, Switch, TextInputAppearance,
 };
 #[allow(deprecated)]
 pub use display::{

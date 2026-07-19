@@ -698,12 +698,10 @@ mod input_group_tests {
 
     #[test]
     fn arbitrary_slot_delegates_event_mouse_and_operate_paths() {
-        let custom = iced::widget::tooltip(
+        let custom = crate::widgets::overlays::tooltip::immediate_for_test(
             named_probe("custom-slot", event_probe("custom")),
-            iced::widget::text("Custom slot tooltip"),
-            iced::widget::tooltip::Position::Bottom,
-        )
-        .delay(std::time::Duration::ZERO);
+            "Custom slot tooltip",
+        );
         let group: Element<'_, &'static str> = InputGroup::new(Input::new("Value", "42"))
             .trailing_slot(custom)
             .width(Length::Fixed(180.0))

@@ -12,7 +12,7 @@ use crate::theme::{
     self, text as theme_text, ControlSize, FieldValidation, SpaceStep, TextRole, ToneRole,
     TypographyRole,
 };
-use crate::widgets::controls::{Input, InputGroup, Select};
+use crate::widgets::controls::{Autocomplete, Input, InputGroup, Select};
 use crate::widgets::primitives::{icon, IconRole};
 use crate::Element;
 
@@ -107,6 +107,22 @@ where
             kind: FieldControlKind::Deferred(Box::new(move |label, size, validation, disabled| {
                 let (select, id) = select.apply_field_context(label, size, validation, disabled);
                 (select.into(), Some(id))
+            })),
+        }
+    }
+}
+
+impl<'a, T, Message> From<Autocomplete<'a, T, Message>> for FieldControl<'a, Message>
+where
+    T: Clone + Eq + 'a + 'static,
+    Message: Clone + 'a,
+{
+    fn from(autocomplete: Autocomplete<'a, T, Message>) -> Self {
+        Self {
+            kind: FieldControlKind::Deferred(Box::new(move |label, size, validation, disabled| {
+                let (autocomplete, id) =
+                    autocomplete.apply_field_context(label, size, validation, disabled);
+                (autocomplete.into(), Some(id))
             })),
         }
     }
@@ -643,7 +659,9 @@ mod field_tests {
     use super::*;
     use crate::test_support::{named_probe, WidgetHarness};
     use crate::theme::{Theme, ThemeBuilder, ThemeDensity, ThemeMode};
-    use crate::widgets::controls::{choice_test_support::key_pressed, SelectOption};
+    use crate::widgets::controls::{
+        choice_test_support::key_pressed, AutocompleteResults, AutocompleteSuggestion, SelectOption,
+    };
     use iced::{keyboard::key, mouse, Event, Point, Size};
 
     #[test]
@@ -1170,6 +1188,47 @@ mod field_tests {
 
         assert_eq!(opened.messages, vec![Message::Opened]);
         assert!(harness.has_overlay());
+    }
+
+    #[test]
+    fn typed_autocomplete_receives_field_context_and_label_focus_before_erasure() {
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        enum Message {
+            Query(String),
+        }
+
+        let id = Id::new("project-autocomplete");
+        let field: Element<'_, Message> = Field::new(
+            "Project",
+            Autocomplete::new(
+                "niv",
+                None,
+                AutocompleteResults::suggestions(vec![AutocompleteSuggestion::new(
+                    1_u8,
+                    "Nive Core",
+                )]),
+            )
+            .id(id.clone())
+            .on_change(Message::Query),
+        )
+        .error("Choose a valid project")
+        .lg()
+        .into();
+        let mut harness = WidgetHarness::new(field, Size::new(320.0, 160.0));
+        let input = harness
+            .focusable_bounds(&id)
+            .expect("autocomplete input focus target");
+
+        assert_eq!(
+            input.height,
+            theme::form_control_metrics(ControlSize::Lg).height
+        );
+        harness.set_cursor(Point::new(4.0, 4.0));
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        assert_eq!(harness.focused_widgets(), 1);
+        assert_eq!(harness.focused_ids(), vec![id]);
     }
 
     #[test]
