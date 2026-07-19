@@ -3,7 +3,7 @@ use nive::widget::{column, container, row, scrollable};
 use nive::widgets::{button as nive_button, text as nive_text};
 
 use super::tone::tone_label;
-use super::{AppCommand, Message, MonitorFilter, WorkbenchMonitor};
+use super::{AppCommand, Message, MonitorFilter, ServiceScope, WorkbenchMonitor};
 use crate::sim::Environment;
 
 impl WorkbenchMonitor {
@@ -128,8 +128,21 @@ impl WorkbenchMonitor {
             .model
             .services
             .iter()
+            .filter(|service| self.service_scope.includes(service.id))
             .map(|service| service.requests_per_minute as i128)
             .sum();
+
+        let mut service_options = vec![SelectOption::new(ServiceScope::All, "All services")];
+        service_options.extend(self.model.services.iter().map(|service| {
+            SelectOption::new(ServiceScope::Service(service.id), service.name)
+        }));
+        let service_scope = Field::new(
+            "Service scope",
+            Select::new(service_options, Some(self.service_scope))
+                .on_select(Message::ServiceScopeChanged),
+        )
+        .hint("Filters dashboard metrics and rows without changing workbench navigation")
+        .sm();
 
         let cards = row![
             Card::new(
@@ -164,7 +177,12 @@ impl WorkbenchMonitor {
                 .into()
         };
 
-        let services = self.model.services.iter().map(|service| {
+        let services = self
+            .model
+            .services
+            .iter()
+            .filter(|service| self.service_scope.includes(service.id))
+            .map(|service| {
             SelectableItem::new(service.name)
                 .selected(
                     matches!(self.selected, super::Selection::Service(id) if id == service.id),
@@ -176,7 +194,7 @@ impl WorkbenchMonitor {
                 )))
                 .on_press(Message::OpenService(service.id))
                 .into()
-        });
+            });
 
         container(
             scrollable(
@@ -192,6 +210,7 @@ impl WorkbenchMonitor {
                                 .on_press(Message::Command(AppCommand::RunHealthCheck))
                             )
                         ),
+                    service_scope,
                     cards,
                     alert_summary,
                     Card::new(
@@ -279,7 +298,6 @@ impl WorkbenchMonitor {
             column![
                 DocumentHeader::new(service.name)
                     .icon(IconRole::Folder)
-                    .title_tooltip(service.name)
                     .trailing(StatusIndicator::new(
                         service.health,
                         tone_label(service.health)
@@ -388,6 +406,15 @@ impl WorkbenchMonitor {
     }
 }
 
+impl ServiceScope {
+    fn includes(self, service_id: &str) -> bool {
+        match self {
+            Self::All => true,
+            Self::Service(selected) => selected == service_id,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -398,5 +425,17 @@ mod tests {
 
         let _: Element<'_, Message> = app.dashboard_document();
         let _: Element<'_, Message> = app.service_document("api");
+    }
+
+    #[test]
+    fn service_scope_filters_app_data_without_replacing_navigation() {
+        assert!(ServiceScope::All.includes("api"));
+        assert!(ServiceScope::Service("api").includes("api"));
+        assert!(!ServiceScope::Service("api").includes("billing"));
+
+        let mut app = WorkbenchMonitor::seeded();
+        app.service_scope = ServiceScope::Service("billing");
+        let _: Element<'_, Message> = app.dashboard_document();
+        let _: Element<'_, Message> = app.services_view();
     }
 }

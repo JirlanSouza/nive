@@ -7,6 +7,12 @@ struct FormsApp {
     email: String,
     terms: CheckboxState,
     deployment: Option<Deployment>,
+    account_tier: Option<AccountTier>,
+    organization_query: String,
+    organization: Option<Organization>,
+    organization_results: OrganizationResultMode,
+    organization_open: bool,
+    organization_feedback: &'static str,
     sync_updates: bool,
     submit_attempted: bool,
     show_dialog: bool,
@@ -19,16 +25,66 @@ enum Deployment {
     None,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AccountTier {
+    Starter,
+    Team,
+    Enterprise,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Organization {
+    NiveCore,
+    NiveUi,
+    NiveRuntime,
+    CafeTelemetry,
+}
+
+impl Organization {
+    const ALL: [Self; 4] = [
+        Self::NiveCore,
+        Self::NiveUi,
+        Self::NiveRuntime,
+        Self::CafeTelemetry,
+    ];
+
+    const fn label(self) -> &'static str {
+        match self {
+            Self::NiveCore => "Nive Core",
+            Self::NiveUi => "Nive UI",
+            Self::NiveRuntime => "Nive Runtime",
+            Self::CafeTelemetry => "Café Telemetry",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OrganizationResultMode {
+    Suggestions,
+    Loading,
+    Empty,
+    Error,
+}
+
 #[derive(Debug, Clone)]
 enum Message {
     NameChanged(String),
     EmailChanged(String),
     TermsChanged(CheckboxState),
     DeploymentChanged(Deployment),
+    AccountTierChanged(AccountTier),
+    OrganizationQueryChanged(String),
+    OrganizationSelected(Organization),
+    OrganizationCleared,
+    OrganizationSubmitted,
+    OrganizationBlurred,
+    OrganizationDismissed,
+    OrganizationResultModeChanged(OrganizationResultMode),
     SyncUpdatesChanged(bool),
     Submit,
     OpenDialog,
     CloseDialog,
+    Noop,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +94,8 @@ struct FormValidation {
     group_error: &'static str,
     terms_error: &'static str,
     deployment_error: &'static str,
+    account_tier_error: &'static str,
+    organization_error: &'static str,
     valid: bool,
 }
 
@@ -46,6 +104,8 @@ fn validate(
     email: &str,
     terms: CheckboxState,
     deployment: Option<Deployment>,
+    account_tier: Option<AccountTier>,
+    organization: Option<Organization>,
     show_errors: bool,
 ) -> FormValidation {
     let name_missing = name.trim().is_empty();
@@ -53,11 +113,15 @@ fn validate(
     let email_malformed = !email_missing && !email.contains('@');
     let terms_missing = terms != CheckboxState::Checked;
     let deployment_missing = deployment.is_none();
+    let account_tier_missing = account_tier.is_none();
+    let organization_missing = organization.is_none();
     let valid = !name_missing
         && !email_missing
         && !email_malformed
         && !terms_missing
-        && !deployment_missing;
+        && !deployment_missing
+        && !account_tier_missing
+        && !organization_missing;
     let name_error = if show_errors && name_missing {
         "Enter your name"
     } else {
@@ -89,7 +153,60 @@ fn validate(
         } else {
             ""
         },
+        account_tier_error: if show_errors && account_tier_missing {
+            "Select an account tier"
+        } else {
+            ""
+        },
+        organization_error: if show_errors && organization_missing {
+            "Choose an organization from the results"
+        } else {
+            ""
+        },
         valid,
+    }
+}
+
+fn organization_results(
+    mode: OrganizationResultMode,
+    query: &str,
+) -> AutocompleteResults<'static, Organization> {
+    match mode {
+        OrganizationResultMode::Loading => AutocompleteResults::Loading,
+        OrganizationResultMode::Empty => {
+            AutocompleteResults::empty("No organizations match this fixture")
+        }
+        OrganizationResultMode::Error => {
+            AutocompleteResults::error("Could not retrieve organizations")
+        }
+        OrganizationResultMode::Suggestions => {
+            let query = query.trim().to_lowercase();
+            let suggestions = Organization::ALL
+                .into_iter()
+                .filter(|organization| {
+                    query.is_empty() || organization.label().to_lowercase().contains(&query)
+                })
+                .map(|organization| {
+                    let suggestion = AutocompleteSuggestion::new(
+                        organization,
+                        organization.label(),
+                    )
+                    .leading(IconRole::Identity);
+                    match organization {
+                        Organization::NiveCore => suggestion.trailing("Foundation"),
+                        Organization::NiveUi => suggestion.trailing("Design system"),
+                        Organization::NiveRuntime => suggestion.trailing("Runtime"),
+                        Organization::CafeTelemetry => suggestion.trailing("Unicode fixture"),
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            if suggestions.is_empty() {
+                AutocompleteResults::empty("No organizations match this query")
+            } else {
+                AutocompleteResults::suggestions(suggestions)
+            }
+        }
     }
 }
 
@@ -115,6 +232,12 @@ impl Application for FormsApp {
                 email: String::new(),
                 terms: CheckboxState::Mixed,
                 deployment: None,
+                account_tier: None,
+                organization_query: String::new(),
+                organization: None,
+                organization_results: OrganizationResultMode::Suggestions,
+                organization_open: false,
+                organization_feedback: "Autocomplete: idle",
                 sync_updates: true,
                 submit_attempted: false,
                 show_dialog: false,
@@ -146,6 +269,52 @@ impl Application for FormsApp {
                 self.deployment = Some(value);
                 self.submit_attempted = false;
             }
+            Message::AccountTierChanged(value) => {
+                self.account_tier = Some(value);
+                self.submit_attempted = false;
+            }
+            Message::OrganizationQueryChanged(query) => {
+                self.organization_query = query;
+                self.organization = None;
+                self.organization_results = OrganizationResultMode::Suggestions;
+                self.organization_open = true;
+                self.organization_feedback = "Autocomplete: query changed";
+                self.submit_attempted = false;
+            }
+            Message::OrganizationSelected(organization) => {
+                self.organization_query = organization.label().to_owned();
+                self.organization = Some(organization);
+                self.organization_open = false;
+                self.organization_feedback = "Autocomplete: suggestion selected";
+                self.submit_attempted = false;
+            }
+            Message::OrganizationCleared => {
+                self.organization_query.clear();
+                self.organization = None;
+                self.organization_open = false;
+                self.organization_feedback = "Autocomplete: query cleared";
+                self.submit_attempted = false;
+            }
+            Message::OrganizationSubmitted => {
+                self.organization_feedback = "Autocomplete: Enter submitted without selection";
+            }
+            Message::OrganizationBlurred => {
+                self.organization_feedback = "Autocomplete: input blurred";
+            }
+            Message::OrganizationDismissed => {
+                self.organization_open = false;
+                self.organization_feedback = "Autocomplete: popup dismissed";
+            }
+            Message::OrganizationResultModeChanged(mode) => {
+                self.organization_results = mode;
+                self.organization_open = true;
+                self.organization_feedback = match mode {
+                    OrganizationResultMode::Suggestions => "Autocomplete: suggestions fixture",
+                    OrganizationResultMode::Loading => "Autocomplete: loading fixture",
+                    OrganizationResultMode::Empty => "Autocomplete: empty fixture",
+                    OrganizationResultMode::Error => "Autocomplete: retrieval-error fixture",
+                };
+            }
             Message::SyncUpdatesChanged(value) => self.sync_updates = value,
             Message::Submit => {
                 self.submit_attempted = true;
@@ -154,6 +323,8 @@ impl Application for FormsApp {
                     &self.email,
                     self.terms,
                     self.deployment,
+                    self.account_tier,
+                    self.organization,
                     true,
                 )
                 .valid
@@ -162,12 +333,17 @@ impl Application for FormsApp {
                 }
                 self.show_dialog = false;
                 return Effect::toast(Toast::success(format!(
-                    "Submitted: {} <{}> · {:?}",
-                    self.name, self.email, self.deployment
+                    "Submitted: {} <{}> · {:?} · {:?} · {:?}",
+                    self.name,
+                    self.email,
+                    self.deployment,
+                    self.account_tier,
+                    self.organization,
                 )));
             }
             Message::OpenDialog => self.show_dialog = true,
             Message::CloseDialog => self.show_dialog = false,
+            Message::Noop => {}
         }
         Effect::none()
     }
@@ -182,8 +358,38 @@ impl Application for FormsApp {
             &self.email,
             self.terms,
             self.deployment,
+            self.account_tier,
+            self.organization,
             self.submit_attempted,
         );
+
+        let account_tier = Select::new(
+            vec![
+                SelectOption::new(AccountTier::Starter, "Starter"),
+                SelectOption::new(AccountTier::Team, "Team"),
+                SelectOption::new(AccountTier::Enterprise, "Enterprise").disabled(true),
+            ],
+            self.account_tier,
+        )
+        .placeholder("Choose an account tier")
+        .on_select(Message::AccountTierChanged)
+        .on_open(Message::Noop)
+        .on_close(Message::Noop);
+        let organization = Autocomplete::new(
+            &self.organization_query,
+            self.organization,
+            organization_results(self.organization_results, &self.organization_query),
+        )
+        .placeholder("Search organizations")
+        .semantic_name("Organization search")
+        .open(self.organization_open)
+        .highlight(AutocompleteHighlight::First)
+        .on_change(Message::OrganizationQueryChanged)
+        .on_select(Message::OrganizationSelected)
+        .on_clear(Message::OrganizationCleared)
+        .on_submit(Message::OrganizationSubmitted)
+        .on_blur(Message::OrganizationBlurred)
+        .on_dismiss(Message::OrganizationDismissed);
 
         let contact_fields = vec![
             Field::new(
@@ -210,6 +416,16 @@ impl Application for FormsApp {
             .hint("Used for submission confirmation")
             .error(validation.email_error)
             .reserve_support_line(true),
+            Field::new("Account tier", account_tier)
+                .required("Required")
+                .hint("A typed bounded choice; Enterprise is unavailable")
+                .error(validation.account_tier_error)
+                .reserve_support_line(true),
+            Field::new("Organization", organization)
+                .required("Required")
+                .hint("Query, filtering, ordering, and selection are app-owned")
+                .error(validation.organization_error)
+                .reserve_support_line(true),
             Field::new(
                 "Account reference",
                 Input::new("Reference", "ACC-1042").read_only(true),
@@ -233,6 +449,53 @@ impl Application for FormsApp {
                 .error(validation.group_error)
                 .md()
                 .wrap(260.0),
+            column![
+                text(self.organization_feedback),
+                row![
+                    nive::widgets::button::tertiary("Suggestions")
+                        .on_press(Message::OrganizationResultModeChanged(
+                            OrganizationResultMode::Suggestions,
+                        )),
+                    nive::widgets::button::tertiary("Loading")
+                        .on_press(Message::OrganizationResultModeChanged(
+                            OrganizationResultMode::Loading,
+                        )),
+                    nive::widgets::button::tertiary("Empty")
+                        .on_press(Message::OrganizationResultModeChanged(
+                            OrganizationResultMode::Empty,
+                        )),
+                    nive::widgets::button::tertiary("Retrieval error")
+                        .on_press(Message::OrganizationResultModeChanged(
+                            OrganizationResultMode::Error,
+                        )),
+                ]
+                .spacing(8)
+                .wrap(),
+            ]
+            .spacing(8),
+            row![
+                Field::new(
+                    "Empty Select fixture",
+                    Select::<AccountTier, Message>::new(Vec::new(), None)
+                        .placeholder("No tiers available")
+                        .on_select(Message::AccountTierChanged),
+                )
+                .optional("Empty state")
+                .hint("Canonical Select owns the empty popup"),
+                Field::new(
+                    "Managed organization",
+                    Autocomplete::<Organization, Message>::new(
+                        "Nive Runtime",
+                        Some(Organization::NiveRuntime),
+                        organization_results(OrganizationResultMode::Suggestions, "Nive"),
+                    ),
+                )
+                .optional("Disabled")
+                .hint("Field propagates disabled context to the control")
+                .disabled(true),
+            ]
+            .spacing(12)
+            .wrap(),
             Checkbox::new("I confirm the submitted account terms", self.terms)
                 .description("This choice is validated when the form is submitted")
                 .error(validation.terms_error)
@@ -278,8 +541,13 @@ impl Application for FormsApp {
             let dialog_content = column![
                 text("Confirm Submission"),
                 text(format!(
-                    "Name: {}\nEmail: {}\nTerms: {:?}\nDeployment: {:?}",
-                    self.name, self.email, self.terms, self.deployment
+                    "Name: {}\nEmail: {}\nTerms: {:?}\nDeployment: {:?}\nTier: {:?}\nOrganization: {:?}",
+                    self.name,
+                    self.email,
+                    self.terms,
+                    self.deployment,
+                    self.account_tier,
+                    self.organization,
                 )),
                 row![
                     nive::widgets::button::secondary("Cancel")
@@ -312,7 +580,15 @@ mod tests {
 
     #[test]
     fn empty_submit_exposes_field_and_group_errors() {
-        let validation = validate("", "", CheckboxState::Unchecked, None, true);
+        let validation = validate(
+            "",
+            "",
+            CheckboxState::Unchecked,
+            None,
+            None,
+            None,
+            true,
+        );
 
         assert!(!validation.valid);
         assert_eq!(validation.name_error, "Enter your name");
@@ -320,6 +596,8 @@ mod tests {
         assert!(!validation.group_error.is_empty());
         assert!(!validation.terms_error.is_empty());
         assert!(!validation.deployment_error.is_empty());
+        assert!(!validation.account_tier_error.is_empty());
+        assert!(!validation.organization_error.is_empty());
     }
 
     #[test]
@@ -329,6 +607,8 @@ mod tests {
             "invalid",
             CheckboxState::Checked,
             Some(Deployment::Preview),
+            Some(AccountTier::Team),
+            Some(Organization::NiveCore),
             false,
         );
         let submitted = validate(
@@ -336,6 +616,8 @@ mod tests {
             "invalid",
             CheckboxState::Checked,
             Some(Deployment::Preview),
+            Some(AccountTier::Team),
+            Some(Organization::NiveCore),
             true,
         );
 
@@ -352,6 +634,8 @@ mod tests {
             "ada@example.com",
             CheckboxState::Checked,
             Some(Deployment::Preview),
+            Some(AccountTier::Team),
+            Some(Organization::NiveCore),
             true,
         );
 
@@ -361,6 +645,60 @@ mod tests {
         assert_eq!(validation.group_error, "");
         assert_eq!(validation.terms_error, "");
         assert_eq!(validation.deployment_error, "");
+        assert_eq!(validation.account_tier_error, "");
+        assert_eq!(validation.organization_error, "");
+    }
+
+    #[test]
+    fn organization_results_are_atomic_filtered_and_ordered() {
+        let AutocompleteResults::Suggestions(all) =
+            organization_results(OrganizationResultMode::Suggestions, "")
+        else {
+            panic!("expected suggestions");
+        };
+        assert_eq!(all.len(), Organization::ALL.len());
+        assert_eq!(all[0].value(), &Organization::NiveCore);
+        assert_eq!(all[3].value(), &Organization::CafeTelemetry);
+
+        let AutocompleteResults::Suggestions(filtered) =
+            organization_results(OrganizationResultMode::Suggestions, "runtime")
+        else {
+            panic!("expected filtered suggestions");
+        };
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].value(), &Organization::NiveRuntime);
+
+        assert!(matches!(
+            organization_results(OrganizationResultMode::Suggestions, "missing"),
+            AutocompleteResults::Empty(_)
+        ));
+    }
+
+    #[test]
+    fn result_fixtures_do_not_manufacture_field_validation() {
+        assert!(matches!(
+            organization_results(OrganizationResultMode::Loading, "nive"),
+            AutocompleteResults::Loading
+        ));
+        assert!(matches!(
+            organization_results(OrganizationResultMode::Empty, "nive"),
+            AutocompleteResults::Empty(_)
+        ));
+        assert!(matches!(
+            organization_results(OrganizationResultMode::Error, "nive"),
+            AutocompleteResults::Error(_)
+        ));
+
+        let validation = validate(
+            "Ada",
+            "ada@example.com",
+            CheckboxState::Checked,
+            Some(Deployment::Preview),
+            Some(AccountTier::Team),
+            None,
+            false,
+        );
+        assert_eq!(validation.organization_error, "");
     }
 
     #[test]

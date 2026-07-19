@@ -30,6 +30,7 @@ pub(crate) struct WorkbenchMonitor {
     dirty_filter: bool,
     auto_refresh: bool,
     monitor_filter: MonitorFilter,
+    service_scope: ServiceScope,
 }
 
 #[derive(Debug, Clone)]
@@ -52,6 +53,7 @@ pub(crate) enum Message {
     AutoRefreshChanged(bool),
     EnvironmentChanged(Environment),
     MonitorFilterChanged(MonitorFilter),
+    ServiceScopeChanged(ServiceScope),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,6 +74,12 @@ pub(crate) enum Selection {
 pub(crate) enum MonitorFilter {
     All,
     Attention,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ServiceScope {
+    All,
+    Service(&'static str),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -157,6 +165,10 @@ impl Application for WorkbenchMonitor {
             Message::AutoRefreshChanged(value) => self.auto_refresh = value,
             Message::EnvironmentChanged(environment) => self.model.environment = environment,
             Message::MonitorFilterChanged(filter) => self.monitor_filter = filter,
+            Message::ServiceScopeChanged(scope) => {
+                self.service_scope = scope;
+                self.dirty_filter = true;
+            }
         }
 
         Effect::none()
@@ -292,6 +304,7 @@ impl WorkbenchMonitor {
             dirty_filter: false,
             auto_refresh: true,
             monitor_filter: MonitorFilter::All,
+            service_scope: ServiceScope::All,
         }
     }
 }
