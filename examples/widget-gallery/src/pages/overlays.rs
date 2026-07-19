@@ -52,39 +52,71 @@ pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
 
 pub fn dialog(kind: DialogKind) -> Element<'static, Message> {
     let header = match kind {
-        DialogKind::Basic => DialogHeader::new("Confirm action").description(
-            "This dialog uses Dialog, DialogHeader, DialogFooter, and DialogActionFooter.",
-        ),
+        DialogKind::Basic => DialogHeader::new("Confirm action")
+            .description(
+                "This dialog uses Dialog, DialogHeader, DialogActionFooter, and typed DialogAction roles.",
+            )
+            .close("Close dialog", Message::CloseDialog),
         DialogKind::Destructive => DialogHeader::new("Delete project")
-            .description("This destructive confirmation keeps current dialog styling visible."),
+            .description("The destructive action stays last and is never the initial-focus or Enter default."),
         DialogKind::LongContent => DialogHeader::new("Long content").description(
-            "Scrollable text pressures the dialog content area without custom styling.",
+            "The Dialog body owns the only vertical scroll region; header and footer stay fixed.",
+        ),
+        DialogKind::NestedOverlay => DialogHeader::new("Assign reviewer").description(
+            "The Select popup below is Dialog-owned content and receives Escape/outside-press priority over the Dialog itself.",
         ),
     };
 
     let body: Element<'static, Message> = match kind {
-        DialogKind::LongContent => scrollable(column![
-            ntext::body("The gallery should expose long content behavior in real dialog surfaces."),
-            ntext::body("Additional copy keeps height pressure visible while the app-owned dialog remains dismissible."),
-            ntext::body("No wrapper is correcting spacing, radius, or token behavior here."),
+        DialogKind::LongContent => column(
+            long_content_paragraphs()
+                .iter()
+                .map(|paragraph| ntext::body(*paragraph).into()),
+        )
+        .spacing(12)
+        .into(),
+        DialogKind::NestedOverlay => column![
+            ntext::body(
+                "Open the Select below, then press Escape: only the popup closes on the first press."
+            ),
+            Select::new(
+                vec![
+                    SelectOption::new("alex", "Alex Chen"),
+                    SelectOption::new("priya", "Priya Nair"),
+                    SelectOption::new("sam", "Sam Okafor"),
+                ],
+                None,
+            )
+            .placeholder("Choose a reviewer")
+            .on_select(|_choice: &'static str| Message::Noop),
         ]
-        .spacing(12))
-        .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
-        .height(180)
+        .spacing(12)
         .into(),
         _ => ntext::body("Review the current dialog baseline before accepting the action.").into(),
     };
 
-    let footer = DialogActionFooter::new(ntext::caption("Esc or backdrop dismisses the dialog"))
-        .action(nbutton::secondary("Cancel").on_press(Message::CloseDialog))
-        .action(match kind {
-            DialogKind::Destructive => {
-                nbutton::destructive("Delete").on_press(Message::CloseDialog)
-            }
-            _ => nbutton::primary("Confirm").on_press(Message::CloseDialog),
-        });
+    let footer = match kind {
+        DialogKind::Destructive => DialogActionFooter::with_one(
+            DialogAction::cancel("Cancel", Message::CloseDialog),
+            DialogTerminalAction::destructive("Delete", Message::CloseDialog),
+        ),
+        _ => DialogActionFooter::with_one(
+            DialogAction::cancel("Cancel", Message::CloseDialog),
+            DialogTerminalAction::primary("Confirm", Message::CloseDialog),
+        ),
+    }
+    .status(ntext::caption("Esc or backdrop dismisses the dialog"));
 
-    Dialog::new(column![header, body, DialogFooter::new(footer)].spacing(16)).into()
+    let size = match kind {
+        DialogKind::LongContent => DialogSize::Lg,
+        _ => DialogSize::Sm,
+    };
+
+    Dialog::new(body)
+        .header(header)
+        .footer(footer)
+        .size(size)
+        .into()
 }
 
 fn dialog_triggers() -> Element<'static, Message> {
@@ -102,6 +134,11 @@ fn dialog_triggers() -> Element<'static, Message> {
             "Long content",
             nbutton::secondary("Open long dialog")
                 .on_press(Message::ShowDialog(DialogKind::LongContent)),
+        ),
+        example_cell(
+            "Nested overlay",
+            nbutton::secondary("Open dialog with Select")
+                .on_press(Message::ShowDialog(DialogKind::NestedOverlay)),
         ),
     ])
 }
@@ -370,6 +407,30 @@ fn nested_popover(app: &WidgetGallery) -> Element<'_, Message> {
     .into()
 }
 
+fn long_content_paragraphs() -> &'static [&'static str] {
+    &[
+        "The gallery exposes long content behavior in real dialog surfaces.",
+        "Additional copy keeps height pressure visible while the app-owned dialog remains dismissible.",
+        "No wrapper is correcting spacing, radius, or scroll ownership here.",
+        "Paragraph 4 keeps pushing the body past the available viewport height.",
+        "Paragraph 5 confirms the header and footer stay pinned while this text scrolls underneath.",
+        "Paragraph 6 is here purely to add vertical pressure, not to demonstrate new copy.",
+        "Paragraph 7 continues the same pattern so the scrollable region has real overflow to own.",
+        "Paragraph 8 checks that focus and keyboard scrolling both stay inside the body region.",
+        "Paragraph 9 verifies that the Dialog frame itself never grows past its DialogSize::Lg cap.",
+        "Paragraph 10 is the midpoint marker for this long-content fixture.",
+        "Paragraph 11 keeps the column growing so the scrollbar affordance stays visible.",
+        "Paragraph 12 reiterates that only the body owns a Scrollable, never the header or footer.",
+        "Paragraph 13 exists to keep the total height comfortably past the Lg dialog's fixed cap.",
+        "Paragraph 14 is filler copy standing in for a real changelog or terms-of-service body.",
+        "Paragraph 15 confirms scrolling to the end still respects the dialog's rounded frame.",
+        "Paragraph 16 keeps stacking so the seam above the footer has a real overflow signal to react to.",
+        "Paragraph 17 is nearly at the end of this fixture's long body.",
+        "Paragraph 18 is the last paragraph before the closing line below.",
+        "This final line marks the true end of the scrollable body content.",
+    ]
+}
+
 fn tall_popover_content() -> Element<'static, Message> {
     column![
         ntext::label_strong("Popover-owned scrolling"),
@@ -462,6 +523,18 @@ mod tests {
             app.overlays.nested_popover_open = kind == PopoverKind::Nested;
             let _: Element<'_, Message> = popover_geometry(&app);
             let _: Element<'_, Message> = popover_lifecycle(&app);
+        }
+    }
+
+    #[test]
+    fn dialog_builds_for_every_kind_including_nested_overlay() {
+        for kind in [
+            DialogKind::Basic,
+            DialogKind::Destructive,
+            DialogKind::LongContent,
+            DialogKind::NestedOverlay,
+        ] {
+            let _: Element<'_, Message> = dialog(kind);
         }
     }
 }

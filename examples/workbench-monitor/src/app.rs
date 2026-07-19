@@ -206,11 +206,7 @@ impl Application for WorkbenchMonitor {
 
         if let Some(alert_id) = self.alert_dialog {
             if let Some(alert) = self.model.alert(alert_id) {
-                view = view.dialog(
-                    DialogRequest::new(self.alert_dialog(alert))
-                        .dismiss_on_backdrop(Message::CloseDialog)
-                        .dismiss_on_escape(Message::CloseDialog),
-                );
+                view = view.dialog(self.alert_dialog_request(alert));
             }
         }
 

@@ -49,5 +49,49 @@ cat >> "$app_dir/Cargo.toml" <<EOF
 nive = { path = "$root/crates/nive" }
 EOF
 
+if [[ "$template" == "dashboard" ]]; then
+    main_rs="$app_dir/src/main.rs"
+
+    # Legacy exhaustive DialogDismiss variants and direct DialogRequest field
+    # construction: both were removed from the public API (breaking change),
+    # so a real regression here would already fail `cargo check` below with a
+    # private-field/missing-variant error, but a grep failure gives a clear,
+    # specific message about which compatibility guarantee broke.
+    if grep -qE 'DialogDismiss::(OnBackdrop|OnEscape|None)\b' "$main_rs"; then
+        echo "scaffold smoke: dashboard template regressed to a legacy DialogDismiss enum variant" >&2
+        exit 1
+    fi
+    if grep -qE 'DialogRequest[[:space:]]*\{' "$main_rs"; then
+        echo "scaffold smoke: dashboard template regressed to direct DialogRequest field construction" >&2
+        exit 1
+    fi
+    if grep -q 'backdrop_alpha(' "$main_rs"; then
+        echo "scaffold smoke: dashboard template regressed to raw backdrop_alpha" >&2
+        exit 1
+    fi
+
+    # Raw geometry, nested Panel chrome, and caller-owned scrolling on the
+    # Dialog builder chain itself: these compile fine (Dialog's body accepts
+    # any Element and has no width/height builder of its own to reject the
+    # call), so only a source check catches the anatomy regression.
+    dialog_chain="$(tr '\n' ' ' <"$main_rs" | grep -oE 'Dialog::new\([^;]*;' || true)"
+    if [[ -z "$dialog_chain" ]]; then
+        echo "scaffold smoke: dashboard template no longer builds a Dialog" >&2
+        exit 1
+    fi
+    if grep -qE '\.(width|height)\(' <<<"$dialog_chain"; then
+        echo "scaffold smoke: dashboard template regressed to raw Dialog geometry (.width/.height)" >&2
+        exit 1
+    fi
+    if grep -q 'Panel::new(' <<<"$dialog_chain"; then
+        echo "scaffold smoke: dashboard template regressed to nested Panel chrome inside Dialog" >&2
+        exit 1
+    fi
+    if grep -q 'scrollable(' <<<"$dialog_chain"; then
+        echo "scaffold smoke: dashboard template regressed to a caller-owned Dialog body Scrollable" >&2
+        exit 1
+    fi
+fi
+
 (cd "$app_dir" && "$cli" icons check)
 cargo check --manifest-path "$app_dir/Cargo.toml"

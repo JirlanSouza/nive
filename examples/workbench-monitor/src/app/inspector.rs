@@ -1,6 +1,5 @@
+use nive::prelude::ui::DialogRequest;
 use nive::prelude::*;
-use nive::widget::{column, row};
-use nive::widgets::{button as nive_button, text as nive_text};
 
 use crate::sim::Alert;
 
@@ -57,28 +56,31 @@ impl WorkbenchMonitor {
     }
 
     pub(super) fn alert_dialog(&self, alert: &Alert) -> Element<'_, Message> {
-        column![
-            nive_text::title(alert.title),
-            KeyValueList::new()
-                .item(MetadataItem::new("Service", alert.service_id))
-                .item(
-                    MetadataItem::new("Severity", tone_label(alert.severity))
-                        .status(alert.severity)
-                )
-                .item(MetadataItem::new(
-                    "Environment",
-                    self.model.environment_label()
-                ))
-                .fill_width(),
-            row![
-                nive_button::primary("Acknowledge").on_press(Message::AcknowledgeAlert(alert.id)),
-                nive_button::secondary("Close").on_press(Message::CloseDialog),
-            ]
-            .spacing(8),
-        ]
-        .spacing(16)
-        .padding(24)
-        .into()
+        let body = KeyValueList::new()
+            .item(MetadataItem::new("Service", alert.service_id))
+            .item(MetadataItem::new("Severity", tone_label(alert.severity)).status(alert.severity))
+            .item(MetadataItem::new(
+                "Environment",
+                self.model.environment_label(),
+            ))
+            .fill_width();
+
+        Dialog::new(body)
+            .header(DialogHeader::new(alert.title).close("Close alert", Message::CloseDialog))
+            .footer(DialogActionFooter::with_one(
+                DialogAction::cancel("Close", Message::CloseDialog),
+                DialogTerminalAction::primary(
+                    "Acknowledge",
+                    Message::AcknowledgeAlert(alert.id),
+                ),
+            ))
+            .into()
+    }
+
+    pub(super) fn alert_dialog_request(&self, alert: &Alert) -> DialogRequest<'_, Message> {
+        DialogRequest::new(self.alert_dialog(alert))
+            .dismiss_on_backdrop(Message::CloseDialog)
+            .dismiss_on_escape(Message::CloseDialog)
     }
 
     pub(super) fn problems(&self) -> Vec<Problem<'static>> {
@@ -89,5 +91,67 @@ impl WorkbenchMonitor {
                     .location(ProblemLocation::new(alert.service_id))
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod alert_dialog_tests {
+    use super::*;
+
+    fn fixture() -> WorkbenchMonitor {
+        WorkbenchMonitor::seeded()
+    }
+
+    #[test]
+    fn every_seeded_alert_builds_a_dialog_without_panicking() {
+        let app = fixture();
+
+        for alert in app.model.active_alerts() {
+            let _: Element<'_, Message> = app.alert_dialog(alert);
+        }
+    }
+
+    #[test]
+    fn alert_dialog_request_enables_both_backdrop_and_escape_dismissal() {
+        let app = fixture();
+        let alert = app
+            .model
+            .active_alerts()
+            .next()
+            .expect("seeded simulation has at least one active alert");
+
+        let request = app.alert_dialog_request(alert);
+
+        assert!(request.dismiss_policy().on_backdrop().is_some());
+        assert!(request.dismiss_policy().on_escape().is_some());
+        assert!(matches!(
+            request.dismiss_policy().on_backdrop(),
+            Some(Message::CloseDialog)
+        ));
+        assert!(matches!(
+            request.dismiss_policy().on_escape(),
+            Some(Message::CloseDialog)
+        ));
+    }
+
+    #[test]
+    fn alert_dialog_request_declares_no_explicit_identity_or_initial_focus_override() {
+        let app = fixture();
+        let alert = app
+            .model
+            .active_alerts()
+            .next()
+            .expect("seeded simulation has at least one active alert");
+
+        let request = app.alert_dialog_request(alert);
+
+        // Shell geometry and modal wiring stay app-owned; the migration
+        // does not introduce application-owned focus state (per the
+        // "no application-owned focus state" requirement).
+        assert_eq!(request.identity(), None);
+        assert_eq!(
+            request.initial_focus_policy(),
+            &nive::prelude::DialogInitialFocus::First
+        );
     }
 }
