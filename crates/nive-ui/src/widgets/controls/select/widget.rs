@@ -122,6 +122,7 @@ where
             list,
             PopoverInset::EdgeToEdge,
             Some(&ensure_visible),
+            PopoverWidth::AtLeastAnchor,
         );
 
         Self {
