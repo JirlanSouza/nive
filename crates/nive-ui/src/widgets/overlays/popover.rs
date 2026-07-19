@@ -215,6 +215,7 @@ where
             self.inset,
             self.ensure_visible.as_ref(),
             self.max_height,
+            self.width,
         );
         Element::new(PopoverWidget {
             anchor: self.anchor,
@@ -236,11 +237,12 @@ pub(crate) fn surface_with_ensure_visible<'a, Message>(
     content: Element<'a, Message>,
     inset: PopoverInset,
     ensure_visible: Option<&EnsureVisibleHandle>,
+    width: PopoverWidth,
 ) -> Element<'a, Message>
 where
     Message: 'a,
 {
-    surface_with_constraints(content, inset, ensure_visible, None)
+    surface_with_constraints(content, inset, ensure_visible, None, width)
 }
 
 fn surface_with_constraints<'a, Message>(
@@ -248,13 +250,25 @@ fn surface_with_constraints<'a, Message>(
     inset: PopoverInset,
     ensure_visible: Option<&EnsureVisibleHandle>,
     max_height: Option<f32>,
+    width: PopoverWidth,
 ) -> Element<'a, Message>
 where
     Message: 'a,
 {
+    // `Content` mode promises the frame shrinks to the content's own natural
+    // width; a `Length::Fill` container here would instead report the full
+    // incoming limit as its own size, silently discarding that narrower
+    // width. `MatchAnchor`, `AtLeastAnchor`, and `Fixed` all want (or
+    // tolerate) the frame stretched to their resolved floor, so they keep
+    // the original `Fill` behavior.
+    let inner_width = if matches!(width, PopoverWidth::Content) {
+        Length::Shrink
+    } else {
+        Length::Fill
+    };
     let content = container(content)
         .padding(Padding::from(inset.value()))
-        .width(Length::Fill);
+        .width(inner_width);
     let mut viewport = scrollable(content)
         .direction(scrollable::Direction::Vertical(overlay_scrollbar()))
         .width(Length::Shrink)
