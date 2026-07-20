@@ -562,15 +562,39 @@ error-details dialog content. Applications supply product assets and copy;
 
 ## Toast Host
 
-`ToastHost` owns the generic toast overlay: corner positioning, hover
-pause/resume wiring and dismissible toast rows built from the
-`ToastPresentation` contract (defined in `nive-core`, reexported here).
+`ToastHost` owns the generic toast overlay: a dedicated elevated-surface
+composition (tone icon, title, optional three-line body, ghost close, at most
+one optional action) at a logical `ToastPosition` corner (`TopStart`/
+`TopEnd`/`BottomStart`/`BottomEnd`, `BottomEnd` default — the removed physical
+corner variants have no facade), growing inward from the origin with the
+newest card nearest it, capped at three visible, and clear of host-supplied
+`ToastInsets`. It's built from the `ToastPresentation` contract (defined in
+`nive-core`, reexported here), which is deliberately message-free — the
+optional action's application `Message` lives on the runtime-owned `Toast`,
+never on this neutral contract.
+
 `nive-runtime::ToastItem` implements `ToastPresentation` by depending on
-`nive-core` directly, so the runtime owns toast identity, visible/queued
-state, promotion and timing while `nive-ui` owns only the visual composition.
-The runtime applies the host automatically to app-role windows; applications
-do not mount it themselves and toasts may remain visible alongside a modal
-dialog.
+`nive-core` directly, so the runtime owns toast identity, window-scoped and
+global visibility, queueing/coalescing, promotion, and timing (including
+pause on hover, keyboard focus-within, inactive window, and an open modal)
+while `nive-ui` owns only the visual composition and the keyboard
+focus-within detection that feeds that last pause input. The runtime applies
+the host automatically to app-role windows; applications do not mount it
+themselves. Toasts are composed *inside* the shared modal-hosting kernel's
+base content (see Command Palette below), so they render beneath an open
+`Dialog`'s or `CommandPalette`'s scrim and go inert along with the rest of the
+base content — they never remain interactive, or visible atop, an open modal.
+
+Live-region announcement semantics are preparatory only (no native AccessKit
+emission exists in this Iced version): `ToastTone::announcement_politeness()`
+fixes Info/Success as polite, Warning as non-aggressive, and Danger as
+assertive; only the newest toast is meant to announce; the tone icon is
+decorative with the card owning the accessible name. Appearing never moves
+keyboard focus into a toast, which *is* enforced today.
+
+`Toast::error` shows only the error's summary as the title and never places
+diagnostic detail in the body; the detail remains reachable only through
+`ErrorDetailsDialog`.
 
 ## Command Palette
 

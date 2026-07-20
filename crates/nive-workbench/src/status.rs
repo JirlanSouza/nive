@@ -134,6 +134,12 @@ impl<'a> StatusBar<'a> {
         }
     }
 
+    /// The rendered height of a status bar at `size`, for hosts that need to
+    /// keep other chrome — a toast notification stack, say — clear of it.
+    pub fn height(size: ControlSize) -> f32 {
+        metrics(size).height
+    }
+
     /// Builds a status bar from items.
     pub fn with_items(items: impl IntoIterator<Item = StatusItem<'a>>) -> Self {
         Self {
