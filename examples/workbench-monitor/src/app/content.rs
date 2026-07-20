@@ -111,9 +111,10 @@ impl WorkbenchMonitor {
                 } else {
                     "light"
                 })
-                .trailing(ActionGroup::new().action(
-                    ContentAction::label("Toggle").on_press(Message::ToggleTheme)
-                ))
+                .trailing(
+                    ActionGroup::new()
+                        .action(ContentAction::label("Toggle").on_press(Message::ToggleTheme))
+                )
                 .fill_width(),
         ]
         .spacing(8)
@@ -133,9 +134,12 @@ impl WorkbenchMonitor {
             .sum();
 
         let mut service_options = vec![SelectOption::new(ServiceScope::All, "All services")];
-        service_options.extend(self.model.services.iter().map(|service| {
-            SelectOption::new(ServiceScope::Service(service.id), service.name)
-        }));
+        service_options.extend(
+            self.model
+                .services
+                .iter()
+                .map(|service| SelectOption::new(ServiceScope::Service(service.id), service.name)),
+        );
         let service_scope = Field::new(
             "Service scope",
             Select::new(service_options, Some(self.service_scope))
@@ -150,15 +154,23 @@ impl WorkbenchMonitor {
                     .unit("rpm")
                     .trend(nive_text::body_small("live fleet total"))
             )
-                .fill_width(),
+            .fill_width(),
             Card::new(
-                MetricCard::new("Active alerts", active_alerts)
-                    .status(Badge::status(if active_alerts > 0 { "attention" } else { "clear" })
-                        .tone(if active_alerts > 0 { ToneRole::Warning } else { ToneRole::Success }))
+                MetricCard::new("Active alerts", active_alerts).status(
+                    Badge::status(if active_alerts > 0 {
+                        "attention"
+                    } else {
+                        "clear"
+                    })
+                    .tone(if active_alerts > 0 {
+                        ToneRole::Warning
+                    } else {
+                        ToneRole::Success
+                    })
+                )
             )
-                .fill_width(),
-            Card::new(MetricCard::new("Running jobs", running_jobs))
-                .fill_width(),
+            .fill_width(),
+            Card::new(MetricCard::new("Running jobs", running_jobs)).fill_width(),
         ]
         .spacing(12);
 
@@ -183,17 +195,17 @@ impl WorkbenchMonitor {
             .iter()
             .filter(|service| self.service_scope.includes(service.id))
             .map(|service| {
-            SelectableItem::new(service.name)
-                .selected(
-                    matches!(self.selected, super::Selection::Service(id) if id == service.id),
-                )
-                .status_text(service.health, tone_label(service.health))
-                .trailing(nive_text::caption(format!(
-                    "{} rpm · {} ms · {}% uptime",
-                    service.requests_per_minute, service.latency_ms, service.uptime_percent
-                )))
-                .on_press(Message::OpenService(service.id))
-                .into()
+                SelectableItem::new(service.name)
+                    .selected(
+                        matches!(self.selected, super::Selection::Service(id) if id == service.id),
+                    )
+                    .status_text(service.health, tone_label(service.health))
+                    .trailing(nive_text::caption(format!(
+                        "{} rpm · {} ms · {}% uptime",
+                        service.requests_per_minute, service.latency_ms, service.uptime_percent
+                    )))
+                    .on_press(Message::OpenService(service.id))
+                    .into()
             });
 
         container(
@@ -252,10 +264,12 @@ impl WorkbenchMonitor {
                                     ToneRole::Success
                                 })
                                 .value(if self.dirty_filter { "dirty" } else { "clean" })
-                                .trailing(ActionGroup::new().action(
-                                    ContentAction::label("Toggle")
-                                        .on_press(Message::ToggleFilterDirty)
-                                ))
+                                .trailing(
+                                    ActionGroup::new().action(
+                                        ContentAction::label("Toggle")
+                                            .on_press(Message::ToggleFilterDirty)
+                                    )
+                                )
                                 .fill_width(),
                         ]
                         .spacing(8)
@@ -281,15 +295,10 @@ impl WorkbenchMonitor {
 
         let host = self.model.host(service.host_id);
         let cards = row![
-            Card::new(MetricCard::new("Latency", service.latency_ms).unit("ms"))
+            Card::new(MetricCard::new("Latency", service.latency_ms).unit("ms")).fill_width(),
+            Card::new(MetricCard::new("Uptime", service.uptime_percent).unit("%")).fill_width(),
+            Card::new(MetricCard::new("Error rate", service.error_rate_percent).unit("%"))
                 .fill_width(),
-            Card::new(MetricCard::new("Uptime", service.uptime_percent).unit("%"))
-                .fill_width(),
-            Card::new(MetricCard::new(
-                "Error rate",
-                service.error_rate_percent
-            ).unit("%"))
-            .fill_width(),
         ]
         .spacing(12);
         let host_label = host.map(|host| host.name).unwrap_or("unknown");
@@ -334,7 +343,11 @@ impl WorkbenchMonitor {
                             .on_press(Message::Command(AppCommand::RunHealthCheck))
                     )
                     .separator()
-                    .action(ContentAction::label("Restart service").destructive().disabled(true)),
+                    .action(
+                        ContentAction::label("Restart service")
+                            .destructive()
+                            .disabled(true)
+                    ),
             ]
             .spacing(16)
             .padding(24),

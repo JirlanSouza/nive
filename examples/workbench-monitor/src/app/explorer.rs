@@ -7,9 +7,9 @@
 use std::time::Duration;
 
 use nive::prelude::*;
-use nive::ui::interaction::{ContextPosition, ContextTarget, SelectionMode};
 #[cfg(test)]
 use nive::ui::interaction::{ContextInvocation, ContextRequest, SelectionSnapshot};
+use nive::ui::interaction::{ContextPosition, ContextTarget, SelectionMode};
 
 use super::tone::tone_label;
 use super::{Message, Selection, WorkbenchMonitor};
@@ -98,7 +98,10 @@ impl WorkbenchMonitor {
 
     /// Hosts the canonical `Menu` at the captured context-request position.
     /// Tree itself owns no menu; it only emits `ContextRequested`.
-    fn explorer_with_context_menu<'a>(&'a self, tree: Element<'a, Message>) -> Element<'a, Message> {
+    fn explorer_with_context_menu<'a>(
+        &'a self,
+        tree: Element<'a, Message>,
+    ) -> Element<'a, Message> {
         let Some(menu) = self.explorer_context_menu else {
             return tree;
         };
@@ -110,7 +113,9 @@ impl WorkbenchMonitor {
         let mut hosted = Menu::new(anchor)
             .open(true)
             .on_dismiss(Message::ExplorerContextDismissed)
-            .command(MenuCommand::new("Inspect").on_press(Message::ExplorerContextAction("Inspect")));
+            .command(
+                MenuCommand::new("Inspect").on_press(Message::ExplorerContextAction("Inspect")),
+            );
         if matches!(menu.target, ExplorerNodeId::Service(_)) {
             hosted = hosted.command(
                 MenuCommand::new("Open document").on_press(Message::ExplorerContextAction("Open")),
@@ -156,7 +161,9 @@ impl WorkbenchMonitor {
             }
             TreeEventKind::Activate { id, .. } => {
                 match id {
-                    ExplorerNodeId::Service(service_id) => self.select(Selection::Service(service_id)),
+                    ExplorerNodeId::Service(service_id) => {
+                        self.select(Selection::Service(service_id))
+                    }
                     ExplorerNodeId::Host(host_id) => self.select(Selection::Host(host_id)),
                     ExplorerNodeId::Diagnostics => {}
                 }

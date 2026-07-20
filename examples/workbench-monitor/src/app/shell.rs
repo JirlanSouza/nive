@@ -129,11 +129,18 @@ impl WorkbenchMonitor {
                 )),
             operations_panel_slot("jobs", self.jobs_view())
                 .count_badge(self.model.running_jobs() as u64)
-                .status_text(if self.model.running_jobs() == 0 {
-                    ToneRole::Success
-                } else {
-                    ToneRole::Accent
-                }, if self.model.running_jobs() == 0 { "Idle" } else { "Running" }),
+                .status_text(
+                    if self.model.running_jobs() == 0 {
+                        ToneRole::Success
+                    } else {
+                        ToneRole::Accent
+                    },
+                    if self.model.running_jobs() == 0 {
+                        "Idle"
+                    } else {
+                        "Running"
+                    },
+                ),
         ]
     }
 
@@ -168,10 +175,7 @@ impl WorkbenchMonitor {
                 "env: {}",
                 self.model.environment_label()
             )))
-            .leading(StatusItem::severity(
-                self.overall_tone(),
-                "fleet health",
-            ))
+            .leading(StatusItem::severity(self.overall_tone(), "fleet health"))
             .leading(StatusItem::severity(
                 self.alert_tone(),
                 format!("{} active alerts", self.active_alert_count()),

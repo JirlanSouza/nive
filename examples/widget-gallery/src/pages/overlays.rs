@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use nive::prelude::*;
 use nive::ui::widgets::controls::button as nbutton;
 use nive::ui::widgets::primitives::text as ntext;
@@ -9,32 +7,33 @@ use crate::app::{DialogKind, Message, PopoverKind, WidgetGallery};
 use crate::catalog::PageId;
 use crate::layout::{example_cell, section, variant_grid};
 
-static COMMAND_ROWS: &[CommandPaletteRow<'static, Message>] = &[
-    CommandPaletteRow {
-        id: "open-settings",
-        label: "Open settings",
-        description: Some("Navigate to app settings"),
-        shortcut_label: Some(Cow::Borrowed("Cmd+,")),
-        enabled: true,
-        message: Some(Message::SelectCommand("open-settings")),
-    },
-    CommandPaletteRow {
-        id: "refresh",
-        label: "Refresh project",
-        description: Some("Reload the active project"),
-        shortcut_label: Some(Cow::Borrowed("Cmd+R")),
-        enabled: true,
-        message: Some(Message::SelectCommand("refresh")),
-    },
-    CommandPaletteRow {
-        id: "delete",
-        label: "Delete project",
-        description: Some("Disabled destructive command"),
-        shortcut_label: Some(Cow::Borrowed("Del")),
-        enabled: false,
-        message: None,
-    },
-];
+fn command_items() -> Vec<CommandPaletteItem<'static, Message>> {
+    vec![
+        CommandPaletteItem::new(
+            "open-settings",
+            "Open settings",
+            Message::SelectCommand("open-settings"),
+        )
+        .description("Navigate to app settings")
+        .shortcut_label("Cmd+,"),
+        CommandPaletteItem::new("refresh", "Refresh project", Message::SelectCommand("refresh"))
+            .description("Reload the active project")
+            .shortcut_label("Cmd+R"),
+        CommandPaletteItem::new("delete", "Delete project", Message::SelectCommand("delete"))
+            .description("Disabled destructive command")
+            .shortcut_label("Del")
+            .disabled(true),
+    ]
+}
+
+/// Filters the gallery's fixture commands by `query`, for the app-level
+/// `CommandPalette` hosted in `crate::app`'s `view()`.
+pub fn command_palette_items(query: &str) -> Vec<CommandPaletteItem<'static, Message>> {
+    let items = command_items();
+    let visible = command_palette_filter(query, &items);
+
+    visible.into_iter().map(|index| items[index].clone()).collect()
+}
 
 pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
     crate::app::page_shell(
@@ -458,18 +457,6 @@ fn popover_content(title: &'static str, body: &'static str) -> Element<'static, 
 }
 
 fn command_palette(app: &WidgetGallery) -> Element<'_, Message> {
-    let filtered = command_palette_filter(&app.overlays.command_query, COMMAND_ROWS);
-    let visible: Vec<CommandPaletteRow<'static, Message>> = filtered
-        .into_iter()
-        .map(|index| COMMAND_ROWS[index].clone())
-        .collect();
-
-    let highlighted = (!visible.is_empty()).then_some(0);
-    let on_submit = highlighted
-        .and_then(|index| visible.get(index))
-        .and_then(|row| row.activated())
-        .cloned();
-
     variant_grid([
         example_cell(
             "Canonical anchored Menu",
@@ -478,14 +465,8 @@ fn command_palette(app: &WidgetGallery) -> Element<'_, Message> {
         example_cell(
             "Command palette",
             column![
-                command_palette_view(
-                    "Search commands",
-                    &app.overlays.command_query,
-                    visible.clone(),
-                    Some(0),
-                    Message::CommandQueryChanged,
-                    on_submit,
-                ),
+                nbutton::secondary("Open command palette (Cmd+K)")
+                    .on_press(Message::TogglePalette),
                 ntext::caption(
                     app.overlays
                         .selected_command

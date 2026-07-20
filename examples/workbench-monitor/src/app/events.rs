@@ -39,20 +39,13 @@ impl WorkbenchMonitor {
         }
     }
 
-    pub(super) fn apply_palette_event(&mut self, event: WorkbenchCommandPaletteEvent<AppCommand>) {
-        match event {
-            WorkbenchCommandPaletteEvent::QueryChanged(query) => self.palette.set_query(query),
-            WorkbenchCommandPaletteEvent::Highlighted(index) => self.palette.highlighted = index,
-            WorkbenchCommandPaletteEvent::Submitted(command) => {
-                self.palette.close();
-                self.run_command(command);
-            }
-            WorkbenchCommandPaletteEvent::Dismissed => self.palette.close(),
-            _ => {}
-        }
+    pub(super) fn close_palette(&mut self) {
+        self.palette_open = false;
+        self.palette_query.clear();
     }
 
     pub(super) fn run_command(&mut self, command: AppCommand) {
+        self.close_palette();
         match command {
             AppCommand::OpenApi => self.open_document(DocumentId::Service("api")),
             AppCommand::OpenBilling => self.open_document(DocumentId::Service("billing")),
@@ -66,12 +59,6 @@ impl WorkbenchMonitor {
             AppCommand::SwitchEnvironment => self.model.toggle_environment(),
             AppCommand::ToggleLeft => self.toggle_region(WorkbenchRegion::Left),
             AppCommand::ToggleBottom => self.toggle_region(WorkbenchRegion::Bottom),
-            AppCommand::ToggleTheme => {
-                self.theme = match self.theme {
-                    ThemePreference::Dark => ThemePreference::Light,
-                    _ => ThemePreference::Dark,
-                };
-            }
         }
     }
 
@@ -144,17 +131,16 @@ mod tests {
         let documents = app.documents.clone();
         let query = "open the production billing service with a deliberately long query";
 
-        app.palette.open();
-        app.apply_palette_event(WorkbenchCommandPaletteEvent::QueryChanged(query.into()));
+        app.palette_open = true;
+        app.palette_query = query.into();
 
-        assert!(app.palette.open);
-        assert_eq!(app.palette.query, query);
-        assert_eq!(app.palette.highlighted, Some(0));
+        assert!(app.palette_open);
+        assert_eq!(app.palette_query, query);
         assert_eq!(app.documents, documents);
 
-        app.apply_palette_event(WorkbenchCommandPaletteEvent::Dismissed);
-        assert!(!app.palette.open);
-        assert!(app.palette.query.is_empty());
+        app.close_palette();
+        assert!(!app.palette_open);
+        assert!(app.palette_query.is_empty());
         assert_eq!(app.documents, documents);
     }
 }
