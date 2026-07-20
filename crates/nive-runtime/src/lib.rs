@@ -88,8 +88,9 @@ pub use devtools::{
     SimulateResult, SimulatorCapabilities, SimulatorEntry, SimulatorKind,
 };
 pub use feedback::{
-    ErrorCode, InvalidErrorCode, Toast, ToastDuration, ToastId, ToastItem, ToastMessage,
-    ToastPosition, ToastState, ToastTone, UserFacingError, UserFacingErrorKind, UserFacingResult,
+    ErrorCode, InvalidErrorCode, Toast, ToastDuration, ToastId, ToastInsets, ToastItem,
+    ToastMessage, ToastPosition, ToastState, ToastTone, UserFacingError, UserFacingErrorKind,
+    UserFacingResult,
 };
 pub use input::{
     keyboard_navigation_subscription, KeyboardNavigation, NamedShortcutKey, ShortcutBinding,
@@ -173,9 +174,9 @@ pub mod prelude {
             InvalidErrorCode, NamedShortcutKey, Operation, OperationDescriptor, OperationEntry,
             OperationId, OperationProgress, OperationRegistry, OperationStatus, Resource,
             ScreenEffect, Settled, ShortcutBinding, ShortcutKey, ShortcutMap, ShortcutModifiers,
-            SplashBackground, ThemeBuilder, ThemeCatalog, ThemeMode, ToastDuration, ToastTone,
-            UserFacingError, UserFacingErrorKind, UserFacingResult, WindowChrome, WindowHandle,
-            WindowMode, WindowRegistry,
+            SplashBackground, ThemeBuilder, ThemeCatalog, ThemeMode, ToastDuration, ToastInsets,
+            ToastTone, UserFacingError, UserFacingErrorKind, UserFacingResult, WindowChrome,
+            WindowHandle, WindowMode, WindowRegistry,
         };
 
         /// File-picker param structs surfaced in the extended tier only when

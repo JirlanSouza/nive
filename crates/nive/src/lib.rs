@@ -104,8 +104,9 @@ pub mod prelude {
             BackgroundFit, BootstrapSpec, BrandContent, DialogDismiss, DialogRequest, ErrorCode,
             InvalidErrorCode, Operation, OperationDescriptor, OperationEntry, OperationId,
             OperationProgress, OperationRegistry, OperationStatus, RequestId, Resource,
-            ScreenEffect, Settled, Toast, ToastDuration, UserFacingError, UserFacingErrorKind,
-            UserFacingResult, WindowChrome, WindowHandle, WindowMode, WindowRegistry,
+            ScreenEffect, Settled, Toast, ToastDuration, ToastInsets, UserFacingError,
+            UserFacingErrorKind, UserFacingResult, WindowChrome, WindowHandle, WindowMode,
+            WindowRegistry,
         };
         #[cfg(feature = "file-picker")]
         pub use crate::{FileFilter, PickFileParams, SaveFileParams};
