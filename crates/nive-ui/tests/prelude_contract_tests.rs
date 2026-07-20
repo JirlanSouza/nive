@@ -631,16 +631,20 @@ fn top_level_ui_facades_expose_layout_graphics_and_accessibility() {
 }
 
 #[test]
-fn command_palette_exposes_filter_view_and_row_types() {
-    let save = CommandPaletteRow::new("file.save", "Save", ()).description("Persist the buffer");
-    let open = CommandPaletteRow::new("file.open", "Open", ());
-    let rows = [save, open];
+fn command_palette_exposes_filter_and_item_types() {
+    let save = CommandPaletteItem::new("file.save", "Save", ()).description("Persist the buffer");
+    let open = CommandPaletteItem::new("file.open", "Open", ());
+    let items = [save, open];
 
-    assert_eq!(command_palette_filter("save", &rows), vec![0]);
-    assert_eq!(command_palette_filter("", &rows), vec![0, 1]);
+    assert_eq!(command_palette_filter("save", &items), vec![0]);
+    assert_eq!(command_palette_filter("", &items), vec![0, 1]);
 
-    let _: Element<'_, ()> =
-        command_palette_view("Type a command", "", rows, Some(0), |_| (), None);
+    let _: Element<'_, ()> = CommandPalette::new(text("Base"))
+        .open(true)
+        .items(items)
+        .on_query_change(|_| ())
+        .on_dismiss(())
+        .into();
 }
 
 #[test]
