@@ -8,6 +8,11 @@
 //! a viewport-alignment input that resolves either a centered frame (Dialog)
 //! or a top-centered frame (CommandPalette) from one overlay geometry. It is
 //! crate-private: there is no public general-purpose modal container.
+//!
+//! Every open session is also reported to the enclosing
+//! [`FocusRoot`](crate::accessibility::FocusRoot) on each collection pass, so
+//! window-level modal activity is observable without a host opting in — see
+//! [`FocusRoot::on_modal_change`](crate::accessibility::FocusRoot::on_modal_change).
 
 mod initial_focus;
 mod overlay;
@@ -24,6 +29,74 @@ mod modal_host_tests {
 
     fn no_op_initial_focus<Message>() -> super::InitialFocusFn<'static, Message> {
         Box::new(|_, _, _, _| {})
+    }
+
+    /// Builds `FocusRoot(ModalHost(base))`, optionally with an open session,
+    /// mirroring how the runtime roots every window's content.
+    fn rooted(open: bool) -> Element<'static, &'static str> {
+        let mut host = ModalHost::new(iced::widget::text("base"));
+        if open {
+            host = host.modal(
+                iced::widget::text("content"),
+                None,
+                None,
+                no_op_initial_focus(),
+                ModalAlignment::Centered,
+            );
+        }
+        crate::accessibility::FocusRoot::new(Element::from(host))
+            .on_modal_change(|active| if active { "modal-open" } else { "modal-closed" })
+            .into()
+    }
+
+    fn pump(harness: &mut WidgetHarness<'_, &'static str>) -> Vec<&'static str> {
+        harness
+            .update(Event::Mouse(mouse::Event::CursorMoved {
+                position: Point::new(1.0, 1.0),
+            }))
+            .messages
+    }
+
+    #[test]
+    fn an_open_session_publishes_modal_activity_to_the_focus_root() {
+        let mut harness = WidgetHarness::new(rooted(true), Size::new(300.0, 200.0));
+
+        assert_eq!(
+            pump(&mut harness),
+            vec!["modal-open"],
+            "the kernel reports its open session without the host wiring anything"
+        );
+    }
+
+    #[test]
+    fn modal_activity_is_published_only_on_change() {
+        let mut harness = WidgetHarness::new(rooted(true), Size::new(300.0, 200.0));
+        let _opened = pump(&mut harness);
+
+        assert!(
+            pump(&mut harness).is_empty(),
+            "a steady open session must not republish every event"
+        );
+    }
+
+    #[test]
+    fn dropping_an_open_session_republishes_inactive() {
+        let mut harness = WidgetHarness::new(rooted(true), Size::new(300.0, 200.0));
+        let _opened = pump(&mut harness);
+
+        // The host simply stops rendering the modal, so the kernel never gets
+        // to report a close. The per-pass recount must still settle to
+        // inactive rather than pinning modal activity on forever.
+        harness.replace(rooted(false));
+
+        assert_eq!(pump(&mut harness), vec!["modal-closed"]);
+    }
+
+    #[test]
+    fn a_closed_host_never_reports_modal_activity() {
+        let mut harness = WidgetHarness::new(rooted(false), Size::new(300.0, 200.0));
+
+        assert!(pump(&mut harness).is_empty());
     }
 
     #[test]

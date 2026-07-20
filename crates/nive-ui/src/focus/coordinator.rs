@@ -65,6 +65,8 @@ pub(crate) struct FocusCoordinator {
     pointer_transaction: bool,
     pointer_claimed: bool,
     revision: u64,
+    modal_open_in_pass: usize,
+    modal_active: bool,
 }
 
 pub(crate) type SharedFocusCoordinator = Arc<Mutex<FocusCoordinator>>;
@@ -83,6 +85,8 @@ impl Default for FocusCoordinator {
             pointer_transaction: false,
             pointer_claimed: false,
             revision: 0,
+            modal_open_in_pass: 0,
+            modal_active: false,
         }
     }
 }
@@ -223,6 +227,37 @@ impl FocusCoordinator {
     pub(crate) fn ensure_liveness(&mut self) -> FocusGeneration {
         self.pending_liveness
             .unwrap_or_else(|| self.begin_liveness())
+    }
+
+    /// Opens a modal-activity collection pass.
+    ///
+    /// Modal activity is re-collected from scratch on every pass rather than
+    /// tracked as open/close deltas: a modal host whose widget state is
+    /// dropped while its session is open (its host simply stops rendering it)
+    /// never reports a close, so a delta counter would leak and pin toasts
+    /// paused forever. A per-pass recount is self-healing.
+    pub(crate) fn begin_modal_pass(&mut self) {
+        self.modal_open_in_pass = 0;
+    }
+
+    /// Reports one open modal session for the pass in progress. Called by the
+    /// shared modal kernel for each host that currently has an open session,
+    /// so nested or replaced sessions aggregate correctly.
+    pub(crate) fn report_modal_open(&mut self) {
+        self.modal_open_in_pass = self.modal_open_in_pass.saturating_add(1);
+    }
+
+    /// Closes the pass and publishes the aggregate, returning `true` when the
+    /// modal-active state changed.
+    pub(crate) fn finish_modal_pass(&mut self) -> bool {
+        let active = self.modal_open_in_pass > 0;
+        let changed = self.modal_active != active;
+        self.modal_active = active;
+        changed
+    }
+
+    pub(crate) fn modal_active(&self) -> bool {
+        self.modal_active
     }
 
     pub(crate) fn observe_live(&mut self, token: FocusToken, generation: FocusGeneration) {

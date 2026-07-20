@@ -21,6 +21,15 @@ impl FocusTargetContext {
         operation.custom(None, bounds, self);
     }
 
+    /// Reports that this host has an open modal session for the collection
+    /// pass in progress, so the owning [`FocusRoot`](crate::accessibility::FocusRoot)
+    /// can publish window-level modal activity without any host wiring.
+    pub(crate) fn report_modal_open(&self) {
+        if let Some(coordinator) = self.coordinator.upgrade() {
+            lock_coordinator(&coordinator).report_modal_open();
+        }
+    }
+
     pub(crate) fn capture(&self) -> Option<FocusTarget> {
         self.coordinator
             .upgrade()

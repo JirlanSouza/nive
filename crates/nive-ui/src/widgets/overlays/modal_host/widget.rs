@@ -165,6 +165,12 @@ where
     ) {
         let state = tree.state.downcast_mut::<ModalHostState>();
         state.focus_context.expose(operation, layout.bounds());
+        if self.modal.is_some() {
+            // Reported per pass (never as an open/close delta) so the root can
+            // publish modal activity for Dialog, CommandPalette, and any future
+            // kernel consumer uniformly, without the host wiring anything.
+            state.focus_context.report_modal_open();
+        }
         state.captured_target_available = if let Some(captured) = state.captured_target.clone() {
             let mut contains = contains_focus_target(captured.clone());
             self.content.as_widget_mut().operate(
