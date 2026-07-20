@@ -227,14 +227,14 @@ fn toast_tone_and_position_are_unified_with_nive_core_and_nive_ui() {
 
     // Only compiles if `nive_runtime::ToastPosition` is the exact same type
     // as `nive_ui::widgets::overlays::ToastPosition`.
-    let position: ToastPosition = nive_ui::widgets::overlays::ToastPosition::TopLeft;
-    assert_eq!(position, ToastPosition::TopLeft);
+    let position: ToastPosition = nive_ui::widgets::overlays::ToastPosition::TopStart;
+    assert_eq!(position, ToastPosition::TopStart);
 
     fn assert_toast_presentation<T: nive_core::ToastPresentation>() {}
     assert_toast_presentation::<ToastItem>();
 
-    let mut state = ToastState::default();
-    state.push(Toast::success("Ready"), std::time::Instant::now());
+    let mut state = ToastState::<()>::default();
+    state.push(Toast::success("Ready"), std::time::Instant::now(), None);
     let item = state.visible().next().expect("toast is visible");
     assert_eq!(nive_core::ToastPresentation::tone(item), ToastTone::Success);
 }

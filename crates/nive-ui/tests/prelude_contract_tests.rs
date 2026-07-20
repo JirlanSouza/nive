@@ -757,6 +757,50 @@ fn feedback_presentation_contracts_are_reexported_from_nive_core() {
 }
 
 #[test]
+fn toast_host_public_builder_surface_composes_from_the_prelude() {
+    struct FakeToast;
+
+    impl nive_core::ToastPresentation for FakeToast {
+        type Id = u64;
+
+        fn id(&self) -> u64 {
+            0
+        }
+
+        fn title(&self) -> &str {
+            "title"
+        }
+
+        fn body(&self) -> Option<&str> {
+            None
+        }
+
+        fn tone(&self) -> nive_core::ToastTone {
+            nive_core::ToastTone::Info
+        }
+    }
+
+    // Exercises the full canonical-host chain a runtime integration drives:
+    // position, safe insets, hover pause, focus-within pause, dismiss/action
+    // extraction. Only compiles if this builder surface stays public and
+    // ergonomic; a breaking signature change here fails at compile time.
+    let _: Element<'_, &'static str> = ToastHost::new(text("content"))
+        .position(ToastPosition::TopStart)
+        .safe_insets(ToastInsets {
+            top: 8.0,
+            ..ToastInsets::NONE
+        })
+        .on_hover("pause", "resume")
+        .on_focus_within("focus-enter", "focus-exit")
+        .toasts(
+            std::iter::once(&FakeToast),
+            |_id: u64| "dismiss",
+            |_toast: &FakeToast| None,
+        )
+        .into();
+}
+
+#[test]
 fn theme_facade_builds_product_catalogs() {
     let light = Theme::builder("Contract Light", theme::ThemeMode::Light)
         .accent(theme::hex(0x0EA5E9))
