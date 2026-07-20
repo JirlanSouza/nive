@@ -66,9 +66,11 @@ impl UserFacingError {
     /// # Message convention
     ///
     /// The `error` message is split on the first occurrence of the substring
-    /// `" ("` to derive a short summary (title) and a diagnostic detail (body).
-    /// Apps SHOULD follow the `"Short summary (context: value)"` convention so
-    /// `Toast::error` rendering surfaces a clean title plus a folded body:
+    /// `" ("` to derive a short summary (title) and a diagnostic detail. Apps
+    /// SHOULD follow the `"Short summary (context: value)"` convention.
+    /// `Toast::error` uses only the summary as its title and never places the
+    /// diagnostic detail in the toast body; the detail is reserved for
+    /// `ErrorDetailsDialog` behind explicit access.
     ///
     /// ```
     /// use nive_runtime::{Toast, UserFacingError};
@@ -77,14 +79,14 @@ impl UserFacingError {
     ///     "record_catalog",
     ///     "Record not found (record_id: r1)",
     /// );
-    /// let toast = Toast::error(error);
+    /// let toast: Toast = Toast::error(error);
     ///
     /// assert_eq!(toast.title(), "Record not found");
-    /// assert_eq!(toast.body(), Some("record_id: r1"));
+    /// assert_eq!(toast.body(), None);
     /// ```
     ///
     /// When the message contains no parenthesised context, the summary
-    /// equals the detail and `Toast::error` only surfaces the title.
+    /// equals the detail and there is no diagnostic detail to withhold.
     pub fn custom(kind: impl Into<String>, error: impl fmt::Display) -> Self {
         Self::new(UserFacingErrorKind::Custom(kind.into()), error)
     }
@@ -113,8 +115,8 @@ impl UserFacingError {
     /// before a trailing `")"` — when present. Returns `None` when the
     /// message carries no context suffix.
     ///
-    /// `Toast::error` uses this so toast bodies match the
-    /// `"Short summary (context: value)"` convention.
+    /// `Toast::error` never surfaces this; it is reserved for
+    /// `ErrorDetailsDialog` behind explicit access.
     pub fn diagnostic_detail(&self) -> Option<&str> {
         if !self.has_diagnostic_detail() {
             return None;
