@@ -20,6 +20,10 @@ impl WorkbenchMonitor {
                             .on_press(Message::Command(AppCommand::RunHealthCheck)),
                     )
                     .action(
+                        ToolbarAction::icon_label(IconRole::DialogWarning, "Simulate sync failure")
+                            .on_press(Message::SimulateSyncFailure),
+                    )
+                    .action(
                         ToolbarAction::icon_label(IconRole::EditFind, "Command palette")
                             .on_press(Message::OpenPalette),
                     ),

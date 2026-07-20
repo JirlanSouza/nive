@@ -1,4 +1,4 @@
-use nive::prelude::ui::DialogRequest;
+use nive::prelude::ui::{DialogRequest, UserFacingError};
 use nive::prelude::*;
 
 use crate::sim::Alert;
@@ -89,6 +89,20 @@ impl WorkbenchMonitor {
             .dismiss_on_escape(Message::CloseDialog)
     }
 
+    /// The full diagnostic detail behind a summary-only error toast's "View
+    /// details" action — kept out of the toast itself and reachable only
+    /// through this dialog.
+    pub(super) fn sync_error_dialog_request<'a>(
+        &self,
+        error: &'a UserFacingError,
+    ) -> DialogRequest<'a, Message> {
+        DialogRequest::new(
+            ErrorDetailsDialog::new(error.detail()).on_close(Message::CloseSyncErrorDialog),
+        )
+        .dismiss_on_backdrop(Message::CloseSyncErrorDialog)
+        .dismiss_on_escape(Message::CloseSyncErrorDialog)
+    }
+
     pub(super) fn problems(&self) -> Vec<Problem<'static>> {
         self.model
             .active_alerts()
@@ -137,6 +151,26 @@ mod alert_dialog_tests {
         assert!(matches!(
             request.dismiss_policy().on_escape(),
             Some(Message::CloseDialog)
+        ));
+    }
+
+    #[test]
+    fn sync_error_dialog_request_shows_full_detail_and_dismisses_to_close() {
+        let app = fixture();
+        let error = UserFacingError::custom(
+            "workbench-monitor",
+            "Could not sync fleet status (endpoint: https://status.internal.example)",
+        );
+
+        let request = app.sync_error_dialog_request(&error);
+
+        assert!(matches!(
+            request.dismiss_policy().on_backdrop(),
+            Some(Message::CloseSyncErrorDialog)
+        ));
+        assert!(matches!(
+            request.dismiss_policy().on_escape(),
+            Some(Message::CloseSyncErrorDialog)
         ));
     }
 

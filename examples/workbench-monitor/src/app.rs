@@ -9,6 +9,7 @@ mod tone;
 use std::{borrow::Cow, time::Duration};
 
 use iced::keyboard;
+use nive::prelude::ui::{ToastInsets, UserFacingError};
 use nive::{prelude::*, ActionMap};
 
 use crate::sim::Environment;
@@ -30,6 +31,7 @@ pub(crate) struct WorkbenchMonitor {
     commands: ActionMap<Message>,
     theme: ThemePreference,
     alert_dialog: Option<u32>,
+    sync_error: Option<UserFacingError>,
     dirty_filter: bool,
     auto_refresh: bool,
     monitor_filter: MonitorFilter,
@@ -55,6 +57,9 @@ pub(crate) enum Message {
     AcknowledgeAlert(u32),
     ClearSelection,
     CloseDialog,
+    SimulateSyncFailure,
+    ShowSyncErrorDetails(UserFacingError),
+    CloseSyncErrorDialog,
     ToggleTheme,
     ToggleFilterDirty,
     AutoRefreshChanged(bool),
@@ -120,6 +125,15 @@ impl Application for WorkbenchMonitor {
         ApplicationConfig::new("nive-example-workbench-monitor")
             .name("Workbench Monitor")
             .theme_catalog(commands::workbench_theme_catalog())
+            // Explicit rather than relying on the default, so the status-bar
+            // safe inset below reads as deliberate too. `chrome_size` here
+            // must match `WorkbenchShell::chrome_size` in `view()`, since
+            // that's what the status bar actually renders at.
+            .toast_position(ToastPosition::BottomEnd)
+            .toast_insets(ToastInsets {
+                bottom: StatusBar::height(ControlSize::Sm),
+                ..ToastInsets::NONE
+            })
     }
 
     fn init(
@@ -159,6 +173,18 @@ impl Application for WorkbenchMonitor {
             Message::AcknowledgeAlert(id) => self.model.acknowledge_alert(id),
             Message::ClearSelection => self.select(Selection::None),
             Message::CloseDialog => self.alert_dialog = None,
+            Message::SimulateSyncFailure => {
+                let error = UserFacingError::custom(
+                    "workbench-monitor",
+                    "Could not sync fleet status (endpoint: https://status.internal.example)",
+                );
+                return Effect::toast(
+                    Toast::error(error.clone())
+                        .with_action("View details", Message::ShowSyncErrorDetails(error)),
+                );
+            }
+            Message::ShowSyncErrorDetails(error) => self.sync_error = Some(error),
+            Message::CloseSyncErrorDialog => self.sync_error = None,
             Message::ToggleTheme => {
                 self.theme = match self.theme {
                     ThemePreference::Dark => ThemePreference::Light,
@@ -224,6 +250,8 @@ impl Application for WorkbenchMonitor {
             if let Some(alert) = self.model.alert(alert_id) {
                 view = view.dialog(self.alert_dialog_request(alert));
             }
+        } else if let Some(error) = &self.sync_error {
+            view = view.dialog(self.sync_error_dialog_request(error));
         }
 
         view
@@ -291,6 +319,7 @@ impl WorkbenchMonitor {
             commands: commands::commands(),
             theme: ThemePreference::Dark,
             alert_dialog: None,
+            sync_error: None,
             dirty_filter: false,
             auto_refresh: true,
             monitor_filter: MonitorFilter::All,
