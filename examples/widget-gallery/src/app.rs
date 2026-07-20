@@ -212,6 +212,7 @@ pub struct OverlayState {
     pub active_autocomplete: Option<AutocompleteKind>,
     pub autocomplete_query: String,
     pub autocomplete_selected: Option<String>,
+    pub palette_open: bool,
     pub command_query: String,
     pub selected_command: Option<&'static str>,
 }
@@ -326,6 +327,8 @@ pub enum Message {
     AutocompleteQueryChanged(String),
     AutocompleteSelected(String),
     ClearAutocomplete,
+    TogglePalette,
+    PaletteDismissed,
     CommandQueryChanged(String),
     SelectCommand(&'static str),
     FeedbackModeChanged(FeedbackMode),
@@ -362,6 +365,7 @@ impl Default for OverlayState {
             active_autocomplete: None,
             autocomplete_query: "niv".to_owned(),
             autocomplete_selected: None,
+            palette_open: false,
             command_query: String::new(),
             selected_command: None,
         }
@@ -687,8 +691,20 @@ impl Application for WidgetGallery {
                 self.overlays.autocomplete_query.clear();
                 self.overlays.autocomplete_selected = None;
             }
+            Message::TogglePalette => {
+                self.overlays.palette_open = !self.overlays.palette_open;
+                self.overlays.command_query.clear();
+            }
+            Message::PaletteDismissed => {
+                self.overlays.palette_open = false;
+                self.overlays.command_query.clear();
+            }
             Message::CommandQueryChanged(value) => self.overlays.command_query = value,
-            Message::SelectCommand(id) => self.overlays.selected_command = Some(id),
+            Message::SelectCommand(id) => {
+                self.overlays.selected_command = Some(id);
+                self.overlays.palette_open = false;
+                self.overlays.command_query.clear();
+            }
             Message::FeedbackModeChanged(mode) => self.feedback = mode,
             Message::Noop => {}
         }
@@ -707,7 +723,16 @@ impl Application for WidgetGallery {
             .spacing(0)
             .height(Length::Fill)
             .width(Length::Fill);
-        let view = ScreenView::new(content);
+
+        let items = pages::overlays::command_palette_items(&self.overlays.command_query);
+        let palette_content = CommandPalette::new(content)
+            .open(self.overlays.palette_open)
+            .query(self.overlays.command_query.as_str())
+            .placeholder("Search commands")
+            .items(items)
+            .on_query_change(Message::CommandQueryChanged)
+            .on_dismiss(Message::PaletteDismissed);
+        let view = ScreenView::new(palette_content);
 
         if let Some(dialog) = self.overlays.active_dialog {
             view.dialog(

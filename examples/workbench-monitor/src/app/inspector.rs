@@ -18,8 +18,14 @@ impl WorkbenchMonitor {
                         MetadataItem::new("Health", tone_label(service.health))
                             .status(service.health),
                     )
-                    .item(MetadataItem::new("Latency", format!("{} ms", service.latency_ms)))
-                    .item(MetadataItem::new("RPM", service.requests_per_minute.to_string()))
+                    .item(MetadataItem::new(
+                        "Latency",
+                        format!("{} ms", service.latency_ms),
+                    ))
+                    .item(MetadataItem::new(
+                        "RPM",
+                        service.requests_per_minute.to_string(),
+                    ))
                     .fill_width()
                     .into()
             }),
@@ -29,7 +35,10 @@ impl WorkbenchMonitor {
                     .item(MetadataItem::new("Zone", host.zone))
                     .item(MetadataItem::new("Health", tone_label(host.health)).status(host.health))
                     .item(MetadataItem::new("CPU", format!("{}%", host.cpu_percent)))
-                    .item(MetadataItem::new("Memory", format!("{}%", host.memory_percent)))
+                    .item(MetadataItem::new(
+                        "Memory",
+                        format!("{}%", host.memory_percent),
+                    ))
                     .fill_width()
                     .into()
             }),
@@ -69,10 +78,7 @@ impl WorkbenchMonitor {
             .header(DialogHeader::new(alert.title).close("Close alert", Message::CloseDialog))
             .footer(DialogActionFooter::with_one(
                 DialogAction::cancel("Close", Message::CloseDialog),
-                DialogTerminalAction::primary(
-                    "Acknowledge",
-                    Message::AcknowledgeAlert(alert.id),
-                ),
+                DialogTerminalAction::primary("Acknowledge", Message::AcknowledgeAlert(alert.id)),
             ))
             .into()
     }

@@ -9,11 +9,10 @@ mod tone;
 use std::{borrow::Cow, time::Duration};
 
 use iced::keyboard;
-use nive::prelude::ui::DialogRequest;
-use nive::{prelude::*, Action, ActionMap};
+use nive::{prelude::*, ActionMap};
 
-use crate::sim::Simulation;
 use crate::sim::Environment;
+use crate::sim::Simulation;
 
 use explorer::{ExplorerContextMenuState, ExplorerNodeId};
 
@@ -26,8 +25,9 @@ pub(crate) struct WorkbenchMonitor {
     documents: Vec<DocumentId>,
     selected: Selection,
     inspector_loading_until: Option<u64>,
-    palette: CommandPaletteState,
-    commands: Vec<WorkbenchCommand<'static, AppCommand>>,
+    palette_open: bool,
+    palette_query: String,
+    commands: ActionMap<Message>,
     theme: ThemePreference,
     alert_dialog: Option<u32>,
     dirty_filter: bool,
@@ -44,8 +44,8 @@ pub(crate) struct WorkbenchMonitor {
 pub(crate) enum Message {
     Tick,
     Workbench(WorkbenchMsg),
-    Palette(WorkbenchCommandPaletteEvent<AppCommand>),
-    PaletteMove(isize),
+    PaletteQueryChanged(String),
+    PaletteDismissed,
     Command(AppCommand),
     OpenPalette,
     OpenService(&'static str),
@@ -102,7 +102,6 @@ pub(crate) enum AppCommand {
     SwitchEnvironment,
     ToggleLeft,
     ToggleBottom,
-    ToggleTheme,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -143,15 +142,10 @@ impl Application for WorkbenchMonitor {
                 }
             }
             Message::Workbench(event) => self.apply_workbench_event(event),
-            Message::Palette(event) => self.apply_palette_event(event),
-            Message::PaletteMove(delta) => {
-                self.palette.move_highlight(delta, self.commands.len());
-                self.apply_palette_event(WorkbenchCommandPaletteEvent::Highlighted(
-                    self.palette.highlighted,
-                ));
-            }
+            Message::PaletteQueryChanged(query) => self.palette_query = query,
+            Message::PaletteDismissed => self.close_palette(),
             Message::Command(command) => self.run_command(command),
-            Message::OpenPalette => self.palette.open(),
+            Message::OpenPalette => self.palette_open = true,
             Message::OpenService(id) => {
                 self.open_document(DocumentId::Service(id));
                 self.select(Selection::Service(id));
@@ -210,18 +204,21 @@ impl Application for WorkbenchMonitor {
             .status(self.status_bar())
             .view();
 
-        let mut view = ScreenView::new(shell);
+        let all_items = action_palette_items(&self.commands);
+        let visible = command_palette_filter(&self.palette_query, &all_items);
+        let items: Vec<_> = visible
+            .into_iter()
+            .map(|index| all_items[index].clone())
+            .collect();
+        let content = CommandPalette::new(shell)
+            .open(self.palette_open)
+            .query(self.palette_query.as_str())
+            .items(items)
+            .placeholder("Search commands")
+            .on_query_change(Message::PaletteQueryChanged)
+            .on_dismiss(Message::PaletteDismissed);
 
-        if self.palette.open {
-            view = view.dialog(
-                DialogRequest::new(
-                    WorkbenchCommandPalette::new(&self.palette, &self.commands, Message::Palette)
-                        .view(),
-                )
-                .dismiss_on_backdrop(Message::Palette(WorkbenchCommandPaletteEvent::Dismissed))
-                .dismiss_on_escape(Message::Palette(WorkbenchCommandPaletteEvent::Dismissed)),
-            );
-        }
+        let mut view = ScreenView::new(content);
 
         if let Some(alert_id) = self.alert_dialog {
             if let Some(alert) = self.model.alert(alert_id) {
@@ -240,14 +237,6 @@ impl Application for WorkbenchMonitor {
                 modifiers,
                 ..
             } if modifiers.command() && key.eq_ignore_ascii_case("k") => Some(Message::OpenPalette),
-            keyboard::Event::KeyPressed {
-                key: keyboard::Key::Named(keyboard::key::Named::ArrowDown),
-                ..
-            } => Some(Message::PaletteMove(1)),
-            keyboard::Event::KeyPressed {
-                key: keyboard::Key::Named(keyboard::key::Named::ArrowUp),
-                ..
-            } => Some(Message::PaletteMove(-1)),
             _ => None,
         });
 
@@ -263,22 +252,7 @@ impl Application for WorkbenchMonitor {
     }
 
     fn actions(&self, _context: Context<'_, Self::Window>) -> ActionMap<Self::Message> {
-        ActionMap::new()
-            .action(Action::new(
-                "monitor.palette",
-                "Open command palette",
-                Message::OpenPalette,
-            ))
-            .action(Action::new(
-                "monitor.health",
-                "Run health check",
-                Message::Command(AppCommand::RunHealthCheck),
-            ))
-            .action(Action::new(
-                "monitor.theme",
-                "Toggle theme",
-                Message::ToggleTheme,
-            ))
+        self.commands.clone()
     }
 
     fn window_title<'a>(
@@ -312,7 +286,8 @@ impl WorkbenchMonitor {
             ],
             selected: Selection::Service("api"),
             inspector_loading_until: None,
-            palette: CommandPaletteState::new(),
+            palette_open: false,
+            palette_query: String::new(),
             commands: commands::commands(),
             theme: ThemePreference::Dark,
             alert_dialog: None,
