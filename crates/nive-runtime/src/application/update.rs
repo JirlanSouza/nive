@@ -18,7 +18,7 @@ pub type Never = Infallible;
 #[derive(Debug)]
 pub struct Effect<M, K = Never> {
     task: Task<M>,
-    runtime: Vec<RuntimeCommand<K>>,
+    runtime: Vec<RuntimeCommand<M, K>>,
 }
 
 /// A runtime-level command emitted by an [`Effect`], drained by the runner.
@@ -26,15 +26,26 @@ pub struct Effect<M, K = Never> {
 /// Kept internal to the crate: app authors build these indirectly through
 /// [`Effect`] constructors and `with_*` methods rather than naming this type.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum RuntimeCommand<K> {
+pub(crate) enum RuntimeCommand<M, K> {
     /// Show a toast.
-    Toast(Toast),
+    Toast(Toast<M>),
     /// Apply a window command (open, focus, close, etc.).
     Window(WindowCommand<K>),
     /// Change the active theme preference.
     Theme(ThemePreference),
     /// Exit the application.
     Exit,
+}
+
+impl<M, K> RuntimeCommand<M, K> {
+    fn map_message<N>(self, map: impl Fn(M) -> N) -> RuntimeCommand<N, K> {
+        match self {
+            RuntimeCommand::Toast(toast) => RuntimeCommand::Toast(toast.map_action(map)),
+            RuntimeCommand::Window(command) => RuntimeCommand::Window(command),
+            RuntimeCommand::Theme(preference) => RuntimeCommand::Theme(preference),
+            RuntimeCommand::Exit => RuntimeCommand::Exit,
+        }
+    }
 }
 
 impl<M, K> Effect<M, K> {
@@ -59,7 +70,7 @@ impl<M, K> Effect<M, K> {
         }
     }
 
-    pub fn toast(toast: Toast) -> Self {
+    pub fn toast(toast: Toast<M>) -> Self {
         Self {
             task: Task::none(),
             runtime: vec![RuntimeCommand::Toast(toast)],
@@ -93,7 +104,7 @@ impl<M, K> Effect<M, K> {
         self
     }
 
-    pub fn with_toast(mut self, toast: Toast) -> Self {
+    pub fn with_toast(mut self, toast: Toast<M>) -> Self {
         self.runtime.push(RuntimeCommand::Toast(toast));
         self
     }
@@ -108,18 +119,24 @@ impl<M, K> Effect<M, K> {
         self
     }
 
-    pub(crate) fn into_parts(self) -> (Task<M>, Vec<RuntimeCommand<K>>) {
+    pub(crate) fn into_parts(self) -> (Task<M>, Vec<RuntimeCommand<M, K>>) {
         (self.task, self.runtime)
     }
 
-    pub fn map_message<N>(self, map: impl FnMut(M) -> N + Send + 'static) -> Effect<N, K>
+    pub fn map_message<N>(self, map: impl Fn(M) -> N + Send + Sync + 'static) -> Effect<N, K>
     where
         M: Send + 'static,
         N: Send + 'static,
     {
+        let map = std::sync::Arc::new(map);
+        let task_map = std::sync::Arc::clone(&map);
         Effect {
-            task: self.task.map(map),
-            runtime: self.runtime,
+            task: self.task.map(move |value| task_map(value)),
+            runtime: self
+                .runtime
+                .into_iter()
+                .map(|command| command.map_message(map.as_ref()))
+                .collect(),
         }
     }
 
