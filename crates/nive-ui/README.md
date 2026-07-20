@@ -58,6 +58,13 @@ next/previous ordering to native Iced focus operations. Without a root, Nive
 widgets retain compatible local focus behavior, but cross-widget anchor
 uniqueness and retention are not guaranteed.
 
+`FocusRoot::on_modal_change(|active| ...)` publishes a message whenever the
+aggregate modal activity below it changes — every open session of the shared
+modal-hosting kernel (`Dialog`, `CommandPalette`, and any future consumer)
+reports itself automatically, so no host wiring is needed. Use it to suspend
+ambient timed behavior, such as notification expiry, while the user is held in
+a modal step.
+
 External custom widgets use `nive_ui::advanced::focus::{FocusState,
 FocusVisibility}`. Store one `FocusState` in persistent widget Tree state,
 call `register(operation, id, bounds)` from `Widget::operate`, call
