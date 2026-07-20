@@ -26,8 +26,9 @@ use crate::lifecycle::WindowLifecycle;
 use crate::{
     ActionMap, BootstrapSpec, DialogRequest, KeyboardNavigation, RuntimeSession, ScreenView,
     SettingsConfig, SettingsError, SettingsErrorKind, ShortcutMap, ThemeController, ThemeEvent,
-    ToastId, ToastPosition, ToastState, UserFacingResult, WindowCardinality, WindowChrome,
-    WindowHandle, WindowMode, WindowRegistry, WindowRole, WindowSpec,
+    ToastId, ToastInsets, ToastItem, ToastPosition, ToastState, UserFacingResult,
+    WindowCardinality, WindowChrome, WindowHandle, WindowMode, WindowRegistry, WindowRole,
+    WindowSpec,
 };
 
 #[cfg(not(feature = "devtools"))]
@@ -162,7 +163,7 @@ where
 }
 
 struct Program<A: Application, P: ProbeCatalogEntry = NoProbe> {
-    core: NiveCore<A::Window>,
+    core: NiveCore<A::Window, A::Message>,
     app: Option<A>,
     bootstrap: Option<BootstrapRuntime<A::Bootstrap>>,
     #[cfg(feature = "devtools")]
@@ -223,6 +224,7 @@ enum CoreMessage<K> {
     WindowOpened(window::Id),
     WindowClosed(window::Id),
     WindowFocused(window::Id),
+    WindowUnfocused(window::Id),
     WindowMoved(window::Id, Point),
     WindowResized(window::Id, Size),
     WindowCloseRequested(window::Id),
@@ -233,7 +235,13 @@ enum CoreMessage<K> {
     ToastDismiss(ToastId),
     ToastHoverEntered,
     ToastHoverLeft,
+    ToastFocusWithinEntered,
+    ToastFocusWithinLeft,
     ToastTick(Instant),
+    /// Published by the window's `FocusRoot` when modal activity changes,
+    /// aggregating every open session of the shared modal kernel (`Dialog`,
+    /// `CommandPalette`, and any future consumer).
+    ModalActive(bool),
     KeyboardNavigation(KeyboardNavigation),
     KeyboardEvent(keyboard::Event),
     SettingsSaved(std::result::Result<(), SettingsError>),
@@ -310,7 +318,7 @@ impl<B> Clone for BootstrapMessage<B> {
     }
 }
 
-struct NiveCore<K> {
+struct NiveCore<K, Message> {
     app_id: String,
     app_name: String,
     windows: Vec<(K, WindowSpec)>,
@@ -320,8 +328,8 @@ struct NiveCore<K> {
     exiting: bool,
     window_icon: Option<window::Icon>,
     toast_position: ToastPosition,
-    toasts: ToastState,
-    toasts_hovered: bool,
+    toast_insets: ToastInsets,
+    toasts: ToastState<Message>,
     pending_app_closes: HashSet<window::Id>,
     /// Pending `WindowCommand::Replace` handoffs, keyed by the opening
     /// replacement target's window id and mapping to the `current` window id
@@ -399,7 +407,7 @@ where
                     let context = self.core.context();
                     app.update(context, message_context, message).into()
                 };
-                self.apply_update(effect)
+                self.apply_update_from(effect, window_id)
             }
             #[cfg(feature = "devtools")]
             NiveMessage::Devtools(message) => self.update_devtools(message),
@@ -408,7 +416,9 @@ where
     }
 
     fn view(&self, window_id: window::Id) -> nive_ui::Element<'_, RuntimeMessage<A, P>> {
-        nive_ui::accessibility::FocusRoot::new(self.window_content(window_id)).into()
+        nive_ui::accessibility::FocusRoot::new(self.window_content(window_id))
+            .on_modal_change(|active| NiveMessage::Core(CoreMessage::ModalActive(active)))
+            .into()
     }
 
     fn window_content(&self, window_id: window::Id) -> nive_ui::Element<'_, RuntimeMessage<A, P>> {
@@ -432,29 +442,59 @@ where
             return iced::widget::text("").into();
         };
 
-        let content = app
-            .view(self.core.context(), window)
-            .map(move |message| NiveMessage::App {
-                window_id: Some(window_id),
-                source: MessageSource::View,
-                message,
-            })
-            .into_element();
+        let mut screen =
+            app.view(self.core.context(), window)
+                .map(move |message| NiveMessage::App {
+                    window_id: Some(window_id),
+                    source: MessageSource::View,
+                    message,
+                });
 
-        if window.role != WindowRole::App || !self.core.toasts.has_visible() {
-            return content;
+        if window.role != WindowRole::App {
+            return screen.into_element();
         }
 
-        nive_ui::widgets::overlays::ToastHost::new(content)
+        let active_window = self
+            .core
+            .registry
+            .most_recent_app_window()
+            .map(|handle| handle.id);
+
+        // The toast stack is composed *inside* the screen content so the
+        // modal kernel wraps it: `ScreenView::into_element` puts this under
+        // `DialogHost`, which already owns the scrim, paint order, and
+        // inert/event-captured base content. Hosting toasts outside that
+        // wrapper would leave them interactive under an open dialog's scrim.
+        screen.content = nive_ui::widgets::overlays::ToastHost::new(screen.content)
             .position(self.core.toast_position())
+            .safe_insets(self.core.toast_insets())
             .on_hover(
                 NiveMessage::Core(CoreMessage::ToastHoverEntered),
                 NiveMessage::Core(CoreMessage::ToastHoverLeft),
             )
-            .toasts(self.core.toasts.visible(), |id: ToastId| {
-                NiveMessage::Core(CoreMessage::ToastDismiss(id))
-            })
-            .into()
+            .on_focus_within(
+                NiveMessage::Core(CoreMessage::ToastFocusWithinEntered),
+                NiveMessage::Core(CoreMessage::ToastFocusWithinLeft),
+            )
+            .toasts(
+                self.core.toasts.visible_for(window_id, active_window),
+                |id: ToastId| NiveMessage::Core(CoreMessage::ToastDismiss(id)),
+                move |item: &ToastItem<A::Message>| {
+                    item.request().action().map(|(label, message)| {
+                        (
+                            label,
+                            NiveMessage::App {
+                                window_id: Some(window_id),
+                                source: MessageSource::View,
+                                message: message.clone(),
+                            },
+                        )
+                    })
+                },
+            )
+            .into();
+
+        screen.into_element()
     }
 
     fn title(&self, window_id: window::Id) -> String {
@@ -492,6 +532,9 @@ where
             window::Event::Closed => Some(NiveMessage::Core(CoreMessage::WindowClosed(window_id))),
             window::Event::Focused => {
                 Some(NiveMessage::Core(CoreMessage::WindowFocused(window_id)))
+            }
+            window::Event::Unfocused => {
+                Some(NiveMessage::Core(CoreMessage::WindowUnfocused(window_id)))
             }
             window::Event::Moved(position) => Some(NiveMessage::Core(CoreMessage::WindowMoved(
                 window_id, position,
@@ -926,8 +969,16 @@ where
                 let Some(handle) = self.core.registry.set_focused(window_id) else {
                     return Task::none();
                 };
+                self.core.toasts.set_window_active(true, Instant::now());
 
                 self.emit_runtime_event(RuntimeEvent::WindowFocused(handle.into()))
+            }
+            CoreMessage::WindowUnfocused(window_id) => {
+                if self.is_bootstrap_window(window_id) || self.is_devtools_window(window_id) {
+                    return Task::none();
+                }
+                self.core.toasts.set_window_active(false, Instant::now());
+                Task::none()
             }
             CoreMessage::WindowMoved(window_id, position) => {
                 self.save_window_position(window_id, position)
@@ -978,15 +1029,27 @@ where
                 Task::none()
             }
             CoreMessage::ToastHoverEntered => {
-                self.core.toasts_hovered = true;
+                self.core.toasts.set_hover(true, Instant::now());
                 Task::none()
             }
             CoreMessage::ToastHoverLeft => {
-                self.core.toasts_hovered = false;
+                self.core.toasts.set_hover(false, Instant::now());
+                Task::none()
+            }
+            CoreMessage::ToastFocusWithinEntered => {
+                self.core.toasts.set_focus_within(true, Instant::now());
+                Task::none()
+            }
+            CoreMessage::ToastFocusWithinLeft => {
+                self.core.toasts.set_focus_within(false, Instant::now());
                 Task::none()
             }
             CoreMessage::ToastTick(now) => {
-                self.core.toasts.handle_tick(now, !self.core.toasts_hovered);
+                self.core.toasts.tick(now);
+                Task::none()
+            }
+            CoreMessage::ModalActive(active) => {
+                self.core.toasts.set_modal_active(active, Instant::now());
                 Task::none()
             }
             CoreMessage::KeyboardNavigation(navigation) => navigation.task(),
@@ -1027,7 +1090,7 @@ where
             message,
         });
         let runtime_task = commands.into_iter().fold(Task::none(), |task, command| {
-            task.chain(self.handle_runtime_command(command))
+            task.chain(self.handle_runtime_command(command, None))
         });
 
         (app_task, runtime_task)
@@ -1037,6 +1100,14 @@ where
         &mut self,
         update: impl Into<Effect<A::Message, A::Window>>,
     ) -> Task<RuntimeMessage<A, P>> {
+        self.apply_update_from(update, None)
+    }
+
+    fn apply_update_from(
+        &mut self,
+        update: impl Into<Effect<A::Message, A::Window>>,
+        origin_window: Option<window::Id>,
+    ) -> Task<RuntimeMessage<A, P>> {
         let (task, commands) = update.into().into_parts();
         let app_task = task.map(|message| NiveMessage::App {
             window_id: None,
@@ -1044,7 +1115,7 @@ where
             message,
         });
         let runtime_task = commands.into_iter().fold(Task::none(), |task, command| {
-            task.chain(self.handle_runtime_command(command))
+            task.chain(self.handle_runtime_command(command, origin_window))
         });
 
         Task::batch([app_task, runtime_task])
@@ -1052,11 +1123,12 @@ where
 
     fn handle_runtime_command(
         &mut self,
-        command: RuntimeCommand<A::Window>,
+        command: RuntimeCommand<A::Message, A::Window>,
+        origin_window: Option<window::Id>,
     ) -> Task<RuntimeMessage<A, P>> {
         match command {
             RuntimeCommand::Toast(toast) => {
-                self.core.toasts.push(toast, Instant::now());
+                self.core.toasts.push(toast, Instant::now(), origin_window);
                 Task::none()
             }
             RuntimeCommand::Window(command) => self.handle_window_command(command),
@@ -1571,7 +1643,7 @@ fn bootstrap_window_spec(icon: Option<window::Icon>) -> window::Settings {
     .settings(icon)
 }
 
-impl<K> NiveCore<K>
+impl<K, Message> NiveCore<K, Message>
 where
     K: Copy + Eq,
 {
@@ -1590,8 +1662,8 @@ where
             exiting: false,
             window_icon: config.window_icon.clone(),
             toast_position: config.toast_position,
+            toast_insets: config.toast_insets,
             toasts: ToastState::default(),
-            toasts_hovered: false,
             pending_app_closes: HashSet::new(),
             pending_replacements: HashMap::new(),
             settings,
@@ -1656,6 +1728,10 @@ where
 
     fn toast_position(&self) -> ToastPosition {
         self.toast_position
+    }
+
+    fn toast_insets(&self) -> ToastInsets {
+        self.toast_insets
     }
 
     fn effective_app_window_count(&self) -> usize {
@@ -2148,7 +2224,8 @@ mod tests {
         let (mut program, _task) = plain_program_with_config::<TestApp>(config)
             .unwrap_or_else(|error| panic!("test program failed: {error}"));
 
-        let _task = program.handle_runtime_command(RuntimeCommand::Theme(ThemePreference::Light));
+        let _task =
+            program.handle_runtime_command(RuntimeCommand::Theme(ThemePreference::Light), None);
 
         let preference = program
             .core
@@ -3084,7 +3161,8 @@ mod tests {
     fn toast_runtime_command_enqueues_visible_toast() {
         let mut program = program();
 
-        let _task = program.handle_runtime_command(RuntimeCommand::Toast(Toast::info("Saved")));
+        let _task =
+            program.handle_runtime_command(RuntimeCommand::Toast(Toast::info("Saved")), None);
 
         assert!(program.core.toasts.has_visible());
         assert!(program.core.toasts.should_subscribe());
@@ -3094,7 +3172,8 @@ mod tests {
     fn toast_tick_expires_visible_toast() {
         let now = Instant::now();
         let mut program = program();
-        let _task = program.handle_runtime_command(RuntimeCommand::Toast(Toast::info("Saved")));
+        let _task =
+            program.handle_runtime_command(RuntimeCommand::Toast(Toast::info("Saved")), None);
 
         let _task = program.update_core(CoreMessage::ToastTick(now + Duration::from_secs(5)));
 
@@ -3102,10 +3181,33 @@ mod tests {
     }
 
     #[test]
+    fn toast_expiry_pauses_while_a_modal_is_open() {
+        let now = Instant::now();
+        let mut program = program();
+        let _id = program.core.toasts.push(Toast::info("Saved"), now, None);
+
+        let _task = program.update_core(CoreMessage::ModalActive(true));
+        let _task = program.update_core(CoreMessage::ToastTick(now + Duration::from_secs(5)));
+
+        assert!(
+            program.core.toasts.has_visible(),
+            "toast stays visible while a modal is open"
+        );
+
+        let _task = program.update_core(CoreMessage::ModalActive(false));
+        let _task = program.update_core(CoreMessage::ToastTick(now + Duration::from_secs(9)));
+
+        assert!(
+            !program.core.toasts.has_visible(),
+            "toast expires once the modal closes"
+        );
+    }
+
+    #[test]
     fn toast_dismiss_message_removes_toast() {
         let now = Instant::now();
         let mut program = program();
-        let id = program.core.toasts.push(Toast::info("Saved"), now);
+        let id = program.core.toasts.push(Toast::info("Saved"), now, None);
 
         let _task = program.update_core(CoreMessage::ToastDismiss(id));
 
@@ -3116,7 +3218,7 @@ mod tests {
     fn toast_hover_pauses_expiry_and_resume_lets_it_expire() {
         let now = Instant::now();
         let mut program = program();
-        let _id = program.core.toasts.push(Toast::info("Saved"), now);
+        let _id = program.core.toasts.push(Toast::info("Saved"), now, None);
 
         let _task = program.update_core(CoreMessage::ToastHoverEntered);
         let _task = program.update_core(CoreMessage::ToastTick(now + Duration::from_secs(5)));
@@ -3136,10 +3238,33 @@ mod tests {
     }
 
     #[test]
+    fn toast_focus_within_pauses_expiry_and_leaving_lets_it_expire() {
+        let now = Instant::now();
+        let mut program = program();
+        let _id = program.core.toasts.push(Toast::info("Saved"), now, None);
+
+        let _task = program.update_core(CoreMessage::ToastFocusWithinEntered);
+        let _task = program.update_core(CoreMessage::ToastTick(now + Duration::from_secs(5)));
+
+        assert!(
+            program.core.toasts.has_visible(),
+            "toast stays visible while a keyboard focus is inside it"
+        );
+
+        let _task = program.update_core(CoreMessage::ToastFocusWithinLeft);
+        let _task = program.update_core(CoreMessage::ToastTick(now + Duration::from_secs(9)));
+
+        assert!(
+            !program.core.toasts.has_visible(),
+            "toast expires once focus leaves"
+        );
+    }
+
+    #[test]
     fn toast_host_decorates_app_view_when_toast_visible() {
         let now = Instant::now();
         let mut program = program();
-        let _id = program.core.toasts.push(Toast::info("Saved"), now);
+        let _id = program.core.toasts.push(Toast::info("Saved"), now, None);
         let main_id = main_window_id(&program);
 
         let _element: nive_ui::Element<'_, RuntimeMessage<TestApp>> = program.view(main_id);
@@ -3154,7 +3279,7 @@ mod tests {
         if let Some(app) = program.app.as_mut() {
             app.show_dialog = true;
         }
-        let _id = program.core.toasts.push(Toast::info("Saved"), now);
+        let _id = program.core.toasts.push(Toast::info("Saved"), now, None);
         let main_id = main_window_id(&program);
 
         let _element: nive_ui::Element<'_, RuntimeMessage<TestApp>> = program.view(main_id);
@@ -3170,7 +3295,7 @@ mod tests {
             TestWindow::Secondary,
             window::Id::unique(),
         ));
-        let _id = program.core.toasts.push(Toast::info("Saved"), now);
+        let _id = program.core.toasts.push(Toast::info("Saved"), now, None);
         let auxiliary_id = program
             .core
             .registry

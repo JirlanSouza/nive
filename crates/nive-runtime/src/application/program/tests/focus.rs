@@ -135,7 +135,7 @@ fn runtime_wraps_normal_secondary_and_host_composition_once() {
     if let Some(app) = program.app.as_mut() {
         app.show_dialog = true;
     }
-    let _toast = program.core.toasts.push(Toast::info("Saved"), now);
+    let _toast = program.core.toasts.push(Toast::info("Saved"), now, None);
 
     assert_single_focus_root(program.view(main_id));
     assert_single_focus_root(program.view(secondary_id));

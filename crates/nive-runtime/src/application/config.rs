@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use iced::{window, Font};
 use nive_ui::theme::{ThemeCatalog, ThemePreference};
 
-use crate::{BootstrapSpec, SettingsConfig, ToastPosition, WindowSpec};
+use crate::{BootstrapSpec, SettingsConfig, ToastInsets, ToastPosition, WindowSpec};
 
 pub struct ApplicationConfig<K, B> {
     pub(super) app_id: String,
@@ -13,6 +13,7 @@ pub struct ApplicationConfig<K, B> {
     pub(super) theme_preference: ThemePreference,
     pub(super) theme_catalog: ThemeCatalog,
     pub(super) toast_position: ToastPosition,
+    pub(super) toast_insets: ToastInsets,
     pub(super) bootstrap: Option<BootstrapSpec<B>>,
     pub(super) immediate_bootstrap: Option<B>,
     pub(super) fonts: Vec<Cow<'static, [u8]>>,
@@ -42,7 +43,8 @@ impl<K> ApplicationConfig<K, ()> {
             initial_windows: Vec::new(),
             theme_preference: ThemePreference::System,
             theme_catalog: ThemeCatalog::default(),
-            toast_position: ToastPosition::BottomRight,
+            toast_position: ToastPosition::BottomEnd,
+            toast_insets: ToastInsets::NONE,
             bootstrap: None,
             immediate_bootstrap: Some(()),
             fonts: Vec::new(),
@@ -92,6 +94,18 @@ impl<K, B> ApplicationConfig<K, B> {
         self
     }
 
+    /// Sets the safe insets the toast stack must stay clear of (viewport
+    /// edges, window chrome such as a status bar).
+    ///
+    /// Static for the app's lifetime, matching [`Self::toast_position`]:
+    /// hosts whose chrome height genuinely varies at runtime (a resizable or
+    /// user-configurable status bar, say) aren't served by this alone, but
+    /// nothing in this codebase does that today.
+    pub fn toast_insets(mut self, insets: ToastInsets) -> Self {
+        self.toast_insets = insets;
+        self
+    }
+
     pub fn settings(mut self, settings: SettingsConfig) -> Self {
         self.settings = Some(settings);
         self
@@ -106,6 +120,7 @@ impl<K, B> ApplicationConfig<K, B> {
             theme_preference: self.theme_preference,
             theme_catalog: self.theme_catalog,
             toast_position: self.toast_position,
+            toast_insets: self.toast_insets,
             bootstrap: Some(bootstrap),
             immediate_bootstrap: None,
             fonts: self.fonts,
@@ -150,6 +165,10 @@ impl<K, B> ApplicationConfig<K, B> {
 
     pub fn initial_toast_position(&self) -> ToastPosition {
         self.toast_position
+    }
+
+    pub fn initial_toast_insets(&self) -> ToastInsets {
+        self.toast_insets
     }
 
     pub fn bootstrap_spec(&self) -> Option<&BootstrapSpec<B>> {
