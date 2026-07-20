@@ -81,6 +81,18 @@ mod minimal_tier_counter {
             )))
             .into();
         let _: DialogInitialFocus = DialogInitialFocus::default();
+
+        // The canonical CommandPalette family shares this Dialog-adjacent
+        // tier: it shares the same private modal-hosting kernel and is
+        // available in the minimal tier too.
+        let item = CommandPaletteItem::new("file.save", "Save", CounterMessage::Increment);
+        let _: Vec<usize> = command_palette_filter("save", std::slice::from_ref(&item));
+        let _: Element<'_, CounterMessage> = CommandPalette::new(text("Base"))
+            .open(true)
+            .items([item])
+            .on_query_change(|_| CounterMessage::Increment)
+            .on_dismiss(CounterMessage::Increment)
+            .into();
     }
 }
 

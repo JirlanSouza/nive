@@ -121,11 +121,11 @@ fn core_actions_interoperate_with_runtime_and_ui_without_conversion() {
         .shortcut(nive_core::ShortcutBinding::primary_character('k'));
     let runtime_action: &Action<TestMessage> = &core_action;
 
-    let row = nive_ui::widgets::CommandPaletteRow::from_action(runtime_action);
+    let item = nive_ui::widgets::CommandPaletteItem::from_action(runtime_action);
     let toolbar = nive_ui::widgets::ToolbarAction::from_action(runtime_action);
 
-    assert_eq!(row.id, "test.action");
-    assert_eq!(row.activated(), Some(&TestMessage));
+    assert_eq!(item.id, "test.action");
+    assert_eq!(item.activated(), Some(&TestMessage));
     let _: nive_ui::widgets::ToolbarAction<'_, TestMessage> = toolbar;
 }
 
