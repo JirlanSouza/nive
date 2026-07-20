@@ -45,6 +45,12 @@ The gallery exercises:
 - real modal overlay behavior for dialogs and the canonical `CommandPalette`
   (Cmd+K / Ctrl+K or the "Open command palette" trigger), including
   controlled query, filtered/empty results, and keyboard navigation
+- the canonical runtime-hosted `ToastHost` driven only through `Effect::toast`:
+  each tone, a five-toast burst that queues past the three-visible cap and
+  promotes on dismiss, an optional persistent action, hover/keyboard-focus/
+  modal pause and resume, the non-default `TopEnd` logical position, and a
+  narrow-viewport width clamp; a summary-only `Toast::error` with full
+  diagnostics reserved for `ErrorDetailsDialog`
 - structural stress cases for long/narrow `SectionHeader`, transparent Toolbar
   groups and contained overflow, adjacent Panel header/body anatomy, 12/6
   overlay scrollbars, the complete semantic Separator matrix, and interactive,
@@ -150,6 +156,24 @@ only the result list scrolls while the input and frame stay fixed. Confirm
 `Escape` and an outside press each dismiss exactly once, and that opening a
 Dialog while the palette is open replaces it (one modal session per window).
 
+For the Toast review, on the Feedback page exercise, grouped by area: (a)
+each tone button, then "Push 5 toasts" — confirm at most three are visible
+with the remainder queued, and that a queued toast starts its own duration
+only once dismissal promotes it into the visible stack; (b) hover a visible
+toast and confirm it stops counting down, move the pointer away and confirm
+it resumes from the remaining duration rather than resetting, then repeat by
+Tab-focusing a toast's dismiss button instead of hovering; (c) "With action" —
+confirm it stays visible until you press "Restart now" or dismiss it, and
+that pressing the action also dismisses it; (d) "Push error toast" — confirm
+the card shows only the safe summary, never the diagnostic detail; (e) open a
+Dialog or the CommandPalette while toasts are visible — confirm existing
+toasts render beneath its scrim and stop counting down, and that a toast
+pushed while the modal is open stays queued until it closes; (f) resize the
+window narrow and confirm the stack keeps its clearance from the viewport
+edge. Toasts render top-right (`ToastPosition::TopEnd`) rather than the
+`BottomEnd` default, to prove the corner is actually configurable and not
+hardcoded.
+
 For the Tree review, use the Trees section on the Layout & Navigation page.
 It exercises the full contract through public APIs only:
 
@@ -169,17 +193,21 @@ It exercises the full contract through public APIs only:
 Current platform limits are explicit: Start/End and submenu Right/Left are
 physical LTR; popup and chevron visuals change immediately without interpolated
 motion; arbitrary EdgeToEdge Popover descendants receive rectangular Iced 0.14
-clipping rather than a generic rounded mask; and retained semantic metadata does
+clipping rather than a generic rounded mask; retained semantic metadata does
 not yet emit native accessibility-tree roles, names, expanded state,
-active-descendant relations, or announcements.
+active-descendant relations, or announcements; and Toast's tone-to-politeness
+mapping and "announce only the newest toast" semantics are preparatory only,
+since no native AccessKit live-region emission exists in this Iced version.
 
 The agent launches the review app with `rtk just widget-gallery-dev` and keeps
 it running. The user captures and attaches the named Standard Light/Dark,
 Compact Xs, Comfortable Lg, wide/narrow/low, hover/focus/open, nested,
-truncation, result-state, keyboard, and Tree (expansion, loading/failed-with-
+truncation, result-state, keyboard, Tree (expansion, loading/failed-with-
 retry/empty child states, selection modes, keyboard focus versus selection,
-context-menu-via-Menu, drag/drop) screenshots. The agent reviews only
-those supplied images, applies corrections, and requests replacement images.
+context-menu-via-Menu, drag/drop), and Toast (tone, queue/promotion, hover/
+focus pause and resume, action, error-summary, beneath-scrim/modal-pause,
+narrow-width) screenshots. The agent reviews only those supplied images,
+applies corrections, and requests replacement images.
 The agent does not capture manual-validation screenshots, and sign-off remains
 open until the user confirms the final supplied evidence.
 
