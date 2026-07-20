@@ -6,10 +6,12 @@ It renders a deterministic service-monitoring desktop shell with simulated
 services, hosts, alerts, logs, events, jobs, command palette actions, dialogs,
 toasts, document tabs, side rails, bottom tabs, and a status bar.
 
-The normal command palette is the integrated form-control smoke path. It uses
-the migrated Input contract and preserves focus, horizontal long-value
-behavior, filtered actions, overlay placement, and shell geometry at narrow
-viewports.
+The command palette (Cmd+K, or the "Open command palette" action) hosts the
+canonical `nive_ui::widgets::CommandPalette` directly, projecting its items
+from the shell's shared `ActionMap` via `nive_workbench::action_palette_items`
+— the monitor owns only `open` and the controlled query. It preserves focus,
+horizontal long-value behavior, filtered actions, overlay placement, and
+shell geometry at narrow viewports.
 
 The runtime installs one logical-focus root around the complete window,
 including workbench content and overlay hosts. The bottom-panel tab track uses
@@ -104,6 +106,13 @@ window deactivate/reactivate behavior, and conditional nested-overlay restore.
 This remains a user-screenshot/manual boundary even though state and traversal
 are covered by automated tests.
 
+For the CommandPalette pass, open it and verify: rendering and the controlled
+query as you type; commands projected from the shared `ActionMap` (including
+"Run health check", "Toggle theme", and the panel/document toggles); and that
+selecting or dismissing it closes the palette without leaving stale query
+text. Confirm it replaces rather than stacks with the alert Dialog if both are
+triggered.
+
 For the anchored-popup pass, verify icon-only Tooltip disclosure without
 redundant labelled-action copies, all-tabs Menu order/selection/focus/overflow,
 nested and outside dismissal, and the dashboard `Select<ServiceScope>` filter.
@@ -147,7 +156,8 @@ For manual sign-off, the agent launches
 `rtk just example-dev workbench-monitor` and keeps
 it running. The user captures and attaches Light/Dark screenshots at
 `1440x900`, `800x600`, and `1024x480`, including Tooltip, all-tabs Menu,
-nested/outside dismissal, service-filter states, and the Explorer Tree
+nested/outside dismissal, service-filter states, the CommandPalette
+(rendering, query, and action projection), and the Explorer Tree
 (expanded hosts/services, the failed `diagnostics` row with retry, and the
 hosted context-menu-via-Menu). The agent reviews only
 those user-supplied images, applies corrections, and requests replacements; it

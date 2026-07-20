@@ -83,11 +83,26 @@ High-level shortcuts keep working: `primary()`, `secondary()`, `outline()`,
 | `PathInput::on_input(f)` | `PathInput::on_change(f)` |
 | optional browse wiring by omission | `PathInput::on_browse_maybe(option)` |
 | `Autocomplete::on_select(fn(usize) -> Message)` | `Autocomplete::suggestions(values).on_select(fn(value) -> Message)` |
-| `CommandPaletteRow::enabled(false)` | `CommandPaletteRow::disabled(true)` |
-| `CommandPaletteRow::disabled()` | `CommandPaletteRow::disabled(true)` |
+| `CommandPaletteItem::enabled(false)` | `CommandPaletteItem::disabled(true)` |
+| `CommandPaletteItem::disabled()` | `CommandPaletteItem::disabled(true)` |
 | `TabBar::on_activate(fn(Id, ActivationTrigger) -> Message)` | `TabBar::on_select(fn(Id) -> Message)` |
 | `TabBar::on_activate_maybe(option)` | `TabBar::on_select_maybe(option)` |
 
 `disabled(true)` always suppresses interaction messages even when callbacks are
 present. Passing `None` to a `_maybe` callback removes the callback without
 changing the visual disabled state.
+
+## Command Palette
+
+| Before | After |
+| --- | --- |
+| `command_palette_view(placeholder, query, rows, highlighted, on_query_change, on_submit)` | `CommandPalette::new(base_content).open(bool).query(&str).items(items).on_query_change(f).on_dismiss(message)` — the widget now renders and owns highlight/navigation itself |
+| `CommandPaletteRow` | `CommandPaletteItem` (adds an optional leading `IconRole`) |
+| `CommandPaletteRow::from_action` | `CommandPaletteItem::from_action` |
+| host-owned query/highlight state routed through `DialogRequest` | `CommandPalette` hosts itself directly (shares a private modal kernel with `DialogHost`); apps own only `open(bool)` and the controlled query |
+| `nive_workbench::{WorkbenchCommandPalette, CommandPaletteState, WorkbenchCommandPaletteEvent, WorkbenchCommand}` | removed; project a `nive_core::ActionMap` with `nive_workbench::action_palette_items` (requires the `runtime` feature) or build `CommandPaletteItem`s directly |
+
+`CommandPalette` intercepts `ArrowUp`/`ArrowDown`/`Enter` on top of the search
+`Input` and lets `Escape` reach the shared modal kernel's dismissal handling
+(the search `Input` does not consume it); `Home`/`End`/`Left`/`Right` and text
+remain the `Input`'s own caret and editing controls.

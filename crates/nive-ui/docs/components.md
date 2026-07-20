@@ -574,28 +574,46 @@ dialog.
 
 ## Command Palette
 
-The `command_palette` widget provides a reusable action-driven search palette:
+`CommandPalette` is a self-contained typed composite, not a render helper: it
+owns its viewport-centered top placement, single search-input focus target,
+filtered keyboard navigation, highlight, ensure-visible scrolling, empty
+state, and visual frame. It shares a private modal-hosting kernel with
+`DialogHost` — base content stays drawn but externally inert while the
+palette is open, `Escape` and an outside primary press each publish
+`on_dismiss` exactly once, and a window hosts at most one canonical modal
+session (a later `CommandPalette` or `Dialog` mount replaces rather than
+stacks).
 
-- `CommandPaletteRow` carries `id`, `label`, optional `description`, optional
-  `shortcut_label`, an `enabled` flag, and the message emitted on activation.
-  `CommandPaletteRow::activated()` returns `None` for disabled rows so the
-  host submit handler can ignore them.
+Hosts supply only `open(bool)`, the controlled query, filtered typed
+`CommandPaletteItem`s, `on_query_change`, and `on_dismiss` — mirroring
+`Menu::open`:
+
+- `CommandPaletteItem` carries `id`, an optional leading `IconRole`, `label`,
+  optional `description`, optional `shortcut_label`, an `enabled` flag, and
+  the message emitted on activation. `CommandPaletteItem::activated()`
+  returns `None` for disabled items so a disabled item renders but never
+  publishes.
 - `command_palette_filter` performs a case-insensitive substring match on the
-  label and description. An empty query returns every index in input order.
-- `command_palette_view` renders the search input, a scrollable list of rows
-  with highlight, description and shortcut hint support, and an empty state.
-
-The palette is intentionally a render helper. It does **not** own the open/
-closed state, the query value, the highlighted row, or the keyboard navigation.
-Apps wrap the result in a `DialogRequest` (or an app-owned overlay) and route
-`ArrowUp`/`ArrowDown`/`Enter`/`Escape` themselves. The runtime shortcut
-`Cmd+K` / `Ctrl+K` should activate the host wrapper.
+  label and description. An empty query returns every index in input order;
+  it stays the provided default matcher and can be swapped by the
+  application.
+- The search query is application-controlled: the application owns
+  `query: String`, supplies `on_query_change`, and runs its own filtering
+  (with `command_palette_filter` or its own). The widget owns only transient
+  state — the highlight index, `ArrowUp`/`ArrowDown`/`Enter` result
+  navigation, and ensure-visible scrolling. The single focus target is the
+  native search `Input`, so `Home`/`End`/`Left`/`Right` and text stay its own
+  caret and editing controls; `Escape` is never delegated to the Input (which
+  would otherwise blur itself) and instead reaches the shared kernel's own
+  dismissal handling.
 
 Apps project an `ActionMap<M>` by iterating its actions and calling
-`CommandPaletteRow::from_action(&Action<M>)`. The types are owned by
+`CommandPaletteItem::from_action(&Action<M>)`. The types are owned by
 zero-dependency `nive-core`, so this projection needs no runtime dependency and
 preserves identity, label, description, shortcut, enabled state, and activation
-semantics.
+semantics. `nive-workbench`'s `runtime` feature provides
+`action_palette_items(&ActionMap<M>)` as a ready-made projection helper;
+`nive-workbench` itself hosts no bespoke command-palette type.
 
 `ToolbarAction::from_action(&Action<M>)` projects the same command as a text
 toolbar action. `ToolbarAction::from_action_with_icon(&Action<M>, IconRole)`

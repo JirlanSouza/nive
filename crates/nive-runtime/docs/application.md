@@ -78,12 +78,13 @@ represent application actions. App-facing commands should prefer actions so
 the same command can power toolbar, menu and command-palette surfaces.
 
 Apps that surface a `nive-ui` command palette project each action through
-`CommandPaletteRow::from_action`. `ToolbarAction::from_action` provides the
+`CommandPaletteItem::from_action`. `ToolbarAction::from_action` provides the
 same command semantics for a text toolbar action, while
 `ToolbarAction::from_action_with_icon` accepts UI-owned icon decoration. The
-palette view itself is in `nive-ui`; apps wrap it
-in a `DialogRequest` and own open/closed, query, highlighted row, and
-keyboard navigation.
+canonical `CommandPalette` composite is in `nive-ui`: it owns its own
+placement, focus, and keyboard navigation, so apps host it directly (not
+through `DialogRequest`) and own only `open(bool)`, the controlled query, and
+`on_dismiss`.
 
 ## Native Menus, Tray, And Global Shortcuts
 
