@@ -13,6 +13,16 @@ from the shell's shared `ActionMap` via `nive_workbench::action_palette_items`
 horizontal long-value behavior, filtered actions, overlay placement, and
 shell geometry at narrow viewports.
 
+Toasts are emitted only through the runtime effect flow (`Effect::toast`),
+never by constructing `ToastHost` directly. A completed "Run health check"
+emits a success toast at the `BottomEnd` default, with a safe inset kept
+clear of the status bar (`StatusBar::height` fed into
+`ApplicationConfig::toast_insets`, computed once from the fixed
+`ControlSize::Sm` chrome). "Simulate sync failure" emits a `Toast::error`
+showing only the safe summary; its "View details" action opens
+`ErrorDetailsDialog` with the full diagnostic text, which the toast itself
+never shows.
+
 The runtime installs one logical-focus root around the complete window,
 including workbench content and overlay hosts. The bottom-panel tab track uses
 one outer managed target while preserving its active/roving tab internally;
@@ -113,6 +123,16 @@ selecting or dismissing it closes the palette without leaving stale query
 text. Confirm it replaces rather than stacks with the alert Dialog if both are
 triggered.
 
+For the Toast pass, trigger "Run health check" (toolbar or command palette)
+and let it complete — confirm a success toast appears bottom-right, clear of
+the status bar. Press "Simulate sync failure" and confirm the toast shows
+only the safe summary; press its "View details" action and confirm the full
+diagnostic text — never shown in the toast itself — appears in
+`ErrorDetailsDialog`, dismissible by `Escape`, an outside press, or its close
+control. Open the alert Dialog or the CommandPalette while a toast is visible
+and confirm existing toasts render beneath its scrim and stop counting down,
+and that a newly triggered toast stays queued until the modal closes.
+
 For the anchored-popup pass, verify icon-only Tooltip disclosure without
 redundant labelled-action copies, all-tabs Menu order/selection/focus/overflow,
 nested and outside dismissal, and the dashboard `Select<ServiceScope>` filter.
@@ -157,9 +177,11 @@ For manual sign-off, the agent launches
 it running. The user captures and attaches Light/Dark screenshots at
 `1440x900`, `800x600`, and `1024x480`, including Tooltip, all-tabs Menu,
 nested/outside dismissal, service-filter states, the CommandPalette
-(rendering, query, and action projection), and the Explorer Tree
+(rendering, query, and action projection), the Explorer Tree
 (expanded hosts/services, the failed `diagnostics` row with retry, and the
-hosted context-menu-via-Menu). The agent reviews only
+hosted context-menu-via-Menu), and Toast (success, status-bar-safe position,
+error-summary with `ErrorDetailsDialog` diagnostics, and beneath-scrim/
+modal-pause behavior). The agent reviews only
 those user-supplied images, applies corrections, and requests replacements; it
 does not capture screenshots itself. Sign-off remains open until the user
 confirms the final supplied evidence.
