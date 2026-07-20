@@ -113,6 +113,16 @@ descendants use rectangular Iced 0.14 clipping; and retained semantics do not
 yet emit native accessibility-tree roles, names, expanded state,
 active-descendant relations, or announcements.
 
+For the Tree pass, open the left "Explorer" panel: it groups seeded hosts and
+their services under `Tree`, plus a `diagnostics` branch that always fails
+after a short delay through `TreeChildren::Failed`. Expand it to see the
+canonical error row and press its retry affordance to re-trigger the same
+failure. Right-click a host or service row to confirm Tree emits
+`ContextRequested` only and the app hosts the canonical `Menu` (Inspect, plus
+Open document for services) at the pointer position — Tree owns no menu of
+its own. Activating a service or host row updates the shared `Selection` and
+Inspector panel the same way the existing Services/Hosts lists do.
+
 Run it:
 
 ```sh
@@ -137,7 +147,9 @@ For manual sign-off, the agent launches
 `rtk just example-dev workbench-monitor` and keeps
 it running. The user captures and attaches Light/Dark screenshots at
 `1440x900`, `800x600`, and `1024x480`, including Tooltip, all-tabs Menu,
-nested/outside dismissal, and service-filter states. The agent reviews only
+nested/outside dismissal, service-filter states, and the Explorer Tree
+(expanded hosts/services, the failed `diagnostics` row with retry, and the
+hosted context-menu-via-Menu). The agent reviews only
 those user-supplied images, applies corrections, and requests replacements; it
 does not capture screenshots itself. Sign-off remains open until the user
 confirms the final supplied evidence.
