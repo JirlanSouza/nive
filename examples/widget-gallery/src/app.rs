@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::BTreeSet};
 
-use nive::prelude::ui::DialogRequest;
+use nive::prelude::ui::{DialogRequest, UserFacingError};
 use nive::prelude::*;
 use nive::ui::theme::{self, ControlSize, SurfaceRole, ThemeDensity};
 use nive::ui::widgets::primitives::text as ntext;
@@ -87,6 +87,14 @@ pub enum DialogKind {
     Destructive,
     LongContent,
     NestedOverlay,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToastKind {
+    Info,
+    Success,
+    Warning,
+    Danger,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -332,6 +340,11 @@ pub enum Message {
     CommandQueryChanged(String),
     SelectCommand(&'static str),
     FeedbackModeChanged(FeedbackMode),
+    PushToast(ToastKind),
+    PushToastBurst,
+    PushActionableToast,
+    ToastActionAcknowledged,
+    PushErrorToast,
     Noop,
 }
 
@@ -435,6 +448,9 @@ impl Application for WidgetGallery {
         ApplicationConfig::new("nive-example-widget-gallery")
             .name("Widget Gallery")
             .theme_catalog(app_theme_catalog())
+            // Explicit rather than relying on the `BottomEnd` default, so the
+            // Gallery also demonstrates a non-default logical position.
+            .toast_position(ToastPosition::TopEnd)
     }
 
     fn init(
@@ -706,6 +722,37 @@ impl Application for WidgetGallery {
                 self.overlays.command_query.clear();
             }
             Message::FeedbackModeChanged(mode) => self.feedback = mode,
+            Message::PushToast(kind) => {
+                effect = Effect::toast(match kind {
+                    ToastKind::Info => Toast::info("Index rebuilt"),
+                    ToastKind::Success => Toast::success("Saved"),
+                    ToastKind::Warning => Toast::warning("Configuration warning"),
+                    ToastKind::Danger => Toast::danger("Sync failed"),
+                });
+            }
+            Message::PushToastBurst => {
+                effect = Effect::toast(Toast::info("Notification 1 of 5"))
+                    .with_toast(Toast::info("Notification 2 of 5"))
+                    .with_toast(Toast::info("Notification 3 of 5"))
+                    .with_toast(Toast::info("Notification 4 of 5"))
+                    .with_toast(Toast::info("Notification 5 of 5"));
+            }
+            Message::PushActionableToast => {
+                effect = Effect::toast(
+                    Toast::info("New version available")
+                        .with_body("Restart to apply the update.")
+                        .with_action("Restart now", Message::ToastActionAcknowledged),
+                );
+            }
+            Message::ToastActionAcknowledged => {
+                effect = Effect::toast(Toast::success("Restarting"));
+            }
+            Message::PushErrorToast => {
+                effect = Effect::toast(Toast::error(UserFacingError::custom(
+                    "widget-gallery",
+                    "Could not reach the sync service (endpoint: https://example.invalid)",
+                )));
+            }
             Message::Noop => {}
         }
 

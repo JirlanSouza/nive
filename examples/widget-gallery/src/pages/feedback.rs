@@ -3,7 +3,7 @@ use nive::ui::widgets::controls::button as nbutton;
 use nive::ui::widgets::primitives::text as ntext;
 use nive::widget::{column, row};
 
-use crate::app::{FeedbackMode, Message, WidgetGallery};
+use crate::app::{FeedbackMode, Message, ToastKind, WidgetGallery};
 use crate::catalog::PageId;
 use crate::layout::{example_cell, section, variant_grid, variant_row};
 
@@ -12,6 +12,7 @@ pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
         PageId::Feedback,
         column![
             section("Alerts and callouts", alerts()),
+            section("Toast", toasts()),
             section("Progress and loading", loading()),
             section("Empty and error states", states()),
             section("Resource and operation status", status_lines(app)),
@@ -19,6 +20,67 @@ pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
         ]
         .spacing(18),
     )
+}
+
+/// Drives the canonical runtime-hosted `ToastHost` through `Effect::toast`
+/// (see `examples/widget-gallery/README.md` for the full review protocol —
+/// queueing/promotion, pause, position, narrow width, and modal interaction
+/// need the real windowed app, not this page in isolation). No app-local
+/// composition, position, pause, or queue logic is added here; every button
+/// only constructs a `Toast` and hands it to the runtime effect flow.
+fn toasts() -> Element<'static, Message> {
+    variant_grid([
+        example_cell(
+            "Tone",
+            variant_row([
+                nbutton::secondary("Info")
+                    .on_press(Message::PushToast(ToastKind::Info))
+                    .into(),
+                nbutton::secondary("Success")
+                    .on_press(Message::PushToast(ToastKind::Success))
+                    .into(),
+                nbutton::secondary("Warning")
+                    .on_press(Message::PushToast(ToastKind::Warning))
+                    .into(),
+                nbutton::destructive("Danger")
+                    .on_press(Message::PushToast(ToastKind::Danger))
+                    .into(),
+            ]),
+        ),
+        example_cell(
+            "Queueing and promotion",
+            column![
+                ntext::body_small(
+                    "Pushes five at once: three stay visible, two queue and \
+                     promote in as each one is dismissed."
+                ),
+                nbutton::secondary("Push 5 toasts").on_press(Message::PushToastBurst),
+            ]
+            .spacing(8),
+        ),
+        example_cell(
+            "Optional action",
+            column![
+                ntext::body_small(
+                    "An attached action makes the toast persistent until \
+                     acted on or dismissed."
+                ),
+                nbutton::secondary("With action").on_press(Message::PushActionableToast),
+            ]
+            .spacing(8),
+        ),
+        example_cell(
+            "Error summary only",
+            column![
+                ntext::body_small(
+                    "Toast::error shows only the safe summary; diagnostics \
+                     stay in ErrorDetailsDialog."
+                ),
+                nbutton::destructive("Push error toast").on_press(Message::PushErrorToast),
+            ]
+            .spacing(8),
+        ),
+    ])
 }
 
 fn alerts() -> Element<'static, Message> {
