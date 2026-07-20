@@ -15,5 +15,7 @@ pub use dialog_host::{DialogHost, DialogInitialFocus};
 pub use popover::{
     Popover, PopoverCollision, PopoverFocusPolicy, PopoverInset, PopoverPlacement, PopoverWidth,
 };
-pub use toast_host::{ToastHost, ToastPosition, ToastPresentation, ToastTone};
+pub use toast_host::{
+    AnnouncementPoliteness, ToastHost, ToastInsets, ToastPosition, ToastPresentation, ToastTone,
+};
 pub use tooltip::{Tooltip, TooltipPlacement, TooltipScope};
