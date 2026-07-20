@@ -1988,6 +1988,13 @@ where
             let state = tree.state.downcast_ref::<TabBarState<Id>>();
             self.content_element(state)
         };
+        // `content_element` is rebuilt from live interaction state (hover,
+        // scroll, the "all tabs" overflow menu), which can change between the
+        // last `diff`/`layout` pass and this call. Re-diff before recursing
+        // so `tree.children[0]` matches the freshly built content instead of
+        // a stale shape, which previously panicked deep inside the overflow
+        // menu's buttons.
+        tree.children[0].diff(self.overlay_content.as_widget());
         self.overlay_content.as_widget_mut().overlay(
             &mut tree.children[0],
             layout,
