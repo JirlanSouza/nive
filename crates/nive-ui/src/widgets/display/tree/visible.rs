@@ -8,6 +8,8 @@ use super::{TreeChildren, TreeNode, TreeState};
 pub(crate) enum VisibleTreeEntry<'a, Id> {
     Row(VisibleTreeRow<'a, Id>),
     Loading(VisibleLoadingRow<Id>),
+    Failed(VisibleFailedRow<'a, Id>),
+    Empty(VisibleEmptyRow<Id>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,6 +28,22 @@ pub(crate) struct VisibleTreeRow<'a, Id> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct VisibleLoadingRow<Id> {
+    pub(crate) parent: Id,
+    pub(crate) depth: usize,
+    pub(crate) visible_index: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct VisibleFailedRow<'a, Id> {
+    pub(crate) parent: Id,
+    pub(crate) depth: usize,
+    pub(crate) visible_index: usize,
+    pub(crate) summary: Cow<'a, str>,
+    pub(crate) detail: Cow<'a, str>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct VisibleEmptyRow<Id> {
     pub(crate) parent: Id,
     pub(crate) depth: usize,
     pub(crate) visible_index: usize,
@@ -77,6 +95,13 @@ fn push_visible_nodes<'a, Id>(
         }
 
         match children {
+            Some(TreeChildren::Loaded(children)) if children.is_empty() => {
+                entries.push(VisibleTreeEntry::Empty(VisibleEmptyRow {
+                    parent: node.id().clone(),
+                    depth: depth + 1,
+                    visible_index: entries.len(),
+                }));
+            }
             Some(TreeChildren::Loaded(children)) => {
                 push_visible_nodes(children, state, Some(node.id()), depth + 1, entries);
             }
@@ -85,6 +110,15 @@ fn push_visible_nodes<'a, Id>(
                     parent: node.id().clone(),
                     depth: depth + 1,
                     visible_index: entries.len(),
+                }));
+            }
+            Some(TreeChildren::Failed { summary, detail }) => {
+                entries.push(VisibleTreeEntry::Failed(VisibleFailedRow {
+                    parent: node.id().clone(),
+                    depth: depth + 1,
+                    visible_index: entries.len(),
+                    summary: summary.clone(),
+                    detail: detail.clone(),
                 }));
             }
             None => {}
@@ -114,7 +148,9 @@ mod visible_tree_tests {
             .iter()
             .filter_map(|entry| match entry {
                 VisibleTreeEntry::Row(row) => Some(row.id),
-                VisibleTreeEntry::Loading(_) => None,
+                VisibleTreeEntry::Loading(_)
+                | VisibleTreeEntry::Failed(_)
+                | VisibleTreeEntry::Empty(_) => None,
             })
             .collect()
     }
@@ -146,6 +182,38 @@ mod visible_tree_tests {
     ) {
         let VisibleTreeEntry::Loading(row) = entry else {
             panic!("expected loading entry for {parent}");
+        };
+
+        assert_eq!(row.parent, parent);
+        assert_eq!(row.depth, depth);
+        assert_eq!(row.visible_index, visible_index);
+    }
+
+    fn assert_failed(
+        entry: &VisibleTreeEntry<'_, &'static str>,
+        parent: &'static str,
+        depth: usize,
+        visible_index: usize,
+        summary: &str,
+    ) {
+        let VisibleTreeEntry::Failed(row) = entry else {
+            panic!("expected failed entry for {parent}");
+        };
+
+        assert_eq!(row.parent, parent);
+        assert_eq!(row.depth, depth);
+        assert_eq!(row.visible_index, visible_index);
+        assert_eq!(row.summary.as_ref(), summary);
+    }
+
+    fn assert_empty(
+        entry: &VisibleTreeEntry<'_, &'static str>,
+        parent: &'static str,
+        depth: usize,
+        visible_index: usize,
+    ) {
+        let VisibleTreeEntry::Empty(row) = entry else {
+            panic!("expected empty entry for {parent}");
         };
 
         assert_eq!(row.parent, parent);
@@ -216,7 +284,7 @@ mod visible_tree_tests {
     }
 
     #[test]
-    fn empty_loaded_branch_is_branch_without_child_rows() {
+    fn empty_loaded_branch_renders_one_canonical_empty_row() {
         let nodes = vec![
             TreeNode::branch("empty", "Empty", Vec::<TestNode>::new()),
             TreeNode::leaf("after", "After"),
@@ -225,10 +293,11 @@ mod visible_tree_tests {
 
         let entries = visible_entries(&nodes, &state);
 
-        assert_eq!(entries.len(), 2);
+        assert_eq!(entries.len(), 3);
         assert_eq!(row_ids(&entries), vec!["empty", "after"]);
         assert_row(&entries[0], "empty", 0, None, 0, Some(true));
-        assert_row(&entries[1], "after", 0, None, 1, None);
+        assert_empty(&entries[1], "empty", 1, 1);
+        assert_row(&entries[2], "after", 0, None, 2, None);
     }
 
     #[test]
@@ -245,6 +314,40 @@ mod visible_tree_tests {
         assert_eq!(row_ids(&entries), vec!["remote", "after"]);
         assert_row(&entries[0], "remote", 0, None, 0, Some(true));
         assert_loading(&entries[1], "remote", 1, 1);
+        assert_row(&entries[2], "after", 0, None, 2, None);
+    }
+
+    struct TestError {
+        summary: &'static str,
+    }
+
+    impl nive_core::ErrorPresentation for TestError {
+        fn summary(&self) -> &str {
+            self.summary
+        }
+
+        fn detail(&self) -> &str {
+            self.summary
+        }
+    }
+
+    #[test]
+    fn expanded_failed_branch_inserts_one_error_row() {
+        let error = TestError {
+            summary: "Load failed",
+        };
+        let nodes = vec![
+            TreeNode::branch_failed("remote", "Remote", &error),
+            TreeNode::leaf("after", "After"),
+        ];
+        let state = expanded_state(["remote"]);
+
+        let entries = visible_entries(&nodes, &state);
+
+        assert_eq!(entries.len(), 3);
+        assert_eq!(row_ids(&entries), vec!["remote", "after"]);
+        assert_row(&entries[0], "remote", 0, None, 0, Some(true));
+        assert_failed(&entries[1], "remote", 1, 1, "Load failed");
         assert_row(&entries[2], "after", 0, None, 2, None);
     }
 

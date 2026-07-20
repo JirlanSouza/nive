@@ -7,9 +7,9 @@
 use nive_ui::interaction::SelectionMode;
 use nive_ui::theme::ControlSize;
 use nive_ui::widgets::{
-    reveal, row_height, scroll_offset_to, visible_index_of, Tree, TreeChildren, TreeDrag,
-    TreeDrop, TreeDropTarget, TreeEvent, TreeEventKind, TreeExpandBehavior, TreeItem,
-    TreeItemDropEdge, TreeNode, TreePasteTarget, TreeState, TreeStateChange,
+    reveal, row_height, scroll_offset_to, visible_index_of, Tree, TreeChildren, TreeDrag, TreeDrop,
+    TreeDropTarget, TreeEvent, TreeEventKind, TreeExpandBehavior, TreeItem, TreeItemDropEdge,
+    TreeNode, TreePasteTarget, TreeState, TreeStateChange,
 };
 use nive_ui::{Element, Length};
 
@@ -26,6 +26,7 @@ impl nive_ui::widgets::ErrorPresentation for TestError {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum Message {
     Tree(TreeEvent<u32>),
 }
@@ -39,7 +40,10 @@ fn tree_family_resolves_through_supported_paths() {
         TreeNode::branch_failed(4, "broken", &error),
         TreeNode::branch(5, "empty", Vec::<TreeNode<'_, u32>>::new()),
     ];
-    assert!(matches!(nodes[2].children(), Some(TreeChildren::Failed { .. })));
+    assert!(matches!(
+        nodes[2].children(),
+        Some(TreeChildren::Failed { .. })
+    ));
 
     let state = TreeState::<u32>::default();
     let mut mutable_state = state.clone();

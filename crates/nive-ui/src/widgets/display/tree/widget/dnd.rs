@@ -1,6 +1,8 @@
+use std::borrow::Cow;
+
 use crate::interaction::{ClickModifiers, Transfer, TransferOperation};
 use crate::theme::ControlSize;
-use crate::widgets::{Spinner, TreeItem};
+use crate::widgets::{button, IconRole, Spinner, TreeItem, TreeItemDropEdge};
 use crate::Element;
 
 use super::super::event::{TreeEvent, TreeEventKind};
@@ -18,6 +20,44 @@ where
         .depth(depth)
         .disabled(true)
         .trailing(Spinner::new().neutral().size(size))
+        .size(size)
+        .into()
+}
+
+/// Canonical error row rendered for an expanded [`super::super::TreeChildren::Failed`]
+/// branch. Chrome only: excluded from selection, focus, navigation, type-ahead,
+/// clipboard, and drag/drop.
+pub(super) fn failed_row<'a, Message>(
+    depth: usize,
+    summary: Cow<'a, str>,
+    size: ControlSize,
+    retry: Option<Message>,
+) -> Element<'a, Message>
+where
+    Message: Clone + 'a,
+{
+    let retry_button = button::icon(IconRole::ViewRefresh, "Retry")
+        .xs()
+        .on_press_maybe(retry);
+
+    TreeItem::new(summary)
+        .depth(depth)
+        .disabled(true)
+        .leading_icon(IconRole::DialogError)
+        .trailing(retry_button)
+        .size(size)
+        .into()
+}
+
+/// Canonical empty-branch affordance rendered for an expanded, loaded branch
+/// with no children. Chrome only, distinct from a collapsed branch.
+pub(super) fn empty_row<'a, Message>(depth: usize, size: ControlSize) -> Element<'a, Message>
+where
+    Message: Clone + 'a,
+{
+    TreeItem::new("No items")
+        .depth(depth)
+        .disabled(true)
         .size(size)
         .into()
 }
@@ -231,7 +271,40 @@ where
             }
             VisibleTreeEntry::Row(row) => Some(TreeDropTarget::After(row.id.clone())),
             VisibleTreeEntry::Loading(row) => Some(TreeDropTarget::Into(row.parent.clone())),
+            VisibleTreeEntry::Failed(row) => Some(TreeDropTarget::Into(row.parent.clone())),
+            VisibleTreeEntry::Empty(row) => Some(TreeDropTarget::Into(row.parent.clone())),
         }
+    }
+
+    /// Returns the drag-source dimming and drop-edge affordance a visible row
+    /// should render for the current transfer state.
+    pub(crate) fn drag_visuals(
+        &self,
+        state: &TreeState<Id>,
+        id: &Id,
+    ) -> (bool, Option<TreeItemDropEdge>) {
+        let Transfer::Dragging {
+            payload, target, ..
+        } = &state.transfer
+        else {
+            return (false, None);
+        };
+
+        let dragging = payload.ids.contains(id);
+        let drop_edge = match target {
+            Some(TreeDropTarget::Before(target_id)) if target_id == id => {
+                Some(TreeItemDropEdge::Before)
+            }
+            Some(TreeDropTarget::After(target_id)) if target_id == id => {
+                Some(TreeItemDropEdge::After)
+            }
+            Some(TreeDropTarget::Into(target_id)) if target_id == id => {
+                Some(TreeItemDropEdge::Into)
+            }
+            _ => None,
+        };
+
+        (dragging, drop_edge)
     }
 
     pub(crate) fn row_id_at(&self, state: &TreeState<Id>, y: f32) -> Option<Id> {
@@ -241,7 +314,9 @@ where
 
         match entries.get(index)? {
             VisibleTreeEntry::Row(row) => Some(row.id.clone()),
-            VisibleTreeEntry::Loading(_) => None,
+            VisibleTreeEntry::Loading(_)
+            | VisibleTreeEntry::Failed(_)
+            | VisibleTreeEntry::Empty(_) => None,
         }
     }
 }

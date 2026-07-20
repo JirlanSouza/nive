@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+use nive_core::ErrorPresentation;
+
 use crate::{
     theme::ToneRole,
     widgets::{IconRole, StatusIndicator},
@@ -24,16 +26,29 @@ pub struct TreeNode<'a, Id> {
 /// Children for a branch node.
 ///
 /// `Loaded` represents children already supplied by the app, including an empty
-/// vector for an intentionally empty branch. `Deferred` represents a branch
-/// whose children are not loaded yet; expanding it is a loading intent for the
-/// app, and the tree renders a placeholder until the app rebuilds the node with
-/// loaded children.
+/// vector for an intentionally empty branch, which renders one canonical empty
+/// affordance row. `Deferred` represents a branch whose children are not loaded
+/// yet; expanding it is a loading intent for the app, and the tree renders a
+/// loading placeholder until the app rebuilds the node with loaded children.
+/// `Failed` represents a branch whose load failed; the tree renders a
+/// canonical error row with a retry affordance that re-emits
+/// `ExpandRequested`. Build it with [`TreeNode::branch_failed`].
+///
+/// This enum is non-exhaustive; app matches should include a wildcard arm.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TreeChildren<'a, Id> {
     /// Children that are available for traversal and rendering.
     Loaded(Vec<TreeNode<'a, Id>>),
     /// Children that should be requested from the app on expansion.
     Deferred,
+    /// Children that failed to load, carrying the error presentation.
+    Failed {
+        /// Short error summary.
+        summary: Cow<'a, str>,
+        /// Full diagnostic detail, which may equal `summary`.
+        detail: Cow<'a, str>,
+    },
 }
 
 impl<'a, Id> TreeNode<'a, Id> {
@@ -54,6 +69,27 @@ impl<'a, Id> TreeNode<'a, Id> {
     /// Builds a branch node whose children will be loaded by the app later.
     pub fn branch_deferred(id: Id, label: impl Into<Cow<'a, str>>) -> Self {
         Self::new(id, label, Some(TreeChildren::Deferred))
+    }
+
+    /// Builds a branch node whose child load failed.
+    ///
+    /// Projects the neutral [`ErrorPresentation`] contract (summary plus
+    /// diagnostic detail) into owned node data. While expanded, the tree
+    /// renders one canonical error row showing the summary with a retry
+    /// affordance that re-emits `ExpandRequested { id }`.
+    pub fn branch_failed(
+        id: Id,
+        label: impl Into<Cow<'a, str>>,
+        error: &impl ErrorPresentation,
+    ) -> Self {
+        Self::new(
+            id,
+            label,
+            Some(TreeChildren::Failed {
+                summary: Cow::Owned(error.summary().to_owned()),
+                detail: Cow::Owned(error.detail().to_owned()),
+            }),
+        )
     }
 
     /// Adds a leading icon to the row rendered for this node.
@@ -173,6 +209,39 @@ mod tree_node_tests {
 
         assert!(node.is_branch());
         assert!(matches!(node.children(), Some(TreeChildren::Deferred)));
+    }
+
+    struct TestError {
+        summary: &'static str,
+        detail: &'static str,
+    }
+
+    impl ErrorPresentation for TestError {
+        fn summary(&self) -> &str {
+            self.summary
+        }
+
+        fn detail(&self) -> &str {
+            self.detail
+        }
+    }
+
+    #[test]
+    fn branch_failed_projects_error_presentation_into_owned_data() {
+        let error = TestError {
+            summary: "Load failed",
+            detail: "Load failed: connection reset",
+        };
+        let node = TreeNode::branch_failed(1, "remote", &error);
+
+        assert!(node.is_branch());
+        match node.children() {
+            Some(TreeChildren::Failed { summary, detail }) => {
+                assert_eq!(summary.as_ref(), "Load failed");
+                assert_eq!(detail.as_ref(), "Load failed: connection reset");
+            }
+            other => panic!("expected Failed children, got {other:?}"),
+        }
     }
 
     #[test]

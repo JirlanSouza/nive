@@ -174,6 +174,8 @@ pub fn row_style(
     selected: bool,
     disabled: bool,
     focused: bool,
+    dragging: bool,
+    drop_into: bool,
 ) -> impl Fn(&crate::theme::Theme) -> container::Style {
     move |theme: &crate::theme::Theme| {
         let theme = *theme;
@@ -194,12 +196,21 @@ pub fn row_style(
         }
         let control = theme.control(ControlRole::Selectable, state);
 
-        let background = if selected {
+        let mut background = if selected {
             control.background
         } else {
             Color::TRANSPARENT
         };
-        let border = if focused {
+        if dragging {
+            background = background.scale_alpha(0.5);
+        }
+
+        // A drag-over `Into` target takes visual priority over the focus
+        // border: the two never carry real meaning at once, since pointer
+        // drag and keyboard focus-visible are mutually exclusive input modes.
+        let border = if drop_into {
+            border_with_radius(theme.border(BorderRole::Accent), 0.0)
+        } else if focused {
             border_with_radius(theme.border(BorderRole::Focus), 0.0)
         } else {
             transparent_border()
@@ -209,6 +220,21 @@ pub fn row_style(
             text_color: None,
             background: Some(Background::Color(background)),
             border,
+            shadow: Shadow::default(),
+            ..container::Style::default()
+        }
+    }
+}
+
+/// Style for the thin accent bar marking a Before/After drop edge.
+pub fn drop_edge_style() -> impl Fn(&crate::theme::Theme) -> container::Style {
+    move |theme: &crate::theme::Theme| {
+        let theme = *theme;
+
+        container::Style {
+            text_color: None,
+            background: Some(Background::Color(theme.border(BorderRole::Accent).color)),
+            border: transparent_border(),
             shadow: Shadow::default(),
             ..container::Style::default()
         }
@@ -238,7 +264,7 @@ mod tree_item_tests {
     #[test]
     fn selected_item_uses_app_selected_control_background() {
         let theme = Theme::Dark;
-        let item = row_style(true, false, false)(&theme);
+        let item = row_style(true, false, false, false, false)(&theme);
 
         assert_eq!(
             background_color(&item),
@@ -251,9 +277,30 @@ mod tree_item_tests {
     }
 
     #[test]
+    fn dragging_row_dims_the_resolved_background() {
+        let theme = Theme::Dark;
+        let plain = row_style(true, false, false, false, false)(&theme);
+        let dragging = row_style(true, false, false, true, false)(&theme);
+
+        assert_eq!(
+            background_color(&dragging),
+            background_color(&plain).scale_alpha(0.5)
+        );
+    }
+
+    #[test]
+    fn drop_into_target_renders_the_accent_border_over_focus() {
+        let theme = Theme::Dark;
+        let item = row_style(false, false, true, false, true)(&theme);
+
+        assert_eq!(item.border.color, theme.border(BorderRole::Accent).color);
+        assert!(item.border.width > 0.0);
+    }
+
+    #[test]
     fn disabled_selected_row_uses_the_shared_resolver_not_a_local_alpha() {
         let theme = Theme::Dark;
-        let item = row_style(true, true, false)(&theme);
+        let item = row_style(true, true, false, false, false)(&theme);
         let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
 
         // Same canonical dimming button/style.rs and selectable_item.rs use
@@ -267,8 +314,8 @@ mod tree_item_tests {
     #[test]
     fn focused_row_renders_the_focus_border_independent_of_selection() {
         let theme = Theme::Dark;
-        let unfocused = row_style(false, false, false)(&theme);
-        let focused = row_style(false, false, true)(&theme);
+        let unfocused = row_style(false, false, false, false, false)(&theme);
+        let focused = row_style(false, false, true, false, false)(&theme);
 
         assert_eq!(unfocused.border.width, 0.0);
         assert_eq!(focused.border.color, theme.border(BorderRole::Focus).color);
