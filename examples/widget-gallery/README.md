@@ -42,7 +42,9 @@ The gallery exercises:
   None/First highlight, Unicode emphasis, clear/Spinner, callback absence,
   retrieval-versus-validation error, disabled/duplicate rows, narrow/low
   layout, Enter pass-through, and pointer-before-blur ordering
-- real overlay behavior for dialogs and command palette content
+- real modal overlay behavior for dialogs and the canonical `CommandPalette`
+  (Cmd+K / Ctrl+K or the "Open command palette" trigger), including
+  controlled query, filtered/empty results, and keyboard navigation
 - structural stress cases for long/narrow `SectionHeader`, transparent Toolbar
   groups and contained overflow, adjacent Panel header/body anatomy, 12/6
   overlay scrollbars, the complete semantic Separator matrix, and interactive,
@@ -136,6 +138,17 @@ scope and collision; Popover insets, chrome, focus and nested priority; Menu
 columns, durable state, keyboard, submenu and scrolling; Select open/invalid/
 empty/Field behavior; and Autocomplete result, Unicode, focus, Enter, clear,
 blur, and pointer-selection flows.
+
+For the CommandPalette review, on the Overlays page open the palette
+(Cmd+K/Ctrl+K or its trigger button) and exercise, grouped by area: (a)
+open/close and the controlled query as you type; (b) filtered results versus
+the distinct empty-query and no-match empty states; (c) `ArrowUp`/`ArrowDown`
+navigation over eligible rows (the disabled "Delete project" row is skipped),
+`Enter` activation, and that `Home`/`End`/`Left`/`Right`/text still reach the
+search `Input`; (d) long content and a constrained/narrow/low viewport, where
+only the result list scrolls while the input and frame stay fixed. Confirm
+`Escape` and an outside press each dismiss exactly once, and that opening a
+Dialog while the palette is open replaces it (one modal session per window).
 
 For the Tree review, use the Trees section on the Layout & Navigation page.
 It exercises the full contract through public APIs only:
