@@ -21,6 +21,6 @@ pub use tree::{
     TreeDropTarget, TreeEvent, TreeEventKind, TreeExpandBehavior, TreeNode, TreePasteTarget,
     TreeState, TreeStateChange,
 };
-pub use tree_item::TreeItem;
+pub use tree_item::{TreeItem, TreeItemDropEdge};
 #[allow(deprecated)]
 pub use version_badge::VersionBadge;

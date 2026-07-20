@@ -13,7 +13,9 @@ pub(super) fn focusable_row_indices<Id>(entries: &[VisibleTreeEntry<'_, Id>]) ->
         .enumerate()
         .filter_map(|(i, entry)| match entry {
             VisibleTreeEntry::Row(_) => Some(i),
-            VisibleTreeEntry::Loading(_) => None,
+            VisibleTreeEntry::Loading(_)
+            | VisibleTreeEntry::Failed(_)
+            | VisibleTreeEntry::Empty(_) => None,
         })
         .collect()
 }

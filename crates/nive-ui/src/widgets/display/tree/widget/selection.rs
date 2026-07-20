@@ -97,13 +97,19 @@ pub(super) fn batch_or_single<Id>(changes: Vec<TreeStateChange<Id>>) -> TreeStat
     }
 }
 
+/// Returns whether expanding `id` should re-request a load: true for both
+/// `Deferred` (first load) and `Failed` (retry) branches, so an expander or
+/// row-click re-open behaves the same as the canonical retry affordance.
 pub(super) fn is_deferred_branch<Id>(nodes: &[TreeNode<'_, Id>], id: &Id) -> bool
 where
     Id: Clone + Ord,
 {
     for node in nodes {
         if node.id() == id {
-            return matches!(node.children(), Some(TreeChildren::Deferred));
+            return matches!(
+                node.children(),
+                Some(TreeChildren::Deferred) | Some(TreeChildren::Failed { .. })
+            );
         }
 
         if let Some(TreeChildren::Loaded(children)) = node.children() {

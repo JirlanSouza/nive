@@ -66,7 +66,20 @@
 //! every time that deferred branch is expanded. While the branch remains
 //! deferred and expanded, traversal renders one loading placeholder row at the
 //! child depth. Rebuild the node with [`TreeNode::branch`] when the app has
-//! loaded children.
+//! loaded children, or with [`TreeNode::branch_failed`] when the load failed.
+//!
+//! Apps map their own per-branch async state into [`TreeChildren`] on every
+//! view pass — for example a runtime `Resource<Vec<Child>>` whose loading
+//! state maps to `Deferred`, success to `Loaded`, and failure to `Failed`
+//! (built with [`TreeNode::branch_failed`] from a value implementing the core
+//! `ErrorPresentation` contract, such as `UserFacingError`; `nive-ui` never
+//! names the runtime types itself). While expanded, a `Failed` branch renders
+//! one canonical error row showing the error summary with a retry affordance
+//! that re-emits `ExpandRequested { id }`; an expanded `Loaded` branch with no
+//! children renders one canonical empty affordance row. All three canonical
+//! rows — loading, failed, empty — are chrome: they are excluded from
+//! selection, focus, navigation, type-ahead, clipboard, and drag/drop, while
+//! still counting in [`visible_index_of`]/[`scroll_offset_to`] rendered order.
 //!
 //! # Keyboard And Pointer Semantics
 //!
@@ -80,6 +93,10 @@
 //! Activation and rename intent mapping use
 //! [`crate::interaction::ActivationBehavior`] and
 //! [`crate::interaction::RenameBehavior`] so platform defaults stay explicit.
+//! `Activate { id, trigger }` carries the input source. Rename stays an
+//! intent: Tree emits [`TreeEventKind::RenameRequested`] and marks the rename
+//! target for styling; it hosts no inline editor. The application owns any
+//! editor and commits the change by rebuilding nodes.
 //!
 //! # Viewport And Reveal
 //!
@@ -88,17 +105,25 @@
 //! ancestors, focus a node, and scroll to its uniform row offset. Use
 //! [`Tree::height`] to constrain the viewport, or [`Tree::no_scroll`] with
 //! [`row_height`], [`visible_index_of`], and [`scroll_offset_to`] when composing
-//! rows inside an app-owned scroll container.
+//! rows inside an app-owned scroll container. Tree renders every
+//! expanded-visible row; it does not virtualize the viewport. The uniform-row
+//! geometry stays virtualization-ready, and windowed rendering for very large
+//! trees is a dedicated later change.
 //!
 //! # Context, Clipboard, Paste, And Drag/Drop
 //!
 //! Context requests carry a [`crate::interaction::ContextRequest`] with the
-//! target and visible-order [`crate::interaction::SelectionSnapshot`]. Clipboard
-//! events emit normalized [`crate::interaction::CollectionTransferPayload`]
-//! values without touching the system clipboard. Paste requests report a
-//! [`TreePasteTarget`]. Drag/drop is app-internal intent only: [`TreeDrag`]
-//! controls allowed operations and target validation, while accepted releases
-//! emit [`TreeEventKind::DropRequested`] with a [`TreeDrop`]. Apps perform all
+//! target and visible-order [`crate::interaction::SelectionSnapshot`], and
+//! honor [`crate::interaction::ContextSelectionBehavior`] (default
+//! `SelectTargetIfUnselected`) for right-click selection. Tree owns no menu
+//! widget: the application hosts the canonical
+//! [`Menu`](crate::widgets::Menu) at the request position and performs the
+//! chosen action. Clipboard events emit normalized
+//! [`crate::interaction::CollectionTransferPayload`] values without touching
+//! the system clipboard. Paste requests report a [`TreePasteTarget`].
+//! Drag/drop is app-internal intent only: [`TreeDrag`] controls allowed
+//! operations and target validation, while accepted releases emit
+//! [`TreeEventKind::DropRequested`] with a [`TreeDrop`]. Apps perform all
 //! model mutation.
 //!
 //! # Accessibility Mapping
@@ -113,6 +138,32 @@
 //!
 //! Most public enums in this module are `#[non_exhaustive]`; application
 //! matches should include a wildcard arm.
+//!
+//! # Public Surface
+//!
+//! The supported Tree family is [`Tree`], [`TreeItem`](super::TreeItem),
+//! [`TreeNode`], [`TreeChildren`], [`TreeState`], [`TreeStateChange`],
+//! [`TreeEvent`], [`TreeEventKind`], [`TreeExpandBehavior`], [`TreeDrag`],
+//! [`TreeDrop`], [`TreeDropTarget`], [`TreePasteTarget`], and the
+//! [`reveal`]/[`row_height`]/[`visible_index_of`]/[`scroll_offset_to`]
+//! helpers. The internal widget, navigation, selection, focus, and drag/drop
+//! machinery stays private:
+//!
+//! ```compile_fail
+//! use nive_ui::widgets::display::tree::widget::selection::batch_or_single;
+//! ```
+//!
+//! ```compile_fail
+//! use nive_ui::widgets::display::tree::focus::TreeFocus;
+//! ```
+//!
+//! ```compile_fail
+//! use nive_ui::widgets::display::tree::visible::{visible_entries, VisibleTreeEntry};
+//! ```
+//!
+//! ```compile_fail
+//! use nive_ui::widgets::display::tree::keymap::key_action;
+//! ```
 
 mod event;
 mod focus;

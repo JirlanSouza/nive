@@ -15,14 +15,14 @@ use crate::interaction::{ActivationBehavior, ActivationTrigger, RenameBehavior, 
 use crate::theme::ControlSize;
 use crate::Element;
 
-use super::event::TreeEvent;
+use super::event::{TreeEvent, TreeEventKind};
 use super::focus::TreeFocus;
 use super::state::{TreeState, TreeStateChange};
 use super::transfer::TreeDrag;
 use super::visible::{visible_entries, VisibleTreeEntry};
 use super::TreeNode;
 
-use dnd::loading_row;
+use dnd::{empty_row, failed_row, loading_row};
 
 fn project_row_focus(tree_focus_visible: bool, row_focused: bool) -> bool {
     tree_focus_visible && row_focused
@@ -282,6 +282,7 @@ where
                     let focused = project_row_focus(tree_focus_visible, state.is_focused(&row.id));
                     let press = self.row_event(state, &row.id, row.expanded, row.disabled);
                     let toggle = self.toggle_event(row.id.clone(), row.expanded, row.disabled);
+                    let (dragging, drop_edge) = self.drag_visuals(state, &row.id);
 
                     let mut item = crate::widgets::TreeItem::new(row.label)
                         .depth(row.depth)
@@ -290,6 +291,8 @@ where
                         .focused(focused)
                         .focusable(false)
                         .size(self.size)
+                        .dragging(dragging)
+                        .drop_indicator(drop_edge)
                         .on_press_maybe(press)
                         .on_toggle_maybe(toggle);
 
@@ -314,6 +317,16 @@ where
                     item.into()
                 }
                 VisibleTreeEntry::Loading(row) => loading_row(row.depth, self.size),
+                VisibleTreeEntry::Failed(row) => {
+                    let retry = self.publish(TreeEvent {
+                        state_change: None,
+                        kind: TreeEventKind::ExpandRequested {
+                            id: row.parent.clone(),
+                        },
+                    });
+                    failed_row(row.depth, row.summary, self.size, retry)
+                }
+                VisibleTreeEntry::Empty(row) => empty_row(row.depth, self.size),
             });
         }
 

@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use iced::{
-    widget::{button, container, text, Row, Space},
+    widget::{button, column, container, text, Row, Space},
     Alignment, Length, Padding,
 };
 
@@ -16,13 +16,38 @@ use crate::advanced::pressable::Pressable;
 use crate::widgets::primitives::{icon as icon_widget, IconRole};
 use crate::widgets::{StatusIndicator, ToneDot};
 
+/// Drop-target edge rendered as a drag/drop affordance on a row.
+///
+/// `Before`/`After` render a thin accent bar on the row's respective edge;
+/// `Into` renders an accent border around the whole row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TreeItemDropEdge {
+    /// Insert before this row.
+    Before,
+    /// Insert after this row.
+    After,
+    /// Drop into this row's branch.
+    Into,
+}
+
 /// Primitive row widget for rendering one tree-like item.
 ///
 /// `TreeItem` is intentionally stateless. It renders indentation, an optional
-/// branch expander, selection/disabled styling, leading icon, tone indicator,
-/// trailing content, and row/toggle messages. It does not own hierarchy,
-/// selection, focus, keyboard navigation, type-ahead, clipboard, or drag/drop
-/// behavior; use [`super::Tree`] for the high-level hierarchy widget.
+/// branch expander, hover, selection, disabled styling, a leading icon, a
+/// status indicator, trailing content, and row/toggle messages. Row
+/// [`focused`](Self::focused) styling renders independently from
+/// [`selected`](Self::selected): the two never share one indicator, so a
+/// focused-but-unselected row and a selected-but-unfocused row look distinct.
+/// [`dragging`](Self::dragging) dims a row that is the current drag source,
+/// and [`drop_indicator`](Self::drop_indicator) renders a Before/After/Into
+/// drop-target affordance. All visual state changes are immediate; there is
+/// no duration, easing, or reduced-motion branch. Rendering is physical-LTR
+/// today, staying direction-ready for a later RTL wave.
+///
+/// `TreeItem` does not own hierarchy, selection, focus, keyboard navigation,
+/// type-ahead, clipboard, or drag/drop behavior; use [`super::Tree`] for the
+/// high-level hierarchy widget, or compose `TreeItem` directly for a custom
+/// hierarchy.
 pub struct TreeItem<'a, Message> {
     label: Cow<'a, str>,
     depth: usize,
@@ -39,6 +64,7 @@ pub struct TreeItem<'a, Message> {
     on_toggle: Option<Message>,
     on_context_request: Option<Message>,
     dragging: bool,
+    drop_edge: Option<TreeItemDropEdge>,
     focusable: bool,
 }
 
@@ -64,6 +90,7 @@ where
             on_toggle: None,
             on_context_request: None,
             dragging: false,
+            drop_edge: None,
             focusable: true,
         }
     }
@@ -195,9 +222,15 @@ where
         self
     }
 
-    /// Sets dragging feedback styling.
+    /// Sets dragging feedback styling: dims the row while it is the drag source.
     pub fn dragging(mut self, dragging: bool) -> Self {
         self.dragging = dragging;
+        self
+    }
+
+    /// Sets the drop-target edge affordance rendered on this row.
+    pub fn drop_indicator(mut self, edge: Option<TreeItemDropEdge>) -> Self {
+        self.drop_edge = edge;
         self
     }
 
@@ -218,15 +251,26 @@ where
         let selected = self.selected;
         let disabled = self.disabled;
         let focused = self.focused;
+        let dragging = self.dragging;
+        let drop_edge = self.drop_edge;
 
         row = row.push(self.expander(metrics));
         row = row.push(self.main_button(metrics));
 
-        container(row)
-            .style(theme_tree_item::row_style(selected, disabled, focused))
+        let drop_into = drop_edge == Some(TreeItemDropEdge::Into);
+        let row_element: Element<'a, Message> = container(row)
+            .style(theme_tree_item::row_style(
+                selected, disabled, focused, dragging, drop_into,
+            ))
             .width(Length::Fill)
             .height(Length::Fixed(metrics.height))
-            .into()
+            .into();
+
+        match drop_edge {
+            Some(TreeItemDropEdge::Before) => column![drop_edge_bar(), row_element].into(),
+            Some(TreeItemDropEdge::After) => column![row_element, drop_edge_bar()].into(),
+            Some(TreeItemDropEdge::Into) | None => row_element,
+        }
     }
 
     fn indent_button(&self, metrics: theme_tree_item::TreeItemMetrics) -> Element<'a, Message> {
@@ -367,6 +411,17 @@ where
 
         content.into()
     }
+}
+
+fn drop_edge_bar<'a, Message>() -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    container(Space::new().width(Length::Fill).height(Length::Fixed(2.0)))
+        .style(theme_tree_item::drop_edge_style())
+        .width(Length::Fill)
+        .height(Length::Fixed(2.0))
+        .into()
 }
 
 fn expander_content<'a, Message>(icon: IconRole, icon_size: f32) -> Element<'a, Message>
