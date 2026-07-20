@@ -1,6 +1,7 @@
 mod commands;
 mod content;
 mod events;
+mod explorer;
 mod inspector;
 mod shell;
 mod tone;
@@ -13,6 +14,8 @@ use nive::{prelude::*, Action, ActionMap};
 
 use crate::sim::Simulation;
 use crate::sim::Environment;
+
+use explorer::{ExplorerContextMenuState, ExplorerNodeId};
 
 pub(crate) type WorkbenchMsg = WorkbenchEvent<DocumentId, &'static str, PanelActionId>;
 
@@ -31,6 +34,10 @@ pub(crate) struct WorkbenchMonitor {
     auto_refresh: bool,
     monitor_filter: MonitorFilter,
     service_scope: ServiceScope,
+    explorer: TreeState<ExplorerNodeId>,
+    explorer_diagnostics_failed: bool,
+    explorer_diagnostics_loading: bool,
+    explorer_context_menu: Option<ExplorerContextMenuState>,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +61,10 @@ pub(crate) enum Message {
     EnvironmentChanged(Environment),
     MonitorFilterChanged(MonitorFilter),
     ServiceScopeChanged(ServiceScope),
+    ExplorerEvent(TreeEvent<ExplorerNodeId>),
+    ExplorerDiagnosticsFailed,
+    ExplorerContextAction(&'static str),
+    ExplorerContextDismissed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -169,6 +180,14 @@ impl Application for WorkbenchMonitor {
                 self.service_scope = scope;
                 self.dirty_filter = true;
             }
+            Message::ExplorerEvent(event) => {
+                if let Some(task) = self.apply_explorer_event(event) {
+                    return Effect::task(task);
+                }
+            }
+            Message::ExplorerDiagnosticsFailed => self.apply_explorer_diagnostics_failed(),
+            Message::ExplorerContextAction(action) => self.apply_explorer_context_action(action),
+            Message::ExplorerContextDismissed => self.explorer_context_menu = None,
         }
 
         Effect::none()
@@ -301,6 +320,10 @@ impl WorkbenchMonitor {
             auto_refresh: true,
             monitor_filter: MonitorFilter::All,
             service_scope: ServiceScope::All,
+            explorer: TreeState::default(),
+            explorer_diagnostics_failed: false,
+            explorer_diagnostics_loading: false,
+            explorer_context_menu: None,
         }
     }
 }

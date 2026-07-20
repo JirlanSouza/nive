@@ -82,6 +82,9 @@ impl WorkbenchMonitor {
             WorkbenchPanel::new("dashboards", "Dashboards", self.dashboards_view())
                 .icon(IconRole::DialogInformation)
                 .status_text(ToneRole::Accent, "Active"),
+            WorkbenchPanel::new("explorer", "Explorer", self.explorer_view())
+                .icon(IconRole::Folder)
+                .count_badge(self.model.hosts.len() as u64),
             WorkbenchPanel::new("settings", "Settings", self.settings_view())
                 .icon(IconRole::PreferencesSystem)
                 .disabled(true),
