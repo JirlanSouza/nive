@@ -37,6 +37,6 @@ pub use actions::{
     ShortcutMap, ShortcutModifiers,
 };
 pub use presentation::{
-    ErrorPresentation, OperationStatusPresentation, ResourceStatusPresentation, ToastPresentation,
-    ToastTone,
+    AnnouncementPoliteness, ErrorPresentation, OperationStatusPresentation,
+    ResourceStatusPresentation, ToastPresentation, ToastTone,
 };
