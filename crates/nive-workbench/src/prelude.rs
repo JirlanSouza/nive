@@ -2,9 +2,6 @@
 
 pub use nive_ui::theme::{ControlSize, ToneRole};
 
-pub use crate::commands::{
-    CommandPaletteState, WorkbenchCommand, WorkbenchCommandPalette, WorkbenchCommandPaletteEvent,
-};
 pub use crate::documents::{
     DocumentArea, DocumentHeader, WorkbenchDocument, WorkbenchDocumentDropTarget,
     WorkbenchDocumentEvent,
@@ -28,4 +25,4 @@ pub use crate::shell::{Workbench, WorkbenchEvent, WorkbenchPaneConstraints, Work
 pub use crate::status::{StatusBar, StatusItem};
 
 #[cfg(feature = "runtime")]
-pub use crate::runtime::action_palette_rows;
+pub use crate::runtime::action_palette_items;

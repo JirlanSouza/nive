@@ -2,8 +2,9 @@
 //!
 //! `nive-workbench` sits above `nive-ui`: it composes existing widgets into a
 //! desktop shell vocabulary with document tabs, generic panel hosts, compact
-//! side rails, bottom header tabs, status bars, command palette hosting, and
-//! serializable layout/session state.
+//! side rails, bottom header tabs, status bars, and serializable
+//! layout/session state. Command palette hosting is the canonical
+//! `nive_ui::widgets::CommandPalette`; this crate provides no bespoke host.
 //!
 //! The crate owns only shell and view state. Applications continue to own
 //! domain state, side effects, persistence location, command execution,
@@ -12,10 +13,10 @@
 //! into product-specific messages at one boundary.
 //!
 //! Runtime integration is optional. Default features expose the shell, layout,
-//! document, panel, diagnostics, status, command palette host, and session APIs
-//! without requiring lifecycle types from `nive-runtime`. Enable the `runtime`
-//! feature for adapters to runtime concepts such as action-map-backed command
-//! palette rows.
+//! document, panel, diagnostics, status, and session APIs without requiring
+//! lifecycle types from `nive-runtime`. Enable the `runtime` feature for
+//! adapters to runtime concepts such as action-map-backed command palette
+//! items.
 //!
 //! ```
 //! use nive_workbench::prelude::*;
@@ -76,24 +77,29 @@
 //! let _view = panel_host(host, [panel], Message::Panel);
 //! ```
 //!
-//! Host command palette interaction state while command execution remains
-//! app-owned:
+//! Command palette hosting is the canonical `nive_ui::widgets::CommandPalette`;
+//! `nive-workbench` provides no bespoke host and, with the `runtime` feature,
+//! [`action_palette_items`] projects a shared `nive_core::ActionMap` directly
+//! into its items:
 //!
 //! ```
-//! use nive_workbench::prelude::*;
+//! use nive_ui::widgets::{CommandPalette, CommandPaletteItem};
 //!
 //! #[derive(Clone)]
 //! enum Message {
-//!     Palette(WorkbenchCommandPaletteEvent<&'static str>),
+//!     QueryChanged(String),
+//!     Dismissed,
+//!     Save,
 //! }
 //!
-//! let state = CommandPaletteState::new();
-//! let commands = [WorkbenchCommand::new("file.save", "Save")];
-//! let _palette = WorkbenchCommandPalette::new(&state, &commands, Message::Palette)
-//!     .view();
+//! let items = [CommandPaletteItem::new("file.save", "Save", Message::Save)];
+//! let _palette = CommandPalette::new(iced::widget::text("Base"))
+//!     .open(true)
+//!     .items(items)
+//!     .on_query_change(Message::QueryChanged)
+//!     .on_dismiss(Message::Dismissed);
 //! ```
 
-pub mod commands;
 pub mod documents;
 pub mod explorer;
 pub mod inspector;
@@ -108,7 +114,6 @@ pub mod session;
 pub mod shell;
 pub mod status;
 
-pub use commands::*;
 pub use documents::*;
 pub use explorer::*;
 pub use inspector::*;
