@@ -42,7 +42,50 @@ pub enum ToastTone {
     Danger,
 }
 
+impl ToastTone {
+    /// The live-region announcement politeness this tone SHALL use.
+    ///
+    /// Preparatory only: no native AccessKit live-region emission exists in
+    /// this Iced version, so nothing consumes this yet. It fixes the
+    /// tone-to-politeness mapping now so `ToastHost` (or whatever wires the
+    /// eventual accessibility surface) has one settled contract to implement
+    /// against, rather than each caller inventing its own.
+    pub fn announcement_politeness(self) -> AnnouncementPoliteness {
+        match self {
+            ToastTone::Info | ToastTone::Success => AnnouncementPoliteness::Polite,
+            ToastTone::Warning => AnnouncementPoliteness::NonAggressive,
+            ToastTone::Danger => AnnouncementPoliteness::Assertive,
+        }
+    }
+}
+
+/// Live-region announcement urgency, independent of any concrete
+/// accessibility backend. See [`ToastTone::announcement_politeness`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnnouncementPoliteness {
+    /// Read at the next opportunity; never interrupts current speech.
+    Polite,
+    /// Noticeable without the interruption an assertive announcement makes.
+    NonAggressive,
+    /// Interrupts current speech immediately.
+    Assertive,
+}
+
 /// A read-only view over a presentable toast.
+///
+/// Deliberately message-free: the runtime-owned action (an application
+/// `Message` a caller can attach to a toast) lives on `nive-runtime`'s
+/// concrete `Toast`/`ToastItem`, never on this neutral contract, so
+/// `nive-ui` can render any `ToastPresentation` without knowing about
+/// application messages at all.
+///
+/// ```compile_fail
+/// use nive_core::ToastPresentation;
+///
+/// fn takes_message<T: ToastPresentation>(toast: &T) {
+///     let _ = toast.action();
+/// }
+/// ```
 pub trait ToastPresentation {
     type Id: Copy;
 
@@ -93,5 +136,25 @@ mod presentation_tests {
             detail: "Failed",
         };
         let _: &dyn ErrorPresentation = &error;
+    }
+
+    #[test]
+    fn announcement_politeness_follows_tone() {
+        assert_eq!(
+            ToastTone::Info.announcement_politeness(),
+            AnnouncementPoliteness::Polite
+        );
+        assert_eq!(
+            ToastTone::Success.announcement_politeness(),
+            AnnouncementPoliteness::Polite
+        );
+        assert_eq!(
+            ToastTone::Warning.announcement_politeness(),
+            AnnouncementPoliteness::NonAggressive
+        );
+        assert_eq!(
+            ToastTone::Danger.announcement_politeness(),
+            AnnouncementPoliteness::Assertive
+        );
     }
 }
