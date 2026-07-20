@@ -137,6 +137,22 @@ columns, durable state, keyboard, submenu and scrolling; Select open/invalid/
 empty/Field behavior; and Autocomplete result, Unicode, focus, Enter, clear,
 blur, and pointer-selection flows.
 
+For the Tree review, use the Trees section on the Layout & Navigation page.
+It exercises the full contract through public APIs only:
+
+| Scenario | How to reach it |
+| --- | --- |
+| Expansion, indentation, guides | expand/collapse `examples` → `widget-gallery` → `src` → `pages` |
+| Deferred loading | expand `remote-packages`; observe the loading placeholder, then the loaded `schema.json`/`cache.bin` children |
+| Failed branch with retry | expand `remote-config`; it always fails after a short delay — observe the canonical error row, then press its retry affordance to re-trigger the same failure |
+| Empty branch affordance | expand `archived`; observe the canonical empty row, distinct from a collapsed branch |
+| Selection modes | toggle Single/Multiple; in Multiple, primary-modifier-click for additive selection and Shift-click for a range |
+| Keyboard navigation and type-ahead | Tab into the Tree, then Up/Down/Left/Right/Home/End/PageUp/PageDown and type a label's first letters |
+| Disabled row skipping | `target` is disabled — confirm navigation, selection, and drag/drop skip it |
+| Context-menu-via-Menu | right-click a row; Tree emits `ContextRequested` only, and the app hosts the canonical `Menu` at the pointer position with Rename/Copy/Delete commands |
+| Drag/drop affordances | drag a row onto another; observe the dragging row dim and the Before/After/Into drop-target indicator on the row under the pointer |
+| `TreeItem` primitive | the adjacent "TreeItem primitive" panel composes rows directly, with no owned hierarchy/selection/focus state |
+
 Current platform limits are explicit: Start/End and submenu Right/Left are
 physical LTR; popup and chevron visuals change immediately without interpolated
 motion; arbitrary EdgeToEdge Popover descendants receive rectangular Iced 0.14
@@ -147,7 +163,9 @@ active-descendant relations, or announcements.
 The agent launches the review app with `rtk just widget-gallery-dev` and keeps
 it running. The user captures and attaches the named Standard Light/Dark,
 Compact Xs, Comfortable Lg, wide/narrow/low, hover/focus/open, nested,
-truncation, result-state, and keyboard screenshots. The agent reviews only
+truncation, result-state, keyboard, and Tree (expansion, loading/failed-with-
+retry/empty child states, selection modes, keyboard focus versus selection,
+context-menu-via-Menu, drag/drop) screenshots. The agent reviews only
 those supplied images, applies corrections, and requests replacement images.
 The agent does not capture manual-validation screenshots, and sign-off remains
 open until the user confirms the final supplied evidence.
