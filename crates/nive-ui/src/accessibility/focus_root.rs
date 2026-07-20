@@ -37,6 +37,7 @@ use crate::focus::{lock_coordinator, FocusCoordinator, InputOrigin, SharedFocusC
 /// ```
 pub struct FocusRoot<'a, Message> {
     content: Element<'a, Message>,
+    on_modal_change: Option<Box<dyn Fn(bool) -> Message + 'a>>,
 }
 
 impl<'a, Message> FocusRoot<'a, Message> {
@@ -44,7 +45,20 @@ impl<'a, Message> FocusRoot<'a, Message> {
     pub fn new(content: impl Into<Element<'a, Message>>) -> Self {
         Self {
             content: content.into(),
+            on_modal_change: None,
         }
+    }
+
+    /// Publishes a message whenever this root's modal activity changes.
+    ///
+    /// The root aggregates every open modal session below it — `Dialog`,
+    /// `CommandPalette`, or any other consumer of the shared modal kernel —
+    /// so hosts opt in to nothing and cannot forget to report. Use it to
+    /// suspend ambient timed behavior (notification expiry, polling) while
+    /// the user is held in a modal step.
+    pub fn on_modal_change(mut self, on_modal_change: impl Fn(bool) -> Message + 'a) -> Self {
+        self.on_modal_change = Some(Box::new(on_modal_change));
+        self
     }
 }
 
@@ -156,12 +170,19 @@ impl<Message> Widget<Message, Theme, Renderer> for FocusRoot<'_, Message> {
     ) {
         let state = tree.state.downcast_mut::<FocusRootState>();
         let generation = lock_coordinator(&state.coordinator).ensure_liveness();
+        lock_coordinator(&state.coordinator).begin_modal_pass();
         self.content.as_widget_mut().operate(
             &mut tree.children[0],
             layout,
             renderer,
             &mut FocusOperation::new(&mut BindingPass, &state.coordinator, generation),
         );
+        if lock_coordinator(&state.coordinator).finish_modal_pass() {
+            if let Some(on_modal_change) = &self.on_modal_change {
+                let active = lock_coordinator(&state.coordinator).modal_active();
+                shell.publish(on_modal_change(active));
+            }
+        }
         observe_event_before(&state.coordinator, event);
         self.content.as_widget_mut().update(
             &mut tree.children[0],
