@@ -42,8 +42,8 @@ pub use feedback::{
     SkeletonControl, Spinner,
 };
 pub use navigation::{
-    command_palette_filter, command_palette_view, CommandPaletteRow, Menu, MenuCheckbox,
-    MenuCommand, MenuDismissPolicy, MenuRadioGroup, MenuRadioOption, MenuSubmenu, RailSide, TabBar,
+    command_palette_filter, CommandPalette, CommandPaletteItem, Menu, MenuCheckbox, MenuCommand,
+    MenuDismissPolicy, MenuRadioGroup, MenuRadioOption, MenuSubmenu, RailSide, TabBar,
     TabCloseRequest, TabCloseTrigger, TabDrop, TabDropTarget, TabItem, TabTearOff, Toolbar,
     ToolbarAction, ToolbarGroup, VerticalRail, VerticalRailBadge, VerticalRailItem,
 };

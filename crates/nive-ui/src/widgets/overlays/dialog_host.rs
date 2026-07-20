@@ -1,5 +1,4 @@
 mod initial_focus;
-mod overlay;
 mod widget;
 
 pub use initial_focus::DialogInitialFocus;

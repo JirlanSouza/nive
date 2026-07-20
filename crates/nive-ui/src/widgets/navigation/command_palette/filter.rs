@@ -1,24 +1,25 @@
-use super::CommandPaletteRow;
+use super::CommandPaletteItem;
 
-/// Returns the indices of [`CommandPaletteRow`]s that match `query`.
+/// Returns the indices of [`CommandPaletteItem`]s that match `query`.
 ///
-/// The match is a case-insensitive substring on the row's label and optional
+/// The match is a case-insensitive substring on the item's label and optional
 /// description. An empty query returns every index in order. The order of
-/// the returned indices follows the order of the input rows so apps can
+/// the returned indices follows the order of the input items so apps can
 /// preserve their declared action ordering while filtering.
-pub fn command_palette_filter<M>(query: &str, rows: &[CommandPaletteRow<'_, M>]) -> Vec<usize> {
+pub fn command_palette_filter<M>(query: &str, items: &[CommandPaletteItem<'_, M>]) -> Vec<usize> {
     let trimmed = query.trim();
     if trimmed.is_empty() {
-        return (0..rows.len()).collect();
+        return (0..items.len()).collect();
     }
 
     let needle = trimmed.to_ascii_lowercase();
 
-    rows.iter()
+    items
+        .iter()
         .enumerate()
-        .filter_map(|(index, row)| {
-            let label_matches = row.label.to_ascii_lowercase().contains(&needle);
-            let description_matches = row
+        .filter_map(|(index, item)| {
+            let label_matches = item.label.to_ascii_lowercase().contains(&needle);
+            let description_matches = item
                 .description
                 .is_some_and(|description| description.to_ascii_lowercase().contains(&needle));
 
@@ -31,80 +32,83 @@ pub fn command_palette_filter<M>(query: &str, rows: &[CommandPaletteRow<'_, M>])
 mod filter_tests {
     use super::*;
 
-    fn row<'a>(label: &'a str, description: Option<&'a str>) -> CommandPaletteRow<'a, ()> {
-        let mut row = CommandPaletteRow::new("id", label, ());
+    fn item<'a>(label: &'a str, description: Option<&'a str>) -> CommandPaletteItem<'a, ()> {
+        let mut item = CommandPaletteItem::new("id", label, ());
         if let Some(description) = description {
-            row = row.description(description);
+            item = item.description(description);
         }
-        row
+        item
     }
 
     #[test]
     fn empty_query_returns_all_indices_in_order() {
-        let rows = [
-            row("Open file", None),
-            row("Save file", Some("Persist the current buffer")),
-            row("Close", None),
+        let items = [
+            item("Open file", None),
+            item("Save file", Some("Persist the current buffer")),
+            item("Close", None),
         ];
 
-        let visible = command_palette_filter("   ", &rows);
+        let visible = command_palette_filter("   ", &items);
 
         assert_eq!(visible, vec![0, 1, 2]);
     }
 
     #[test]
     fn case_insensitive_label_match() {
-        let rows = [
-            row("Open File", None),
-            row("Save", None),
-            row("Close", None),
+        let items = [
+            item("Open File", None),
+            item("Save", None),
+            item("Close", None),
         ];
 
-        let visible = command_palette_filter("open", &rows);
+        let visible = command_palette_filter("open", &items);
 
         assert_eq!(visible, vec![0]);
     }
 
     #[test]
-    fn description_match_includes_row() {
-        let rows = [
-            row("Open file", Some("Pick a path from disk")),
-            row("Save", Some("Persist the current buffer")),
-            row("Close", None),
+    fn description_match_includes_item() {
+        let items = [
+            item("Open file", Some("Pick a path from disk")),
+            item("Save", Some("Persist the current buffer")),
+            item("Close", None),
         ];
 
-        let visible = command_palette_filter("disk", &rows);
+        let visible = command_palette_filter("disk", &items);
 
         assert_eq!(visible, vec![0]);
     }
 
     #[test]
     fn preserves_input_order_across_matches() {
-        let rows = [
-            row("Save", None),
-            row("Save As", Some("Pick a new path")),
-            row("Save All", None),
+        let items = [
+            item("Save", None),
+            item("Save As", Some("Pick a new path")),
+            item("Save All", None),
         ];
 
-        let visible = command_palette_filter("save", &rows);
+        let visible = command_palette_filter("save", &items);
 
         assert_eq!(visible, vec![0, 1, 2]);
     }
 
     #[test]
     fn empty_input_returns_no_matches() {
-        let rows = [row("Open", None), row("Save", None)];
+        let items = [item("Open", None), item("Save", None)];
 
-        let visible = command_palette_filter("nothing", &rows);
+        let visible = command_palette_filter("nothing", &items);
 
         assert!(visible.is_empty());
     }
 
     #[test]
     fn unicode_query_matches_label() {
-        let rows = [row("Salvar", Some("Persistir buffer")), row("Abrir", None)];
+        let items = [
+            item("Salvar", Some("Persistir buffer")),
+            item("Abrir", None),
+        ];
 
-        let visible = command_palette_filter("salv", &rows);
+        let visible = command_palette_filter("salv", &items);
 
         assert_eq!(visible, vec![0]);
     }

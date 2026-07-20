@@ -8,7 +8,8 @@ use iced::{
     Event, Point, Size, Vector,
 };
 
-use super::initial_focus::{DialogInitialFocus, FocusFirstSafeTarget};
+use super::initial_focus::InitialFocusFn;
+use super::widget::ModalAlignment;
 use crate::{
     focus::{contains_focus_target, FocusTarget, FocusTargetContext},
     focus_trap,
@@ -17,40 +18,44 @@ use crate::{
 };
 
 /// Viewport safe margin applied on every edge, matching the anchored-overlay
-/// contract Dialog reuses rather than inventing a second geometry model.
+/// contract Dialog and CommandPalette both reuse rather than inventing a
+/// second geometry model.
 const SAFE_VIEWPORT_MARGIN: f32 = 16.0;
-/// Maximum share of viewport height a Dialog frame may request.
+/// Maximum share of viewport height a modal frame may request.
 const MAX_VIEWPORT_HEIGHT_SHARE: f32 = 0.80;
 
-pub(super) struct DialogOverlay<'a, 'b, Message> {
-    dialog: &'b mut Element<'a, Message>,
+pub(super) struct ModalOverlay<'a, 'b, Message> {
+    modal: &'b mut Element<'a, Message>,
     state: &'b mut Tree,
     on_backdrop: Option<Message>,
     on_escape: Option<Message>,
-    initial_focus: DialogInitialFocus,
+    initial_focus: &'b InitialFocusFn<'a, Message>,
+    alignment: ModalAlignment,
     focus_context: &'b FocusTargetContext,
     expected_target: &'b mut Option<FocusTarget>,
     needs_initial_focus: &'b mut bool,
 }
 
-impl<'a, 'b, Message> DialogOverlay<'a, 'b, Message> {
+impl<'a, 'b, Message> ModalOverlay<'a, 'b, Message> {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
-        dialog: &'b mut Element<'a, Message>,
+        modal: &'b mut Element<'a, Message>,
         state: &'b mut Tree,
         on_backdrop: Option<Message>,
         on_escape: Option<Message>,
-        initial_focus: DialogInitialFocus,
+        initial_focus: &'b InitialFocusFn<'a, Message>,
+        alignment: ModalAlignment,
         focus_context: &'b FocusTargetContext,
         expected_target: &'b mut Option<FocusTarget>,
         needs_initial_focus: &'b mut bool,
     ) -> Self {
         Self {
-            dialog,
+            modal,
             state,
             on_backdrop,
             on_escape,
             initial_focus,
+            alignment,
             focus_context,
             expected_target,
             needs_initial_focus,
@@ -58,30 +63,30 @@ impl<'a, 'b, Message> DialogOverlay<'a, 'b, Message> {
     }
 }
 
-impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for DialogOverlay<'a, 'b, Message>
+impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for ModalOverlay<'a, 'b, Message>
 where
     Message: Clone + 'a,
 {
     fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
         let limits = layout::Limits::new(Size::ZERO, safe_max_size(bounds));
-        let dialog_node = self
-            .dialog
+        let modal_node = self
+            .modal
             .as_widget_mut()
             .layout(self.state, renderer, &limits);
 
         if *self.needs_initial_focus {
             // Best-effort early attempt: correct immediately when no shared
             // focus coordinator is bound yet (the common case for a
-            // standalone `DialogHost` in tests, or before any `FocusRoot`
+            // standalone kernel host in tests, or before any `FocusRoot`
             // reaches this subtree). Deliberately does not clear the flag —
             // see `operate()`, which re-resolves and clears it after
             // binding is guaranteed to have happened.
-            self.resolve_initial_focus(Layout::new(&dialog_node), renderer);
+            (self.initial_focus)(self.modal, self.state, Layout::new(&modal_node), renderer);
         }
 
-        let position = centered_position(dialog_node.size(), bounds);
+        let position = self.alignment.position(modal_node.size(), bounds);
 
-        layout::Node::with_children(bounds, vec![dialog_node.move_to(position)])
+        layout::Node::with_children(bounds, vec![modal_node.move_to(position)])
     }
 
     fn operate(
@@ -90,14 +95,14 @@ where
         renderer: &Renderer,
         operation: &mut dyn operation::Operation,
     ) {
-        let Some(dialog_layout) = layout.children().next() else {
+        let Some(modal_layout) = layout.children().next() else {
             return;
         };
 
-        self.dialog
+        self.modal
             .as_widget_mut()
-            .operate(self.state, dialog_layout, renderer, operation);
-        self.remember_dialog_target(dialog_layout, renderer);
+            .operate(self.state, modal_layout, renderer, operation);
+        self.remember_modal_target(modal_layout, renderer);
 
         if *self.needs_initial_focus {
             // A `FocusRoot` ancestor (if any) binds each descendant's
@@ -108,23 +113,23 @@ where
             // `state.focus()` correctly activates through the coordinator
             // instead of a local flag the next wrapped pass would discard.
             //
-            // A Dialog-owned nested overlay (Select, Popover, Menu, ...) may
+            // A modal-owned nested overlay (Select, Popover, Menu, ...) may
             // already be open the first time this ever runs (for example a
-            // Popover opened in the same render as the Dialog itself). Such
+            // Popover opened in the same render as the modal itself). Such
             // an overlay manages its own initial-entry focus and may have
             // already claimed it via real interaction before this deferred
-            // resolution got a chance to run; forcing the Dialog's own
+            // resolution got a chance to run; forcing the modal's own
             // fallback target here would silently steal focus back. Only
             // resolve when nothing else is already managing the nested
             // scope.
-            let viewport = dialog_layout.bounds();
+            let viewport = modal_layout.bounds();
             let nested_overlay_open = self
-                .dialog
+                .modal
                 .as_widget_mut()
-                .overlay(self.state, dialog_layout, renderer, &viewport, Vector::ZERO)
+                .overlay(self.state, modal_layout, renderer, &viewport, Vector::ZERO)
                 .is_some();
             if !nested_overlay_open {
-                self.resolve_initial_focus(dialog_layout, renderer);
+                (self.initial_focus)(self.modal, self.state, modal_layout, renderer);
             }
             *self.needs_initial_focus = false;
         }
@@ -139,18 +144,18 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
-        let Some(dialog_layout) = layout.children().next() else {
+        let Some(modal_layout) = layout.children().next() else {
             shell.capture_event();
             return;
         };
 
         if let Some(direction) = focus_trap::direction_from_event(event) {
             direction.operate(|operation| {
-                self.dialog
+                self.modal
                     .as_widget_mut()
-                    .operate(self.state, dialog_layout, renderer, operation);
+                    .operate(self.state, modal_layout, renderer, operation);
             });
-            self.remember_dialog_target(dialog_layout, renderer);
+            self.remember_modal_target(modal_layout, renderer);
             shell.capture_event();
             shell.invalidate_layout();
             shell.request_redraw();
@@ -158,29 +163,29 @@ where
         }
 
         let viewport = layout.bounds();
-        self.dialog.as_widget_mut().update(
+        self.modal.as_widget_mut().update(
             self.state,
             event,
-            dialog_layout,
+            modal_layout,
             cursor,
             renderer,
             clipboard,
             shell,
             &viewport,
         );
-        self.remember_dialog_target(dialog_layout, renderer);
+        self.remember_modal_target(modal_layout, renderer);
 
         if shell.is_event_captured() {
             return;
         }
 
-        // A Dialog-owned nested overlay (Select, Popover, Menu, ...) has
+        // A modal-owned nested overlay (Select, Popover, Menu, ...) has
         // already had first priority via Iced's own nested-overlay dispatch
         // order (its `overlay::Element` sits above this one in the stack).
-        // Reaching here means no nested overlay and no Dialog descendant
+        // Reaching here means no nested overlay and no modal descendant
         // consumed the event, so only outer backdrop/Escape dismissal
         // remains to evaluate.
-        if is_primary_outside_press(event, cursor, dialog_layout.bounds()) {
+        if is_primary_outside_press(event, cursor, modal_layout.bounds()) {
             if let Some(message) = self.on_backdrop.clone() {
                 shell.publish(message);
             }
@@ -205,18 +210,18 @@ where
         cursor: mouse::Cursor,
         renderer: &Renderer,
     ) -> mouse::Interaction {
-        let Some(dialog_layout) = layout.children().next() else {
+        let Some(modal_layout) = layout.children().next() else {
             return mouse::Interaction::Idle;
         };
 
-        if !cursor.is_over(dialog_layout.bounds()) {
+        if !cursor.is_over(modal_layout.bounds()) {
             return mouse::Interaction::Idle;
         }
 
         let viewport = layout.bounds();
-        self.dialog.as_widget().mouse_interaction(
+        self.modal.as_widget().mouse_interaction(
             self.state,
-            dialog_layout,
+            modal_layout,
             cursor,
             &viewport,
             renderer,
@@ -234,17 +239,17 @@ where
         let style = theme_surface::style(SurfaceRole::Scrim)(theme);
         container::draw_background(renderer, &style, layout.bounds());
 
-        let Some(dialog_layout) = layout.children().next() else {
+        let Some(modal_layout) = layout.children().next() else {
             return;
         };
 
         let viewport = layout.bounds();
-        self.dialog.as_widget().draw(
+        self.modal.as_widget().draw(
             self.state,
             renderer,
             theme,
             inherited_style,
-            dialog_layout,
+            modal_layout,
             cursor,
             &viewport,
         );
@@ -255,12 +260,12 @@ where
         layout: Layout<'c>,
         renderer: &Renderer,
     ) -> Option<overlay::Element<'c, Message, Theme, Renderer>> {
-        let dialog_layout = layout.children().next()?;
+        let modal_layout = layout.children().next()?;
         let viewport = layout.bounds();
 
-        self.dialog.as_widget_mut().overlay(
+        self.modal.as_widget_mut().overlay(
             self.state,
-            dialog_layout,
+            modal_layout,
             renderer,
             &viewport,
             Vector::ZERO,
@@ -268,46 +273,13 @@ where
     }
 }
 
-impl<Message> DialogOverlay<'_, '_, Message> {
-    /// Resolves this Dialog's declared [`DialogInitialFocus`] policy exactly
-    /// once per open session (gated by `needs_initial_focus`). `Target`
-    /// falls back to `First` when the explicit target is missing, disabled,
-    /// or otherwise not focusable. `First` never selects the action
-    /// footer's terminal (Primary or Destructive) action.
-    fn resolve_initial_focus(&mut self, layout: Layout<'_>, renderer: &Renderer) {
-        if let DialogInitialFocus::Target(id) = &self.initial_focus {
-            let mut focus_target = operation::focusable::focus::<()>(id.clone());
-            self.dialog
-                .as_widget_mut()
-                .operate(self.state, layout, renderer, &mut focus_target);
-
-            let mut count = operation::focusable::count();
-            self.dialog.as_widget_mut().operate(
-                self.state,
-                layout,
-                renderer,
-                &mut operation::black_box(&mut count),
-            );
-            let explicit_target_focused =
-                matches!(count.finish(), operation::Outcome::Some(c) if c.focused.is_some());
-
-            if explicit_target_focused {
-                return;
-            }
-        }
-
-        let mut fallback = FocusFirstSafeTarget::new();
-        self.dialog
-            .as_widget_mut()
-            .operate(self.state, layout, renderer, &mut fallback);
-    }
-
-    fn remember_dialog_target(&mut self, layout: Layout<'_>, renderer: &Renderer) {
+impl<Message> ModalOverlay<'_, '_, Message> {
+    fn remember_modal_target(&mut self, layout: Layout<'_>, renderer: &Renderer) {
         let Some(current) = self.focus_context.capture() else {
             return;
         };
         let mut contains = contains_focus_target(current.clone());
-        self.dialog.as_widget_mut().operate(
+        self.modal.as_widget_mut().operate(
             self.state,
             layout,
             renderer,
@@ -315,7 +287,7 @@ impl<Message> DialogOverlay<'_, '_, Message> {
         );
         let mut found = matches!(contains.finish(), operation::Outcome::Some(true));
 
-        // The current target may instead live inside a Dialog-owned nested
+        // The current target may instead live inside a modal-owned nested
         // overlay (Select, Popover, Menu, ...), which is only reachable
         // through `overlay()`/`overlay::Nested`, not the base `operate()`
         // reach above. Without this, focus moving inside such a nested
@@ -323,7 +295,7 @@ impl<Message> DialogOverlay<'_, '_, Message> {
         // outer-close anchor restoration to be refused as inconsistent.
         if !found {
             let viewport = layout.bounds();
-            if let Some(overlay) = self.dialog.as_widget_mut().overlay(
+            if let Some(overlay) = self.modal.as_widget_mut().overlay(
                 self.state,
                 layout,
                 renderer,
@@ -348,10 +320,18 @@ impl<Message> DialogOverlay<'_, '_, Message> {
     }
 }
 
+impl ModalAlignment {
+    fn position(&self, content: Size, bounds: Size) -> Point {
+        match *self {
+            ModalAlignment::Centered => centered_position(content, bounds),
+            ModalAlignment::TopCentered(offset) => top_centered_position(content, bounds, offset),
+        }
+    }
+}
+
 /// Clamps the requested viewport bounds to the safe-margin/`80vh` cap Dialog
-/// resolves its semantic size against. `Dialog::layout()` receives these as
-/// its `Limits.max` and clamps its own requested `DialogSize` width to fit.
-fn safe_max_size(viewport: Size) -> Size {
+/// and CommandPalette each resolve their semantic size against.
+pub(super) fn safe_max_size(viewport: Size) -> Size {
     let width = (viewport.width - 2.0 * SAFE_VIEWPORT_MARGIN).max(0.0);
     let capped_height = (viewport.height - 2.0 * SAFE_VIEWPORT_MARGIN).max(0.0);
     let height = (MAX_VIEWPORT_HEIGHT_SHARE * viewport.height).min(capped_height);
@@ -366,25 +346,36 @@ fn centered_position(content: Size, bounds: Size) -> Point {
     )
 }
 
+/// Horizontally centered, at a fixed top offset clamped within the safe
+/// viewport margin so the frame never renders off-screen on a short
+/// viewport.
+fn top_centered_position(content: Size, bounds: Size, offset: f32) -> Point {
+    let x = center_axis(content.width, bounds.width);
+    let max_y = (bounds.height - content.height - SAFE_VIEWPORT_MARGIN).max(0.0);
+    let y = offset.clamp(0.0, max_y);
+
+    Point::new(x, y)
+}
+
 fn center_axis(length: f32, limit: f32) -> f32 {
     let max = (limit - length).max(0.0);
     ((limit - length) / 2.0).clamp(0.0, max)
 }
 
 /// Backdrop activation is only a primary (left) mouse press or a touch
-/// press whose resolved cursor position is concrete and outside the Dialog
+/// press whose resolved cursor position is concrete and outside the modal
 /// frame. A `Cursor::Unavailable`/`Levitating` position — including one
-/// masked by a Dialog-owned nested overlay — is never treated as outside.
+/// masked by a modal-owned nested overlay — is never treated as outside.
 fn is_primary_outside_press(
     event: &Event,
     cursor: mouse::Cursor,
-    dialog_bounds: iced::Rectangle,
+    modal_bounds: iced::Rectangle,
 ) -> bool {
     let Some(position) = cursor.position() else {
         return false;
     };
 
-    if dialog_bounds.contains(position) {
+    if modal_bounds.contains(position) {
         return false;
     }
 
@@ -407,21 +398,38 @@ fn is_non_repeated_escape(event: &Event) -> bool {
 }
 
 #[cfg(test)]
-mod dialog_host_tests {
+mod modal_host_overlay_tests {
     use super::*;
 
     #[test]
-    fn centers_dialog_inside_available_bounds() {
+    fn centers_content_inside_available_bounds() {
         let position = centered_position(Size::new(40.0, 20.0), Size::new(100.0, 80.0));
 
         assert_eq!(position, Point::new(30.0, 30.0));
     }
 
     #[test]
-    fn clamps_oversized_dialog_to_origin() {
+    fn clamps_oversized_content_to_origin() {
         let position = centered_position(Size::new(120.0, 90.0), Size::new(100.0, 80.0));
 
         assert_eq!(position, Point::ORIGIN);
+    }
+
+    #[test]
+    fn top_centered_uses_the_requested_offset_when_it_fits() {
+        let position = top_centered_position(Size::new(40.0, 20.0), Size::new(100.0, 200.0), 40.0);
+
+        assert_eq!(position, Point::new(30.0, 40.0));
+    }
+
+    #[test]
+    fn top_centered_clamps_the_offset_on_a_short_viewport() {
+        // max_y = (160 - 150 - 16).max(0.0) = 0.0, so the requested 96.0
+        // offset clamps down to the origin rather than pushing the frame
+        // past the safe-margin cap.
+        let position = top_centered_position(Size::new(40.0, 150.0), Size::new(100.0, 160.0), 96.0);
+
+        assert_eq!(position.y, 0.0);
     }
 
     #[test]
