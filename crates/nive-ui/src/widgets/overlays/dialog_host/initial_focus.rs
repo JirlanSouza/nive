@@ -1,14 +1,19 @@
-use std::any::Any;
-
 use iced::{
-    advanced::widget::{
-        operation::{Focusable, Outcome},
-        Id, Operation,
+    advanced::{
+        layout::Layout,
+        widget::{
+            operation::{self, Focusable, Outcome},
+            tree::Tree,
+            Id, Operation,
+        },
     },
     Rectangle,
 };
+use std::any::Any;
 
 use super::super::dialog::TerminalActionTag;
+use super::super::modal_host::InitialFocusFn;
+use crate::{Element, Renderer};
 
 /// Where a Dialog places focus the first time it opens. `First` resolves,
 /// in order, the first enabled body focusable, then the first enabled
@@ -36,6 +41,58 @@ pub enum DialogInitialFocus {
     Target(Id),
 }
 
+/// Builds the shared modal kernel's [`InitialFocusFn`] hook for a Dialog's
+/// declared [`DialogInitialFocus`] policy. `Target` falls back to `First`
+/// when the explicit target is missing, disabled, or otherwise not
+/// focusable. `First` never selects the action footer's terminal (Primary or
+/// Destructive) action. Keeping this resolution in the Dialog layer (rather
+/// than the kernel) is what lets the kernel stay ignorant of the
+/// Dialog-specific `TerminalActionTag` concept.
+pub(super) fn dialog_initial_focus_fn<'a, Message>(
+    policy: DialogInitialFocus,
+) -> InitialFocusFn<'a, Message>
+where
+    Message: 'a,
+{
+    Box::new(move |content, tree, layout, renderer| {
+        resolve_initial_focus(&policy, content, tree, layout, renderer);
+    })
+}
+
+fn resolve_initial_focus<Message>(
+    policy: &DialogInitialFocus,
+    content: &mut Element<'_, Message>,
+    tree: &mut Tree,
+    layout: Layout<'_>,
+    renderer: &Renderer,
+) {
+    if let DialogInitialFocus::Target(id) = policy {
+        let mut focus_target = operation::focusable::focus::<()>(id.clone());
+        content
+            .as_widget_mut()
+            .operate(tree, layout, renderer, &mut focus_target);
+
+        let mut count = operation::focusable::count();
+        content.as_widget_mut().operate(
+            tree,
+            layout,
+            renderer,
+            &mut operation::black_box(&mut count),
+        );
+        let explicit_target_focused =
+            matches!(count.finish(), Outcome::Some(c) if c.focused.is_some());
+
+        if explicit_target_focused {
+            return;
+        }
+    }
+
+    let mut fallback = FocusFirstSafeTarget::new();
+    content
+        .as_widget_mut()
+        .operate(tree, layout, renderer, &mut fallback);
+}
+
 /// Focuses the first enabled, non-terminal focusable target reached while
 /// operating a Dialog's content, skipping the single focusable widget
 /// immediately following a [`TerminalActionTag`] announcement (the Dialog
@@ -43,13 +100,13 @@ pub enum DialogInitialFocus {
 /// `dialog::footer::TerminalActionMarker`). Body content is visited before
 /// footer/header content because `Dialog::operate()` orders itself that way
 /// for focus-related operations.
-pub(crate) struct FocusFirstSafeTarget {
+struct FocusFirstSafeTarget {
     skip_next_focusable: bool,
     resolved: bool,
 }
 
 impl FocusFirstSafeTarget {
-    pub(crate) fn new() -> Self {
+    fn new() -> Self {
         Self {
             skip_next_focusable: false,
             resolved: false,
