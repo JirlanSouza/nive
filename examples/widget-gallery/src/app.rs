@@ -140,6 +140,8 @@ pub enum DemoTreeNode {
     RemotePackages,
     RemoteSchema,
     RemoteCache,
+    RemoteConfig,
+    Archived,
 }
 
 impl DemoTreeNode {
@@ -157,8 +159,33 @@ impl DemoTreeNode {
             Self::RemotePackages => "remote-packages",
             Self::RemoteSchema => "schema.json",
             Self::RemoteCache => "cache.bin",
+            Self::RemoteConfig => "remote-config",
+            Self::Archived => "archived",
         }
     }
+}
+
+/// Presents a simulated remote-config load failure through the shared
+/// `ErrorPresentation` contract, matching how `nive-runtime`'s
+/// `UserFacingError` would project a real failure into `TreeNode::branch_failed`.
+pub struct DemoTreeLoadError;
+
+impl nive::ui::widgets::ErrorPresentation for DemoTreeLoadError {
+    fn summary(&self) -> &str {
+        "Failed to load remote-config"
+    }
+
+    fn detail(&self) -> &str {
+        "Failed to load remote-config: connection reset while fetching config.toml"
+    }
+}
+
+/// Position and target captured from a Tree `ContextRequested` pointer event,
+/// used to host the canonical `Menu` at the request position.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TreeContextMenuState {
+    pub target: DemoTreeNode,
+    pub position: Point,
 }
 
 pub struct FormState {
@@ -202,10 +229,13 @@ pub struct LayoutState {
     pub tree_selection_mode: SelectionMode,
     pub tree_deferred_loaded: bool,
     pub tree_deferred_loading: bool,
+    pub tree_config_failed: bool,
+    pub tree_config_loading: bool,
     pub tree_event_feedback: String,
     pub tree_context_feedback: String,
     pub tree_clipboard_feedback: String,
     pub tree_drop_feedback: String,
+    pub tree_context_menu: Option<TreeContextMenuState>,
     pub tab_feedback: String,
 }
 
@@ -276,6 +306,9 @@ pub enum Message {
     TreeEvent(TreeEvent<DemoTreeNode>),
     TreeSelectionModeChanged(SelectionMode),
     TreeDeferredLoaded(DemoTreeNode),
+    TreeConfigLoadFailed,
+    TreeContextMenuAction(&'static str),
+    TreeContextMenuDismissed,
     SplitRatioChanged(f32),
     VerticalSplitRatioChanged(f32),
     ShowDialog(DialogKind),
@@ -342,6 +375,7 @@ impl Default for LayoutState {
         tree_state.expand(DemoTreeNode::WidgetGallery);
         tree_state.expand(DemoTreeNode::Src);
         tree_state.expand(DemoTreeNode::Pages);
+        tree_state.expand(DemoTreeNode::Archived);
         tree_state.select_only(DemoTreeNode::AppRs);
         tree_state.select_many([DemoTreeNode::AppRs, DemoTreeNode::LayoutNavRs]);
         tree_state.selection.focused = Some(DemoTreeNode::LayoutNavRs);
@@ -376,10 +410,13 @@ impl Default for LayoutState {
             tree_selection_mode: SelectionMode::Multiple,
             tree_deferred_loaded: false,
             tree_deferred_loading: false,
+            tree_config_failed: false,
+            tree_config_loading: false,
             tree_event_feedback: "Deferred branch: remote-packages pending".to_owned(),
             tree_context_feedback: "Context: none".to_owned(),
             tree_clipboard_feedback: "Clipboard: none".to_owned(),
             tree_drop_feedback: "Transfer: idle".to_owned(),
+            tree_context_menu: None,
             tab_feedback: "TabBar: activation, close, context, reorder, and tear-off intents appear here".to_owned(),
         }
     }
@@ -589,6 +626,21 @@ impl Application for WidgetGallery {
                     self.layout.tree_event_feedback =
                         "Loaded remote-packages with 2 children".to_owned();
                 }
+            }
+            Message::TreeConfigLoadFailed => {
+                self.layout.tree_config_loading = false;
+                self.layout.tree_config_failed = true;
+                self.layout.tree_event_feedback =
+                    "remote-config failed to load; retry from the error row".to_owned();
+            }
+            Message::TreeContextMenuAction(action) => {
+                if let Some(menu) = self.layout.tree_context_menu.take() {
+                    self.layout.tree_context_feedback =
+                        format!("Menu action: {action} on {}", menu.target.label());
+                }
+            }
+            Message::TreeContextMenuDismissed => {
+                self.layout.tree_context_menu = None;
             }
             Message::SplitRatioChanged(ratio) => self.layout.split_ratio = ratio,
             Message::VerticalSplitRatioChanged(ratio) => self.layout.vertical_split_ratio = ratio,

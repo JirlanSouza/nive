@@ -2,12 +2,12 @@ use std::time::Duration;
 
 use nive::prelude::*;
 use nive::ui::interaction::{
-    CollectionTransferPayload, ContextInvocation, ContextRequest, ContextTarget, Transfer,
-    TransferOperation,
+    CollectionTransferPayload, ContextInvocation, ContextPosition, ContextRequest, ContextTarget,
+    Transfer, TransferOperation,
 };
 use nive::ui::widgets::{TreeDropTarget, TreeEvent, TreeEventKind, TreePasteTarget};
 
-use crate::app::{DemoTreeNode, LayoutState, Message};
+use crate::app::{DemoTreeNode, LayoutState, Message, TreeContextMenuState};
 
 pub fn handle_tree_event(
     layout: &mut LayoutState,
@@ -29,8 +29,27 @@ pub fn handle_tree_event(
                 Some(load_deferred_tree_branch())
             }
         }
+        TreeEventKind::ExpandRequested { id } if *id == DemoTreeNode::RemoteConfig => {
+            if layout.tree_config_loading {
+                None
+            } else {
+                layout.tree_config_loading = true;
+                layout.tree_config_failed = false;
+                layout.tree_event_feedback = "Loading remote-config...".to_owned();
+                Some(load_deferred_tree_config_branch())
+            }
+        }
         TreeEventKind::ContextRequested(request) => {
             layout.tree_context_feedback = describe_context_request(request);
+            layout.tree_context_menu = match (&request.target, request.position) {
+                (ContextTarget::Item(id), ContextPosition::Pointer(position)) => {
+                    Some(TreeContextMenuState {
+                        target: *id,
+                        position,
+                    })
+                }
+                _ => None,
+            };
             None
         }
         TreeEventKind::CopyRequested(payload) => {
@@ -64,6 +83,18 @@ pub fn load_deferred_tree_branch() -> Task<Message> {
             DemoTreeNode::RemotePackages
         },
         Message::TreeDeferredLoaded,
+    )
+}
+
+/// Simulates a failed branch load: `remote-config` always fails, demonstrating
+/// `TreeChildren::Failed`'s canonical error row and its retry affordance
+/// (retry re-triggers this same task through `ExpandRequested`).
+pub fn load_deferred_tree_config_branch() -> Task<Message> {
+    Task::perform(
+        async {
+            std::thread::sleep(Duration::from_millis(700));
+        },
+        |()| Message::TreeConfigLoadFailed,
     )
 }
 

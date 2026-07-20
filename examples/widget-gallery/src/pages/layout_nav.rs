@@ -3,9 +3,9 @@ use nive::ui::theme::{SurfaceRole, ToneRole};
 use nive::ui::interaction::{Orientation, SelectionMode, TransferOperation};
 use nive::ui::widgets::controls::button as nbutton;
 use nive::ui::widgets::primitives::text as ntext;
-use nive::widget::{column, row};
+use nive::widget::{column, container, row, stack};
 
-use crate::app::{DemoTab, DemoTreeNode, Message, WidgetGallery};
+use crate::app::{DemoTab, DemoTreeLoadError, DemoTreeNode, Message, WidgetGallery};
 use crate::catalog::PageId;
 use crate::layout::{example_cell, section, variant_grid};
 
@@ -297,6 +297,8 @@ fn trees(app: &WidgetGallery) -> Element<'_, Message> {
     let tree = Tree::new(tree_nodes(
         app.layout.tree_deferred_loaded,
         app.layout.tree_deferred_loading,
+        app.layout.tree_config_failed,
+        app.layout.tree_config_loading,
     ))
     .state(&app.layout.tree_state)
     .selection_mode(mode)
@@ -308,6 +310,7 @@ fn trees(app: &WidgetGallery) -> Element<'_, Message> {
     )
     .height(260)
     .on_event(Message::TreeEvent);
+    let tree = tree_with_context_menu(app, tree.into());
 
     let tree_item_rows = column![
         TreeItem::new("examples")
@@ -374,7 +377,53 @@ fn trees(app: &WidgetGallery) -> Element<'_, Message> {
     .into()
 }
 
-fn tree_nodes(deferred_loaded: bool, deferred_loading: bool) -> Vec<TreeNode<'static, DemoTreeNode>> {
+/// Hosts the canonical `Menu` at the Tree's captured context-request
+/// position, demonstrating the context-menu-via-Menu boundary: Tree emits
+/// `ContextRequested` only, and the application owns menu placement and
+/// commands.
+fn tree_with_context_menu<'a>(
+    app: &'a WidgetGallery,
+    tree: Element<'a, Message>,
+) -> Element<'a, Message> {
+    let Some(menu_state) = app.layout.tree_context_menu else {
+        return tree;
+    };
+
+    let anchor = nive::widget::Space::new()
+        .width(Length::Fixed(0.0))
+        .height(Length::Fixed(0.0));
+
+    let menu: Element<'_, Message> = Menu::new(anchor)
+        .open(true)
+        .on_dismiss(Message::TreeContextMenuDismissed)
+        .command(MenuCommand::new("Rename").on_press(Message::TreeContextMenuAction("Rename")))
+        .command(MenuCommand::new("Copy").on_press(Message::TreeContextMenuAction("Copy")))
+        .command(
+            MenuCommand::new("Delete")
+                .on_press(Message::TreeContextMenuAction("Delete"))
+                .destructive(),
+        )
+        .into();
+
+    let overlay = container(menu)
+        .padding(Padding {
+            top: menu_state.position.y,
+            right: 0.0,
+            bottom: 0.0,
+            left: menu_state.position.x,
+        })
+        .width(Length::Fill)
+        .height(Length::Fill);
+
+    stack![tree, overlay].into()
+}
+
+fn tree_nodes(
+    deferred_loaded: bool,
+    deferred_loading: bool,
+    config_failed: bool,
+    config_loading: bool,
+) -> Vec<TreeNode<'static, DemoTreeNode>> {
     let remote_branch = if deferred_loaded {
         TreeNode::branch(
             DemoTreeNode::RemotePackages,
@@ -395,6 +444,16 @@ fn tree_nodes(deferred_loaded: bool, deferred_loading: bool) -> Vec<TreeNode<'st
         TreeNode::branch_deferred(DemoTreeNode::RemotePackages, "remote-packages")
             .leading_icon(IconRole::MailInbox)
             .trailing_text(if deferred_loading { "loading" } else { "deferred" })
+    };
+
+    let remote_config = if config_failed {
+        TreeNode::branch_failed(DemoTreeNode::RemoteConfig, "remote-config", &DemoTreeLoadError)
+            .leading_icon(IconRole::DialogWarning)
+            .trailing_text("failed")
+    } else {
+        TreeNode::branch_deferred(DemoTreeNode::RemoteConfig, "remote-config")
+            .leading_icon(IconRole::MailInbox)
+            .trailing_text(if config_loading { "loading" } else { "deferred" })
     };
 
     vec![TreeNode::branch(
@@ -434,6 +493,9 @@ fn tree_nodes(deferred_loaded: bool, deferred_loading: bool) -> Vec<TreeNode<'st
                     )
                     .leading_icon(IconRole::Folder),
                     remote_branch,
+                    remote_config,
+                    TreeNode::branch(DemoTreeNode::Archived, "archived", Vec::new())
+                        .leading_icon(IconRole::Folder),
                 ],
             )
             .leading_icon(IconRole::Folder)
