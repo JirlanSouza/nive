@@ -160,6 +160,38 @@ fn root_observes_pointer_keyboard_and_window_events_without_replacing_child_stat
     assert!(harness.managed_focus().entries[0].anchor_only);
 }
 
+/// A message published by *this* event (e.g. "open the dialog") only takes
+/// effect on the next `view()` rebuild — the modal-active pass in this same
+/// `update()` call still sees the old, closed tree, so it can't detect the
+/// modal that's about to appear. Nothing re-checks modal activity outside of
+/// an `Event`-driven `update()` pass, so without a follow-up redraw, a modal
+/// opened by a plain click with no further input afterward would never get
+/// detected — and its toasts would never pause. Regression for that gap.
+#[test]
+fn a_real_event_requests_a_follow_up_redraw_so_a_just_opened_modal_gets_detected() {
+    let mut harness = harness();
+
+    let result = harness.update(Event::Mouse(mouse::Event::CursorMoved {
+        position: Point::new(1.0, 1.0),
+    }));
+
+    assert_ne!(result.redraw_request, iced::window::RedrawRequest::Wait);
+}
+
+/// The follow-up redraw itself arrives as a `RedrawRequested` event; it must
+/// not request yet another one, or every real event would chain into a
+/// self-sustaining redraw loop instead of settling after one extra frame.
+#[test]
+fn a_redraw_requested_event_does_not_request_another_redraw() {
+    let mut harness = harness();
+
+    let result = harness.update(Event::Window(iced::window::Event::RedrawRequested(
+        iced::time::Instant::now(),
+    )));
+
+    assert_eq!(result.redraw_request, iced::window::RedrawRequest::Wait);
+}
+
 #[test]
 fn nested_root_is_diagnosed_and_remains_finite() {
     let nested: Element<'static, ()> = FocusRoot::new(FocusRoot::new(FocusProbe)).into();

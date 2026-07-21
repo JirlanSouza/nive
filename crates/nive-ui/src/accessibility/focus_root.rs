@@ -7,7 +7,7 @@ use iced::{
         widget::{tree, Tree},
         Clipboard, Layout, Shell, Widget,
     },
-    Event, Length, Rectangle, Size, Vector,
+    window, Event, Length, Rectangle, Size, Vector,
 };
 
 use crate::{Element, Renderer, Theme};
@@ -177,7 +177,8 @@ impl<Message> Widget<Message, Theme, Renderer> for FocusRoot<'_, Message> {
             renderer,
             &mut FocusOperation::new(&mut BindingPass, &state.coordinator, generation),
         );
-        if lock_coordinator(&state.coordinator).finish_modal_pass() {
+        let changed = lock_coordinator(&state.coordinator).finish_modal_pass();
+        if changed {
             if let Some(on_modal_change) = &self.on_modal_change {
                 let active = lock_coordinator(&state.coordinator).modal_active();
                 shell.publish(on_modal_change(active));
@@ -196,6 +197,20 @@ impl<Message> Widget<Message, Theme, Renderer> for FocusRoot<'_, Message> {
         );
         observe_event_after(&state.coordinator, event);
         lock_coordinator(&state.coordinator).finish_liveness(generation);
+
+        // The modal-active pass above only sees whatever `self.content`
+        // already is *this* event — it can't detect a modal that a message
+        // published *by this same event* is about to open, since that only
+        // takes effect on the next `view()` rebuild. Nothing else re-checks
+        // modal activity outside of an `Event`-driven `update()` pass, so
+        // without this, a modal opened via a plain click with no further
+        // input afterward would never get detected and its toasts would
+        // never pause. One extra redraw per real input event catches the
+        // rebuilt tree up within a frame; excluding `RedrawRequested` itself
+        // keeps this from chaining into a self-sustaining redraw loop.
+        if !matches!(event, Event::Window(window::Event::RedrawRequested(_))) {
+            shell.request_redraw();
+        }
     }
 
     fn mouse_interaction(
