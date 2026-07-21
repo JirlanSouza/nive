@@ -8,7 +8,6 @@ pub mod metric_card;
 mod min_width;
 pub mod tree;
 pub mod tree_item;
-pub mod version_badge;
 
 pub use badge::{Badge, BadgeContent, BadgeKind};
 pub use empty_state::EmptyState;
@@ -22,5 +21,3 @@ pub use tree::{
     TreeState, TreeStateChange,
 };
 pub use tree_item::{TreeItem, TreeItemDropEdge};
-#[allow(deprecated)]
-pub use version_badge::VersionBadge;

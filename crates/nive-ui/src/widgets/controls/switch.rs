@@ -85,21 +85,6 @@ where
         }
     }
 
-    #[deprecated(
-        since = "0.1.0",
-        note = "use Switch::inline(label, value) or Switch::setting(title, value); this forwarder is removed in the next published release"
-    )]
-    pub fn label(mut self, label: impl Into<Cow<'a, str>>) -> Self {
-        let label = label.into();
-        debug_assert!(
-            !label.trim().is_empty(),
-            "Switch requires a nonempty visible label"
-        );
-        self.label = Some(label);
-        self.composition = SwitchComposition::Inline;
-        self
-    }
-
     pub fn description(mut self, description: impl Into<Cow<'a, str>>) -> Self {
         self.description = Some(description.into());
         self
@@ -232,22 +217,6 @@ mod tests {
         assert!(inline.bounds().width < 320.0);
         assert_eq!(setting.bounds().width, 320.0);
         assert!(setting.bounds().height > 28.0);
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn compatibility_label_forwards_to_inline_composition() {
-        let compatibility: Element<'_, Message> = Switch::new(false).label("Compatibility").into();
-        let canonical: Element<'_, Message> = Switch::inline("Canonical", false).into();
-
-        assert_eq!(
-            WidgetHarness::new(compatibility, Size::new(320.0, 80.0))
-                .bounds()
-                .height,
-            WidgetHarness::new(canonical, Size::new(320.0, 80.0))
-                .bounds()
-                .height
-        );
     }
 
     #[test]

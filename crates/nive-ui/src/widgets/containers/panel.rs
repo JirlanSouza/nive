@@ -102,15 +102,6 @@ where
         self
     }
 
-    /// Insets only the panel body.
-    ///
-    /// This previously behaved as outer panel padding. Use
-    /// [`Panel::body_padding`] and let headers own their own inset.
-    #[deprecated(since = "0.1.0", note = "use Panel::body_padding")]
-    pub fn padding(self, padding: impl Into<Padding>) -> Self {
-        self.body_padding(padding)
-    }
-
     crate::impl_layout_builders!(
         width_opt,
         height_opt,

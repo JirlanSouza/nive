@@ -35,11 +35,7 @@ pub use input::{FieldValidation, Input, TextInputAppearance};
 pub use input_group::{InputGroup, InputGroupVariant};
 pub use path_input::PathInput;
 pub use radio_group::{RadioGroup, RadioGroupLayout, RadioOption};
-#[allow(deprecated)]
-pub use segmented_control::{
-    LegacySegmentedControl, SegmentedControl, SegmentedControlVariant, SegmentedItem,
-    SegmentedOption,
-};
+pub use segmented_control::{SegmentedControl, SegmentedControlVariant, SegmentedOption};
 pub use select::{Select, SelectOption};
 pub use selectable_item::SelectableItem;
 pub use switch::Switch;

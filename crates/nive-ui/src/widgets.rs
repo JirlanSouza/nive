@@ -12,27 +12,145 @@ pub mod scrollable;
 pub use controls::{button, input};
 pub use primitives::{icon, text};
 
+// Negative compile contracts: removed deprecated surface is absent.
+//
+// Each removed method, type, and export must fail to resolve. If any of these
+// lines compiles, the removal is incomplete and the build must fail.
+
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = Card::<()>::new(iced::widget::Space::new()).bordered();
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = Panel::<()>::new(iced::widget::Space::new()).padding(0);
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = SectionHeaderStatus::icon(IconRole::DialogInfo, theme::roles::ToneRole::Info, "text");
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = InputGroup::<()>::new(Input::new("Label", "")).leading_text("prefix");
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = InputGroup::<()>::new(Input::new("Label", "")).trailing_text("unit");
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = Switch::new(false).label("Label");
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = SegmentedControl::<_, ()>::new("Mode", 1, []).flat();
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = Badge::<()>::new("text");
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = Badge::<()>::status("text").size(ControlSize::Sm);
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = Badge::<()>::status("text").xs();
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = Badge::<()>::status("text").sm();
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = Badge::<()>::status("text").md();
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = Badge::<()>::status("text").lg();
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = MetadataItem::<()>::new("Label", "value").value(iced::widget::text("custom"));
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = MetadataItem::<()>::new("Label", "value").tone(theme::roles::ToneRole::Info);
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = MetadataItem::<()>::new("Label", "value").neutral();
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = MetadataItem::<()>::new("Label", "value").accent();
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = MetadataItem::<()>::new("Label", "value").info();
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = MetadataItem::<()>::new("Label", "value").success();
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = MetadataItem::<()>::new("Label", "value").warning();
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = MetadataItem::<()>::new("Label", "value").danger();
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// let _ = ToolbarGroup::<()>::new().separator();
+/// ```
+///
+/// ```compile_fail
+/// use nive_ui::prelude::*;
+/// use nive_workbench::status::StatusBar;
+/// let _ = StatusBar::new().item(nive_workbench::status::StatusItem::text("Ready"));
+/// ```
 pub use containers::{
     ActionCard, Card, CardVariant, Panel, SectionHeader, SectionHeaderAction, SectionHeaderStatus,
     SelectableCard, SplitPane, SplitPaneConstraints,
 };
-#[allow(deprecated)]
 pub use controls::{
     ActionGroup, Autocomplete, AutocompleteHighlight, AutocompleteResults, AutocompleteSuggestion,
     Button, ButtonIntent, ButtonVariant, Checkbox, CheckboxState, ColorInput, ColorPicker,
     ContentAction, Field, FieldControl, FieldError, FieldGroup, FieldGroupLayout, FieldHint,
-    FieldLabel, FieldRequirement, FieldValidation, Input, InputGroup, InputGroupVariant,
-    LegacySegmentedControl, PathInput, RadioGroup, RadioGroupLayout, RadioOption, RgbHexColor,
-    SegmentedControl, SegmentedControlVariant, SegmentedItem, SegmentedOption, Select,
-    SelectOption, SelectableItem, Switch, TextInputAppearance,
+    FieldLabel, FieldRequirement, FieldValidation, Input, InputGroup, InputGroupVariant, PathInput,
+    RadioGroup, RadioGroupLayout, RadioOption, RgbHexColor, SegmentedControl,
+    SegmentedControlVariant, SegmentedOption, Select, SelectOption, SelectableItem, Switch,
+    TextInputAppearance,
 };
-#[allow(deprecated)]
 pub use display::{
     reveal, row_height, scroll_offset_to, visible_index_of, AvatarClass, AvatarKind, AvatarSize,
     AvatarStatus, Badge, BadgeContent, BadgeKind, DataRow, EmptyState, InitialAvatar, KeyValueList,
     MetadataItem, MetadataTag, MetricCard, Tree, TreeChildren, TreeDrag, TreeDrop, TreeDropTarget,
     TreeEvent, TreeEventKind, TreeExpandBehavior, TreeItem, TreeItemDropEdge, TreeNode,
-    TreePasteTarget, TreeState, TreeStateChange, VersionBadge,
+    TreePasteTarget, TreeState, TreeStateChange,
 };
 pub use feedback::{
     ErrorDetailsDialog, ErrorEmptyState, ErrorFeedback, ErrorFeedbackAction,

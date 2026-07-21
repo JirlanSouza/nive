@@ -566,14 +566,6 @@ fn prelude_exposes_complete_selection_contract() {
 }
 
 #[test]
-#[allow(deprecated)]
-fn segmented_migration_bridge_remains_separate() {
-    let _: Element<'_, ()> = LegacySegmentedControl::new()
-        .item(SegmentedItem::new("Status").status_text(theme::roles::ToneRole::Success, "Healthy"))
-        .into();
-}
-
-#[test]
 fn widget_taxonomy_exposes_category_facades() {
     use nive_ui::widgets::{containers, controls, display, navigation, overlays, primitives};
 

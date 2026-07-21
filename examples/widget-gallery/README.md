@@ -73,7 +73,7 @@ The gallery exercises:
   clipped-host stress, empty status omission, and separate Spinner activity
 - InitialAvatar person/entity matrices across 24/32/40/56 px, Unicode and
   identity-icon fallback, status-outline contexts, plus exact and constrained
-  MetadataTag values; VersionBadge appears only in migration documentation
+  MetadataTag values
 - opt-in devtools inspection for sample `Resource` and `Operation` fields
 - module-public helper coverage for `nive::ui::widgets::skeleton`, which is not
   re-exported from `crates/nive-ui/src/widgets.rs`

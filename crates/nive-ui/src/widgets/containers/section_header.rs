@@ -401,14 +401,6 @@ impl<'a> SectionHeaderStatus<'a> {
         }
     }
 
-    /// Legacy icon status constructor; the supplied description is rendered visibly.
-    #[deprecated(
-        note = "use icon_label or status_indicator; icon-only status is no longer canonical"
-    )]
-    pub fn icon(icon: IconRole, tone: ToneRole, tooltip: impl Into<Cow<'a, str>>) -> Self {
-        Self::icon_label(icon, tooltip, tone)
-    }
-
     pub fn status_indicator(status: StatusIndicator<'a>) -> Self {
         Self {
             kind: SectionHeaderStatusKind::Indicator(status),
@@ -639,21 +631,6 @@ mod section_header_status_tests {
                 tone: ToneRole::Danger,
                 ..
             } if label == "Failed"
-        ));
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn legacy_icon_status_keeps_its_description_visible() {
-        let status = SectionHeaderStatus::icon(
-            IconRole::DialogWarning,
-            ToneRole::Warning,
-            "Needs attention",
-        );
-
-        assert!(matches!(
-            status.kind,
-            SectionHeaderStatusKind::IconLabel { label, .. } if label == "Needs attention"
         ));
     }
 

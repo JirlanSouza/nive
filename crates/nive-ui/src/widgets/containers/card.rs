@@ -38,12 +38,6 @@ where
         }
     }
 
-    /// Deprecated migration alias for [`Card::outlined`].
-    #[deprecated(since = "0.1.0", note = "use `outlined()`")]
-    pub fn bordered(self) -> Self {
-        self.outlined()
-    }
-
     /// Sets the card-owned visual variant.
     pub fn variant(mut self, variant: CardVariant) -> Self {
         self.variant = variant;
@@ -157,16 +151,6 @@ mod card_tests {
     use crate::tokens::radius as token_radius;
     use crate::widgets::containers::card_test_support::{CardHarness, Message};
     use iced::Size;
-
-    #[test]
-    #[allow(deprecated)]
-    fn bordered_is_an_alias_for_outlined() {
-        let default = Card::<()>::new(iced::widget::Space::new());
-        let bordered = Card::<()>::new(iced::widget::Space::new()).bordered();
-
-        assert_eq!(default.variant, CardVariant::Filled);
-        assert_eq!(bordered.variant, CardVariant::Outlined);
-    }
 
     #[test]
     fn shape_builders_resolve_card_radius() {

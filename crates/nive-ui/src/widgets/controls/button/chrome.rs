@@ -66,11 +66,6 @@ where
             GroupedItemKind::Embedded => {
                 button_widget.style(theme_button::embedded_style(spec.selected, spec.radius))
             }
-            GroupedItemKind::Selectable => button_widget.style(theme_button::selectable_style(
-                spec.selected,
-                spec.destructive,
-                spec.radius,
-            )),
             GroupedItemKind::Toolbar => button_widget.style(theme_button::toolbar_style(
                 spec.selected,
                 spec.destructive,
