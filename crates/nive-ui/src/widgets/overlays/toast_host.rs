@@ -1,3 +1,6 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 use iced::{
     advanced::{
         layout, mouse, overlay, renderer,
@@ -92,7 +95,7 @@ impl ToastInsets {
 /// by `Tab` like any other control, but appearing never steals focus.
 pub struct ToastHost<'a, Message> {
     content: Element<'a, Message>,
-    items: Vec<Element<'a, Message>>,
+    items: Vec<(u64, Element<'a, Message>)>,
     position: ToastPosition,
     insets: ToastInsets,
     on_pause: Option<Message>,
@@ -159,11 +162,17 @@ where
     ) -> Self
     where
         T: ToastPresentation + 'a,
+        T::Id: Hash,
     {
         self.items = toasts
             .into_iter()
             .take(MAX_VISIBLE)
-            .map(|toast| toast_view(toast, on_dismiss, on_action(toast)))
+            .map(|toast| {
+                (
+                    hash_toast_id(toast.id()),
+                    toast_view(toast, on_dismiss, on_action(toast)),
+                )
+            })
             .collect();
         self
     }
@@ -181,7 +190,16 @@ where
             self.items.reverse();
         }
 
-        let toast_stack = column(self.items)
+        // Keyed by toast id so a dismissal immediately backfilled by
+        // promotion — the common case, since it leaves the visible count
+        // unchanged — can't hand the vacated slot's live widget state (an
+        // open Tooltip, mid-press interaction) to whatever different toast
+        // now occupies it; a positionally diffed `column` would. This uses a
+        // local `ToastStack`, not `iced::widget::keyed_column`: that widget's
+        // own `diff()` only consults keys when the child count changes,
+        // silently falling back to positional diffing for a same-length
+        // swap — exactly the case a dismiss-then-promote always produces.
+        let toast_stack = ToastStack::new(self.items)
             .spacing(STACK_GAP)
             .width(Length::Fill)
             .max_width(CARD_MAX_WIDTH);
@@ -220,6 +238,12 @@ where
     fn from(host: ToastHost<'a, Message>) -> Self {
         host.into_element()
     }
+}
+
+fn hash_toast_id<Id: Hash>(id: Id) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    id.hash(&mut hasher);
+    hasher.finish()
 }
 
 fn overlay_padding(insets: ToastInsets) -> Padding {
@@ -327,6 +351,240 @@ fn alignment_for(position: ToastPosition) -> (alignment::Horizontal, alignment::
         ToastPosition::TopEnd => (alignment::Horizontal::Right, alignment::Vertical::Top),
         ToastPosition::BottomStart => (alignment::Horizontal::Left, alignment::Vertical::Bottom),
         ToastPosition::BottomEnd => (alignment::Horizontal::Right, alignment::Vertical::Bottom),
+    }
+}
+
+/// Vertical stack of toast cards keyed by toast id.
+///
+/// A near-clone of `iced::widget::keyed_column`'s internals (same flex
+/// layout, same per-child delegation), except its `diff()` actually compares
+/// every index's key, not just the first and last. Upstream's version uses
+/// that boundary check purely to decide *whether the child count changed* —
+/// when a dismiss is immediately backfilled by promotion (the common case,
+/// since the visible count stays the same), the count never changes, so its
+/// diff silently falls through to a plain positional zip and a different
+/// toast inherits whatever live widget state (an open Tooltip, mid-press
+/// interaction) the previous occupant of that slot left behind.
+struct ToastStack<'a, Message> {
+    keys: Vec<u64>,
+    children: Vec<Element<'a, Message>>,
+    spacing: f32,
+    width: Length,
+    max_width: f32,
+}
+
+#[derive(Default)]
+struct ToastStackState {
+    keys: Vec<u64>,
+}
+
+impl<'a, Message> ToastStack<'a, Message> {
+    fn new(items: Vec<(u64, Element<'a, Message>)>) -> Self {
+        let (keys, children) = items.into_iter().unzip();
+        Self {
+            keys,
+            children,
+            spacing: 0.0,
+            width: Length::Shrink,
+            max_width: f32::INFINITY,
+        }
+    }
+
+    fn spacing(mut self, spacing: f32) -> Self {
+        self.spacing = spacing;
+        self
+    }
+
+    fn width(mut self, width: Length) -> Self {
+        self.width = width;
+        self
+    }
+
+    fn max_width(mut self, max_width: f32) -> Self {
+        self.max_width = max_width;
+        self
+    }
+}
+
+impl<'a, Message> From<ToastStack<'a, Message>> for Element<'a, Message>
+where
+    Message: 'a,
+{
+    fn from(stack: ToastStack<'a, Message>) -> Self {
+        Element::new(stack)
+    }
+}
+
+impl<Message> Widget<Message, Theme, Renderer> for ToastStack<'_, Message> {
+    fn tag(&self) -> tree::Tag {
+        tree::Tag::of::<ToastStackState>()
+    }
+
+    fn state(&self) -> tree::State {
+        tree::State::new(ToastStackState {
+            keys: self.keys.clone(),
+        })
+    }
+
+    fn children(&self) -> Vec<Tree> {
+        self.children.iter().map(Tree::new).collect()
+    }
+
+    fn diff(&self, tree: &mut Tree) {
+        let state = tree.state.downcast_mut::<ToastStackState>();
+
+        if tree.children.len() != self.children.len() {
+            tree.children = self.children.iter().map(Tree::new).collect();
+        } else {
+            for (index, (child, child_tree)) in self
+                .children
+                .iter()
+                .zip(tree.children.iter_mut())
+                .enumerate()
+            {
+                if state.keys.get(index) == Some(&self.keys[index]) {
+                    child.as_widget().diff(child_tree);
+                } else {
+                    *child_tree = Tree::new(child.as_widget());
+                }
+            }
+        }
+
+        state.keys.clone_from(&self.keys);
+    }
+
+    fn size(&self) -> Size<Length> {
+        Size {
+            width: self.width,
+            height: Length::Shrink,
+        }
+    }
+
+    fn layout(
+        &mut self,
+        tree: &mut Tree,
+        renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        let limits = limits.max_width(self.max_width).width(self.width);
+
+        layout::flex::resolve(
+            layout::flex::Axis::Vertical,
+            renderer,
+            &limits,
+            self.width,
+            Length::Shrink,
+            Padding::ZERO,
+            self.spacing,
+            Alignment::Start,
+            &mut self.children,
+            &mut tree.children,
+        )
+    }
+
+    fn operate(
+        &mut self,
+        tree: &mut Tree,
+        layout: Layout<'_>,
+        renderer: &Renderer,
+        operation: &mut dyn operation::Operation,
+    ) {
+        operation.container(None, layout.bounds());
+        operation.traverse(&mut |operation| {
+            self.children
+                .iter_mut()
+                .zip(&mut tree.children)
+                .zip(layout.children())
+                .for_each(|((child, state), layout)| {
+                    child
+                        .as_widget_mut()
+                        .operate(state, layout, renderer, operation);
+                });
+        });
+    }
+
+    fn update(
+        &mut self,
+        tree: &mut Tree,
+        event: &Event,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        renderer: &Renderer,
+        clipboard: &mut dyn Clipboard,
+        shell: &mut Shell<'_, Message>,
+        viewport: &Rectangle,
+    ) {
+        for ((child, tree), layout) in self
+            .children
+            .iter_mut()
+            .zip(&mut tree.children)
+            .zip(layout.children())
+        {
+            child.as_widget_mut().update(
+                tree, event, layout, cursor, renderer, clipboard, shell, viewport,
+            );
+        }
+    }
+
+    fn mouse_interaction(
+        &self,
+        tree: &Tree,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        viewport: &Rectangle,
+        renderer: &Renderer,
+    ) -> mouse::Interaction {
+        self.children
+            .iter()
+            .zip(&tree.children)
+            .zip(layout.children())
+            .map(|((child, tree), layout)| {
+                child
+                    .as_widget()
+                    .mouse_interaction(tree, layout, cursor, viewport, renderer)
+            })
+            .max()
+            .unwrap_or_default()
+    }
+
+    fn draw(
+        &self,
+        tree: &Tree,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        style: &renderer::Style,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        viewport: &Rectangle,
+    ) {
+        for ((child, state), layout) in self
+            .children
+            .iter()
+            .zip(&tree.children)
+            .zip(layout.children())
+        {
+            child
+                .as_widget()
+                .draw(state, renderer, theme, style, layout, cursor, viewport);
+        }
+    }
+
+    fn overlay<'b>(
+        &'b mut self,
+        tree: &'b mut Tree,
+        layout: Layout<'b>,
+        renderer: &Renderer,
+        viewport: &Rectangle,
+        translation: Vector,
+    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
+        overlay::from_children(
+            &mut self.children,
+            tree,
+            layout,
+            renderer,
+            viewport,
+            translation,
+        )
     }
 }
 
@@ -601,6 +859,19 @@ mod toast_host_tests {
         assert!(!is_bottom(ToastPosition::TopEnd));
     }
 
+    /// `toasts()` renders through `ToastStack`, keyed by toast id, precisely
+    /// so a same-length swap (a dismiss immediately backfilled by promotion)
+    /// can't hand that slot's live widget state — an open Tooltip, mid-press
+    /// interaction — to whichever different toast now occupies it. That
+    /// guarantee only holds if the key is a stable function of toast
+    /// identity: the same id must always key the same, and distinct ids
+    /// must key apart.
+    #[test]
+    fn toast_id_hashes_are_stable_and_distinguish_identity() {
+        assert_eq!(hash_toast_id(42_u64), hash_toast_id(42_u64));
+        assert_ne!(hash_toast_id(1_u64), hash_toast_id(2_u64));
+    }
+
     mod geometry {
         use super::*;
         use crate::test_support::WidgetHarness;
@@ -649,6 +920,118 @@ mod toast_host_tests {
             let mut harness = WidgetHarness::new(host, Size::new(400.0, 300.0));
 
             assert_eq!(harness.focused_count().total, MAX_VISIBLE);
+        }
+    }
+
+    mod identity {
+        use super::*;
+        use crate::test_support::WidgetHarness;
+
+        #[derive(Clone, Copy)]
+        struct FakeToast(u64);
+
+        impl ToastPresentation for FakeToast {
+            type Id = u64;
+
+            fn id(&self) -> u64 {
+                self.0
+            }
+
+            fn title(&self) -> &str {
+                "Saved"
+            }
+
+            fn body(&self) -> Option<&str> {
+                None
+            }
+
+            fn tone(&self) -> ToastTone {
+                ToastTone::Info
+            }
+        }
+
+        fn host(ids: [u64; 3]) -> Element<'static, &'static str> {
+            let toasts: &'static [FakeToast] =
+                ids.into_iter().map(FakeToast).collect::<Vec<_>>().leak();
+            let content: Element<'static, &'static str> = text("Content").into();
+            ToastHost::new(content)
+                .toasts(
+                    toasts.iter(),
+                    |_id: u64| "dismiss",
+                    |_toast: &FakeToast| None,
+                )
+                .into()
+        }
+
+        /// The bug this regression guards: `ToastState` always backfills a
+        /// dismissal from the queue in the same call (`dismiss` -> `retain`
+        /// -> `promote_queued`), so the visible count practically never
+        /// changes across a single card's removal — the child count `diff`
+        /// sees stays at three. A diff that only compares child count (like
+        /// `iced::widget::keyed_column`'s) treats that as "nothing changed"
+        /// and reuses the vacated slot's `Tree` positionally, handing a
+        /// different toast whatever interaction state (here: keyboard focus)
+        /// the previous occupant left behind. `ToastStack::diff` must catch
+        /// this same-length identity swap and reset that slot.
+        #[test]
+        fn same_length_swap_does_not_carry_focus_to_the_new_occupant() {
+            let mut harness = WidgetHarness::new(host([0, 1, 2]), Size::new(400.0, 300.0));
+
+            harness.focus_next();
+            harness.focus_next();
+            assert_eq!(
+                harness.focused_widgets(),
+                1,
+                "sanity: the middle card's dismiss button is focused"
+            );
+
+            // Same length (3), but id 1 (the focused slot) is replaced by a
+            // different toast — exactly what a dismiss-then-promote produces.
+            harness.replace(host([0, 99, 2]));
+
+            assert_eq!(harness.focused_widgets(), 0);
+        }
+
+        #[test]
+        fn repeated_relayout_without_a_diff_in_between_does_not_panic() {
+            let mut harness = WidgetHarness::new(host([0, 1, 2]), Size::new(400.0, 300.0));
+
+            harness.relayout(Size::new(200.0, 300.0));
+            harness.draw();
+            harness.relayout(Size::new(150.0, 300.0));
+            harness.draw();
+            harness.relayout(Size::new(400.0, 300.0));
+            harness.draw();
+        }
+
+        fn host_with_pause(ids: [u64; 3]) -> Element<'static, &'static str> {
+            let toasts: &'static [FakeToast] =
+                ids.into_iter().map(FakeToast).collect::<Vec<_>>().leak();
+            let content: Element<'static, &'static str> = text("Content").into();
+            ToastHost::new(content)
+                .on_hover("pause", "resume")
+                .on_focus_within("focus-enter", "focus-exit")
+                .toasts(
+                    toasts.iter(),
+                    |_id: u64| "dismiss",
+                    |_toast: &FakeToast| None,
+                )
+                .into()
+        }
+
+        #[test]
+        fn resize_while_a_card_is_focused_does_not_panic() {
+            let mut harness =
+                WidgetHarness::new(host_with_pause([0, 1, 2]), Size::new(400.0, 300.0));
+
+            harness.focus_next();
+            harness.focus_next();
+            assert_eq!(harness.focused_widgets(), 1);
+
+            harness.relayout(Size::new(200.0, 300.0));
+            harness.draw();
+            harness.relayout(Size::new(150.0, 300.0));
+            harness.draw();
         }
     }
 
