@@ -123,7 +123,7 @@ longer silently drops the first.
 
 - `ErrorFeedback`, `ErrorEmptyState`, `ErrorStatusLine` and `ErrorDetailsDialog`
 - `ResourceStatusLine`, `OperationStatusLine` and `OperationActionGroup`
-- `InitialAvatar`, `MetricCard` and `VersionBadge`
+- `InitialAvatar`, `MetricCard`
 
 Presentation contracts keep runtime types out of the UI crate. They are
 defined in `nive-core` (zero dependencies) and reexported here:
@@ -163,12 +163,7 @@ Migration mappings:
 | --- | --- |
 | `KeyValueList::role(...)` | remove it; put the list in the owning Card/Panel/Dialog |
 | `MetadataItem::label_width(...)` | `KeyValueList::label_width(f32)` |
-| `MetadataItem::value(element)` | `custom_value(element)` (`value` is deprecated for one release) |
-| `MetadataItem::tone(...)` | `status(...)` (`tone` and tonal shortcuts are deprecated) |
-| `Badge::new(text)` | `Badge::status(text)` |
-| Badge size methods | remove them; badge geometry is fixed |
 | bare `ToneRole` compact status | `StatusIndicator::new(tone, visible_label)` |
-| `VersionBadge::new(value)` | `MetadataTag::code(value)` |
 
 Downstream custom icon catalogs must add an `identity` mapping to
 `icons.toml`, run `nive icons sync`, commit the regenerated catalog and asset,
@@ -360,10 +355,6 @@ RadioGroup is one tab entry with circular physical LTR arrow navigation.
 SegmentedControl is one tab entry with bounded Left/Right and Home/End. Callback
 absence removes focus and hover/pressed behavior without applying disabled
 colors. Native accessibility-tree emission is not claimed yet.
-
-`Switch::new(value).label(...)`, `SegmentedControl::flat`,
-`LegacySegmentedControl`, and `SegmentedItem` are bounded one-release migration
-bridges. See `docs/migrations/selection-controls.md` from the repository root.
 
 Input semantic names, Field labels/requirements/support, FieldGroup headings,
 and icon action names are retained for a future accessibility bridge. Iced

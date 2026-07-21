@@ -78,16 +78,14 @@ pub enum SegmentedControlVariant {
 /// Callback absence is display-only. Retained metadata and keyboard behavior do
 /// not yet imply native accessibility-tree emission.
 ///
-/// ```compile_fail
+/// ```
 /// use nive_ui::prelude::*;
 ///
-/// // Canonical selection and messages belong to the typed group, not an item.
 /// let _ = SegmentedControl::<_, ()>::new(
 ///     "Mode",
 ///     1,
 ///     [SegmentedOption::new(1, "One"), SegmentedOption::new(2, "Two")],
-/// )
-/// .item(SegmentedItem::new("Legacy"));
+/// );
 /// ```
 pub struct SegmentedControl<'a, T, Message> {
     semantic_name: Cow<'a, str>,
@@ -139,14 +137,6 @@ where
     pub fn linked(mut self) -> Self {
         self.variant = SegmentedControlVariant::Linked;
         self
-    }
-
-    #[deprecated(
-        since = "0.1.0",
-        note = "use linked(); flat() is removed in the next published release"
-    )]
-    pub fn flat(self) -> Self {
-        self.linked()
     }
 
     pub fn size(mut self, size: ControlSize) -> Self {

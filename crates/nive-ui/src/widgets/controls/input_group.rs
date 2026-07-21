@@ -95,16 +95,6 @@ where
         )
     }
 
-    #[deprecated(note = "use InputGroup::prefix")]
-    pub fn leading_text(self, leading: &'a str) -> Self {
-        self.prefix(leading)
-    }
-
-    #[deprecated(note = "use InputGroup::unit")]
-    pub fn trailing_text(self, trailing: &'a str) -> Self {
-        self.unit(trailing)
-    }
-
     pub fn leading_icon(self, leading: IconRole) -> Self {
         self.push_slot(InputGroupSlotSide::Leading, InputGroupSlot::Icon(leading))
     }
@@ -502,17 +492,6 @@ mod input_group_tests {
         assert!(group.clear_action.is_some());
         assert_eq!(group.validation, Some(FieldValidation::Invalid));
         assert!(group.disabled);
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn deprecated_text_aliases_remain_available_for_one_release() {
-        let group = InputGroup::<String>::new(Input::new("Amount", "42"))
-            .leading_text("USD")
-            .trailing_text("kg");
-
-        assert!(matches!(group.leading_slots[0], InputGroupSlot::Prefix(_)));
-        assert!(matches!(group.trailing_slots[0], InputGroupSlot::Unit(_)));
     }
 
     #[test]

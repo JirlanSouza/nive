@@ -188,51 +188,11 @@ where
         self
     }
 
-    #[deprecated(note = "use custom_value for caller-styled Element content")]
-    pub fn value(self, value: impl Into<Element<'a, Message>>) -> Self {
-        self.custom_value(value)
-    }
-
     /// Adds a value-side dot as the caller's assertion that the value contains
     /// complete visible neutral status meaning.
     pub fn status(mut self, tone: ToneRole) -> Self {
         self.status = Some(tone);
         self
-    }
-
-    #[deprecated(note = "use status; tone is an orthogonal visible-status assertion")]
-    pub fn tone(self, tone: ToneRole) -> Self {
-        self.status(tone)
-    }
-
-    #[deprecated(note = "use status(ToneRole::Neutral)")]
-    pub fn neutral(self) -> Self {
-        self.status(ToneRole::Neutral)
-    }
-
-    #[deprecated(note = "use status(ToneRole::Accent)")]
-    pub fn accent(self) -> Self {
-        self.status(ToneRole::Accent)
-    }
-
-    #[deprecated(note = "use status(ToneRole::Info)")]
-    pub fn info(self) -> Self {
-        self.status(ToneRole::Info)
-    }
-
-    #[deprecated(note = "use status(ToneRole::Success)")]
-    pub fn success(self) -> Self {
-        self.status(ToneRole::Success)
-    }
-
-    #[deprecated(note = "use status(ToneRole::Warning)")]
-    pub fn warning(self) -> Self {
-        self.status(ToneRole::Warning)
-    }
-
-    #[deprecated(note = "use status(ToneRole::Danger)")]
-    pub fn danger(self) -> Self {
-        self.status(ToneRole::Danger)
     }
 
     fn renders_status(&self) -> bool {
@@ -602,25 +562,6 @@ mod tests {
         assert!(MetadataItem::<()>::new("Status", "Ready")
             .status(ToneRole::Info)
             .renders_status());
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn public_builders_select_exact_value_kinds_without_status_conversion() {
-        let text = MetadataItem::<()>::new("Text", "value").status(ToneRole::Info);
-        let code = MetadataItem::<()>::new("Code", "ignored")
-            .code_value(String::from("9f31ad7"))
-            .status(ToneRole::Success);
-        let custom = MetadataItem::<()>::new("Custom", "ignored")
-            .value(iced::widget::text("caller owned"))
-            .tone(ToneRole::Warning);
-
-        assert!(matches!(text.value, MetadataValue::Text(_)));
-        assert!(matches!(code.value, MetadataValue::Code(_)));
-        assert!(matches!(custom.value, MetadataValue::Custom(_)));
-        assert_eq!(text.status, Some(ToneRole::Info));
-        assert_eq!(code.status, Some(ToneRole::Success));
-        assert_eq!(custom.status, Some(ToneRole::Warning));
     }
 
     #[test]

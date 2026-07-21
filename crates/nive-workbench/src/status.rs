@@ -148,13 +148,6 @@ impl<'a> StatusBar<'a> {
         }
     }
 
-    /// Adds one item to the leading lane.
-    #[deprecated(since = "0.1.0", note = "use StatusBar::leading")]
-    pub fn item(mut self, item: StatusItem<'a>) -> Self {
-        self.leading_items.push(item);
-        self
-    }
-
     /// Adds one item to the flexible leading lane.
     pub fn leading(mut self, item: StatusItem<'a>) -> Self {
         self.leading_items.push(item);

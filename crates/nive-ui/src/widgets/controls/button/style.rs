@@ -86,9 +86,10 @@ pub(crate) fn embedded_style(
     move |theme: &crate::theme::Theme, status: Status| {
         // Embedded/flat chrome keeps its own subtler unselected hover/pressed
         // treatment (category-owned visual identity); selected state routes
-        // through the same shared resolver `selectable_style` uses, so a
-        // flat `SegmentedControl` doesn't lose its selected item's active
-        // state the way it did when this branch was missing entirely.
+        // through the same shared `ControlRole::Selectable` resolver
+        // `toolbar_style` uses, so a flat `SegmentedControl` doesn't lose its
+        // selected item's active state the way it did when this branch was
+        // missing entirely.
         if selected {
             let theme = *theme;
             let state = button_control_state(status).selected();
@@ -107,79 +108,6 @@ pub(crate) fn embedded_style(
         let mut style = <crate::theme::Theme as button::Catalog>::style(theme, &class, status);
         style.border.radius = radius;
         style
-    }
-}
-
-pub(crate) fn selectable_style(
-    selected: bool,
-    destructive: bool,
-    radius: Radius,
-) -> impl Fn(&crate::theme::Theme, Status) -> button::Style {
-    move |theme: &crate::theme::Theme, status: Status| {
-        let theme = *theme;
-        let danger = theme.tone(ToneRole::Danger);
-
-        if destructive {
-            let background = match status {
-                Status::Active | Status::Disabled => Color::TRANSPARENT,
-                Status::Hovered => danger.container,
-                Status::Pressed => danger.container.scale_alpha(1.18),
-            };
-            let text_color = if matches!(status, Status::Disabled) {
-                danger.color.scale_alpha(0.55)
-            } else {
-                danger.color
-            };
-
-            return button::Style {
-                background: Some(Background::Color(background)),
-                text_color,
-                border: transparent_border_with_radius(radius),
-                shadow: Shadow::default(),
-                ..button::Style::default()
-            };
-        }
-
-        // The combined selected×hover/pressed×disabled×focus state is
-        // resolved once by the theme; this category only decides how much
-        // of it to paint (unselected idle/disabled stays transparent chrome,
-        // matching this widget's flat/ghost identity).
-        let mut state = button_control_state(status);
-        if selected {
-            state = state.selected();
-        }
-        let control = theme.control(ControlRole::Selectable, state);
-
-        let background = if selected {
-            control.background
-        } else {
-            match status {
-                Status::Hovered | Status::Pressed => control.background,
-                Status::Active | Status::Disabled => Color::TRANSPARENT,
-            }
-        };
-        let text_color = if selected {
-            control.foreground
-        } else {
-            match status {
-                Status::Hovered | Status::Pressed => theme.text(TextRole::Primary).color,
-                Status::Disabled => control.foreground,
-                Status::Active => theme.text(TextRole::Secondary).color,
-            }
-        };
-        let border = if selected {
-            control.border
-        } else {
-            BorderSpec::none()
-        };
-
-        button::Style {
-            background: Some(Background::Color(background)),
-            text_color,
-            border: border_with_radius(border, radius),
-            shadow: Shadow::default(),
-            ..button::Style::default()
-        }
     }
 }
 
@@ -353,64 +281,6 @@ mod button_tests {
                 assert!(contrast >= 4.5, "{theme:?} {intent:?}: {contrast}");
             }
         }
-    }
-
-    #[test]
-    fn selectable_selected_uses_selectable_role() {
-        let theme = Theme::Dark;
-        let style = selectable_style(true, false, Radius::new(6.0))(&theme, Status::Active);
-        let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
-
-        assert_eq!(background_color(&style), selected.background);
-        assert_eq!(style.text_color, selected.foreground);
-        assert_eq!(style.border.color, selected.border.color);
-        assert_eq!(style.border.width, selected.border.width);
-    }
-
-    #[test]
-    fn selectable_unselected_active_is_transparent() {
-        let theme = Theme::Dark;
-        let style = selectable_style(false, false, Radius::new(6.0))(&theme, Status::Active);
-
-        assert_eq!(background_color(&style), Color::TRANSPARENT);
-        assert_eq!(style.text_color, theme.text(TextRole::Secondary).color);
-        assert_eq!(style.border.color, Color::TRANSPARENT);
-    }
-
-    #[test]
-    fn selectable_unselected_hover_uses_standard_control_background() {
-        let theme = Theme::Dark;
-        let style = selectable_style(false, false, Radius::new(6.0))(&theme, Status::Hovered);
-        let control = theme.control(ControlRole::Standard, ControlState::HOVERED);
-
-        assert_eq!(background_color(&style), control.background);
-        assert_eq!(style.text_color, theme.text(TextRole::Primary).color);
-    }
-
-    #[test]
-    fn selectable_selected_pressed_scales_selected_background() {
-        let theme = Theme::Dark;
-        let style = selectable_style(true, false, Radius::new(6.0))(&theme, Status::Pressed);
-        let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
-
-        assert_eq!(
-            background_color(&style),
-            selected.background.scale_alpha(0.88)
-        );
-        assert_eq!(style.text_color, selected.foreground);
-    }
-
-    #[test]
-    fn selectable_disabled_selected_uses_canonical_scaled_selected_color() {
-        let theme = Theme::Dark;
-        let style = selectable_style(true, false, Radius::new(6.0))(&theme, Status::Disabled);
-        let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
-
-        assert_eq!(
-            background_color(&style),
-            selected.background.scale_alpha(0.60)
-        );
-        assert_eq!(style.text_color, selected.foreground.scale_alpha(0.60));
     }
 
     #[test]

@@ -239,8 +239,7 @@ not yet imply native AccessKit name/relationship emission.
   a duplicate status indicator, while Count may coexist.
 - `InitialAvatar` is a fixed person/entity identity fallback with Unicode-safe
   initials and the provider-neutral `IconRole::Identity` fallback.
-  `MetadataTag::code` owns literal technical metadata; `VersionBadge` is a
-  deprecated one-release migration wrapper.
+  `MetadataTag::code` owns literal technical metadata.
 - `Toolbar` owns its surface, inset, bottom seam, and horizontal overflow.
   `ToolbarGroup` accepts navigation-owned `ToolbarAction`. Content-owned
   `ActionGroup` lives under `widgets::controls`, accepts `ContentAction`, keeps

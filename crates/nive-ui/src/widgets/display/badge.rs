@@ -85,12 +85,6 @@ impl<'a, Message> Badge<'a, Message>
 where
     Message: 'a,
 {
-    /// Creates a Status badge. Prefer [`Self::status`] in new code.
-    #[deprecated(note = "use Badge::status for status text or Badge::count for numeric content")]
-    pub fn new(label: impl Into<Cow<'a, str>>) -> Self {
-        Self::status(label)
-    }
-
     /// Creates compact semantic Status content.
     pub fn status(label: impl Into<Cow<'a, str>>) -> Self {
         Self::from_content(BadgeContent::Status(label.into()))
@@ -142,31 +136,6 @@ where
 
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
-        self
-    }
-
-    #[deprecated(note = "Badge has one fixed 20px display geometry")]
-    pub fn size(self, _size: crate::theme::ControlSize) -> Self {
-        self
-    }
-
-    #[deprecated(note = "Badge has one fixed 20px display geometry")]
-    pub fn xs(self) -> Self {
-        self
-    }
-
-    #[deprecated(note = "Badge has one fixed 20px display geometry")]
-    pub fn sm(self) -> Self {
-        self
-    }
-
-    #[deprecated(note = "Badge has one fixed 20px display geometry")]
-    pub fn md(self) -> Self {
-        self
-    }
-
-    #[deprecated(note = "Badge has one fixed 20px display geometry")]
-    pub fn lg(self) -> Self {
         self
     }
 
@@ -304,20 +273,6 @@ mod badge_tests {
             );
             assert_eq!(node.size(), Size::new(width, HEIGHT));
             assert!(node.children().iter().all(|child| child.bounds().x >= 0.0));
-        }
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn deprecated_geometry_aliases_preserve_fixed_layout() {
-        for badge in [
-            Badge::<()>::new("Legacy").xs(),
-            Badge::<()>::new("Legacy").sm(),
-            Badge::<()>::new("Legacy").md(),
-            Badge::<()>::new("Legacy").lg(),
-        ] {
-            let node = crate::test_support::layout(badge.into(), Size::new(200.0, 40.0));
-            assert_eq!(node.size().height, HEIGHT);
         }
     }
 }
