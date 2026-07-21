@@ -324,6 +324,23 @@ impl<Message> ToastState<Message> {
         self.visible.retain(|item| item.id != id);
         self.queued.retain(|item| item.id != id);
         self.promote_queued(now);
+
+        // A dismiss always destroys whichever widget currently holds focus
+        // (pressing a button re-focuses it first), so any `true` here is
+        // necessarily stale: the host's focus-within tracker only re-scans on
+        // the next real input event and can't detect that its previously
+        // focused widget was just removed from the tree.
+        if self.focus_within {
+            self.set_focus_within(false, now);
+        }
+
+        // Dismissing the last visible toast unmounts the host's `mouse_area`
+        // entirely (an empty stack renders no wrapper at all), so a `true`
+        // hover here would otherwise survive to wrongly pause a future toast
+        // with no widget left to ever report the pointer leaving.
+        if self.visible.is_empty() && self.hover {
+            self.set_hover(false, now);
+        }
     }
 
     pub fn expire(&mut self, now: Instant) {
@@ -786,6 +803,56 @@ mod toast_tests {
         state.dismiss(newest, now);
 
         assert_eq!(state.visible().count(), MAX_VISIBLE_TOASTS);
+    }
+
+    #[test]
+    fn dismissing_a_toast_clears_stale_focus_within_left_behind_by_its_own_button() {
+        let now = Instant::now();
+        let mut state = ToastState::default();
+        let id = push(&mut state, Toast::info("Short"), now);
+
+        // A click on a toast's own dismiss/action button focuses that button
+        // in the same pass that removes it, so the host's focus-within
+        // tracker never gets a chance to observe the button disappearing —
+        // `dismiss` must clear the stale flag itself.
+        state.set_focus_within(true, now);
+        state.dismiss(id, now);
+
+        assert!(!state.is_paused());
+
+        push(
+            &mut state,
+            Toast::info("Later"),
+            now + Duration::from_secs(1),
+        );
+        state.tick(now + Duration::from_secs(10));
+
+        assert!(state.visible().next().is_none());
+    }
+
+    #[test]
+    fn dismissing_the_last_visible_toast_clears_stale_hover() {
+        let now = Instant::now();
+        let mut state = ToastState::default();
+        let id = push(&mut state, Toast::info("Short"), now);
+
+        // Dismissing the last visible toast unmounts the host's hover-tracking
+        // wrapper entirely (an empty stack has no widget left to report the
+        // pointer leaving), so a lingering hover input would otherwise pause
+        // every future toast forever.
+        state.set_hover(true, now);
+        state.dismiss(id, now);
+
+        assert!(!state.is_paused());
+
+        push(
+            &mut state,
+            Toast::info("Later"),
+            now + Duration::from_secs(1),
+        );
+        state.tick(now + Duration::from_secs(10));
+
+        assert!(state.visible().next().is_none());
     }
 
     #[test]
