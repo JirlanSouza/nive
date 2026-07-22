@@ -139,6 +139,10 @@ impl<'a> ProblemsPanel<'a> {
     }
 
     /// Converts this helper into a generic workbench panel.
+    ///
+    /// A non-zero count keeps its warning tone but states what the count
+    /// means rather than restating the title or the count badge, which
+    /// already carry that the panel has problems and how many.
     pub fn into_panel<PanelId, ActionId, Message>(
         self,
         id: PanelId,
@@ -147,6 +151,7 @@ impl<'a> ProblemsPanel<'a> {
         Message: Clone + 'a,
     {
         let count = self.problems.len();
+        let worst = self.problems.iter().map(|problem| problem.severity).max();
         let content = problems_view(self.problems);
         WorkbenchPanel::new(id, self.title, content)
             .icon(IconRole::DialogWarning)
@@ -158,9 +163,9 @@ impl<'a> ProblemsPanel<'a> {
                     ToneRole::Warning
                 },
                 if count == 0 {
-                    "No problems"
+                    Cow::Borrowed("No problems")
                 } else {
-                    "Problems present"
+                    Cow::Borrowed(worst.expect("non-zero count has a worst severity").label())
                 },
             )
     }
@@ -217,5 +222,35 @@ mod tests {
             problem.location.as_ref().map(ProblemLocation::label),
             Some("graph.flow:12:4".to_string())
         );
+    }
+
+    #[test]
+    fn non_zero_count_status_neither_equals_the_title_nor_restates_the_count() {
+        let panel = ProblemsPanel::new([Problem::new(
+            ProblemSeverity::Warning,
+            "parser",
+            "Unused node",
+        )])
+        .into_panel::<&str, &str, ()>("problems");
+
+        let status = panel
+            .status_indicator_value()
+            .expect("non-zero count keeps a status");
+
+        assert_eq!(status.tone(), ToneRole::Warning);
+        assert_ne!(status.label(), "Problems");
+        assert!(!status.label().contains('1'));
+    }
+
+    #[test]
+    fn zero_count_status_stays_informative_and_success_toned() {
+        let panel = ProblemsPanel::new(Vec::new()).into_panel::<&str, &str, ()>("problems");
+
+        let status = panel
+            .status_indicator_value()
+            .expect("zero count keeps an informative status");
+
+        assert_eq!(status.tone(), ToneRole::Success);
+        assert_eq!(status.label(), "No problems");
     }
 }
