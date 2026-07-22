@@ -2,6 +2,7 @@ mod commands;
 mod content;
 mod events;
 mod explorer;
+mod format;
 mod inspector;
 mod shell;
 mod tone;
@@ -14,6 +15,7 @@ use nive::{prelude::*, ActionMap};
 
 use crate::sim::Environment;
 use crate::sim::Simulation;
+use crate::sim::SimulationMode;
 
 use explorer::{ExplorerContextMenuState, ExplorerNodeId};
 
@@ -22,6 +24,7 @@ pub(crate) type WorkbenchMsg = WorkbenchEvent<DocumentId, &'static str, PanelAct
 #[derive(Debug, Clone)]
 pub(crate) struct WorkbenchMonitor {
     model: Simulation,
+    mode: SimulationMode,
     layout: WorkbenchLayoutState<DocumentId, &'static str>,
     documents: Vec<DocumentId>,
     selected: Selection,
@@ -258,7 +261,6 @@ impl Application for WorkbenchMonitor {
     }
 
     fn subscription(&self, _context: Context<'_, Self::Window>) -> Subscription<Self::Message> {
-        let timer = iced::time::every(Duration::from_millis(900)).map(|_| Message::Tick);
         let keys = keyboard::listen().filter_map(|event| match event {
             keyboard::Event::KeyPressed {
                 key: keyboard::Key::Character(key),
@@ -268,7 +270,12 @@ impl Application for WorkbenchMonitor {
             _ => None,
         });
 
-        Subscription::batch([timer, keys])
+        if self.installs_tick_timer() {
+            let timer = iced::time::every(Duration::from_millis(900)).map(|_| Message::Tick);
+            Subscription::batch([timer, keys])
+        } else {
+            keys
+        }
     }
 
     fn theme(
@@ -293,15 +300,28 @@ impl Application for WorkbenchMonitor {
 }
 
 impl WorkbenchMonitor {
+    /// Only `Live` mode installs the 900ms tick timer; `Frozen` advances only
+    /// from explicit user actions.
+    fn installs_tick_timer(&self) -> bool {
+        matches!(self.mode, SimulationMode::Live)
+    }
+
     fn seeded() -> Self {
         let mut layout =
             WorkbenchLayoutState::default().with_active_document(DocumentId::Dashboard("fleet"));
         layout.set_active_panel(WorkbenchRegion::Left, "services");
         layout.set_active_panel(WorkbenchRegion::Right, "inspector");
         layout.set_active_panel(WorkbenchRegion::Bottom, "alerts");
+        layout.set_split_ratio(WorkbenchRegion::Bottom, 0.82);
+
+        let mode = SimulationMode::from_env();
 
         Self {
-            model: Simulation::seeded(),
+            model: match mode {
+                SimulationMode::Live => Simulation::seeded(),
+                SimulationMode::Frozen => Simulation::frozen(),
+            },
+            mode,
             layout,
             documents: vec![
                 DocumentId::Dashboard("fleet"),
@@ -329,5 +349,32 @@ impl WorkbenchMonitor {
             explorer_diagnostics_loading: false,
             explorer_context_menu: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn seeded_layout_owns_the_bottom_ratio_without_leaking_a_framework_default() {
+        let app = WorkbenchMonitor::seeded();
+        let ratios = app.layout.split_ratios();
+
+        assert_eq!(ratios.bottom, 0.82);
+        assert_eq!(ratios.left, 0.22);
+        assert_eq!(ratios.right, 0.78);
+        assert_eq!(WorkbenchSplitRatios::default().bottom, 0.72);
+    }
+
+    #[test]
+    fn only_live_mode_installs_the_tick_timer() {
+        let mut app = WorkbenchMonitor::seeded();
+
+        app.mode = SimulationMode::Live;
+        assert!(app.installs_tick_timer());
+
+        app.mode = SimulationMode::Frozen;
+        assert!(!app.installs_tick_timer());
     }
 }

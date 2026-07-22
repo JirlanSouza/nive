@@ -46,6 +46,10 @@ widget-gallery-dev:
 widget-gallery-devtools:
     NIVE_DEVTOOLS=1 just app-dev-cwd examples/widget-gallery nive-example-widget-gallery widget-gallery "devtools"
 
+# Run the Workbench Monitor in deterministic frozen mode for review.
+workbench-monitor-frozen:
+    NIVE_MONITOR_FROZEN=1 just example-dev workbench-monitor
+
 # Smoke-check a basic scaffold outside the workspace
 scaffold-smoke-basic:
     bash scripts/scaffold-smoke.sh basic
