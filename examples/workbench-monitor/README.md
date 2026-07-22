@@ -152,16 +152,89 @@ Open document for services) at the pointer position — Tree owns no menu of
 its own. Activating a service or host row updates the shared `Selection` and
 Inspector panel the same way the existing Services/Hosts lists do.
 
+## Canonical review configuration
+
+The reference composition for visual review is `ThemeDensity::Compact` with
+`WorkbenchShell::chrome_size(ControlSize::Sm)`, in both Light and Dark, at the
+canonical `1440x900`, `800x600`, and `1024x480` viewports. The Monitor owns
+its own bottom split ratio (`0.82`, set on its seeded `WorkbenchLayoutState`)
+so the document canvas holds the dominant share of the body; the generic
+`WorkbenchSplitRatios::default()` (`0.72`) is untouched by this app-local
+value.
+
+## Document and panel structure
+
+The dashboard document (`DocumentId::Dashboard`) and every service document
+(`DocumentId::Service`) each own exactly one vertical scroll region
+(`container(scrollable(...))` with the overlay scrollbar direction) and
+constrain their content column to a maximum readable measure so an ultrawide
+window does not separate a row's leading label from its trailing values.
+A service document renders, in order: the header with health status, the
+metric card row, service metadata, a **Host and runtime** section, a
+**Dependencies** section (the service's other seeded dependencies, selectable
+into the Inspector), and a **Recent activity** section (logs and events
+scoped to the service), followed by its action group.
+
+The Inspector and the active document divide entity information by data
+type instead of duplicating it: the document owns metrics and detail, the
+Inspector owns identity, relation, and situation (Service, Host, Health,
+Zone, Environment) for the current selection — it does not repeat a metric
+value the active document already shows as a metric card. The shared
+`inspector_panel` helper (`nive-workbench`) also owns body inset and
+scrolling for its `Content` state, and contributes no panel status there,
+since the body already shows the content; `NoSelection`, `Loading`, and
+`Error` keep their status because the label is the only thing stating why
+the body looks the way it does. `ProblemsPanel` similarly never restates its
+own title or count badge in its status label.
+
+## Deterministic frozen simulation mode
+
+The Monitor supports two simulation modes, resolved once at startup:
+
+- **Live** (default): the interactive product scenario, driven by a 900ms
+  tick. `Simulation::advance()` mutates services, hosts, alerts, logs,
+  events, and jobs over time.
+- **Frozen** (`NIVE_MONITOR_FROZEN=1`): a deterministic fixture for review.
+  No tick subscription is installed — `Simulation::advance()` runs only from
+  explicit user actions (e.g. "Run health check"). The seeded fixture already
+  exposes both alert severities as active, one running job at a fixed
+  progress value plus one complete job, and populated logs and events, so
+  every reviewable content state is visible without waiting for a tick.
+  Frozen mode does **not** freeze user interaction: document/panel
+  navigation, selection, dialogs, the command palette, and toasts all still
+  respond normally; only the passive tick timer is absent. The active mode
+  renders as a trailing status-bar item (`mode: live` / `mode: frozen`).
+
+Both modes share one `Simulation` type and one set of views; the mode
+affects only the seed fixture and whether the tick subscription is
+installed.
+
+## Shell and content state matrix
+
+Reachable through the app's own actions, in both simulation modes: all
+regions expanded; left/right/bottom collapsed independently; one panel
+maximized and restored; the default dashboard and a service document; tab
+overflow with long labels and dirty/pinned/closable states; and
+loading/loaded/empty/error/operation-running content. CommandPalette,
+Dialog, and Toast are hosted through their real application paths.
+
 Run it:
 
 ```sh
 rtk just example-dev workbench-monitor
 ```
 
-Equivalent standalone run from the repository root:
+Run it in deterministic frozen mode for review:
+
+```sh
+rtk just workbench-monitor-frozen
+```
+
+Equivalent standalone runs from the repository root:
 
 ```sh
 rtk cargo run --manifest-path examples/workbench-monitor/Cargo.toml
+NIVE_MONITOR_FROZEN=1 rtk cargo run --manifest-path examples/workbench-monitor/Cargo.toml
 ```
 
 Check it:
@@ -173,8 +246,8 @@ rtk just examples-check
 ```
 
 For manual sign-off, the agent launches
-`rtk just example-dev workbench-monitor` and keeps
-it running. The user captures and attaches Light/Dark screenshots at
+`rtk just workbench-monitor-frozen` and keeps
+it running so the review is frame-for-frame reproducible. The user captures and attaches Light/Dark screenshots at
 `1440x900`, `800x600`, and `1024x480`, including Tooltip, all-tabs Menu,
 nested/outside dismissal, service-filter states, the CommandPalette
 (rendering, query, and action projection), the Explorer Tree
