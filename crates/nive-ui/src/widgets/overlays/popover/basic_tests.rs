@@ -1,9 +1,10 @@
-use super::*;
-use crate::test_support::{event_probe, WidgetHarness};
 use iced::{
     keyboard::{self, key},
     mouse, touch, Event, Point, Size,
 };
+
+use super::*;
+use crate::test_support::{event_probe, WidgetHarness};
 
 #[test]
 fn width_shortcuts_map_to_popover_width_variants() {

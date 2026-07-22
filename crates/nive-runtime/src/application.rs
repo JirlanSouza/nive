@@ -1,11 +1,11 @@
 use std::{borrow::Cow, fmt::Debug, hash::Hash};
 
 use iced::Subscription;
+use nive_core::ActionMap;
 
 use crate::input::ShortcutMap;
 use crate::ScreenView;
 use crate::ThemePreference;
-use nive_core::ActionMap;
 
 mod config;
 mod context;

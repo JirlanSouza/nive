@@ -1,8 +1,7 @@
-use crate::tokens::spacing as token_spacing;
-
 use iced::Padding;
 
 use super::density::ThemeDensity;
+use crate::tokens::spacing as token_spacing;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpaceStep {

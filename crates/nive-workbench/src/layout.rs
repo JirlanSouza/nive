@@ -2,11 +2,11 @@ mod ratios;
 #[cfg(test)]
 mod tests;
 
-pub use ratios::{WorkbenchLayout, WorkbenchRegion, WorkbenchSplitRatios};
-
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
+
+pub use ratios::{WorkbenchLayout, WorkbenchRegion, WorkbenchSplitRatios};
 
 /// A maximized panel identity.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

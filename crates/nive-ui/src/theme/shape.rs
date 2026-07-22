@@ -1,6 +1,6 @@
-use crate::tokens::radius as token_radius;
-
 use iced::border::Radius;
+
+use crate::tokens::radius as token_radius;
 
 /// Ordered corner-radius scale used by theme shape resolution.
 ///

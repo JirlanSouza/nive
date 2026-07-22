@@ -17,7 +17,6 @@ pub mod typography;
 mod catalog;
 pub(crate) mod choice;
 
-pub use crate::tokens::color::{format_hex_color, format_rgb_hex_color, hex, parse_hex_color};
 pub use active::{
     active, control_metrics, controls, density, form_control_metrics, gap, padding, space, spacing,
 };
@@ -37,6 +36,8 @@ pub use scheme::{Theme, ThemeCatalog, ThemeData, ThemeId};
 pub use shape::{ShapeScale, ShapeSize, ShapeSpec};
 pub use spacing::{GapRole, PaddingRole, SpaceStep};
 pub use typography::{typography, TextStyle, TypographyRole, TypographyScale};
+
+pub use crate::tokens::color::{format_hex_color, format_rgb_hex_color, hex, parse_hex_color};
 
 #[doc(hidden)]
 pub mod runtime {

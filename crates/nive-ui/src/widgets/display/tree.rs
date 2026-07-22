@@ -180,11 +180,12 @@ pub use state::{TreeState, TreeStateChange};
 pub use transfer::{TreeDrag, TreeDrop, TreeDropTarget, TreePasteTarget};
 pub use widget::{Tree, TreeExpandBehavior};
 
-use crate::theme::ControlSize;
 use iced::{
     widget::operation::{scroll_to, AbsoluteOffset},
     Task,
 };
+
+use crate::theme::ControlSize;
 
 /// Returns the fixed row height for a tree rendered at `size`.
 pub fn row_height(size: ControlSize) -> f32 {
