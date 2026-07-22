@@ -189,6 +189,7 @@ impl WorkbenchMonitor {
                 "jobs",
             ))
             .trailing(StatusItem::severity(self.connection_tone(), "connected"))
+            .trailing(StatusItem::text(format!("mode: {}", self.mode.label())))
     }
 
     fn document_label(&self, id: DocumentId) -> String {
@@ -230,5 +231,23 @@ mod tests {
             .expect("services status indicator");
         assert!(!status.label().trim().is_empty());
         assert_eq!(status.tone(), app.overall_tone());
+    }
+
+    #[test]
+    fn status_bar_states_the_active_simulation_mode() {
+        let mut app = WorkbenchMonitor::seeded();
+
+        app.mode = crate::sim::SimulationMode::Live;
+        let live = app.status_bar();
+        assert!(live
+            .trailing_items()
+            .iter()
+            .any(|item| matches!(item, StatusItem::Text(label) if label.as_ref() == "mode: live")));
+
+        app.mode = crate::sim::SimulationMode::Frozen;
+        let frozen = app.status_bar();
+        assert!(frozen.trailing_items().iter().any(
+            |item| matches!(item, StatusItem::Text(label) if label.as_ref() == "mode: frozen")
+        ));
     }
 }
