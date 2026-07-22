@@ -11,6 +11,13 @@ impl WorkbenchMonitor {
         match self.selected {
             Selection::None => None,
             Selection::Service(id) => self.model.service(id).map(|service| {
+                // Identity, relation, and situation only: metrics belong to
+                // the active document's metric cards, not this panel.
+                let zone = self
+                    .model
+                    .host(service.host_id)
+                    .map_or("unknown", |host| host.zone);
+
                 KeyValueList::new()
                     .item(MetadataItem::new("Service", service.name))
                     .item(MetadataItem::new("Host", service.host_id))
@@ -18,13 +25,10 @@ impl WorkbenchMonitor {
                         MetadataItem::new("Health", tone_label(service.health))
                             .status(service.health),
                     )
+                    .item(MetadataItem::new("Zone", zone))
                     .item(MetadataItem::new(
-                        "Latency",
-                        format!("{} ms", service.latency_ms),
-                    ))
-                    .item(MetadataItem::new(
-                        "RPM",
-                        service.requests_per_minute.to_string(),
+                        "Environment",
+                        self.model.environment_label(),
                     ))
                     .fill_width()
                     .into()
