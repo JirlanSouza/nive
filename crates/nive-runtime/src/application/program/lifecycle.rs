@@ -2,11 +2,12 @@ use std::marker::PhantomData;
 
 use iced::{window, Subscription, Task};
 
+use crate::application::program::run::auto_register_default_window;
 #[cfg(feature = "devtools")]
 use crate::application::program::DevtoolsRuntime;
 use crate::application::program::{
-    auto_register_default_window, CoreMessage, NiveCore, NiveMessage, ProbeCatalogEntry, Program,
-    ProgramBoot, RuntimeMessage, SettingsRuntime, TOAST_TICK_INTERVAL,
+    CoreMessage, NiveCore, NiveMessage, ProbeCatalogEntry, Program, ProgramBoot, RuntimeMessage,
+    SettingsRuntime, TOAST_TICK_INTERVAL,
 };
 use crate::application::{
     Application, ApplicationConfig, Effect, Error, MessageContext, MessageSource, Result,

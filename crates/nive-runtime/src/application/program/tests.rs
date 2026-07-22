@@ -6,8 +6,8 @@ use super::shortcuts::{devtools_toggle_from_event, shortcut_message_from_event};
 use super::*;
 use crate::application::update::RuntimeCommand;
 use crate::application::{
-    CloseDecision, CommandRejectionReason, Context, Effect, ExitDecision, MessageContext,
-    RuntimeEvent, WindowCommand, WindowContext,
+    ApplicationConfig, CloseDecision, CommandRejectionReason, Context, Effect, ExitDecision,
+    MessageContext, RuntimeEvent, WindowCommand, WindowContext,
 };
 use crate::{
     Action, ActionMap, DialogDismiss, DialogRequest, NamedShortcutKey, ScreenView, ShortcutBinding,
