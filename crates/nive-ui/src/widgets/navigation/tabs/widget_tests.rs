@@ -10,6 +10,7 @@ use iced::{
 };
 
 use super::*;
+use crate::interaction::ContextTarget;
 
 const ORIGIN: Vector = Vector::new(50.0, 30.0);
 
