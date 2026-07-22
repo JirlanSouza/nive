@@ -1,7 +1,8 @@
+use iced::{keyboard, mouse, Event, Point, Size};
+
 use super::{command_palette_filter, CommandPalette, CommandPaletteItem};
 use crate::test_support::WidgetHarness;
 use crate::Element;
-use iced::{keyboard, mouse, Event, Point, Size};
 
 const VIEWPORT: Size = Size::new(800.0, 600.0);
 

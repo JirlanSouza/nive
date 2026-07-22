@@ -1,9 +1,10 @@
-use super::*;
-use crate::interaction::Orientation;
 use iced::keyboard::{
     key::{Code, Named, Physical},
     Event, Key, Location, Modifiers,
 };
+
+use super::*;
+use crate::interaction::Orientation;
 
 fn key_pressed(key: Key) -> Event {
     Event::KeyPressed {

@@ -1,9 +1,10 @@
-use super::*;
-use crate::{accessibility::FocusRoot, test_support::WidgetHarness, widgets::button};
 use iced::{
     keyboard::{self, key},
     mouse, touch, Event, Point, Size,
 };
+
+use super::*;
+use crate::{accessibility::FocusRoot, test_support::WidgetHarness, widgets::button};
 
 #[test]
 fn focus_first_escape_restores_the_opaque_anchor_once() {

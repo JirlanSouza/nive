@@ -1,9 +1,10 @@
-use super::*;
-use crate::test_support::WidgetHarness;
 use iced::{
     keyboard::{self, key},
     mouse, touch, Event, Point, Size,
 };
+
+use super::*;
+use crate::test_support::WidgetHarness;
 
 #[test]
 fn escape_is_owned_by_the_innermost_open_popover() {

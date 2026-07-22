@@ -1,9 +1,9 @@
-use crate::Element;
 use nive_core::Action;
 
 use super::style as theme_toolbar;
 use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec};
 use crate::widgets::primitives::IconRole;
+use crate::Element;
 
 /// Action rendered inside a `Toolbar`.
 ///
