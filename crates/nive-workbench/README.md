@@ -60,6 +60,22 @@ replace `badge: Option<Cow<str>>` with `Option<BadgeContent>` and
 compact status is omitted. A nonempty Status badge wins the single status
 channel; an independent Count may coexist with the labelled indicator.
 
+A panel status label must carry information neither the panel title nor its
+count badge already carries; a label that only restates one of them is
+chrome, not information. `inspector_panel`'s `InspectorState::Content`
+contributes no panel status, since the body already shows the content;
+`NoSelection`, `Loading`, and `Error` keep theirs because the label is the
+only thing in the header stating why the body looks the way it does.
+`ProblemsPanel::into_panel` follows the same rule: a non-zero count states
+what the count means rather than restating the title or the badge.
+
+`inspector_panel` also owns body inset and scrolling in every
+`InspectorState`, including `Content`: the helper wraps app-supplied content
+in the standard panel inset and, when it exceeds the panel body, a
+scrollable — applied to the scroll content rather than as outer panel
+padding, so the scrollbar stays at the panel edge. Applications supply
+chrome-free content; they do not add their own inset or scrollable around it.
+
 Workbench `DataRow` consumers keep principal/source metadata clustered and
 static. Whole-row interaction belongs to a selectable host. A peer row action
 uses one `ActionGroup` containing `ContentAction`, preserving its own focus and
