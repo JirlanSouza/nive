@@ -12,6 +12,8 @@
 - Use `snake_case` for files, modules, functions, and tests.
 - Follow the `<name>.rs` plus `<name>/` module pattern; workspace Clippy lints reject `mod.rs`.
 - Divide modules into submodules when they become too large over 300 to 350 lines.
+- Divide functions that grow past roughly 150 lines into smaller handlers or helpers; keep exceptions rare and justify them in review.
+- Trait impls cannot span files; keep the trait impl a thin dispatcher and move method bodies into inherent impls in sibling submodules. Prefer inherent methods; fall back to free functions only when borrow splitting demands it.
 - Keep Rust tests close to the module they cover.
 
 ## Automated Lints
@@ -19,7 +21,7 @@
 - Workspace crates inherit `[workspace.lints]` from the root `Cargo.toml`.
 - `clippy.toml` stores thresholds for configurable lints only; lint levels live in `Cargo.toml`.
 - Clippy enforces self-named module files and ordinary wildcard imports. Prelude re-exports and `super::*` in tests remain allowed.
-- Module length, import grouping order, and test placement are review rules rather than Clippy-enforced rules.
+- Module length, function length, import grouping order, and test placement are review rules rather than Clippy-enforced rules.
 
 ## Ownership
 
