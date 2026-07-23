@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use iced::{
-    advanced::{mouse, Layout, Widget},
+    advanced::{mouse, Layout},
     widget, Length, Padding, Rectangle, Size,
 };
 

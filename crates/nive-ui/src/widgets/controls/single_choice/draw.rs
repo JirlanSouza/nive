@@ -1,5 +1,5 @@
 use iced::{
-    advanced::{mouse, renderer, text::Renderer as _, widget::Tree, Layout, Renderer as _, Widget},
+    advanced::{mouse, renderer, text::Renderer as _, widget::Tree, Layout, Renderer as _},
     alignment,
     border::Radius,
     widget, Background, Border, Color, Font, Pixels, Rectangle, Shadow,
