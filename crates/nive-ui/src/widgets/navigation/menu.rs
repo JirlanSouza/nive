@@ -103,7 +103,7 @@ pub struct Menu<'a, Message> {
 /// A leaf command in a [`Menu`].
 ///
 /// [`MenuCommand::from_action`] is the canonical projection from a shared
-/// [`Action`]. Menu-specific icon, destructive intent, and dismissal policy are
+/// [`Action`](nive_core::Action). Menu-specific icon, destructive intent, and dismissal policy are
 /// presentation decoration; action identity, label, shortcut, enabled state,
 /// and activation remain sourced from the immutable action.
 pub struct MenuCommand<'a, Message> {
