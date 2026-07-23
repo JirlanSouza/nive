@@ -1,5 +1,5 @@
 use iced::{
-    advanced::{mouse, widget::Tree, Clipboard, Layout, Shell, Widget},
+    advanced::{mouse, widget::Tree, Clipboard, Layout, Shell},
     keyboard::{self, key},
     touch, Event, Rectangle,
 };
