@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use iced::{
     advanced::{
         layout, mouse, overlay, renderer,
@@ -12,14 +10,11 @@ use iced::{
 use crate::interaction::{Orientation, StepAdjustment};
 
 use super::helpers::{clamp_ratio, cross_length, main_length, metrics, pane_sizes};
-use super::state::{SplitPaneRegion, SplitPaneState};
+use super::state::SplitPaneState;
 use super::SplitPane;
 
 use self::draw::{draw_grip, resolve_visual_state};
-use self::event::{
-    current_divider_bounds, current_hit_bounds, handle_pointer_gestures, has_primary_gesture,
-    primary_press_outside_hit, publish_ratio, resize_interaction,
-};
+use self::event::{current_divider_bounds, current_hit_bounds, resize_interaction};
 
 mod draw;
 mod event;
@@ -175,105 +170,8 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
-        let hit_bounds = current_hit_bounds(layout, self.orientation, metrics(self.size));
-
-        {
-            let state = tree.state.downcast_mut::<SplitPaneState>();
-
-            if matches!(event, Event::Window(iced::window::Event::Unfocused)) {
-                state.focus.deactivate();
-            }
-
-            if let Some(hit_bounds) = hit_bounds {
-                if primary_press_outside_hit(event, cursor, hit_bounds) {
-                    state.drag = None;
-                    if state.focus.is_active() {
-                        state.focus.deactivate();
-                        shell.request_redraw();
-                    }
-                }
-            }
-
-            if !self.interactive() && (state.focus.is_active() || state.drag.is_some()) {
-                state.focus.clear();
-                state.drag = None;
-                shell.request_redraw();
-            }
-
-            if self.interactive() && self.forward_keyboard(state, event, shell) {
-                return;
-            }
-
-            if self.interactive() {
-                if let Some(hit_bounds) = hit_bounds {
-                    let gestures = state
-                        .gestures
-                        .handle_event(event, Instant::now(), |position| {
-                            hit_bounds
-                                .contains(position)
-                                .then_some(SplitPaneRegion::Grip)
-                        });
-
-                    if has_primary_gesture(&gestures) {
-                        let ratios = handle_pointer_gestures(
-                            state,
-                            &gestures,
-                            self.orientation,
-                            self.ratio,
-                            self.constraints,
-                            self.snap.as_ref(),
-                            false,
-                        );
-
-                        for ratio in ratios {
-                            publish_ratio(self.on_change.as_deref(), ratio, shell);
-                        }
-
-                        shell.capture_event();
-                        shell.request_redraw();
-                        return;
-                    }
-                }
-            }
-        }
-
-        if shell.is_event_captured() {
-            return;
-        }
-
-        let mut layouts = layout.children();
-        let Some(leading_layout) = layouts.next() else {
-            return;
-        };
-        let _ = layouts.next();
-        let Some(trailing_layout) = layouts.next() else {
-            return;
-        };
-
-        self.leading.as_widget_mut().update(
-            &mut tree.children[0],
-            event,
-            leading_layout,
-            cursor,
-            renderer,
-            clipboard,
-            shell,
-            viewport,
-        );
-
-        if shell.is_event_captured() {
-            return;
-        }
-
-        self.trailing.as_widget_mut().update(
-            &mut tree.children[1],
-            event,
-            trailing_layout,
-            cursor,
-            renderer,
-            clipboard,
-            shell,
-            viewport,
+        self.update_impl(
+            tree, event, layout, cursor, renderer, clipboard, shell, viewport,
         );
     }
 
