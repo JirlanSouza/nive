@@ -361,7 +361,7 @@ and icon action names are retained for a future accessibility bridge. Iced
 0.14 does not currently let Nive emit the required native AccessKit
 name/description/error/group relationships or independently paint caret color.
 
-`TabBar`, `VerticalRail`, `SectionHeader`, flat `SegmentedControl`, and toolbar
+`TabBar`, `SideRail`, `SectionHeader`, flat `SegmentedControl`, and toolbar
 actions derive their primary extent from the active theme's `ControlSize`
 metrics. A workbench shell applies one shared size to those managed regions
 rather than requiring callers to compensate with different per-widget sizes.
@@ -539,7 +539,7 @@ active rows are preparatory metadata only; no native accessibility-tree role,
 name, expanded state, active-descendant relation, or announcement is claimed.
 
 Keep category ownership explicit: TabBar owns documents, Toolbar owns chrome,
-VerticalRail owns edge navigation, Dialog owns modal interaction,
+SideRail owns edge navigation, Dialog owns modal interaction,
 CommandPalette owns command search, and specialized inputs retain their domain
 contracts. Popup mechanics do not justify replacing those categories with
 Select, Menu, or generic Popover.
