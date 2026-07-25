@@ -63,9 +63,11 @@ where
             metrics.radius.into(),
         )),
         ButtonChrome::Grouped(spec) => match spec.kind {
-            GroupedItemKind::Embedded => {
-                button_widget.style(theme_button::embedded_style(spec.selected, spec.radius))
-            }
+            GroupedItemKind::Embedded => button_widget.style(theme_button::embedded_style(
+                spec.selected,
+                spec.selection,
+                spec.radius,
+            )),
             GroupedItemKind::Toolbar => button_widget.style(theme_button::toolbar_style(
                 spec.selected,
                 spec.destructive,
