@@ -9,13 +9,13 @@ use iced::{
 
 use crate::Element;
 
-pub(super) struct MinWidth<'a, Message> {
+pub(crate) struct MinWidth<'a, Message> {
     content: Element<'a, Message>,
     minimum: f32,
 }
 
 impl<'a, Message> MinWidth<'a, Message> {
-    pub(super) fn new(content: impl Into<Element<'a, Message>>, minimum: f32) -> Self {
+    pub(crate) fn new(content: impl Into<Element<'a, Message>>, minimum: f32) -> Self {
         Self {
             content: content.into(),
             minimum: minimum.max(0.0),
@@ -116,7 +116,15 @@ where
         cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
-        renderer.start_layer(layout.bounds());
+        // Intersected with the viewport: `start_layer` replaces the current
+        // clip rather than narrowing it, so passing raw bounds would reopen
+        // whatever the host is clipping this widget to.
+        let clip = layout
+            .bounds()
+            .intersection(viewport)
+            .unwrap_or(layout.bounds());
+
+        renderer.start_layer(clip);
         self.content.as_widget().draw(
             &tree.children[0],
             renderer,
