@@ -13,8 +13,8 @@ use iced::{
 };
 use nive_ui::{
     advanced::focus::FocusState,
-    theme::{BorderRole, ControlRole, ControlSize, ControlState, TextRole},
-    widgets::{Badge, BadgeContent, ToneDot},
+    theme::{BorderRole, ControlRole, ControlSize, ControlState, TextRole, ToneRole},
+    widgets::{Badge, BadgeContent, StatusIndicator},
     Element,
 };
 
@@ -87,15 +87,7 @@ where
     }
 
     fn metrics(&self) -> TrackMetrics {
-        let control = nive_ui::theme::control_metrics(self.size);
-        TrackMetrics {
-            height: control.height,
-            font_size: control.font_size.max(14.0),
-            icon_size: control.icon_size,
-            gap: control.gap,
-            padding_h: nive_ui::theme::spacing().md,
-            radius: control.radius,
-        }
+        track_metrics(self.size)
     }
 
     fn enabled_indices(&self) -> Vec<usize> {
@@ -129,15 +121,7 @@ fn build_content<'a, Message>(
 where
     Message: Clone + 'a,
 {
-    let control = nive_ui::theme::control_metrics(size);
-    let metrics = TrackMetrics {
-        height: control.height,
-        font_size: control.font_size.max(14.0),
-        icon_size: control.icon_size,
-        gap: control.gap,
-        padding_h: nive_ui::theme::spacing().md,
-        radius: control.radius,
-    };
+    let metrics = track_metrics(size);
     let mut items = Row::new()
         .spacing(0.0)
         .align_y(Alignment::Center)
@@ -160,26 +144,8 @@ where
                 .size(metrics.font_size)
                 .wrapping(text::Wrapping::None),
         );
-        if let Some(badge) = &item.metadata.badge {
-            content =
-                content.push(Badge::from_content(badge.clone()).disabled(item.metadata.disabled));
-        }
-        let status_badge_present = item.metadata.badge.as_ref().is_some_and(
-            |badge| matches!(badge, BadgeContent::Status(label) if !label.trim().is_empty()),
-        );
-        if let Some(status) = item
-            .metadata
-            .status
-            .as_ref()
-            .filter(|status| !status.is_empty() && !status_badge_present)
-        {
-            content = content
-                .push(
-                    ToneDot::new(status.tone())
-                        .size(size)
-                        .disabled(item.metadata.disabled),
-                )
-                .push(text(status.label().to_owned()));
+        if let Some(signal) = tab_signal(&item.metadata) {
+            content = content.push(signal);
         }
 
         let mut tab = container(content)
@@ -214,13 +180,80 @@ enum TrackBuild<'a> {
     Measure,
 }
 
+/// Resolves the single trailing signal a bottom-panel tab may carry.
+///
+/// A count answers "how many" and a status answers "how is it": two competing
+/// signals rather than two styles of one, so they share a single slot instead of
+/// stacking. A count that carries meaning wins it, and an app that cares more
+/// about state than quantity omits the count. Whatever survives renders as a
+/// toned `Badge` rather than a bare dot, so the slot always keeps visible
+/// wording instead of leaving color as the sole carrier.
+fn tab_signal<'a, PanelId, Message>(
+    tab: &BottomHeaderTab<'a, PanelId>,
+) -> Option<Element<'a, Message>>
+where
+    Message: Clone + 'a,
+{
+    let tone = tab
+        .status
+        .as_ref()
+        .map_or(ToneRole::Neutral, StatusIndicator::tone);
+
+    Some(
+        Badge::from_content(tab_signal_content(tab)?)
+            .tone(tone)
+            .disabled(tab.disabled)
+            .into(),
+    )
+}
+
+/// Picks which of the two competing signals occupies the slot.
+///
+/// A zero count and a blank status label carry nothing, so neither claims the
+/// slot and the status behind them gets its turn.
+fn tab_signal_content<'a, PanelId>(tab: &BottomHeaderTab<'a, PanelId>) -> Option<BadgeContent<'a>> {
+    match tab.badge.as_ref() {
+        None | Some(BadgeContent::Count(0)) => {}
+        Some(BadgeContent::Status(label)) if label.trim().is_empty() => {}
+        Some(content) => return Some(content.clone()),
+    }
+
+    tab.status
+        .as_ref()
+        .filter(|status| !status.is_empty())
+        .map(|status| BadgeContent::Status(Cow::Owned(status.label().to_owned())))
+}
+
+/// Whether a count took the slot and pushed the status wording out of the tab.
+///
+/// Displaced wording has to resurface elsewhere — the tooltip, and the header
+/// of the panel once it is active. Wording that still holds the slot must not,
+/// or the header would restate what the tab already says.
+pub(super) fn status_displaced<PanelId>(tab: &BottomHeaderTab<'_, PanelId>) -> bool {
+    tab.status.as_ref().is_some_and(|status| !status.is_empty())
+        && matches!(tab_signal_content(tab), Some(BadgeContent::Count(_)))
+}
+
+/// Status wording that lost the slot to a count.
+fn suppressed_status<'a, PanelId>(tab: &'a BottomHeaderTab<'_, PanelId>) -> Option<&'a str> {
+    let status = tab.status.as_ref()?;
+
+    status_displaced(tab).then(|| status.label())
+}
+
 fn tab_tooltip<'a, PanelId>(
     tab: &BottomHeaderTab<'a, PanelId>,
     truncated: bool,
 ) -> Option<Cow<'a, str>> {
-    tab.tooltip
-        .clone()
-        .or_else(|| truncated.then(|| tab.label.clone()))
+    if let Some(tooltip) = tab.tooltip.clone() {
+        return Some(tooltip);
+    }
+
+    match (suppressed_status(tab), truncated) {
+        (Some(status), _) => Some(Cow::Owned(format!("{} — {status}", tab.label))),
+        (None, true) => Some(tab.label.clone()),
+        (None, false) => None,
+    }
 }
 
 fn measured_truncation<Message>(
@@ -260,6 +293,23 @@ struct TrackMetrics {
     gap: f32,
     padding_h: f32,
     radius: f32,
+}
+
+/// Tab geometry, resolved once so layout and measurement cannot drift apart.
+///
+/// The horizontal padding sits a step above the intra-tab gap so the space
+/// between two tabs stays several times the space between one tab's own parts.
+/// That ratio is what lets the eye chunk the strip into tabs at a glance.
+fn track_metrics(size: ControlSize) -> TrackMetrics {
+    let control = nive_ui::theme::control_metrics(size);
+    TrackMetrics {
+        height: control.height,
+        font_size: control.font_size.max(14.0),
+        icon_size: control.icon_size,
+        gap: control.gap,
+        padding_h: nive_ui::theme::spacing().lg,
+        radius: control.radius,
+    }
 }
 
 mod widget;
