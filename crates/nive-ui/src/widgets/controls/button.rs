@@ -48,6 +48,19 @@ pub(crate) enum GroupedItemKind {
     Toolbar,
 }
 
+/// How a selected grouped item announces itself.
+///
+/// `Outlined` is the shared treatment: selected fill plus the accent border the
+/// theme resolves for `ControlRole::Selectable`. `Flat` drops the border for
+/// chrome that already carries a directional selection marker of its own — a
+/// navigation rail anchors selection to the panel-facing edge, so a closed
+/// outline would be a second accent for the same state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SelectionChrome {
+    Outlined,
+    Flat,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct GroupedItemSpec {
     pub(crate) size: ControlSize,
@@ -55,6 +68,7 @@ pub(crate) struct GroupedItemSpec {
     pub(crate) height: f32,
     pub(crate) padding_h: f32,
     pub(crate) selected: bool,
+    pub(crate) selection: SelectionChrome,
     pub(crate) destructive: bool,
     pub(crate) kind: GroupedItemKind,
 }

@@ -10,6 +10,7 @@ use crate::theme::{
 };
 
 use crate::advanced::control_style::{border_with_radius, transparent_border_with_radius};
+use crate::widgets::controls::button::SelectionChrome;
 
 pub fn button_control_state(status: button::Status) -> ControlState {
     match status {
@@ -81,6 +82,7 @@ pub fn style(
 
 pub(crate) fn embedded_style(
     selected: bool,
+    selection: SelectionChrome,
     radius: Radius,
 ) -> impl Fn(&crate::theme::Theme, Status) -> button::Style {
     move |theme: &crate::theme::Theme, status: Status| {
@@ -98,7 +100,10 @@ pub(crate) fn embedded_style(
             return button::Style {
                 background: Some(Background::Color(control.background)),
                 text_color: control.foreground,
-                border: border_with_radius(control.border, radius),
+                border: match selection {
+                    SelectionChrome::Outlined => border_with_radius(control.border, radius),
+                    SelectionChrome::Flat => transparent_border_with_radius(radius),
+                },
                 shadow: Shadow::default(),
                 ..button::Style::default()
             };
@@ -286,8 +291,14 @@ mod button_tests {
     #[test]
     fn embedded_selected_keeps_the_active_selected_state() {
         let theme = Theme::Dark;
-        let selected = embedded_style(true, Radius::new(6.0))(&theme, Status::Active);
-        let unselected = embedded_style(false, Radius::new(6.0))(&theme, Status::Active);
+        let selected = embedded_style(true, SelectionChrome::Outlined, Radius::new(6.0))(
+            &theme,
+            Status::Active,
+        );
+        let unselected = embedded_style(false, SelectionChrome::Outlined, Radius::new(6.0))(
+            &theme,
+            Status::Active,
+        );
         let resolved = theme.control(ControlRole::Selectable, ControlState::SELECTED);
 
         assert_eq!(background_color(&selected), resolved.background);
@@ -298,8 +309,14 @@ mod button_tests {
     #[test]
     fn embedded_selected_hover_and_pressed_use_the_shared_resolver() {
         let theme = Theme::Dark;
-        let hovered = embedded_style(true, Radius::new(6.0))(&theme, Status::Hovered);
-        let pressed = embedded_style(true, Radius::new(6.0))(&theme, Status::Pressed);
+        let hovered = embedded_style(true, SelectionChrome::Outlined, Radius::new(6.0))(
+            &theme,
+            Status::Hovered,
+        );
+        let pressed = embedded_style(true, SelectionChrome::Outlined, Radius::new(6.0))(
+            &theme,
+            Status::Pressed,
+        );
         let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
 
         assert_eq!(
@@ -310,6 +327,22 @@ mod button_tests {
             background_color(&pressed),
             selected.background.scale_alpha(0.88)
         );
+    }
+
+    #[test]
+    fn flat_selection_keeps_the_fill_and_drops_the_outline() {
+        let theme = Theme::Dark;
+        let outlined = embedded_style(true, SelectionChrome::Outlined, Radius::new(6.0))(
+            &theme,
+            Status::Active,
+        );
+        let flat =
+            embedded_style(true, SelectionChrome::Flat, Radius::new(6.0))(&theme, Status::Active);
+
+        assert_eq!(background_color(&flat), background_color(&outlined));
+        assert_eq!(flat.border.color, Color::TRANSPARENT);
+        assert_ne!(outlined.border.color, Color::TRANSPARENT);
+        assert_eq!(flat.border.radius, outlined.border.radius);
     }
 
     #[test]

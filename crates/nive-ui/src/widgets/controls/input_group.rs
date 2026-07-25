@@ -9,7 +9,7 @@ use iced::{
 
 use crate::advanced::control_group::{position_for_index, radius_for_position, SlotPosition};
 use crate::theme::{ControlSize, FieldValidation, TextRole, TypographyRole};
-use crate::widgets::controls::button::{Button, GroupedItemKind, GroupedItemSpec};
+use crate::widgets::controls::button::{Button, GroupedItemKind, GroupedItemSpec, SelectionChrome};
 use crate::widgets::controls::form_frame::{FormControlFrame, FormFrameAppearance};
 use crate::widgets::controls::input::Input;
 use crate::widgets::feedback::Spinner;
@@ -296,6 +296,7 @@ where
                         height: metrics.height,
                         padding_h: 0.0,
                         selected: false,
+                        selection: SelectionChrome::Outlined,
                         destructive: false,
                         kind: GroupedItemKind::Embedded,
                     })
@@ -397,6 +398,7 @@ where
                         height: metrics.height,
                         padding_h: metrics.slot_padding_h,
                         selected: false,
+                        selection: SelectionChrome::Outlined,
                         destructive: false,
                         kind: GroupedItemKind::Embedded,
                     })
