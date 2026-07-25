@@ -1,4 +1,8 @@
+mod viewport;
+
 use iced::mouse;
+
+pub(super) use viewport::ClipViewport;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum OverflowAxis {
