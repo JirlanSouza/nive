@@ -159,6 +159,96 @@ fn renderer_measurement_only_marks_labels_that_exceed_the_tab_cap() {
     );
 }
 
+fn signalled(
+    badge: Option<BadgeContent<'static>>,
+    status: Option<StatusIndicator<'static>>,
+) -> BottomHeaderTab<'static, &'static str> {
+    BottomHeaderTab {
+        badge,
+        status,
+        ..tab("Operations", false)
+    }
+}
+
+#[test]
+fn count_and_status_compete_for_one_slot_instead_of_stacking() {
+    let count = BadgeContent::Count(2);
+    let warning = StatusIndicator::new(ToneRole::Warning, "Warning");
+
+    // A meaningful count wins the slot and the status wording steps aside.
+    assert_eq!(
+        tab_signal_content(&signalled(Some(count.clone()), Some(warning.clone()))),
+        Some(BadgeContent::Count(2))
+    );
+    // Without a count the status takes the slot as visible badge wording,
+    // never as a bare dot.
+    assert_eq!(
+        tab_signal_content(&signalled(None, Some(warning.clone()))),
+        Some(BadgeContent::Status(Cow::Borrowed("Warning")))
+    );
+    // A zero count carries nothing, so it does not displace the status.
+    assert_eq!(
+        tab_signal_content(&signalled(Some(BadgeContent::Count(0)), Some(warning))),
+        Some(BadgeContent::Status(Cow::Borrowed("Warning")))
+    );
+    // A blank status label is not wording either.
+    assert_eq!(
+        tab_signal_content(&signalled(
+            None,
+            Some(StatusIndicator::new(ToneRole::Success, "  "))
+        )),
+        None
+    );
+    assert_eq!(tab_signal_content(&signalled(None, None)), None);
+    assert_eq!(
+        tab_signal_content(&signalled(Some(count), None)),
+        Some(BadgeContent::Count(2))
+    );
+}
+
+#[test]
+fn only_displaced_wording_is_restated_outside_the_tab() {
+    // A count took the slot, so "Warning" is nowhere in the tab and the header
+    // has to say it.
+    assert!(status_displaced(&signalled(
+        Some(BadgeContent::Count(2)),
+        Some(StatusIndicator::new(ToneRole::Warning, "Warning")),
+    )));
+
+    // "Idle" is already the tab's visible badge; restating it in the header
+    // would put the same word twice on one line.
+    assert!(!status_displaced(&signalled(
+        Some(BadgeContent::Count(0)),
+        Some(StatusIndicator::new(ToneRole::Success, "Idle")),
+    )));
+    assert!(!status_displaced(&signalled(
+        None,
+        Some(StatusIndicator::new(ToneRole::Accent, "Live")),
+    )));
+    assert!(!status_displaced(&signalled(
+        Some(BadgeContent::Count(5)),
+        None
+    )));
+}
+
+#[test]
+fn status_that_loses_the_slot_stays_reachable_through_the_tooltip() {
+    let displaced = signalled(
+        Some(BadgeContent::Count(2)),
+        Some(StatusIndicator::new(ToneRole::Warning, "Warning")),
+    );
+    assert_eq!(suppressed_status(&displaced), Some("Warning"));
+    assert_eq!(
+        tab_tooltip(&displaced, false).as_deref(),
+        Some("Operations — Warning")
+    );
+
+    // A status holding the slot is already visible, so it adds no tooltip.
+    let visible = signalled(None, Some(StatusIndicator::new(ToneRole::Accent, "Live")));
+    assert_eq!(suppressed_status(&visible), None);
+    assert_eq!(tab_tooltip(&visible, false), None);
+}
+
 #[test]
 fn tooltip_is_only_truncation_disclosure_or_explicit_supplementary_text() {
     let short = tab("Output", false);

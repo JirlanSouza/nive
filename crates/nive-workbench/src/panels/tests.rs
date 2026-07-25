@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use iced::widget::Space;
 use nive_ui::{
-    widgets::{BadgeContent, RailSide, StatusIndicator, VerticalRailBadge},
+    widgets::{BadgeContent, RailSide, StatusIndicator},
     IconRole,
 };
 
@@ -204,8 +204,7 @@ fn panel_rail_maps_identity_and_preserves_disabled_items() {
     let rail = PanelRail::new(
         RailSide::Right,
         [
-            PanelRailItem::new("files", IconRole::Folder, "Files")
-                .badge(VerticalRailBadge::count(2).info().description("2 files")),
+            PanelRailItem::new("files", IconRole::Folder, "Files"),
             disabled.clone(),
         ],
     )
@@ -214,10 +213,7 @@ fn panel_rail_maps_identity_and_preserves_disabled_items() {
     let mapper = rail.on_select.as_ref().expect("rail mapper");
 
     assert_eq!(mapper("files"), Message::Select("files"));
-    assert_eq!(
-        rail.items[0].badge.as_ref().map(|badge| badge.tone_role()),
-        Some(ToneRole::Info)
-    );
+    assert_eq!(rail.items[0].label, "Files");
     assert!(rail.items[1].disabled);
     assert_eq!(rail.items[1].id(), disabled.id());
 }
