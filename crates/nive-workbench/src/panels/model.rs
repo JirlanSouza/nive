@@ -3,7 +3,7 @@ mod builders;
 use std::borrow::Cow;
 
 use nive_ui::{
-    widgets::{BadgeContent, RailSide, StatusIndicator, VerticalRailBadge},
+    widgets::{BadgeContent, RailSide, StatusIndicator},
     Element, IconRole,
 };
 
@@ -153,7 +153,6 @@ pub struct PanelRailItem<'a, PanelId> {
     pub(super) id: PanelId,
     pub(super) icon: IconRole,
     pub(super) label: Cow<'a, str>,
-    pub(super) badge: Option<VerticalRailBadge<'a>>,
     pub(super) selected: bool,
     pub(super) disabled: bool,
 }
@@ -171,8 +170,17 @@ pub struct PanelRail<'a, PanelId, Message> {
 /// Metadata for one controlled bottom-panel header tab.
 ///
 /// The workbench renders this through its private content-sized, horizontally
-/// contained selector. Panel ids and selection remain app-owned; disabled tabs
-/// stay visible and status metadata remains adjacent to the label.
+/// contained selector. Panel ids and selection remain app-owned and disabled
+/// tabs stay visible.
+///
+/// A tab carries the label plus at most one trailing signal, because `badge`
+/// and `status` answer different questions — "how many" and "how is it" —
+/// rather than styling the same one. A non-zero count claims the slot and its
+/// status supplies the tone; otherwise the status claims it as visible badge
+/// wording. Supply only the one that matters for the panel: a count nobody acts
+/// on will displace the state that they do. Status wording a count displaced
+/// stays readable in the tooltip and, once that panel is active, in full beside
+/// the header controls.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BottomHeaderTab<'a, PanelId> {
     /// Panel id.
@@ -181,9 +189,9 @@ pub struct BottomHeaderTab<'a, PanelId> {
     pub label: Cow<'a, str>,
     /// Optional icon.
     pub icon: Option<IconRole>,
-    /// Optional badge or count.
+    /// Optional badge or count, competing with `status` for the signal slot.
     pub badge: Option<BadgeContent<'a>>,
-    /// Optional complete labelled status.
+    /// Optional complete labelled status, competing with `badge` for the slot.
     pub status: Option<StatusIndicator<'a>>,
     /// Whether the tab is disabled.
     pub disabled: bool,

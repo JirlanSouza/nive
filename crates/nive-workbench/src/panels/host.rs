@@ -6,7 +6,7 @@ use iced::{
 };
 use nive_ui::{
     theme::{self, ControlSize, SurfaceRole},
-    widgets::{Panel, RailSide, VerticalRailBadge},
+    widgets::{Panel, RailSide},
     Element, IconRole,
 };
 
@@ -129,21 +129,11 @@ where
         .iter()
         .filter_map(|panel| {
             let icon = panel.icon?;
-            let mut item = PanelRailItem::new(panel.id.clone(), icon, panel.title.clone())
-                .selected(&panel.id == active_id)
-                .disabled(panel.disabled);
-            if let Some(badge) = &panel.badge {
-                let mut rail_badge = VerticalRailBadge::from_content(badge.clone());
-                if matches!(badge, nive_ui::widgets::BadgeContent::Status(_)) {
-                    if let Some(status) = &panel.status {
-                        rail_badge = rail_badge
-                            .tone(status.tone())
-                            .description(status.label().to_owned());
-                    }
-                }
-                item = item.badge(rail_badge);
-            }
-            Some(item)
+            Some(
+                PanelRailItem::new(panel.id.clone(), icon, panel.title.clone())
+                    .selected(&panel.id == active_id)
+                    .disabled(panel.disabled),
+            )
         })
         .collect()
 }
@@ -213,9 +203,15 @@ where
     Message: Clone + 'a,
 {
     let mut tabs = BottomPanelTabTrack::new(size, active_index);
+    // Only wording the active tab had to drop reappears in the header; wording
+    // its own signal slot still shows would be stated twice on one line.
+    let mut restate_status = false;
 
-    for panel in &panels {
+    for (index, panel) in panels.iter().enumerate() {
         let tab = BottomHeaderTab::from(panel);
+        if index == active_index {
+            restate_status = super::bottom_tab_track::status_displaced(&tab);
+        }
         let disabled = tab.disabled;
         let event = WorkbenchPanelEvent::Selected {
             region,
@@ -229,6 +225,7 @@ where
         id,
         content,
         actions,
+        status,
         collapsible,
         restorable,
         maximizable,
@@ -265,10 +262,20 @@ where
         .max_width(controls_width)
         .clip(true);
     let controls = layout_probe::probe("bottom_controls", controls);
-    let header = row![tabs, controls]
-        .spacing(nive_ui::theme::spacing().xs)
+    // The active tab shows one compact signal; when a count claimed that slot,
+    // the status it displaced is restated in full here, beside the controls
+    // that act on it, so the wording stays readable without hover.
+    let mut header = row![tabs]
+        .spacing(theme::spacing().xs)
         .align_y(Alignment::Center)
         .width(Length::Fill);
+    if let Some(status) = status.filter(|_| restate_status) {
+        let status = container(Element::<Message>::from(status))
+            .width(Length::Shrink)
+            .clip(true);
+        header = header.push(layout_probe::probe("bottom_status", status));
+    }
+    let header = header.push(controls);
     let header = layout_probe::probe("bottom_header", header);
     let content = layout_probe::probe("bottom_content", content);
     Panel::new(content)

@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use nive_ui::theme::ToneRole;
 use nive_ui::{
-    widgets::{BadgeContent, StatusIndicator, VerticalRailBadge},
+    widgets::{BadgeContent, StatusIndicator},
     Element, IconRole,
 };
 
@@ -306,16 +306,9 @@ impl<'a, PanelId> PanelRailItem<'a, PanelId> {
             id: panel_id,
             icon,
             label: label.into(),
-            badge: None,
             selected: false,
             disabled: false,
         }
-    }
-
-    /// Sets badge metadata.
-    pub fn badge(mut self, badge: impl Into<VerticalRailBadge<'a>>) -> Self {
-        self.badge = Some(badge.into());
-        self
     }
 
     /// Sets selected state.
