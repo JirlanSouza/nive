@@ -5,7 +5,7 @@ use iced::{
 
 use crate::theme::{self, ControlSize, Theme, TypographyRole};
 
-use super::item::VerticalRailItem;
+use super::item::SideRailItem;
 
 pub(super) const HIDDEN_AFFORDANCE_HEIGHT: f32 = 0.1;
 pub(super) const SELECTED_ACCENT_WIDTH: f32 = 2.0;
@@ -57,7 +57,7 @@ pub(super) fn metrics_for_theme(theme: Theme, size: ControlSize) -> RailMetrics 
     }
 }
 
-pub(super) fn item_layout<Id>(item: &VerticalRailItem<'_, Id>, metrics: RailMetrics) -> ItemLayout {
+pub(super) fn item_layout<Id>(item: &SideRailItem<'_, Id>, metrics: RailMetrics) -> ItemLayout {
     let label_advance = estimated_text_advance(&item.label, metrics);
     let label_track = label_advance
         .clamp(metrics.min_label_track, metrics.max_label_track)
@@ -67,22 +67,11 @@ pub(super) fn item_layout<Id>(item: &VerticalRailItem<'_, Id>, metrics: RailMetr
     if item.icon.is_some() {
         height += metrics.icon_size + metrics.gap;
     }
-    if item.badge.is_some() {
-        height += badge_height(metrics.size) + metrics.gap;
-    }
 
     ItemLayout {
         height: height.max(metrics.width).ceil(),
         label_track,
     }
-}
-
-/// Uniform end inset that centers the selected accent over its item, matching
-/// the accent length to the rail width the way a square marker reads best.
-pub(super) fn selected_accent_padding(item_height: f32, metrics: RailMetrics) -> u16 {
-    let length = metrics.width.min(item_height);
-
-    ((item_height - length) / 2.0).max(0.0).round() as u16
 }
 
 pub(super) fn ellipsize_label(
@@ -197,12 +186,4 @@ pub(super) fn hit_geometry(layout: Layout<'_>) -> HitGeometry {
 
 fn estimated_text_advance(label: &str, metrics: RailMetrics) -> f32 {
     label.chars().count() as f32 * metrics.font_size * AVG_LABEL_ADVANCE_FACTOR
-}
-
-fn badge_height(size: ControlSize) -> f32 {
-    match size {
-        ControlSize::Xs => 14.0,
-        ControlSize::Sm => 16.0,
-        ControlSize::Md | ControlSize::Lg => 18.0,
-    }
 }

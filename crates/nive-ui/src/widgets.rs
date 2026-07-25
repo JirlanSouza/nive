@@ -161,9 +161,9 @@ pub use feedback::{
 };
 pub use navigation::{
     command_palette_filter, CommandPalette, CommandPaletteItem, Menu, MenuCheckbox, MenuCommand,
-    MenuDismissPolicy, MenuRadioGroup, MenuRadioOption, MenuSubmenu, RailSide, TabBar,
-    TabCloseRequest, TabCloseTrigger, TabDrop, TabDropTarget, TabItem, TabTearOff, Toolbar,
-    ToolbarAction, ToolbarGroup, VerticalRail, VerticalRailBadge, VerticalRailItem,
+    MenuDismissPolicy, MenuRadioGroup, MenuRadioOption, MenuSubmenu, RailSide, SideRail,
+    SideRailItem, TabBar, TabCloseRequest, TabCloseTrigger, TabDrop, TabDropTarget, TabItem,
+    TabTearOff, Toolbar, ToolbarAction, ToolbarGroup,
 };
 pub use overlays::{
     AnnouncementPoliteness, Dialog, DialogAction, DialogActionFooter, DialogActionFooterError,

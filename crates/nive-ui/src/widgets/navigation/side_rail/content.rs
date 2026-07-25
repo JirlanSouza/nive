@@ -7,28 +7,27 @@ use iced::{
 
 use crate::theme::SurfaceRole;
 use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec, SelectionChrome};
-use crate::widgets::display::Badge;
 use crate::widgets::navigation::overflow::ClipViewport;
 use crate::widgets::overlays::{Tooltip, TooltipPlacement, TooltipScope};
 use crate::widgets::primitives::{icon as icon_widget, IconRole};
 use crate::Element;
 
-use super::item::VerticalRailItem;
+use super::item::SideRailItem;
 use super::label::RailLabelCanvas;
 use super::layout::{
-    ellipsize_label, item_layout, metrics, selected_accent_padding, RailMetrics,
-    HIDDEN_AFFORDANCE_HEIGHT, SELECTED_ACCENT_WIDTH,
+    ellipsize_label, item_layout, metrics, RailMetrics, HIDDEN_AFFORDANCE_HEIGHT,
+    SELECTED_ACCENT_WIDTH,
 };
 use super::style::{rail_container_style, selected_accent_style};
-use super::widget::{VerticalRail, VerticalRailState};
+use super::widget::{SideRail, SideRailState};
 use super::RailSide;
 
-impl<'a, Id, Message> VerticalRail<'a, Id, Message>
+impl<'a, Id, Message> SideRail<'a, Id, Message>
 where
     Id: Clone + 'a,
     Message: Clone + 'a,
 {
-    pub(super) fn content_element(&self, state: &VerticalRailState) -> Element<'_, Message> {
+    pub(super) fn content_element(&self, state: &SideRailState) -> Element<'_, Message> {
         let metrics = metrics(self.size);
         let mut items = Column::new()
             .spacing(metrics.gap)
@@ -67,7 +66,7 @@ where
         .into()
     }
 
-    pub(super) fn item_activation(&self, item: &VerticalRailItem<'a, Id>) -> Option<Message> {
+    pub(super) fn item_activation(&self, item: &SideRailItem<'a, Id>) -> Option<Message> {
         if item.disabled {
             return None;
         }
@@ -103,7 +102,7 @@ where
         })
     }
 
-    fn item_element<'b>(&'b self, item: &'b VerticalRailItem<'a, Id>) -> Element<'b, Message> {
+    fn item_element<'b>(&'b self, item: &'b SideRailItem<'a, Id>) -> Element<'b, Message> {
         let metrics = metrics(self.size);
         let layout = item_layout(item, metrics);
         let (visible_label, truncated) = ellipsize_label(&item.label, layout.label_track, metrics);
@@ -122,14 +121,6 @@ where
                     .color_maybe(None),
             );
         }
-        if let Some(badge) = &item.badge {
-            content = content.push(
-                Badge::from_content(badge.content.clone())
-                    .tone(badge.tone)
-                    .disabled(item.disabled),
-            );
-        }
-
         content = content.push(
             canvas::Canvas::new(RailLabelCanvas {
                 text: visible_label,
@@ -181,6 +172,11 @@ where
     }
 }
 
+/// Selection marker on the item's window-facing edge, spanning its full height.
+///
+/// The marker sits opposite the rail's structural seam so the two never share an
+/// edge: the seam stays continuous as the rail-to-panel boundary, and selection
+/// reads as a solid bar rather than a stub interrupting that boundary.
 fn selected_accent<'a, Message>(
     side: RailSide,
     metrics: RailMetrics,
@@ -189,34 +185,24 @@ fn selected_accent<'a, Message>(
 where
     Message: 'a,
 {
-    let accent = rule::vertical(SELECTED_ACCENT_WIDTH).style(selected_accent_style(
-        selected_accent_padding(item_height, metrics),
-    ));
+    let accent = rule::vertical(SELECTED_ACCENT_WIDTH).style(selected_accent_style());
 
     container(accent)
         .width(Length::Fixed(metrics.width))
         .height(Length::Fixed(item_height))
         .align_x(match side {
-            RailSide::Left => Alignment::End,
-            RailSide::Right => Alignment::Start,
+            RailSide::Left => Alignment::Start,
+            RailSide::Right => Alignment::End,
         })
         .into()
 }
 
 pub(super) fn item_tooltip<'a, Id>(
-    item: &VerticalRailItem<'a, Id>,
+    item: &SideRailItem<'a, Id>,
     truncated: bool,
 ) -> Option<Cow<'a, str>> {
     if let Some(tooltip) = item.tooltip.clone() {
         return Some(tooltip);
-    }
-
-    if let Some(description) = item
-        .badge
-        .as_ref()
-        .and_then(|badge| badge.description.as_ref())
-    {
-        return Some(Cow::Owned(format!("{} — {}", item.label, description)));
     }
 
     truncated.then(|| Cow::Owned(item.label.to_string()))
