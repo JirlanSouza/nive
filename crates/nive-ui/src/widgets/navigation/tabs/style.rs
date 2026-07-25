@@ -1,6 +1,10 @@
-use iced::{widget::container, Background, Border, Color, Shadow};
+use iced::{
+    widget::{container, rule},
+    Background, Border, Color, Shadow,
+};
 
 use crate::advanced::control_style::transparent_border_with_radius;
+use crate::widgets::controls::button::{focus_ring, ButtonFocusRing};
 
 use crate::theme::{self, ControlRole, ControlSize, ControlState, SurfaceRole, Theme};
 
@@ -82,30 +86,56 @@ pub fn bar_style(role: SurfaceRole) -> impl Fn(&crate::theme::Theme) -> containe
     }
 }
 
-pub(super) fn tab_content_style(
-    selected: bool,
-    disabled: bool,
-) -> impl Fn(&crate::theme::Theme) -> container::Style {
+/// Everything a tab needs to paint itself.
+///
+/// Interaction state is owned by the bar — it hit-tests the whole strip for
+/// drag, close and context gestures — but the tab renders from it, so no
+/// geometry has to be reconstructed outside the layout tree.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(super) struct TabChrome {
+    pub(super) active_role: SurfaceRole,
+    pub(super) radius: f32,
+    pub(super) selected: bool,
+    pub(super) hovered: bool,
+    pub(super) pressed: bool,
+    pub(super) disabled: bool,
+    pub(super) focused: bool,
+}
+
+pub(super) fn tab_style(chrome: TabChrome) -> impl Fn(&crate::theme::Theme) -> container::Style {
     move |theme| {
-        let state = if disabled {
+        let state = if chrome.disabled {
             ControlState::DISABLED
-        } else if selected {
+        } else if chrome.selected {
             ControlState::SELECTED
         } else {
             ControlState::ENABLED
         };
-        let foreground = if disabled {
+        let foreground = if chrome.disabled {
             theme.control(ControlRole::Selectable, state).foreground
-        } else if selected {
+        } else if chrome.selected {
             theme.text(crate::theme::TextRole::Primary).color
         } else {
             theme.text(crate::theme::TextRole::Secondary).color
         };
+        let background = tab_background(
+            theme,
+            chrome.active_role,
+            chrome.selected,
+            chrome.hovered,
+            chrome.pressed,
+            chrome.disabled,
+        );
+        let border = if chrome.focused {
+            focus_ring(theme, ButtonFocusRing::Default, chrome.radius.into())
+        } else {
+            Border::default()
+        };
 
         container::Style {
             text_color: Some(foreground),
-            background: Some(Background::Color(Color::TRANSPARENT)),
-            border: Border::default(),
+            background: Some(Background::Color(background)),
+            border,
             shadow: Shadow::default(),
             ..container::Style::default()
         }
@@ -165,6 +195,51 @@ pub(super) fn active_indicator(theme: &Theme) -> Color {
     theme
         .control(ControlRole::Selectable, ControlState::SELECTED)
         .foreground
+}
+
+/// Style for the active-indicator layer.
+///
+/// Takes `active` so the layer can stay in the tree at all times and toggle by
+/// colour: a tab's decoration shape must not depend on interaction state, which
+/// the runtime relayouts without a diff (see `tab_decorations`).
+pub(super) fn active_indicator_style(active: bool) -> impl Fn(&crate::theme::Theme) -> rule::Style {
+    move |theme| rule::Style {
+        color: if active {
+            active_indicator(theme)
+        } else {
+            Color::TRANSPARENT
+        },
+        radius: 0.0.into(),
+        fill_mode: rule::FillMode::Full,
+        snap: true,
+    }
+}
+
+/// Veil that dims the tab left behind while its copy is being dragged.
+///
+/// Present at all times and transparent unless `dragged`, for the same
+/// shape-stability reason as [`active_indicator_style`].
+pub(super) fn dragged_veil_style(
+    role: SurfaceRole,
+    dragged: bool,
+) -> impl Fn(&crate::theme::Theme) -> container::Style {
+    move |theme| {
+        let background = if dragged {
+            let mut subdued = strip_background(theme, role);
+            subdued.a = 0.45;
+            subdued
+        } else {
+            Color::TRANSPARENT
+        };
+
+        container::Style {
+            text_color: None,
+            background: Some(Background::Color(background)),
+            border: Border::default(),
+            shadow: Shadow::default(),
+            ..container::Style::default()
+        }
+    }
 }
 
 pub(super) fn status_indicator_style(

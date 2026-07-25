@@ -1,19 +1,25 @@
 use std::rc::Rc;
 
 use iced::{
-    widget::{container, stack, text, Row, Space},
+    mouse,
+    widget::{container, mouse_area, rule, stack, Row, Space},
     Alignment, Length, Padding,
 };
 
+use super::geometry::label_budget;
 use super::style as theme_tabs;
 use super::{
     AllTabsMenuEntry, DisplayedTab, MenuMessage, TabBar, TabBarState, TabItem,
     HIDDEN_AFFORDANCE_WIDTH,
 };
-use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec};
+use crate::theme::TypographyRole;
+use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec, SelectionChrome};
+use crate::widgets::display::measured_text::{EllipsisStrategy, MeasuredText};
+use crate::widgets::display::min_width::MinWidth;
 use crate::widgets::navigation::menu::{
     relay::MessageRelay, Menu, MenuRadioGroup, MenuRadioOption,
 };
+use crate::widgets::navigation::overflow::ClipViewport;
 use crate::widgets::overlays::tooltip as tooltip_widget;
 use crate::widgets::overlays::TooltipScope;
 use crate::widgets::overlays::{PopoverCollision, PopoverPlacement};
@@ -82,10 +88,9 @@ where
         // Wrap the tab strip in a horizontal clip so the scroll offset exposes
         // only the visible viewport. The translation is applied during
         // `Widget::layout` once the natural tab bounds are known.
-        let strip = container(tabs_row)
+        let strip = ClipViewport::horizontal(tabs_row)
             .width(Length::Fill)
-            .height(Length::Fixed(metrics.tab_height))
-            .clip(true);
+            .height(Length::Fixed(metrics.tab_height));
 
         let bar_row = Row::new()
             .spacing(0.0)
@@ -119,10 +124,14 @@ where
         reserve: bool,
         tooltip: &'static str,
     ) -> Element<'a, Message> {
-        button::Button::custom(
+        let chevron: Element<'a, Message> = button::Button::custom(
             icon_widget::role(role)
+                // While the slot is reserved the glyph is inherited: full when it
+                // can scroll, dimmed by the disabled embedded style when it sits
+                // at that end so the boundary reads without a layout shift. It is
+                // only hidden when there is no overflow and the slot collapses.
                 .custom_size(metrics.icon_size)
-                .color_maybe((!actionable).then_some(iced::Color::TRANSPARENT))
+                .color_maybe((!reserve).then_some(iced::Color::TRANSPARENT))
                 .into(),
         )
         .disabled(!actionable)
@@ -138,9 +147,24 @@ where
             height: metrics.tab_height,
             padding_h: 0.0,
             selected: false,
+            selection: SelectionChrome::Outlined,
             destructive: false,
             kind: GroupedItemKind::Embedded,
-        })
+        });
+
+        // The bar handles the scroll click, so the button carries no `on_press`
+        // and would show the default cursor. A `mouse_area` supplies the pointer
+        // like an enabled tab does. It wraps unconditionally — `actionable`
+        // flips as the strip reaches its ends, and a shape that changed with it
+        // would desync `tree.children[0]`, which `layout_impl` reuses without a
+        // re-diff.
+        mouse_area(chevron)
+            .interaction(if actionable {
+                mouse::Interaction::Pointer
+            } else {
+                mouse::Interaction::None
+            })
+            .into()
     }
 
     pub(super) fn all_tabs_menu(
@@ -169,6 +193,7 @@ where
             height: metrics.tab_height,
             padding_h: 0.0,
             selected: false,
+            selection: SelectionChrome::Outlined,
             destructive: false,
             kind: GroupedItemKind::Embedded,
         });
@@ -208,12 +233,12 @@ where
             && (selected
                 || state.hovered_id.as_ref().is_some_and(|id| id == &tab.id)
                 || state.focused_id.as_ref().is_some_and(|id| id == &tab.id));
-        let mut content = self.main_content(tab, metrics);
         let status_side = if has_close {
             metrics.close_side
         } else {
             metrics.status_side
         };
+        let mut content = self.main_content(tab, metrics, status_side);
 
         let close = container(
             icon_widget::role(IconRole::WindowClose)
@@ -237,12 +262,37 @@ where
             .into();
         content = content.push(status);
 
+        let matches = |id: &Option<Id>| id.as_ref().is_some_and(|current| current == &tab.id);
         let content: Element<'_, Message> = container(content)
-            .style(theme_tabs::tab_content_style(selected, tab.disabled))
+            .style(theme_tabs::tab_style(theme_tabs::TabChrome {
+                active_role: self.active_role,
+                radius: metrics.radius,
+                selected,
+                hovered: matches(&state.hovered_id),
+                pressed: matches(&state.pressed_id),
+                disabled: tab.disabled,
+                focused: state.focus.is_focus_visible() && matches(&state.focused_id),
+            }))
             .padding(Padding::ZERO.horizontal(metrics.padding_h))
             .height(Length::Fixed(metrics.tab_height))
             .clip(true)
             .into();
+
+        // The floor belongs in layout: the tab paints itself now, so a width
+        // imposed after the fact would leave its fill and indicator short.
+        let content: Element<'a, Message> = MinWidth::new(content, metrics.min_tab_width).into();
+        let content = self.tab_decorations(content, metrics, selected, matches(&state.dragged_id));
+
+        // The tab owns its cursor too, like the overflow chevrons own theirs.
+        // A clipped tab still reports Pointer only over its visible part: the
+        // strip's `ClipViewport` hides the cursor outside its window.
+        let content: Element<'a, Message> = if tab.disabled {
+            content
+        } else {
+            mouse_area(content)
+                .interaction(mouse::Interaction::Pointer)
+                .into()
+        };
 
         match tab.tooltip.clone() {
             Some(label) => tooltip_widget::Tooltip::new(content, label).into(),
@@ -250,15 +300,49 @@ where
         }
     }
 
+    /// Marks the tab is responsible for: the active indicator along its top
+    /// edge, and the veil covering it while its copy is dragged.
+    ///
+    /// Both layers stay in the stack unconditionally and toggle by colour.
+    /// `selected` and `dragged` are interaction state; a shape that appeared
+    /// with them would desync `tree.children[0]`, which the runtime relayouts
+    /// and redraws without a diff to reconcile.
+    fn tab_decorations(
+        &self,
+        content: Element<'a, Message>,
+        metrics: theme_tabs::TabBarMetrics,
+        selected: bool,
+        dragged: bool,
+    ) -> Element<'a, Message> {
+        let indicator = container(
+            rule::horizontal(metrics.indicator_width)
+                .style(theme_tabs::active_indicator_style(selected)),
+        )
+        .height(Length::Fill)
+        .align_y(Alignment::Start);
+        let veil = container(Space::new())
+            .style(theme_tabs::dragged_veil_style(self.role, dragged))
+            .width(Length::Fill)
+            .height(Length::Fill);
+
+        stack![content, indicator, veil]
+            .height(Length::Fixed(metrics.tab_height))
+            .into()
+    }
+
     pub(super) fn main_content(
         &self,
         tab: &TabItem<'a, Id>,
         metrics: theme_tabs::TabBarMetrics,
+        status_side: f32,
     ) -> Row<'a, Message, crate::theme::Theme, iced::Renderer> {
-        let label = text(tab.label.clone())
-            .size(metrics.font_size)
-            .shaping(text::Shaping::Auto)
-            .wrapping(text::Wrapping::None);
+        let leading_icons = usize::from(tab.icon.is_some()) + usize::from(tab.pinned);
+        let label = MeasuredText::new_inherited(
+            tab.label.clone(),
+            EllipsisStrategy::End,
+            TypographyRole::Control,
+        )
+        .max_width(label_budget(metrics, leading_icons, status_side));
         let mut content = Row::new()
             .spacing(metrics.gap)
             .align_y(Alignment::Center)

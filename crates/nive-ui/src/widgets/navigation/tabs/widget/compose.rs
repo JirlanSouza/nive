@@ -8,7 +8,6 @@ use iced::{
 };
 
 use crate::widgets::navigation::tabs::geometry::measure_and_translate;
-use crate::widgets::navigation::tabs::style as theme_tabs;
 use crate::widgets::navigation::tabs::{TabBar, TabBarFocus, TabBarState};
 
 impl<'a, Id, Message> TabBar<'a, Id, Message>
@@ -32,16 +31,8 @@ where
         // translation. The bar container has a single Row child whose children
         // are: [left_chevron_slot, strip_container, right_chevron_slot,
         // all_tabs_button_slot].
-        let metrics = theme_tabs::metrics(self.size);
-        let min_tab_width = metrics.min_tab_width;
         let (content_width, strip_width, translated_node, viewport_tab_bounds) =
-            measure_and_translate(
-                node,
-                state.scroll_offset,
-                min_tab_width,
-                metrics.max_tab_width,
-                metrics.tab_gap,
-            );
+            measure_and_translate(node, state.scroll_offset);
 
         let state = tree.state.downcast_mut::<TabBarState<Id>>();
 
