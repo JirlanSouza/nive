@@ -499,7 +499,7 @@ preparatórios: ainda não há claim de roles, nomes, expanded, active-descendan
 ou anúncios nativos na accessibility tree.
 
 Mecânica de popup não muda categoria: `TabBar` continua dono de documentos,
-`Toolbar` de chrome, `VerticalRail` de navegação lateral, `Dialog` de modal,
+`Toolbar` de chrome, `SideRail` de navegação lateral, `Dialog` de modal,
 `CommandPalette` de busca de commands e inputs especializados de seus domínios.
 
 ### `SegmentedControl` vs `TabBar`
@@ -515,7 +515,7 @@ abrir contexto, reordenar e tear-off sem mutar o modelo sozinho.
 
 ### Métricas de chrome composto
 
-`TabBar`, `VerticalRail`, `SectionHeader`, `SegmentedControl` Linked e as ações
+`TabBar`, `SideRail`, `SectionHeader`, `SegmentedControl` Linked e as ações
 de `Toolbar` derivam a extensão primária de `ControlSize` e das métricas do
 tema ativo. Em um `WorkbenchShell`, uma única chamada a `chrome_size(...)`
 propaga essa escala para tabs, rails, cabeçalhos, seletor inferior, toolbar,

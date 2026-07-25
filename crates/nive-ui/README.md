@@ -164,7 +164,7 @@ Nive does not yet emit native accessibility-tree roles, names, expanded state,
 active-descendant relations, or announcements.
 
 Category-specific controllers keep their ownership. Use `TabBar` for document
-navigation, `Toolbar` for application chrome, `VerticalRail` for edge
+navigation, `Toolbar` for application chrome, `SideRail` for edge
 navigation, `Dialog` for modal interaction, `CommandPalette` for command
 search, and specialized inputs such as `ColorInput` for their domains; do not
 replace them with `Select`, `Menu`, or a generic Popover merely because they
@@ -210,8 +210,11 @@ not yet imply native AccessKit name/relationship emission.
   dirty/close geometry, pinned-first overflow menu, horizontal or mapped
   vertical-wheel navigation, manual-activation roving focus, and id-based drag
   intents. Use `SegmentedControl` for fixed equal-choice sets instead.
-- `VerticalRail` is compact edge navigation with a panel-facing seam and local
-  selected indicator; left/right currently map to physical window edges.
+- `SideRail` is compact edge navigation: a rotated label beside an upright
+  icon, with a panel-facing seam and a full-height selected indicator on the
+  opposite, window-facing edge. It carries no count or status marker, because a
+  rail one chrome height wide has no room beside its label; that belongs to the
+  panel an item selects. Left/right currently map to physical window edges.
   `SelectableItem` is the form-compatible list row with whole-row selection,
   inset focus, and operational `trailing_text`; caller-styled `trailing(...)`
   retains semantic tone.

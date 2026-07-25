@@ -57,7 +57,7 @@ The gallery exercises:
   locked, display-only, invalid-minimum, and constrained SplitPane states
 - controlled TabBar states for active, inactive, dirty, pinned, closable,
   disabled, long-label, overflow/menu, keyboard, context, reorder, and tear-off
-  behavior; both physical VerticalRail sides with metadata and overflow; and
+  behavior; both physical SideRail sides with labels, icons, and overflow; and
   SelectableItem size/selection/disabled/trailing-content comparisons
 - Card/ActionCard/SelectableCard filled, outlined, elevated, and ghost
   comparisons on Canvas, including 48 px targets, callback absence,

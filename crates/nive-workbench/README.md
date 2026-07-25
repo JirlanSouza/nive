@@ -36,7 +36,7 @@ uses Canvas, and shell wrappers remain transparent without compensating inset.
 `DocumentArea` delegates controlled document ids, metadata, overflow,
 keyboard focus, close/context/reorder, and tear-off intents to `TabBar`; the
 shell-sized path fills the center host without adding another surface or seam.
-Side selectors compose public `VerticalRail` items at the shared Chrome size.
+Side selectors compose public `SideRail` items at the shared Chrome size.
 The bottom host uses private content-sized panel tabs with one roving focus
 entry, contained horizontal/mapped-wheel overflow, and an active bottom
 indicator immediately above the Panel-owned seam. The leading track cannot
