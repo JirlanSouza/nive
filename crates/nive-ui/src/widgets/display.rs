@@ -5,7 +5,7 @@ pub(crate) mod measured_text;
 pub mod metadata;
 pub mod metadata_tag;
 pub mod metric_card;
-mod min_width;
+pub(crate) mod min_width;
 pub mod tree;
 pub mod tree_item;
 
