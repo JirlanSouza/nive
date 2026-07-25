@@ -4,7 +4,7 @@ use iced::{
     advanced::widget::operation,
     keyboard::{self, key},
     widget::{column, container, Id},
-    Event, Point, Size,
+    Event, Point, Rectangle, Size,
 };
 
 use super::*;
@@ -42,6 +42,60 @@ fn every_preferred_side_keeps_the_four_pixel_gap() {
             TooltipPlacement::Left => assert_eq!(bounds.x + bounds.width, 96.0),
         }
     }
+}
+
+#[test]
+fn a_clipped_anchor_places_the_tooltip_against_its_visible_part() {
+    let start = iced::time::Instant::now();
+    let tooltip: Element<'_, ()> = container(
+        Tooltip::new(iced::widget::Space::new().width(20).height(20), "Help")
+            .placement(TooltipPlacement::Bottom)
+            .delay(Duration::ZERO)
+            .at(start)
+            .intent(true, false),
+    )
+    .padding(100)
+    .into();
+    let mut harness = WidgetHarness::new(tooltip, Size::new(400.0, 300.0));
+    harness.update(redraw(start));
+
+    // Host clipping the anchor's left half, as a scrolled strip does.
+    let clipped = harness
+        .overlay_bounds_within(Rectangle::new(
+            Point::new(110.0, 0.0),
+            Size::new(290.0, 300.0),
+        ))
+        .expect("visible Tooltip");
+    let full = harness.overlay_bounds().expect("visible Tooltip");
+
+    // The anchor spans 100..120; clipping at 110 leaves 110..120, so the
+    // tooltip centers on 115 instead of the full anchor's 110.
+    let center = |bounds: Rectangle| bounds.x + bounds.width / 2.0;
+
+    assert_eq!(center(full), 110.0);
+    assert_eq!(center(clipped), 115.0);
+}
+
+#[test]
+fn an_anchor_scrolled_out_of_view_shows_no_tooltip() {
+    let start = iced::time::Instant::now();
+    let tooltip: Element<'_, ()> = container(
+        Tooltip::new(iced::widget::Space::new().width(20).height(20), "Help")
+            .delay(Duration::ZERO)
+            .at(start)
+            .intent(true, false),
+    )
+    .padding(100)
+    .into();
+    let mut harness = WidgetHarness::new(tooltip, Size::new(400.0, 300.0));
+    harness.update(redraw(start));
+
+    assert!(harness
+        .overlay_bounds_within(Rectangle::new(
+            Point::new(200.0, 0.0),
+            Size::new(200.0, 300.0)
+        ))
+        .is_none());
 }
 
 #[test]
