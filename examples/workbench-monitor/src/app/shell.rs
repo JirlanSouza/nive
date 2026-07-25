@@ -120,9 +120,9 @@ impl WorkbenchMonitor {
     ) -> Vec<WorkbenchPanel<'_, &'static str, PanelActionId, Message>> {
         vec![
             ProblemsPanel::new(self.problems()).into_panel("alerts"),
-            logs_panel_slot("logs", self.logs_view())
-                .count_badge(self.model.logs.len() as u64)
-                .status_text(ToneRole::Accent, "Live"),
+            // A log count climbs on its own and nobody acts on it, so the
+            // stream state earns the tab's single signal slot instead.
+            logs_panel_slot("logs", self.logs_view()).status_text(ToneRole::Accent, "Live"),
             bottom_panel_slot("events", "Events", self.events_view())
                 .icon(IconRole::MailInbox)
                 .count_badge(self.model.events.len() as u64)
