@@ -5,13 +5,15 @@ use crate::widgets::primitives::IconRole;
 use super::content::item_tooltip;
 use super::item::{VerticalRailBadge, VerticalRailItem};
 use super::label::{rotation_radians, RailLabelCanvas};
-use super::layout::{ellipsize_label, item_layout, metrics_for_theme, RailMetrics};
-use super::widget::{
-    seam_bounds, selected_indicator_bounds, VerticalRail, CHEVRON_SCROLL_STEP_FACTOR,
+use super::layout::{
+    ellipsize_label, item_layout, metrics_for_theme, selected_accent_padding, RailMetrics,
 };
+use super::widget::{seam_bounds, VerticalRail, CHEVRON_SCROLL_STEP_FACTOR};
 use super::RailSide;
+use crate::test_support::layout as layout_node;
 use crate::theme::TextRole;
-use iced::Rectangle;
+use iced::advanced::layout::{Layout, Node};
+use iced::{Rectangle, Size, Vector};
 
 fn test_label(selected: bool, disabled: bool) -> RailLabelCanvas {
     RailLabelCanvas {
@@ -203,22 +205,100 @@ fn badge_description_composes_item_tooltip() {
 }
 
 #[test]
-fn seam_and_selected_indicator_follow_panel_facing_side() {
+fn seam_follows_panel_facing_side() {
     let rail = Rectangle::new(iced::Point::new(10.0, 20.0), iced::Size::new(32.0, 300.0));
-    let item = Rectangle::new(iced::Point::new(10.0, 40.0), iced::Size::new(32.0, 80.0));
 
     assert_eq!(seam_bounds(rail, RailSide::Left).x, 41.0);
     assert_eq!(seam_bounds(rail, RailSide::Right).x, 10.0);
-    let left = selected_indicator_bounds(item, RailSide::Left, 32.0);
-    let right = selected_indicator_bounds(item, RailSide::Right, 32.0);
-    assert_eq!(
-        left,
-        Rectangle::new(iced::Point::new(40.0, 64.0), iced::Size::new(2.0, 32.0))
-    );
-    assert_eq!(
-        right,
-        Rectangle::new(iced::Point::new(10.0, 64.0), iced::Size::new(2.0, 32.0))
-    );
+}
+
+#[test]
+fn accent_padding_centers_a_square_marker_over_the_item() {
+    let metrics = test_metrics();
+
+    assert_eq!(selected_accent_padding(100.0, metrics), 36);
+    assert_eq!(selected_accent_padding(metrics.width, metrics), 0);
+    assert_eq!(selected_accent_padding(10.0, metrics), 0);
+}
+
+const ORIGIN: Vector = Vector::new(50.0, 30.0);
+
+fn rail_node(side: RailSide) -> Node {
+    let rail = VerticalRail::new(side)
+        .on_select(Message::Select)
+        .push(VerticalRailItem::new("a", "A").selected(true))
+        .push(VerticalRailItem::new("b", "B"));
+
+    layout_node(rail.into(), Size::new(400.0, 600.0))
+}
+
+fn item_layouts(node: &Node) -> Vec<Layout<'_>> {
+    let root = Layout::with_offset(ORIGIN, node);
+    let rail_column = root.children().next().expect("rail column");
+    let strip = rail_column.children().nth(1).expect("strip");
+    let items = strip.children().next().expect("items column");
+
+    items.children().collect()
+}
+
+#[test]
+fn selected_accent_sits_on_the_panel_facing_edge_in_viewport_space() {
+    for side in [RailSide::Left, RailSide::Right] {
+        let node = rail_node(side);
+        let rail_bounds = Layout::with_offset(ORIGIN, &node).bounds();
+        let items = item_layouts(&node);
+        let selected = items.first().expect("selected item");
+        let accent = selected
+            .children()
+            .nth(1)
+            .and_then(|accent| accent.children().next())
+            .expect("selected accent");
+        let bounds = accent.bounds();
+        let item_bounds = selected.bounds();
+        let expected_x = match side {
+            RailSide::Left => rail_bounds.x + rail_bounds.width - 2.0,
+            RailSide::Right => rail_bounds.x,
+        };
+
+        assert!(rail_bounds.x >= ORIGIN.x);
+        assert_eq!(bounds.x, expected_x);
+        assert_eq!(bounds.width, 2.0);
+        assert_eq!(
+            bounds.y - item_bounds.y,
+            item_bounds.y + item_bounds.height - (bounds.y + bounds.height)
+        );
+    }
+}
+
+#[test]
+fn items_past_the_strip_stay_measurable_for_overflow() {
+    let mut rail = VerticalRail::new(RailSide::Left).on_select(Message::Select);
+    for id in ["a", "b", "c", "d", "e", "f"] {
+        rail = rail.push(VerticalRailItem::new(id, id).icon(IconRole::Folder));
+    }
+
+    let node = layout_node(rail.into(), Size::new(400.0, 200.0));
+    let root = Layout::new(&node);
+    let rail_column = root.children().next().expect("rail column");
+    let strip = rail_column.children().nth(1).expect("strip");
+    let items = strip.children().next().expect("items column");
+    let heights: Vec<f32> = items.children().map(|item| item.bounds().height).collect();
+    let content_bottom = items
+        .children()
+        .map(|item| item.bounds().y + item.bounds().height)
+        .fold(f32::MIN, f32::max);
+
+    assert!(heights.iter().all(|height| *height > 0.0));
+    assert!(content_bottom > strip.bounds().y + strip.bounds().height);
+}
+
+#[test]
+fn unselected_items_compose_no_accent() {
+    let node = rail_node(RailSide::Left);
+    let items = item_layouts(&node);
+
+    assert_eq!(items[0].children().count(), 2);
+    assert_eq!(items[1].children().count(), 1);
 }
 
 #[test]

@@ -236,14 +236,26 @@ impl<Message> Widget<Message, crate::theme::Theme, iced::Renderer> for TooltipWi
             viewport,
             translation,
         );
-        let tooltip_overlay = tree.state.downcast_ref::<TooltipState>().visible.then(|| {
-            overlay::Element::new(Box::new(TooltipOverlay {
-                anchor_bounds: translated_bounds(layout.bounds(), translation),
-                label: &mut self.label,
-                label_state: &mut label_tree[0],
-                placement: self.placement,
-            }))
-        });
+        // Anchor on the visible part of the host: inside a scrolled strip the
+        // anchor's own bounds can start outside the viewport, which would place
+        // the tooltip over whatever sits beyond the clip.
+        let anchor_bounds = translated_bounds(layout.bounds(), translation)
+            .intersection(viewport)
+            .filter(|visible| visible.width > 0.0 && visible.height > 0.0);
+        let tooltip_overlay = tree
+            .state
+            .downcast_ref::<TooltipState>()
+            .visible
+            .then_some(anchor_bounds)
+            .flatten()
+            .map(|anchor_bounds| {
+                overlay::Element::new(Box::new(TooltipOverlay {
+                    anchor_bounds,
+                    label: &mut self.label,
+                    label_state: &mut label_tree[0],
+                    placement: self.placement,
+                }) as Box<dyn overlay::Overlay<_, _, _>>)
+            });
 
         match (anchor_overlay, tooltip_overlay) {
             (Some(anchor), Some(tooltip)) => {
