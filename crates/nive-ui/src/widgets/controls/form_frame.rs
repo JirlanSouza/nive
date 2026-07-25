@@ -256,7 +256,12 @@ where
         let inherited_style = renderer::Style {
             text_color: style.foreground,
         };
-        renderer.with_layer(bounds, |renderer| {
+        // `with_layer` replaces the current clip instead of narrowing it, so
+        // the frame intersects with the viewport to stay inside a host that
+        // clips it.
+        let clip = bounds.intersection(viewport).unwrap_or(bounds);
+
+        renderer.with_layer(clip, |renderer| {
             self.content.as_widget().draw(
                 &tree.children[0],
                 renderer,
