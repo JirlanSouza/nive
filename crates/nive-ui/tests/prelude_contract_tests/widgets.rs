@@ -79,11 +79,12 @@ fn widget_taxonomy_exposes_category_facades() {
     let _: Element<'_, ()> = display::MetadataTag::code("1.4.0-beta.2").into();
     let _: Element<'_, ()> = display::InitialAvatar::new("Ada Lovelace").person().into();
     let _: Element<'_, ()> = navigation::Toolbar::new().into();
-    let _: Element<'_, ()> = navigation::VerticalRail::new(navigation::RailSide::Left)
+    let _: Element<'_, ()> = navigation::SideRail::new(navigation::RailSide::Left)
         .on_select(|_: &str| ())
         .item(
-            navigation::VerticalRailItem::new("explorer", "Explorer")
-                .badge(navigation::VerticalRailBadge::count(3).description("3 open explorers")),
+            navigation::SideRailItem::new("explorer", "Explorer")
+                .icon(IconRole::Folder)
+                .tooltip("Open explorer"),
         )
         .into();
     let _: Element<'_, ()> = navigation::TabBar::new("overview")
