@@ -16,7 +16,7 @@ mod probes;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use harness::{event_messages, layout, renderer};
+pub(crate) use harness::{event_messages, layout, pixel, rasterize, renderer};
 pub(crate) use probes::{event_probe, named_probe};
 
 pub(crate) struct WidgetHarness<'a, Message> {

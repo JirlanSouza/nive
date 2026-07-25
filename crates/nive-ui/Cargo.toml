@@ -24,5 +24,9 @@ nive-core = { version = "0.1.0-alpha.1", path = "../nive-core" }
 unicode-segmentation = { workspace = true }
 
 [dev-dependencies]
+iced_graphics = "0.14"
 iced_renderer = "0.14"
 iced_tiny_skia = "0.14"
+# Same version `iced_tiny_skia` renders with, so pixel assertions can share its
+# `Pixmap` types.
+tiny-skia = "0.11"
