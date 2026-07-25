@@ -29,13 +29,13 @@ pub(super) fn seam_color(theme: &crate::theme::Theme) -> Color {
     theme.surface(SurfaceRole::Chrome).border.color
 }
 
-pub(super) fn selected_accent_style(padding: u16) -> impl Fn(&crate::theme::Theme) -> rule::Style {
+pub(super) fn selected_accent_style() -> impl Fn(&crate::theme::Theme) -> rule::Style {
     move |theme| rule::Style {
         color: theme
             .control(ControlRole::Selectable, ControlState::SELECTED)
             .foreground,
         radius: 0.0.into(),
-        fill_mode: rule::FillMode::Padded(padding),
+        fill_mode: rule::FillMode::Full,
         snap: true,
     }
 }
