@@ -20,6 +20,40 @@ pub(crate) fn renderer() -> iced::Renderer {
     ))
 }
 
+/// Renders what the software backend has queued into a pixel buffer.
+pub(crate) fn rasterize(renderer: &mut iced::Renderer, size: Size) -> tiny_skia::Pixmap {
+    let width = size.width as u32;
+    let height = size.height as u32;
+    let mut pixmap = tiny_skia::Pixmap::new(width, height).expect("pixmap");
+    let mut mask = tiny_skia::Mask::new(width, height).expect("mask");
+    let viewport = iced_graphics::Viewport::with_physical_size(Size::new(width, height), 1.0);
+
+    let iced_renderer::fallback::Renderer::Secondary(renderer) = renderer else {
+        panic!("test renderer is the software backend");
+    };
+    renderer.draw(
+        &mut pixmap.as_mut(),
+        &mut mask,
+        &viewport,
+        &[Rectangle::new(Point::ORIGIN, size)],
+        iced::Color::BLACK,
+    );
+
+    pixmap
+}
+
+pub(crate) fn pixel(pixmap: &tiny_skia::Pixmap, point: Point) -> [u8; 4] {
+    let index = (point.y as u32 * pixmap.width() + point.x as u32) as usize * 4;
+    let pixels = pixmap.data();
+
+    [
+        pixels[index],
+        pixels[index + 1],
+        pixels[index + 2],
+        pixels[index + 3],
+    ]
+}
+
 pub(crate) fn layout<Message>(mut element: Element<'_, Message>, maximum: Size) -> Node {
     let mut tree = Tree::new(&element);
     let renderer = renderer();
@@ -357,7 +391,12 @@ impl<'a, Message> WidgetHarness<'a, Message> {
     }
 
     pub(crate) fn overlay_bounds(&mut self) -> Option<Rectangle> {
-        let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+        self.overlay_bounds_within(Rectangle::new(Point::ORIGIN, self.maximum))
+    }
+
+    /// Overlay bounds as seen from a host that clips its content, so an anchor
+    /// scrolled out of view can be exercised.
+    pub(crate) fn overlay_bounds_within(&mut self, viewport: Rectangle) -> Option<Rectangle> {
         let mut overlay = self.element.as_widget_mut().overlay(
             &mut self.tree,
             Layout::new(&self.node),
