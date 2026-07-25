@@ -1,7 +1,7 @@
 use nive_core::Action;
 
 use super::style as theme_toolbar;
-use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec};
+use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec, SelectionChrome};
 use crate::widgets::primitives::IconRole;
 use crate::Element;
 
@@ -154,6 +154,7 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
             height: metrics.action_height,
             padding_h: metrics.action_padding_h,
             selected: self.selected,
+            selection: SelectionChrome::Outlined,
             destructive: self.destructive,
             kind: GroupedItemKind::Toolbar,
         })

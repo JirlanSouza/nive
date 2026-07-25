@@ -34,23 +34,6 @@ pub(super) fn seam_bounds(bounds: Rectangle, side: RailSide) -> Rectangle {
     }
 }
 
-pub(super) fn selected_indicator_bounds(
-    item_bounds: Rectangle,
-    side: RailSide,
-    length: f32,
-) -> Rectangle {
-    let height = length.min(item_bounds.height);
-    Rectangle {
-        x: match side {
-            RailSide::Left => item_bounds.x + item_bounds.width - 2.0,
-            RailSide::Right => item_bounds.x,
-        },
-        y: item_bounds.y + (item_bounds.height - height) / 2.0,
-        width: 2.0,
-        height,
-    }
-}
-
 /// A narrow vertical rail for left and right window edges.
 ///
 /// `VerticalRail` owns rail layout policy, overflow state, and item activation
@@ -76,7 +59,6 @@ pub(super) struct VerticalRailState {
     scroll_offset: f32,
     up_chevron: Option<Rectangle>,
     down_chevron: Option<Rectangle>,
-    item_bounds: Vec<Rectangle>,
 }
 
 impl<'a, Id, Message> VerticalRail<'a, Id, Message>
@@ -207,14 +189,13 @@ where
         let node = content
             .as_widget_mut()
             .layout(&mut tree.children[0], renderer, limits);
-        let (content_height, strip_height, translated_node, item_bounds) =
+        let (content_height, strip_height, translated_node) =
             measure_and_translate(node, state.scroll_offset);
         let state = tree.state.downcast_mut::<VerticalRailState>();
 
         state.overflow.offset = state.scroll_offset;
         state.overflow.update_extents(content_height, strip_height);
         state.scroll_offset = state.overflow.offset;
-        state.item_bounds = item_bounds;
 
         translated_node
     }
@@ -361,7 +342,6 @@ where
     ) {
         let state = tree.state.downcast_ref::<VerticalRailState>();
         let bounds = layout.bounds();
-        let metrics = metrics(self.size);
         renderer.fill_quad(
             renderer::Quad {
                 bounds,
@@ -371,19 +351,6 @@ where
             },
             super::style::rail_background(theme),
         );
-        for (item, item_bounds) in self.items.iter().zip(&state.item_bounds) {
-            if item.selected {
-                renderer.fill_quad(
-                    renderer::Quad {
-                        bounds: *item_bounds,
-                        border: iced::Border::default(),
-                        shadow: Shadow::default(),
-                        snap: true,
-                    },
-                    super::style::selected_item_background(theme, item.disabled),
-                );
-            }
-        }
         renderer.fill_quad(
             renderer::Quad {
                 bounds: seam_bounds(bounds, self.side),
@@ -403,18 +370,5 @@ where
             cursor,
             viewport,
         );
-        for (item, item_bounds) in self.items.iter().zip(&state.item_bounds) {
-            if item.selected {
-                renderer.fill_quad(
-                    renderer::Quad {
-                        bounds: selected_indicator_bounds(*item_bounds, self.side, metrics.width),
-                        border: iced::Border::default(),
-                        shadow: Shadow::default(),
-                        snap: true,
-                    },
-                    super::style::selected_indicator_color(theme),
-                );
-            }
-        }
     }
 }

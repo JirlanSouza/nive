@@ -1,22 +1,27 @@
 use std::borrow::Cow;
 
 use iced::{
-    widget::{canvas, container, Column},
+    widget::{canvas, container, rule, stack, Column},
     Alignment, Length, Padding,
 };
 
 use crate::theme::SurfaceRole;
-use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec};
+use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec, SelectionChrome};
 use crate::widgets::display::Badge;
+use crate::widgets::navigation::overflow::ClipViewport;
 use crate::widgets::overlays::{Tooltip, TooltipPlacement, TooltipScope};
 use crate::widgets::primitives::{icon as icon_widget, IconRole};
 use crate::Element;
 
 use super::item::VerticalRailItem;
 use super::label::RailLabelCanvas;
-use super::layout::{ellipsize_label, item_layout, metrics, HIDDEN_AFFORDANCE_HEIGHT};
-use super::style::rail_container_style;
+use super::layout::{
+    ellipsize_label, item_layout, metrics, selected_accent_padding, RailMetrics,
+    HIDDEN_AFFORDANCE_HEIGHT, SELECTED_ACCENT_WIDTH,
+};
+use super::style::{rail_container_style, selected_accent_style};
 use super::widget::{VerticalRail, VerticalRailState};
+use super::RailSide;
 
 impl<'a, Id, Message> VerticalRail<'a, Id, Message>
 where
@@ -35,10 +40,9 @@ where
             items = items.push(self.item_element(item));
         }
 
-        let strip = container(items)
+        let strip = ClipViewport::vertical(items)
             .width(Length::Fixed(metrics.width))
-            .height(Length::Fill)
-            .clip(true);
+            .height(Length::Fill);
         let rail = Column::new()
             .spacing(0.0)
             .align_x(Alignment::Center)
@@ -93,6 +97,7 @@ where
             },
             padding_h: 0.0,
             selected: false,
+            selection: SelectionChrome::Outlined,
             destructive: false,
             kind: GroupedItemKind::Embedded,
         })
@@ -147,10 +152,22 @@ where
             radius: 0.0.into(),
             height: layout.height,
             padding_h: 0.0,
-            selected: false,
+            selected: item.selected,
+            // Selection is edge-anchored here: the accent bar carries it, so the
+            // shared outline would double up on the same state.
+            selection: SelectionChrome::Flat,
             destructive: false,
             kind: GroupedItemKind::Embedded,
         });
+
+        let button = if item.selected {
+            stack![button, selected_accent(self.side, metrics, layout.height)]
+                .width(Length::Fixed(metrics.width))
+                .height(Length::Fixed(layout.height))
+                .into()
+        } else {
+            button
+        };
 
         match tooltip {
             Some(label) => Tooltip::new(button, label)
@@ -162,6 +179,28 @@ where
             None => button,
         }
     }
+}
+
+fn selected_accent<'a, Message>(
+    side: RailSide,
+    metrics: RailMetrics,
+    item_height: f32,
+) -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    let accent = rule::vertical(SELECTED_ACCENT_WIDTH).style(selected_accent_style(
+        selected_accent_padding(item_height, metrics),
+    ));
+
+    container(accent)
+        .width(Length::Fixed(metrics.width))
+        .height(Length::Fixed(item_height))
+        .align_x(match side {
+            RailSide::Left => Alignment::End,
+            RailSide::Right => Alignment::Start,
+        })
+        .into()
 }
 
 pub(super) fn item_tooltip<'a, Id>(
