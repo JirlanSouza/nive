@@ -1,4 +1,7 @@
-use iced::{widget::container, Background, Border, Color, Shadow};
+use iced::{
+    widget::{container, rule},
+    Background, Border, Color, Shadow,
+};
 
 use crate::theme::{ControlRole, ControlState, SurfaceRole};
 
@@ -26,17 +29,13 @@ pub(super) fn seam_color(theme: &crate::theme::Theme) -> Color {
     theme.surface(SurfaceRole::Chrome).border.color
 }
 
-pub(super) fn selected_item_background(theme: &crate::theme::Theme, disabled: bool) -> Color {
-    let state = if disabled {
-        ControlState::DISABLED.selected()
-    } else {
-        ControlState::SELECTED
-    };
-    theme.control(ControlRole::Selectable, state).background
-}
-
-pub(super) fn selected_indicator_color(theme: &crate::theme::Theme) -> Color {
-    theme
-        .control(ControlRole::Selectable, ControlState::SELECTED)
-        .foreground
+pub(super) fn selected_accent_style(padding: u16) -> impl Fn(&crate::theme::Theme) -> rule::Style {
+    move |theme| rule::Style {
+        color: theme
+            .control(ControlRole::Selectable, ControlState::SELECTED)
+            .foreground,
+        radius: 0.0.into(),
+        fill_mode: rule::FillMode::Padded(padding),
+        snap: true,
+    }
 }

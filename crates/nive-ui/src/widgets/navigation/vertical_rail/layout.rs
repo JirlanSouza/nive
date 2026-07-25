@@ -8,6 +8,7 @@ use crate::theme::{self, ControlSize, Theme, TypographyRole};
 use super::item::VerticalRailItem;
 
 pub(super) const HIDDEN_AFFORDANCE_HEIGHT: f32 = 0.1;
+pub(super) const SELECTED_ACCENT_WIDTH: f32 = 2.0;
 
 const MAX_LABEL_TRACK_FACTOR: f32 = 4.75;
 const MIN_LABEL_TRACK_FACTOR: f32 = 1.7;
@@ -76,6 +77,14 @@ pub(super) fn item_layout<Id>(item: &VerticalRailItem<'_, Id>, metrics: RailMetr
     }
 }
 
+/// Uniform end inset that centers the selected accent over its item, matching
+/// the accent length to the rail width the way a square marker reads best.
+pub(super) fn selected_accent_padding(item_height: f32, metrics: RailMetrics) -> u16 {
+    let length = metrics.width.min(item_height);
+
+    ((item_height - length) / 2.0).max(0.0).round() as u16
+}
+
 pub(super) fn ellipsize_label(
     label: &str,
     max_advance: f32,
@@ -107,24 +116,20 @@ pub(super) fn ellipsize_label(
     }
 }
 
-pub(super) fn measure_and_translate(
-    node: Node,
-    scroll_offset: f32,
-) -> (f32, f32, Node, Vec<Rectangle>) {
+pub(super) fn measure_and_translate(node: Node, scroll_offset: f32) -> (f32, f32, Node) {
     let Some(rail_column) = node.children().first() else {
-        return (0.0, 0.0, node, Vec::new());
+        return (0.0, 0.0, node);
     };
     let Some(strip_container) = rail_column.children().get(1) else {
-        return (0.0, 0.0, node, Vec::new());
+        return (0.0, 0.0, node);
     };
     let strip_height = strip_container.bounds().height;
     let Some(items_column) = strip_container.children().first() else {
-        return (0.0, strip_height, node, Vec::new());
+        return (0.0, strip_height, node);
     };
 
     let column_y = items_column.bounds().y;
     let translate = Vector::new(0.0, -scroll_offset);
-    let mut viewport_item_bounds = Vec::with_capacity(items_column.children().len());
     let mut translated_items = Vec::with_capacity(items_column.children().len());
     let mut content_bottom = column_y;
 
@@ -132,7 +137,6 @@ pub(super) fn measure_and_translate(
         let mut item = item.clone();
         item.translate_mut(translate);
         content_bottom = content_bottom.max(item.bounds().y + item.bounds().height + scroll_offset);
-        viewport_item_bounds.push(item.bounds());
         translated_items.push(item);
     }
 
@@ -164,12 +168,7 @@ pub(super) fn measure_and_translate(
     let translated_root = Node::with_children(node.size(), vec![translated_rail_column])
         .move_to(node.bounds().position());
 
-    (
-        content_height,
-        strip_height,
-        translated_root,
-        viewport_item_bounds,
-    )
+    (content_height, strip_height, translated_root)
 }
 
 #[derive(Debug, Clone, Copy)]
