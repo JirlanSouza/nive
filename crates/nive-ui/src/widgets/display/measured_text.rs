@@ -237,6 +237,9 @@ where
         renderer: &iced::Renderer,
         operation: &mut dyn operation::Operation,
     ) {
+        let state = tree.state.downcast_ref::<State>();
+        self.content = self.content_element(state);
+
         self.content
             .as_widget_mut()
             .operate(&mut tree.children[0], layout, renderer, operation);
@@ -253,9 +256,12 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
-        if !tree.state.downcast_ref::<State>().truncated {
+        let state = tree.state.downcast_ref::<State>();
+        if !state.truncated {
             return;
         }
+        self.content = self.content_element(state);
+
         self.content.as_widget_mut().update(
             &mut tree.children[0],
             event,
@@ -276,10 +282,12 @@ where
         viewport: &Rectangle,
         renderer: &iced::Renderer,
     ) -> mouse::Interaction {
-        if !tree.state.downcast_ref::<State>().truncated {
+        let state = tree.state.downcast_ref::<State>();
+        if !state.truncated {
             return mouse::Interaction::None;
         }
-        self.content.as_widget().mouse_interaction(
+
+        self.content_element(state).as_widget().mouse_interaction(
             &tree.children[0],
             layout,
             cursor,
@@ -298,7 +306,13 @@ where
         cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
-        self.content.as_widget().draw(
+        // Rebuilt from the stored projection instead of `self.content`, which
+        // only becomes the truncated shape inside `layout`. Overlays are
+        // rebuilt and painted against a cached layout, so a drawing instance
+        // may never have run `layout` — see `UserInterface::draw`.
+        let state = tree.state.downcast_ref::<State>();
+
+        self.content_element(state).as_widget().draw(
             &tree.children[0],
             renderer,
             theme,
@@ -317,9 +331,12 @@ where
         viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, crate::theme::Theme, iced::Renderer>> {
-        if !tree.state.downcast_ref::<State>().truncated {
+        let state = tree.state.downcast_ref::<State>();
+        if !state.truncated {
             return None;
         }
+        self.content = self.content_element(state);
+
         self.content.as_widget_mut().overlay(
             &mut tree.children[0],
             layout,
