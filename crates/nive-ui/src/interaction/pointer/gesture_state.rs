@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use iced::{keyboard, mouse, touch, Event, Point};
+use iced::{keyboard, mouse, touch, window, Event, Point};
 
 use self::touch_input::Touch;
 use super::{PointerButton, PointerGesture, PointerGestureKind};
@@ -101,7 +101,10 @@ where
                 }
                 self.handle_button_released((*button).into(), now)
             }
-            Event::Mouse(mouse::Event::CursorLeft) => {
+            // The button is still physically down, so the press is suspended
+            // rather than cancelled: the next move back inside resumes it.
+            Event::Mouse(mouse::Event::CursorLeft) => Vec::new(),
+            Event::Window(window::Event::Unfocused) => {
                 if self.active_touch.is_some() {
                     return Vec::new();
                 }
