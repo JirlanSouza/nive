@@ -6,7 +6,7 @@ use iced::{
 };
 use nive_ui::theme::{self, TextRole, TypographyRole};
 use nive_ui::widgets::{icon, Tooltip};
-use nive_ui::{Element, IconRole};
+use nive_ui::{Element, IconRef};
 
 /// Principal document-title composition for application-owned document content.
 ///
@@ -14,7 +14,7 @@ use nive_ui::{Element, IconRole};
 /// slot. The document host continues to own its Canvas surface and inset.
 pub struct DocumentHeader<'a, Message> {
     title: Cow<'a, str>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     trailing: Option<Element<'a, Message>>,
     title_tooltip: Option<Cow<'a, str>>,
 }
@@ -34,8 +34,8 @@ where
     }
 
     /// Adds a secondary decorative icon before the title.
-    pub fn icon(mut self, icon: IconRole) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 
@@ -82,7 +82,7 @@ where
             .width(Length::Fill);
         if let Some(icon_role) = self.icon {
             leading = leading.push(
-                icon::role(icon_role)
+                icon::reference(icon_role)
                     .custom_size(icon_size)
                     .color(theme.text(TextRole::Secondary).color),
             );
@@ -113,6 +113,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[allow(unused_imports)]
+    use nive_ui::IconRole;
 
     #[test]
     fn heading_contract_is_sixteen_pixel_semibold() {
@@ -130,7 +132,7 @@ mod tests {
             .trailing(text("Healthy"));
 
         assert_eq!(header.title, "Document");
-        assert_eq!(header.icon, Some(IconRole::Folder));
+        assert_eq!(header.icon, Some(IconRole::Folder.into()));
         assert_eq!(header.title_tooltip.as_deref(), Some("Full document title"));
         assert!(header.trailing.is_some());
     }

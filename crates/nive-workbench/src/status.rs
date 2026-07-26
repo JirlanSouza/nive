@@ -6,7 +6,7 @@ use nive_ui::theme::{
     self, BorderRole, ControlSize, SurfaceRole, TextRole, Theme, ToneRole, TypographyRole,
 };
 use nive_ui::widgets::{ProgressBar, Spinner, ToneDot};
-use nive_ui::{Element, IconRole};
+use nive_ui::{Element, IconRef};
 
 use crate::layout_probe;
 
@@ -47,7 +47,7 @@ pub enum StatusItem<'a> {
     /// Icon plus text item.
     IconText {
         /// Icon role.
-        icon: IconRole,
+        icon: IconRef,
         /// Visible label.
         label: Cow<'a, str>,
     },
@@ -93,9 +93,9 @@ impl<'a> StatusItem<'a> {
     }
 
     /// Creates an icon/text item.
-    pub fn icon_text(icon: IconRole, label: impl Into<Cow<'a, str>>) -> Self {
+    pub fn icon_text(icon: impl Into<IconRef>, label: impl Into<Cow<'a, str>>) -> Self {
         Self::IconText {
-            icon,
+            icon: icon.into(),
             label: label.into(),
         }
     }
@@ -263,7 +263,7 @@ where
         StatusItem::Context(label) => Some(status_text(label, TextRole::Muted)),
         StatusItem::IconText { icon, label } => Some(
             row![
-                nive_ui::widgets::icon::role(icon)
+                nive_ui::widgets::icon::reference(icon)
                     .color(theme::active().text(TextRole::Secondary).color),
                 status_text(label, TextRole::Secondary)
             ]

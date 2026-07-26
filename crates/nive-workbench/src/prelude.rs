@@ -9,8 +9,8 @@ pub use crate::documents::{
 pub use crate::explorer::{explorer_panel, ExplorerPanel};
 pub use crate::inspector::{inspector_panel, InspectorState};
 pub use crate::layout::{
-    MaximizedPanel, WorkbenchLayout, WorkbenchLayoutChange, WorkbenchLayoutState, WorkbenchRegion,
-    WorkbenchRestoreSnapshot, WorkbenchSplitRatios,
+    MaximizedPanel, WorkbenchLayoutChange, WorkbenchLayoutState, WorkbenchPaneSizes,
+    WorkbenchRegion, WorkbenchRestoreSnapshot,
 };
 pub use crate::panels::{
     bottom_panel_slot, logs_panel_slot, operations_panel_slot, output_panel_slot, panel_host,

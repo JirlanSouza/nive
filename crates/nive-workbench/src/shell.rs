@@ -1,14 +1,16 @@
 use std::rc::Rc;
 
-use iced::widget::{column, container, row, Column, Space};
+use iced::widget::{column, container, row, Column, Row, Space};
 use iced::{Length, Padding};
-use nive_ui::interaction::Orientation;
 use nive_ui::theme::{self, ControlSize, SurfaceRole};
-use nive_ui::widgets::{Panel, SplitPane, SplitPaneConstraints, Toolbar};
+use nive_ui::widgets::{Panel, SplitCollapse, SplitResize, SplitStack, SplitStackPane, Toolbar};
 use nive_ui::Element;
 
 use crate::documents::{DocumentArea, WorkbenchDocument, WorkbenchDocumentEvent};
-use crate::layout::{WorkbenchLayoutChange, WorkbenchLayoutState, WorkbenchRegion};
+use crate::layout::{
+    MaximizedPanel, WorkbenchLayoutChange, WorkbenchLayoutState, WorkbenchPaneSizes,
+    WorkbenchRegion,
+};
 use crate::layout_probe;
 use crate::panels::{
     panel_host_with_size, PanelHostMode, WorkbenchPanel, WorkbenchPanelEvent,
@@ -117,8 +119,17 @@ where
     /// intentionally not handled by this helper.
     pub fn apply_to(&self, state: &mut WorkbenchLayoutState<DocumentId, PanelId>) {
         match self {
-            Self::Layout(WorkbenchLayoutChange::SplitRatioChanged { region, ratio }) => {
-                state.set_split_ratio(*region, *ratio);
+            Self::Layout(WorkbenchLayoutChange::RegionResized { region, size }) => {
+                state.set_region_size(*region, *size);
+            }
+            Self::Layout(WorkbenchLayoutChange::RegionCollapsed {
+                region,
+                restore_size,
+            }) => {
+                if let Some(size) = restore_size {
+                    state.set_region_size(*region, *size);
+                }
+                state.collapse_region(*region);
             }
             Self::Layout(_) => {}
             Self::Document(WorkbenchDocumentEvent::Select(document_id)) => {
@@ -129,6 +140,9 @@ where
                 state.set_active_panel(*region, panel_id.clone());
             }
             Self::Panel(WorkbenchPanelEvent::RestoreRequested { region, panel_id }) => {
+                // Reaching for another region's rail leaves the maximized view;
+                // without this the rail would render but do nothing.
+                state.restore_maximized();
                 state.restore_region(*region);
                 state.set_active_panel(*region, panel_id.clone());
             }
@@ -136,7 +150,10 @@ where
                 state.collapse_region(*region);
             }
             Self::Panel(WorkbenchPanelEvent::MaximizeRequested { region, panel_id }) => {
+                // Snapshot first, then make the maximized panel the active one so
+                // the region shows it and its rail can swap to a sibling.
                 state.maximize_panel(*region, panel_id.clone());
+                state.set_active_panel(*region, panel_id.clone());
             }
             Self::Panel(WorkbenchPanelEvent::PanelRestoreRequested { .. }) => {
                 state.restore_maximized();
@@ -314,24 +331,89 @@ where
     }
 
     fn body(&mut self) -> Element<'a, Message> {
-        if let Some(maximized) = self.state.maximized().cloned() {
-            if let Some(panel) = self.take_panel(maximized.region, &maximized.panel_id) {
-                let state = WorkbenchPanelHostState::new(maximized.region)
-                    .active_panel(maximized.panel_id)
-                    .mode(PanelHostMode::Maximized);
-                return panel_host_with_size(state, [panel], self.panel_mapper(), self.chrome_size);
+        let body = match self.state.maximized().cloned() {
+            Some(maximized) if self.hosts_panel(&maximized) => self.maximized_body(maximized),
+            _ => {
+                let center = self.center_region();
+                let center_with_sides = self.with_side_regions(center);
+                self.with_bottom_region(center_with_sides)
             }
-        }
-
-        let center = self.center_region();
-        let center_with_sides = self.with_side_regions(center);
-        let body = self.with_bottom_region(center_with_sides);
+        };
 
         container(body)
             .width(Length::Fill)
             .height(Length::Fill)
             .style(theme::surface::style(SurfaceRole::App))
             .into()
+    }
+
+    /// Gives the maximized region the whole content area.
+    ///
+    /// Every other region still contributes its rail, so the panel list of both
+    /// sides stays reachable instead of the shell collapsing to one panel.
+    fn maximized_body(&mut self, maximized: MaximizedPanel<PanelId>) -> Element<'a, Message> {
+        let left = self.maximized_region(WorkbenchRegion::Left, &maximized);
+        let right = self.maximized_region(WorkbenchRegion::Right, &maximized);
+        let bottom = self.maximized_region(WorkbenchRegion::Bottom, &maximized);
+
+        [left, bottom, right]
+            .into_iter()
+            .flatten()
+            .fold(Row::new().height(Length::Fill), Row::push)
+            .into()
+    }
+
+    /// Renders one region while `maximized` holds the content area.
+    ///
+    /// The maximized region fills; the others shrink to their rail. The bottom
+    /// region has no rail, so it only appears when it is the maximized one.
+    fn maximized_region(
+        &mut self,
+        region: WorkbenchRegion,
+        maximized: &MaximizedPanel<PanelId>,
+    ) -> Option<Element<'a, Message>> {
+        let panels = match region {
+            WorkbenchRegion::Left => std::mem::take(&mut self.left_panels),
+            WorkbenchRegion::Right => std::mem::take(&mut self.right_panels),
+            _ => std::mem::take(&mut self.bottom_panels),
+        };
+        let is_maximized = maximized.region == region;
+        if panels.is_empty() || (!is_maximized && region == WorkbenchRegion::Bottom) {
+            return None;
+        }
+
+        let mut state = WorkbenchPanelHostState::new(region)
+            // Collapsing out of a maximized region has no meaningful target, so
+            // only the other regions keep the rail toggle.
+            .collapse_on_active_click(!is_maximized)
+            .mode(if is_maximized {
+                PanelHostMode::Maximized
+            } else {
+                PanelHostMode::Collapsed
+            });
+        if let Some(active) = self.state.active_panel(region).cloned() {
+            state = state.active_panel(active);
+        }
+
+        let host = panel_host_with_size(state, panels, self.panel_mapper(), self.chrome_size);
+        let probe = if is_maximized {
+            layout_probe::probe("maximized_pane", host)
+        } else {
+            host
+        };
+
+        Some(probe)
+    }
+
+    fn hosts_panel(&self, maximized: &MaximizedPanel<PanelId>) -> bool {
+        let panels = match maximized.region {
+            WorkbenchRegion::Left => &self.left_panels,
+            WorkbenchRegion::Right => &self.right_panels,
+            WorkbenchRegion::Bottom => &self.bottom_panels,
+            _ => return false,
+        };
+
+        panels.iter().any(|panel| panel.id() == &maximized.panel_id)
     }
 
     fn center_region(&mut self) -> Element<'a, Message> {
@@ -356,55 +438,78 @@ where
             .into()
     }
 
+    /// Lays the left, center, and right regions out on one horizontal axis.
+    ///
+    /// One container holds all three, so a region divider is never able to reach
+    /// past its two neighbours. Collapsed regions leave the stack entirely and
+    /// render as a rail beside it, which stays the semantic zero-size path.
     fn with_side_regions(&mut self, center: Element<'a, Message>) -> Element<'a, Message> {
-        let mut content = center;
-        if !self.left_panels.is_empty() {
+        let sizes = self.state.pane_sizes();
+        let left_split =
+            !self.left_panels.is_empty() && !self.state.is_collapsed(WorkbenchRegion::Left);
+        let right_split =
+            !self.right_panels.is_empty() && !self.state.is_collapsed(WorkbenchRegion::Right);
+
+        let mut regions = Vec::with_capacity(3);
+        let mut stack = SplitStack::horizontal().size(self.chrome_size);
+
+        let left_rail = (!self.left_panels.is_empty() && !left_split).then(|| {
             let panels = std::mem::take(&mut self.left_panels);
-            let left_collapsed = self.state.is_collapsed(WorkbenchRegion::Left);
-            let left = self.panel_region(WorkbenchRegion::Left, panels, left_collapsed);
-            content = if left_collapsed {
-                row![left, content].height(Length::Fill).into()
-            } else {
-                SplitPane::new(
-                    layout_probe::probe("left_split_leading", left),
-                    layout_probe::probe("left_split_trailing", content),
-                )
-                .size(self.chrome_size)
-                .ratio(self.state.split_ratios().left)
-                .constraints(SplitPaneConstraints::new(
-                    self.pane_constraints.left,
-                    self.pane_constraints.center,
-                ))
-                .on_change(self.layout_ratio_mapper(WorkbenchRegion::Left))
-                .into()
-            };
+            self.panel_region(WorkbenchRegion::Left, panels, true)
+        });
+
+        if left_split {
+            let panels = std::mem::take(&mut self.left_panels);
+            let left = self.panel_region(WorkbenchRegion::Left, panels, false);
+            regions.push(WorkbenchRegion::Left);
+            stack = stack.pane(
+                SplitStackPane::fixed(layout_probe::probe("left_pane", left), sizes.left)
+                    .minimum(self.pane_constraints.left)
+                    .collapsible(true),
+            );
         }
 
-        if !self.right_panels.is_empty() {
+        regions.push(WorkbenchRegion::Center);
+        stack = stack.pane(
+            SplitStackPane::fill(layout_probe::probe("center_pane", center))
+                .minimum(self.pane_constraints.center),
+        );
+
+        let right_rail = (!self.right_panels.is_empty() && !right_split).then(|| {
             let panels = std::mem::take(&mut self.right_panels);
-            let right_collapsed = self.state.is_collapsed(WorkbenchRegion::Right);
-            let right = self.panel_region(WorkbenchRegion::Right, panels, right_collapsed);
-            content = if right_collapsed {
-                row![content, right].height(Length::Fill).into()
-            } else {
-                SplitPane::new(
-                    layout_probe::probe("right_split_leading", content),
-                    layout_probe::probe("right_split_trailing", right),
-                )
-                .size(self.chrome_size)
-                .ratio(self.state.split_ratios().right)
-                .constraints(SplitPaneConstraints::new(
-                    self.pane_constraints.center,
-                    self.pane_constraints.right,
-                ))
-                .on_change(self.layout_ratio_mapper(WorkbenchRegion::Right))
-                .into()
-            };
+            self.panel_region(WorkbenchRegion::Right, panels, true)
+        });
+
+        if right_split {
+            let panels = std::mem::take(&mut self.right_panels);
+            let right = self.panel_region(WorkbenchRegion::Right, panels, false);
+            regions.push(WorkbenchRegion::Right);
+            stack = stack.pane(
+                SplitStackPane::fixed(layout_probe::probe("right_pane", right), sizes.right)
+                    .minimum(self.pane_constraints.right)
+                    .collapsible(true),
+            );
+        }
+
+        let mut content: Element<'a, Message> = stack
+            .on_resize(self.region_resize_mapper(regions.clone()))
+            .on_collapse(self.region_collapse_mapper(regions))
+            .into();
+
+        if let Some(left_rail) = left_rail {
+            content = row![left_rail, content].height(Length::Fill).into();
+        }
+        if let Some(right_rail) = right_rail {
+            content = row![content, right_rail].height(Length::Fill).into();
         }
 
         content
     }
 
+    /// Splits the bottom region off on the vertical axis.
+    ///
+    /// A separate axis carries no coupling with the horizontal regions, which is
+    /// the alternating arrangement reference workbench grids use.
     fn with_bottom_region(&mut self, content: Element<'a, Message>) -> Element<'a, Message> {
         if self.bottom_panels.is_empty() || self.state.is_collapsed(WorkbenchRegion::Bottom) {
             return content;
@@ -412,19 +517,24 @@ where
 
         let panels = std::mem::take(&mut self.bottom_panels);
         let bottom = self.panel_region(WorkbenchRegion::Bottom, panels, false);
-        SplitPane::new(
-            layout_probe::probe("bottom_split_leading", content),
-            layout_probe::probe("bottom_split_trailing", bottom),
-        )
-        .size(self.chrome_size)
-        .orientation(Orientation::Vertical)
-        .ratio(self.state.split_ratios().bottom)
-        .constraints(SplitPaneConstraints::new(
-            self.pane_constraints.upper,
-            self.pane_constraints.bottom,
-        ))
-        .on_change(self.layout_ratio_mapper(WorkbenchRegion::Bottom))
-        .into()
+
+        SplitStack::vertical()
+            .size(self.chrome_size)
+            .pane(
+                SplitStackPane::fill(layout_probe::probe("upper_pane", content))
+                    .minimum(self.pane_constraints.upper),
+            )
+            .pane(
+                SplitStackPane::fixed(
+                    layout_probe::probe("bottom_pane", bottom),
+                    self.state.pane_sizes().bottom,
+                )
+                .minimum(self.pane_constraints.bottom),
+            )
+            .on_resize(
+                self.region_resize_mapper(vec![WorkbenchRegion::Center, WorkbenchRegion::Bottom]),
+            )
+            .into()
     }
 
     fn panel_region(
@@ -433,7 +543,11 @@ where
         panels: Vec<WorkbenchPanel<'a, PanelId, ActionId, Message>>,
         collapsed: bool,
     ) -> Element<'a, Message> {
-        let mut state = WorkbenchPanelHostState::new(region).collapsed(collapsed);
+        // Clicking a rail item toggles its region: the active one folds it away,
+        // any other selects that panel, and a collapsed region comes back.
+        let mut state = WorkbenchPanelHostState::new(region)
+            .collapsed(collapsed)
+            .collapse_on_active_click(true);
         if let Some(active) = self.state.active_panel(region).cloned() {
             state = state.active_panel(active);
         }
@@ -441,30 +555,53 @@ where
         panel_host_with_size(state, panels, self.panel_mapper(), self.chrome_size)
     }
 
-    fn take_panel(
-        &mut self,
-        region: WorkbenchRegion,
-        panel_id: &PanelId,
-    ) -> Option<WorkbenchPanel<'a, PanelId, ActionId, Message>> {
-        let panels = match region {
-            WorkbenchRegion::Left => &mut self.left_panels,
-            WorkbenchRegion::Right => &mut self.right_panels,
-            WorkbenchRegion::Bottom => &mut self.bottom_panels,
-            WorkbenchRegion::Toolbar | WorkbenchRegion::Center | WorkbenchRegion::Status => {
-                return None;
-            }
-        };
-        let index = panels.iter().position(|panel| panel.id() == panel_id)?;
-        Some(panels.remove(index))
+    /// Maps a stack resize onto the region whose size the app stores.
+    ///
+    /// `regions` names the pane at each index, so the divider index resolves to
+    /// the sized region on either side of it. The centre region has no stored
+    /// size and is skipped.
+    fn region_resize_mapper(
+        &self,
+        regions: Vec<WorkbenchRegion>,
+    ) -> impl Fn(SplitResize) -> Message + 'a {
+        let mapper = self.on_event.clone();
+        move |resize| {
+            let (region, size) = match regions.get(resize.divider) {
+                Some(WorkbenchRegion::Center) | None => {
+                    (regions.get(resize.divider + 1).copied(), resize.trailing)
+                }
+                Some(region) => (Some(*region), resize.leading),
+            };
+
+            mapper(WorkbenchEvent::Layout(
+                WorkbenchLayoutChange::RegionResized {
+                    region: region.unwrap_or(WorkbenchRegion::Center),
+                    size: WorkbenchPaneSizes::normalize(size),
+                },
+            ))
+        }
     }
 
-    fn layout_ratio_mapper(&self, region: WorkbenchRegion) -> impl Fn(f32) -> Message + 'a {
+    /// Maps a stack collapse onto the region that should fold away.
+    ///
+    /// The reported restore length is the region's width before the drag, so
+    /// restoring it later returns it to that width rather than the minimum the
+    /// same drag squeezed it to.
+    fn region_collapse_mapper(
+        &self,
+        regions: Vec<WorkbenchRegion>,
+    ) -> impl Fn(SplitCollapse) -> Message + 'a {
         let mapper = self.on_event.clone();
-        move |ratio| {
+        move |collapse| {
+            let region = regions
+                .get(collapse.pane)
+                .copied()
+                .unwrap_or(WorkbenchRegion::Center);
+
             mapper(WorkbenchEvent::Layout(
-                WorkbenchLayoutChange::SplitRatioChanged {
+                WorkbenchLayoutChange::RegionCollapsed {
                     region,
-                    ratio: crate::layout::WorkbenchSplitRatios::clamp(ratio),
+                    restore_size: Some(WorkbenchPaneSizes::normalize(collapse.restore)),
                 },
             ))
         }

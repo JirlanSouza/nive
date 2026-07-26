@@ -11,7 +11,7 @@ use nive_ui::{
 };
 
 use super::bottom_tab_track::BottomPanelTabTrack;
-use super::header::{trailing_controls, TrailingControlFlags};
+use super::header::{trailing_controls, MaximizeToggle, TrailingControlFlags};
 use super::model::{
     BottomHeaderTab, PanelAction, PanelHeaderBar, PanelHostMode, PanelRail, PanelRailItem,
     PanelSelectorPlacement, WorkbenchPanel, WorkbenchPanelEvent, WorkbenchPanelHostState,
@@ -74,7 +74,9 @@ where
             let items = rail_items(&panels, &active_id);
             let rail_mapper = {
                 let mapper = mapper.clone();
-                let state = state.clone();
+                // Activation must agree with the item the rail paints as
+                // selected, which is the resolved id rather than the raw state.
+                let state = state.clone().active_panel(active_id.clone());
                 move |panel_id| {
                     let event = state.rail_activation_event(panel_id);
                     mapper(event)
@@ -329,8 +331,7 @@ fn bottom_controls_width<ActionId>(
     let control = theme::control_metrics(size);
     let action_count = actions.len()
         + usize::from(collapsible)
-        + usize::from(restorable)
-        + usize::from(maximizable)
+        + usize::from(MaximizeToggle::resolve(restorable, maximizable).is_some())
         + usize::from(closable);
     let app_action_width = actions
         .iter()

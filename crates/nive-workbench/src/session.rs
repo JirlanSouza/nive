@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::layout::{WorkbenchLayoutState, WorkbenchRegion, WorkbenchSplitRatios};
+use crate::layout::{WorkbenchLayoutState, WorkbenchPaneSizes, WorkbenchRegion};
 
 /// Serializable layout sub-session.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -200,12 +200,12 @@ where
 }
 
 impl WorkbenchSession {
-    /// Builds a default string-id session from split ratios.
-    pub fn with_split_ratios(split_ratios: WorkbenchSplitRatios) -> Self {
+    /// Builds a default string-id session from region sizes.
+    pub fn with_pane_sizes(pane_sizes: WorkbenchPaneSizes) -> Self {
         let mut state = WorkbenchLayoutState::<String, String>::default();
-        state.set_split_ratio(WorkbenchRegion::Left, split_ratios.left);
-        state.set_split_ratio(WorkbenchRegion::Right, split_ratios.right);
-        state.set_split_ratio(WorkbenchRegion::Bottom, split_ratios.bottom);
+        state.set_region_size(WorkbenchRegion::Left, pane_sizes.left);
+        state.set_region_size(WorkbenchRegion::Right, pane_sizes.right);
+        state.set_region_size(WorkbenchRegion::Bottom, pane_sizes.bottom);
         Self::from_layout_state(state)
     }
 }
@@ -217,7 +217,7 @@ mod tests {
     #[test]
     fn session_round_trips_view_state_without_domain_payloads() {
         let mut state = WorkbenchLayoutState::<String, String>::default();
-        state.set_split_ratio(WorkbenchRegion::Left, 0.3);
+        state.set_region_size(WorkbenchRegion::Left, 320.0);
         state.collapse_region(WorkbenchRegion::Bottom);
         state.set_active_panel(WorkbenchRegion::Left, "files".to_string());
         state.set_panel_order(
@@ -229,7 +229,7 @@ mod tests {
         let json = serde_json::to_string(&session).expect("session serializes");
         let restored: WorkbenchSession = serde_json::from_str(&json).expect("session deserializes");
 
-        assert_eq!(restored.layout.state.split_ratios().left, 0.3);
+        assert_eq!(restored.layout.state.pane_sizes().left, 320.0);
         assert!(restored.layout.state.is_collapsed(WorkbenchRegion::Bottom));
         assert_eq!(
             restored.panels.left.order,

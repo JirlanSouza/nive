@@ -1,4 +1,4 @@
-mod ratios;
+mod sizes;
 #[cfg(test)]
 mod tests;
 
@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
-pub use ratios::{WorkbenchLayout, WorkbenchRegion, WorkbenchSplitRatios};
+pub use sizes::{WorkbenchPaneSizes, WorkbenchRegion};
 
 /// A maximized panel identity.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,8 +27,8 @@ impl<PanelId> MaximizedPanel<PanelId> {
 /// View-state snapshot used to restore a maximized panel.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WorkbenchRestoreSnapshot<DocumentId, PanelId> {
-    /// Split ratios before maximize.
-    pub split_ratios: WorkbenchSplitRatios,
+    /// Region sizes before maximize.
+    pub pane_sizes: WorkbenchPaneSizes,
     /// Collapsed regions before maximize.
     pub collapsed_regions: BTreeSet<WorkbenchRegion>,
     /// Active document before maximize.
@@ -42,7 +42,7 @@ pub struct WorkbenchRestoreSnapshot<DocumentId, PanelId> {
 /// Durable app-owned shell state.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WorkbenchLayoutState<DocumentId = String, PanelId = String> {
-    split_ratios: WorkbenchSplitRatios,
+    pane_sizes: WorkbenchPaneSizes,
     collapsed_regions: BTreeSet<WorkbenchRegion>,
     maximized: Option<MaximizedPanel<PanelId>>,
     restore_snapshot: Option<WorkbenchRestoreSnapshot<DocumentId, PanelId>>,
@@ -55,22 +55,28 @@ pub struct WorkbenchLayoutState<DocumentId = String, PanelId = String> {
 ///
 /// The same type is used for shell layout events when a rendered widget asks
 /// the app to feed updated controlled state back into the shell. In the current
-/// shell event path only [`WorkbenchLayoutChange::SplitRatioChanged`] is
-/// emitted directly; the collapse, restore, maximize, active panel, and active
-/// document variants are returned by state mutators and can also be reached
-/// through [`crate::shell::WorkbenchEvent::apply_to`].
+/// shell event path only [`WorkbenchLayoutChange::RegionResized`] is emitted
+/// directly; the collapse, restore, maximize, active panel, and active document
+/// variants are returned by state mutators and can also be reached through
+/// [`crate::shell::WorkbenchEvent::apply_to`].
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum WorkbenchLayoutChange<DocumentId, PanelId> {
-    /// A controlled split ratio changed.
-    SplitRatioChanged {
+    /// A controlled region size changed.
+    RegionResized {
         /// Affected region.
         region: WorkbenchRegion,
-        /// New ratio, already clamped to workbench bounds.
-        ratio: f32,
+        /// New size in logical pixels, already normalized.
+        size: f32,
     },
     /// A region should collapse.
-    RegionCollapsed(WorkbenchRegion),
+    RegionCollapsed {
+        /// Affected region.
+        region: WorkbenchRegion,
+        /// Size to record before collapsing, so restoring returns the region to
+        /// the width it held before the gesture that collapsed it.
+        restore_size: Option<f32>,
+    },
     /// A region should restore.
     RegionRestored(WorkbenchRegion),
     /// Active document should change.
@@ -91,7 +97,7 @@ pub enum WorkbenchLayoutChange<DocumentId, PanelId> {
 impl<DocumentId, PanelId> Default for WorkbenchLayoutState<DocumentId, PanelId> {
     fn default() -> Self {
         Self {
-            split_ratios: WorkbenchSplitRatios::default(),
+            pane_sizes: WorkbenchPaneSizes::default(),
             collapsed_regions: BTreeSet::new(),
             maximized: None,
             restore_snapshot: None,
@@ -108,9 +114,9 @@ impl<DocumentId, PanelId> WorkbenchLayoutState<DocumentId, PanelId> {
         Self::default()
     }
 
-    /// Returns current split ratios.
-    pub const fn split_ratios(&self) -> WorkbenchSplitRatios {
-        self.split_ratios
+    /// Returns current region sizes.
+    pub const fn pane_sizes(&self) -> WorkbenchPaneSizes {
+        self.pane_sizes
     }
 
     /// Returns collapsed regions.
@@ -176,15 +182,15 @@ impl<DocumentId, PanelId> WorkbenchLayoutState<DocumentId, PanelId> {
         &self.panel_order
     }
 
-    /// Applies a controlled split-ratio change.
-    pub fn set_split_ratio(
+    /// Applies a controlled region-size change.
+    pub fn set_region_size(
         &mut self,
         region: WorkbenchRegion,
-        ratio: f32,
+        size: f32,
     ) -> WorkbenchLayoutChange<DocumentId, PanelId> {
-        let ratio = WorkbenchSplitRatios::clamp(ratio);
-        self.split_ratios.set_region_ratio(region, ratio);
-        WorkbenchLayoutChange::SplitRatioChanged { region, ratio }
+        let size = WorkbenchPaneSizes::normalize(size);
+        self.pane_sizes.set_region_size(region, size);
+        WorkbenchLayoutChange::RegionResized { region, size }
     }
 
     /// Collapses a panel region.
@@ -193,7 +199,10 @@ impl<DocumentId, PanelId> WorkbenchLayoutState<DocumentId, PanelId> {
         region: WorkbenchRegion,
     ) -> Option<WorkbenchLayoutChange<DocumentId, PanelId>> {
         if region.is_panel_region() && self.collapsed_regions.insert(region) {
-            Some(WorkbenchLayoutChange::RegionCollapsed(region))
+            Some(WorkbenchLayoutChange::RegionCollapsed {
+                region,
+                restore_size: None,
+            })
         } else {
             None
         }
@@ -251,7 +260,7 @@ impl<DocumentId, PanelId> WorkbenchLayoutState<DocumentId, PanelId> {
     {
         if self.restore_snapshot.is_none() {
             self.restore_snapshot = Some(WorkbenchRestoreSnapshot {
-                split_ratios: self.split_ratios,
+                pane_sizes: self.pane_sizes,
                 collapsed_regions: self.collapsed_regions.clone(),
                 active_document: self.active_document.clone(),
                 active_panels: self.active_panels.clone(),
@@ -267,7 +276,7 @@ impl<DocumentId, PanelId> WorkbenchLayoutState<DocumentId, PanelId> {
     /// Restores the layout saved when a panel was maximized.
     pub fn restore_maximized(&mut self) -> Option<WorkbenchLayoutChange<DocumentId, PanelId>> {
         let snapshot = self.restore_snapshot.take()?;
-        self.split_ratios = snapshot.split_ratios;
+        self.pane_sizes = snapshot.pane_sizes;
         self.collapsed_regions = snapshot.collapsed_regions;
         self.active_document = snapshot.active_document;
         self.active_panels = snapshot.active_panels;
