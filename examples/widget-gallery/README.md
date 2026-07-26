@@ -54,7 +54,10 @@ The gallery exercises:
 - structural stress cases for long/narrow `SectionHeader`, transparent Toolbar
   groups and contained overflow, adjacent Panel header/body anatomy, 12/6
   overlay scrollbars, the complete semantic Separator matrix, and interactive,
-  locked, display-only, invalid-minimum, and constrained SplitPane states
+  locked, display-only, invalid-minimum, and constrained SplitPane states;
+  SplitStack fixed/fill sizing, divider independence, stop-at-minimum
+  saturation, collapse by dragging past a minimum with the pre-drag width
+  restored, locked, display-only, and degraded-input states
 - controlled TabBar states for active, inactive, dirty, pinned, closable,
   disabled, long-label, overflow/menu, keyboard, context, reorder, and tear-off
   behavior; both physical SideRail sides with labels, icons, and overflow; and
@@ -81,8 +84,8 @@ The gallery exercises:
 Composite or utility exports are covered through their owning widgets:
 
 - `Button`, `ButtonVariant`, `TextInputAppearance`, `InputGroupVariant`,
-  `SplitPaneConstraints`, and `SplitPaneDirection` are exercised through button,
-  input group, and split pane variants.
+  `SplitPaneConstraints`, `SplitSizing`, and `SplitResize` are exercised through
+  button, input group, split pane, and split stack variants.
 - `IconSource`, `ErrorPresentation`, `ResourceStatusPresentation`, and
   `OperationStatusPresentation` are support contracts for the demonstrated
   widgets rather than standalone visuals. Autocomplete uses only typed

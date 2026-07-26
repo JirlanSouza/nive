@@ -6,6 +6,7 @@ use super::format::grouped;
 use super::tone::tone_label;
 use super::{AppCommand, Message, MonitorFilter, ServiceScope, WorkbenchMonitor};
 use crate::sim::{Environment, Service};
+use crate::icons::IconSymbol;
 
 /// Maximum readable measure for document content columns. Surplus canvas
 /// width falls outside the content instead of stretching the gaps inside
@@ -227,10 +228,10 @@ impl WorkbenchMonitor {
 
         let content = column![
             DocumentHeader::new("Fleet overview")
-                .icon(IconRole::DialogInformation)
+                .icon(IconSymbol::Dashboard)
                 .trailing(
                     ActionGroup::new().action(
-                        ContentAction::icon_label(IconRole::ViewRefresh, "Run health check")
+                        ContentAction::icon_label(IconRole::ViewActivity, "Run health check")
                             .on_press(Message::Command(AppCommand::RunHealthCheck))
                     )
                 ),
@@ -240,7 +241,7 @@ impl WorkbenchMonitor {
             Card::new(
                 column![
                     SectionHeader::new("Services")
-                        .icon(IconRole::Folder)
+                        .icon(IconSymbol::Server)
                         .count_badge(self.model.services.len() as u64),
                     column(services).spacing(6),
                 ]
@@ -251,7 +252,7 @@ impl WorkbenchMonitor {
             Card::new(
                 column![
                     SectionHeader::new("Dashboard state")
-                        .icon(IconRole::TabPinned)
+                        .icon(IconSymbol::Dashboard)
                         .status(SectionHeaderStatus::icon_label(
                             if self.dirty_filter {
                                 IconRole::DialogWarning
@@ -324,7 +325,7 @@ impl WorkbenchMonitor {
 
         let content = column![
             DocumentHeader::new(service.name)
-                .icon(IconRole::Folder)
+                .icon(IconSymbol::Server)
                 .trailing(StatusIndicator::new(
                     service.health,
                     tone_label(service.health)
@@ -355,7 +356,7 @@ impl WorkbenchMonitor {
                         .on_press(Message::InspectService(service.id))
                 )
                 .action(
-                    ContentAction::icon_label(IconRole::ViewRefresh, "Run health check")
+                    ContentAction::icon_label(IconRole::ViewActivity, "Run health check")
                         .loading(self.model.running_jobs() > 0)
                         .on_press(Message::Command(AppCommand::RunHealthCheck))
                 )
@@ -407,7 +408,7 @@ impl WorkbenchMonitor {
 
         Card::new(
             column![
-                SectionHeader::new("Host and runtime").icon(IconRole::OpenMenu),
+                SectionHeader::new("Host and runtime").icon(IconSymbol::Server),
                 body,
             ]
             .spacing(8),
@@ -434,7 +435,7 @@ impl WorkbenchMonitor {
         Card::new(
             column![
                 SectionHeader::new("Dependencies")
-                    .icon(IconRole::Identity)
+                    .icon(IconSymbol::Dependency)
                     .count_badge(dependencies.len() as u64),
                 column(rows).spacing(6),
             ]
@@ -464,7 +465,7 @@ impl WorkbenchMonitor {
         Card::new(
             column![
                 SectionHeader::new("Recent activity")
-                    .icon(IconRole::MailInbox)
+                    .icon(IconRole::ViewActivity)
                     .count_badge(count as u64),
                 column(rows).spacing(6),
             ]
@@ -503,7 +504,7 @@ impl WorkbenchMonitor {
         if self.model.jobs.is_empty() {
             return EmptyState::new("No jobs")
                 .description("Run a health check to exercise operation progress.")
-                .icon(IconRole::ViewRefresh)
+                .icon(IconSymbol::Job)
                 .action(
                     nive_button::primary("Run health check")
                         .on_press(Message::Command(AppCommand::RunHealthCheck)),

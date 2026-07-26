@@ -1,4 +1,5 @@
 mod app;
+mod icons;
 mod sim;
 
 fn main() -> nive::Result {

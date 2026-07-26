@@ -13,6 +13,7 @@ use nive::ui::interaction::{ContextPosition, ContextTarget, SelectionMode};
 
 use super::tone::tone_label;
 use super::{Message, Selection, WorkbenchMonitor};
+use crate::icons::IconSymbol;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum ExplorerNodeId {
@@ -55,13 +56,13 @@ impl WorkbenchMonitor {
                     .filter(|service| service.host_id == host.id)
                     .map(|service| {
                         TreeNode::leaf(ExplorerNodeId::Service(service.id), service.name)
-                            .leading_icon(IconRole::Folder)
+                            .leading_icon(IconSymbol::Server)
                             .status_text(service.health, tone_label(service.health))
                     })
                     .collect::<Vec<_>>();
 
                 TreeNode::branch(ExplorerNodeId::Host(host.id), host.name, services)
-                    .leading_icon(IconRole::OpenMenu)
+                    .leading_icon(IconSymbol::Server)
                     .status_text(host.health, tone_label(host.health))
             })
             .collect();
@@ -81,7 +82,7 @@ impl WorkbenchMonitor {
                 },
             )
         };
-        roots.push(diagnostics.leading_icon(IconRole::MailInbox));
+        roots.push(diagnostics.leading_icon(IconSymbol::Diagnostics));
 
         roots
     }
