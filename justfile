@@ -36,7 +36,7 @@ examples-check:
 
 # Run a standalone example with the reusable dev reload loop.
 example-dev example:
-    just app-dev-cwd examples/{{ example }} nive-example-{{ example }} {{ example }} ""
+    CARGO_TARGET_DIR="{{ justfile_directory() }}/target" just app-dev-cwd examples/{{ example }} nive-example-{{ example }} {{ example }} ""
 
 # Run the widget gallery with terminal-triggered reload.
 widget-gallery-dev:
@@ -99,11 +99,11 @@ icons-check:
 
 # Add framework icon symbol. Usage: just icons-add-symbol User user
 icons-add-symbol variant provider_ref:
-    cd crates/nive-ui && cargo run -p nive-cli -- icons add-symbol {{ variant }} {{ provider_ref }}
+    cd crates/nive-ui && cargo run -p nive-cli -- icons add-symbol {{ variant }} {{ provider_ref }} --framework
 
 # Set framework icon role. Usage: just icons-set-role window-close lucide:x
 icons-set-role role provider_ref:
-    cd crates/nive-ui && cargo run -p nive-cli -- icons set-role {{ role }} {{ provider_ref }}
+    cd crates/nive-ui && cargo run -p nive-cli -- icons set-role {{ role }} {{ provider_ref }} --framework
 
 # Create new app using Nive. Usage: just create-app my-app
 create-app name:
