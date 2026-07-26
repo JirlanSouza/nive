@@ -1,6 +1,7 @@
 pub use crate::interaction::Orientation;
 pub use crate::widgets::containers::{
-    ActionCard, Card, Panel, SelectableCard, SplitPane, SplitPaneConstraints,
+    ActionCard, Card, Panel, SelectableCard, SplitCollapse, SplitPane, SplitPaneConstraints,
+    SplitResize, SplitSizing, SplitStack, SplitStackPane,
 };
 pub use crate::widgets::containers::{SectionHeader, SectionHeaderAction, SectionHeaderStatus};
 pub use crate::widgets::{

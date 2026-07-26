@@ -134,7 +134,8 @@ pub use primitives::{icon, text};
 /// ```
 pub use containers::{
     ActionCard, Card, CardVariant, Panel, SectionHeader, SectionHeaderAction, SectionHeaderStatus,
-    SelectableCard, SplitPane, SplitPaneConstraints,
+    SelectableCard, SplitCollapse, SplitPane, SplitPaneConstraints, SplitResize, SplitSizing,
+    SplitStack, SplitStackPane,
 };
 pub use controls::{
     ActionGroup, Autocomplete, AutocompleteHighlight, AutocompleteResults, AutocompleteSuggestion,
@@ -173,7 +174,7 @@ pub use overlays::{
     ToastTone, Tooltip, TooltipPlacement, TooltipScope,
 };
 pub use primitives::{
-    space, svg, ColorSwatch, Icon, IconGlyph, IconRole, IconSource, Separator, SeparatorExtent,
-    SeparatorStrength, StatusIndicator, ToneDot,
+    space, svg, ColorSwatch, Icon, IconGlyph, IconRef, IconRole, IconSource, Separator,
+    SeparatorExtent, SeparatorStrength, StatusIndicator, ToneDot,
 };
 pub use scrollable::overlay_scrollbar;
