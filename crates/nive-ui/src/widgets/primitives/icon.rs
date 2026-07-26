@@ -9,7 +9,7 @@ use iced::{
     Color, Length, Radians, Rectangle, Size,
 };
 
-use crate::icons::{IconGlyph, IconRole, IconSource};
+use crate::icons::{IconGlyph, IconRef, IconRole, IconSource};
 use crate::Element;
 use crate::Theme;
 
@@ -89,6 +89,10 @@ pub fn glyph(glyph: IconGlyph) -> Icon {
     Icon::glyph(glyph)
 }
 
+pub fn reference(icon: IconRef) -> Icon {
+    Icon::reference(icon)
+}
+
 pub(crate) fn handle(glyph: IconGlyph) -> Handle {
     Handle::from_memory(glyph.svg_bytes())
 }
@@ -132,6 +136,13 @@ impl Icon {
 
     pub fn glyph(glyph: IconGlyph) -> Self {
         Self::from_kind(IconKind::Glyph(glyph))
+    }
+
+    pub fn reference(icon: IconRef) -> Self {
+        match icon {
+            IconRef::Role(role) => Self::role(role),
+            IconRef::Glyph(glyph) => Self::glyph(glyph),
+        }
     }
 }
 

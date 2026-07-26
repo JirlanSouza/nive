@@ -1,5 +1,5 @@
 // Bundled Lucide icons are sourced from Lucide (https://lucide.dev) and distributed under the ISC License.
-use crate::icons::IconSource;
+use crate::icons::{IconRef, IconSource};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12,5 +12,11 @@ impl IconSource for IconSymbol {
 
     fn provider_slug(self) -> &'static str {
         match self {}
+    }
+}
+
+impl From<IconSymbol> for IconRef {
+    fn from(symbol: IconSymbol) -> Self {
+        Self::from_source(symbol)
     }
 }

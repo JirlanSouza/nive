@@ -26,6 +26,7 @@ pub enum IconRole {
     ListAdd,
     ListRemove,
     MailInbox,
+    NotificationAlert,
     NiveDisclosureDown,
     NiveDisclosureLeft,
     NiveDisclosureRight,
@@ -34,10 +35,14 @@ pub enum IconRole {
     PreferencesSystem,
     TabPinned,
     ValidationError,
+    ViewActivity,
     ViewConceal,
+    ViewMaximize,
     ViewMore,
     ViewRefresh,
+    ViewRestore,
     ViewReveal,
+    ViewTheme,
     WindowClose,
 }
 
@@ -59,6 +64,7 @@ impl IconRole {
         Self::ListAdd,
         Self::ListRemove,
         Self::MailInbox,
+        Self::NotificationAlert,
         Self::NiveDisclosureDown,
         Self::NiveDisclosureLeft,
         Self::NiveDisclosureRight,
@@ -67,10 +73,14 @@ impl IconRole {
         Self::PreferencesSystem,
         Self::TabPinned,
         Self::ValidationError,
+        Self::ViewActivity,
         Self::ViewConceal,
+        Self::ViewMaximize,
         Self::ViewMore,
         Self::ViewRefresh,
+        Self::ViewRestore,
         Self::ViewReveal,
+        Self::ViewTheme,
         Self::WindowClose,
     ];
 
@@ -92,6 +102,7 @@ impl IconRole {
             Self::ListAdd => "list-add",
             Self::ListRemove => "list-remove",
             Self::MailInbox => "mail-inbox",
+            Self::NotificationAlert => "notification-alert",
             Self::NiveDisclosureDown => "nive-disclosure-down",
             Self::NiveDisclosureLeft => "nive-disclosure-left",
             Self::NiveDisclosureRight => "nive-disclosure-right",
@@ -100,10 +111,14 @@ impl IconRole {
             Self::PreferencesSystem => "preferences-system",
             Self::TabPinned => "tab-pinned",
             Self::ValidationError => "validation-error",
+            Self::ViewActivity => "view-activity",
             Self::ViewConceal => "view-conceal",
+            Self::ViewMaximize => "view-maximize",
             Self::ViewMore => "view-more",
             Self::ViewRefresh => "view-refresh",
+            Self::ViewRestore => "view-restore",
             Self::ViewReveal => "view-reveal",
+            Self::ViewTheme => "view-theme",
             Self::WindowClose => "window-close",
         }
     }
@@ -113,6 +128,40 @@ impl IconRole {
             .iter()
             .copied()
             .find(|role| role.canonical_name() == name)
+    }
+}
+
+/// An icon a widget renders: a framework role or an application-owned glyph.
+///
+/// Widget icon slots accept anything convertible into this, so a framework role
+/// and an icon generated into an application keep the same call shape.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IconRef {
+    /// A semantic role resolved through the active theme catalog.
+    Role(IconRole),
+    /// Ready-to-render SVG bytes, typically from an app's generated symbols.
+    Glyph(IconGlyph),
+}
+
+impl IconRef {
+    /// Captures any [`IconSource`], including an application's generated symbols.
+    pub fn from_source<S>(source: S) -> Self
+    where
+        S: IconSource,
+    {
+        Self::Glyph(IconGlyph::new(source.svg_bytes(), source.provider_slug()))
+    }
+}
+
+impl From<IconRole> for IconRef {
+    fn from(role: IconRole) -> Self {
+        Self::Role(role)
+    }
+}
+
+impl From<IconGlyph> for IconRef {
+    fn from(glyph: IconGlyph) -> Self {
+        Self::Glyph(glyph)
     }
 }
 
@@ -227,6 +276,19 @@ pub fn default_glyph_for(role: IconRole) -> IconGlyph {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn icon_ref_carries_roles_and_app_glyphs() {
+        const GLYPH: IconGlyph = IconGlyph::new(b"<svg/>", "custom:brand");
+
+        assert_eq!(
+            IconRef::from(IconRole::Folder),
+            IconRef::Role(IconRole::Folder)
+        );
+        assert_eq!(IconRef::from(GLYPH), IconRef::Glyph(GLYPH));
+        // Any source, including an app's generated symbols, resolves to a glyph.
+        assert_eq!(IconRef::from_source(GLYPH), IconRef::Glyph(GLYPH));
+    }
 
     #[test]
     fn role_canonical_names_round_trip() {

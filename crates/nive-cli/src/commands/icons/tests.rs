@@ -342,5 +342,7 @@ fn framework_generation_uses_crate_imports() {
 
     assert!(catalog.contains("use crate::icons::{"));
     assert!(!catalog.contains("nive::prelude"));
-    assert!(symbols.contains("use crate::icons::IconSource;"));
+    assert!(symbols.contains("use crate::icons::{IconRef, IconSource};"));
+    // A generated symbol must drop straight into a widget icon slot.
+    assert!(symbols.contains("impl From<IconSymbol> for IconRef"));
 }
