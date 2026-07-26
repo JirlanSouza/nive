@@ -366,10 +366,21 @@ actions derive their primary extent from the active theme's `ControlSize`
 metrics. A workbench shell applies one shared size to those managed regions
 rather than requiring callers to compensate with different per-widget sizes.
 
-`SplitPane` defaults to `ControlSize::Sm` and exposes the standard
-`size`/`xs`/`sm`/`md`/`lg` vocabulary. Its visual and layout divider remains one
-logical pixel while its centered resize target is derived from the selected
-control size, so interaction ergonomics do not change pane-ratio geometry.
+`SplitPane` and `SplitStack` default to `ControlSize::Sm` and expose the
+standard `size`/`xs`/`sm`/`md`/`lg` vocabulary. Their visual and layout divider
+remains one logical pixel while the centered resize target is derived from the
+selected control size, so interaction ergonomics do not change pane geometry.
+Both derive that presentation from one shared divider implementation.
+
+`SplitPane` sizes two panes by a ratio of its own container; `SplitStack` sizes
+N panes in logical pixels with one filling pane, which is what keeps sibling
+dividers independent.
+
+`SplitStack` can also propose collapsing a pane when a divider is dragged past
+that pane's minimum, gated on `SplitStackPane::collapsible` and
+`SplitStack::on_collapse` and thresholded by `collapse_threshold` (`32` logical
+pixels by default). The cursor does not change at the minimum: the divider
+ceasing to follow the pointer is the signal that a further drag collapses.
 
 ## Anchored Overlays And Popup Controls
 

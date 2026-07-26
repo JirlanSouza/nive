@@ -372,6 +372,7 @@ flowchart TB
         ActionCard
         Panel
         SplitPane
+        SplitStack
         SelectableCard
         SectionHeader
     end
@@ -414,7 +415,7 @@ O design system mantém seis conceitos distintos:
 | Foco ativo | `FocusState` + coordenador da raiz | no máximo um alvo recebe interação focada |
 | Foco visível | política `FocusVisibility` | projeção visual sem alterar layout; `Auto` distingue teclado de pointer/touch |
 | Anchor lógico | um `FocusRoot` por árvore/janela | posição sequencial única, retida após blur quando ainda válida |
-| Foco interno de composite | RadioGroup, Segmented, TabBar, Tree, SplitPane etc. | highlight/roving/linha/handle local sob um único Tab stop externo |
+| Foco interno de composite | RadioGroup, Segmented, TabBar, Tree, SplitPane, SplitStack etc. | highlight/roving/linha/handle local sob um único Tab stop externo; um `SplitStack` de N divisores continua expondo um só alvo, rovendo o divisor focado |
 | Seleção durável | modelo controlado pelo app/componente | não é apagada por hover, blur ou navegação transitória |
 | Política de overlay | Popover/Menu/host correspondente | entrada, containment, causa de dismissal e restore condicional; nunca outro coordenador |
 
@@ -522,9 +523,24 @@ propaga essa escala para tabs, rails, cabeçalhos, seletor inferior, toolbar,
 status e split panes; apps não compensam alinhamento escolhendo tamanhos
 diferentes por região.
 
-`SplitPane` também usa `ControlSize`, mas separa o divisor visual/layout de um
-pixel lógico do alvo de interação maior e centralizado. O tamanho local ajusta
-o grip e o alvo de interação sem alterar a geometria de razão dos painéis.
+`SplitPane` e `SplitStack` também usam `ControlSize`, mas separam o divisor
+visual/layout de um pixel lógico do alvo de interação maior e centralizado. O
+tamanho local ajusta o grip e o alvo de interação sem alterar a geometria dos
+painéis, e os dois derivam essa apresentação de uma implementação compartilhada
+de divisor.
+
+`SplitPane` dimensiona dois painéis por razão do próprio container; `SplitStack`
+dimensiona N painéis em pixels lógicos com um painel de preenchimento. Encadear
+dois `SplitPane` no mesmo eixo sempre acopla os divisores — quando divisores
+irmãos precisam ser independentes, um `SplitStack` é o container correto.
+
+Arrastar um divisor além do mínimo do vizinho pode propor o colapso daquele
+painel, opt-in por `SplitStackPane::collapsible` mais `SplitStack::on_collapse`.
+O cursor não muda no limite: o vocabulário de `mouse::Interaction` do iced não
+tem variante direcional, e o divisor parar de acompanhar o ponteiro já é o sinal
+de que insistir colapsa. Um arrasto de ponteiro também sobrevive à saída e ao
+retorno da janela com o botão pressionado; perda de foco da janela é o que
+cancela.
 
 ### Layout grammar
 

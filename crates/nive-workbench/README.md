@@ -84,4 +84,39 @@ activation target.
 `WorkbenchPaneConstraints` configures non-persisted expanded-region minima.
 Defaults are 160/240/160 logical pixels for left/center/right and 160/96 for
 upper/bottom. Layout clamps current rendering without rewriting app-owned or
-serialized split ratios; collapse remains the semantic zero-size path.
+serialized region sizes; collapse remains the semantic zero-size path.
+
+`WorkbenchPaneSizes` stores each region's own size in logical pixels, never a
+share of the layout around it: `left` and `right` are the side panel widths and
+`bottom` is the bottom panel height. Defaults are 240/300/240.
+
+The left, center, and right regions share one horizontal `SplitStack`, so a
+region divider only ever moves the two regions bordering it — the region on the
+far side keeps its exact width at every point of the travel, and the divider
+stops once the center reaches its `center_min`. The center is the region that
+absorbs change: widening the shell widens the center alone, leaving the side
+widths untouched. The bottom region splits on the vertical axis, which carries
+no coupling with the horizontal ones.
+
+Dragging a side divider past its region's minimum collapses that region to its
+rail, recording the width it held before the drag so restoring it returns it
+there rather than to the minimum. The bottom divider only stops at its minimum:
+a collapsed bottom region has no rail to return from, so the app owns that
+transition.
+
+Maximizing a panel gives its region the whole content area while every other
+region keeps its rail, so both panel lists stay reachable; the maximized
+region's own rail keeps all its items, and clicking a sibling swaps which panel
+is maximized. Reaching for the opposite rail leaves the maximized view and
+activates the panel that was clicked. One header control carries both
+directions: it shows `ViewMaximize` while the region is docked and `ViewRestore`
+while it is maximized.
+
+A side rail item toggles its own region: clicking the active item folds the
+region away, clicking any other item selects that panel, and clicking anything
+in a collapsed rail brings the region back with that panel active. The region
+keeps its width across the round trip, since collapsing never rewrites it.
+
+When the shell becomes too narrow to seat both sides plus the center minimum,
+the side regions yield in reverse order — right first, then left — and a shell
+smaller than every minimum allocates proportionally to those minimums.

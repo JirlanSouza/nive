@@ -255,13 +255,38 @@ not yet imply native AccessKit name/relationship emission.
   thumb and no reserved content width. Rails are transparent; hover strengthens
   neutral color and drag uses accent. Iced does not expose state-dependent
   native thumb width, so all states remain 6 px.
+- Every widget icon slot takes `impl Into<IconRef>`, so a framework `IconRole`
+  and an application's own generated `IconSymbol` share one call shape:
+  `.icon(IconRole::ViewRefresh)` and `.icon(IconSymbol::Server)` both compile.
+  Use roles for UI vocabulary the framework owns and app symbols for domain
+  nouns; `nive icons add-symbol` generates the `From<IconSymbol> for IconRef`
+  that makes the second form work.
+- A pointer drag survives the cursor leaving and re-entering the window while
+  its button is held, so a splitter, tab reorder, or tree drag resumes from the
+  next move back inside rather than needing a release and re-press. Window focus
+  loss is what cancels a drag.
 - `Separator` accepts only `Subtle` or `Section` strength and full or logical
   inset extent. Until direction plumbing lands, leading/trailing map to
   left/right for horizontal rules and top/bottom for vertical rules.
-- `SplitPane` keeps a one-pixel seam and a `ControlSize`-derived hit target.
-  Hover/focus/drag presentation is geometry-neutral; locked and callback-free
-  panes are fully inert. Invalid minima normalize to zero and impossible minima
-  use deterministic proportional allocation.
+- `SplitPane` is the two-pane proportional splitter: its `ratio` is a share of
+  its own container, so both panes scale with it. It keeps a one-pixel seam and
+  a `ControlSize`-derived hit target. Hover/focus/drag presentation is
+  geometry-neutral; locked and callback-free panes are fully inert. Invalid
+  minima normalize to zero and impossible minima use deterministic proportional
+  allocation.
+- `SplitStack` is the N-pane splitter that owns one axis. Each pane is
+  `SplitSizing::Fixed` at a logical pixel length or `SplitSizing::Fill`, and
+  exactly one pane fills. Dragging a divider moves the two panes bordering it
+  and nothing else, stopping once an adjacent pane reaches its minimum rather
+  than pushing the pane beyond it; growing the container grows the filling pane
+  alone. It registers one logical-focus target and roves a divider index with
+  the cross-axis arrows, `Home`, and `End`. Dragging past a neighbour's minimum
+  can propose collapsing that pane, opt-in through `SplitStackPane::collapsible`
+  plus `SplitStack::on_collapse`; each drag proposes at most one collapse and
+  reports the pane's pre-drag length so the app can restore it there. Both
+  splitters derive their seam, grip, and hit target from one shared
+  implementation. Reach for `SplitStack` when sibling dividers must not disturb
+  each other — chaining two `SplitPane`s along one axis always couples them.
 - `Tree` is the controlled hierarchy widget: the app owns `TreeState`,
   rebuilds `TreeNode`s every view pass, and applies each intent-only
   `TreeEvent`. `TreeChildren` models `Loaded`, `Deferred`, and `Failed`
