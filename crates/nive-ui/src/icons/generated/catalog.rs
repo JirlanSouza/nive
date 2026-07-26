@@ -143,6 +143,13 @@ pub const APP_ICON_CATALOG: IconCatalog = IconCatalog::new(&[
         ),
     ),
     IconCatalogEntry::new(
+        IconRole::NotificationAlert,
+        IconGlyph::new(
+            include_bytes!("../../../assets/icons/generated/lucide/bell.svg"),
+            "lucide:bell",
+        ),
+    ),
+    IconCatalogEntry::new(
         IconRole::OpenMenu,
         IconGlyph::new(
             include_bytes!("../../../assets/icons/generated/lucide/menu.svg"),
@@ -171,10 +178,24 @@ pub const APP_ICON_CATALOG: IconCatalog = IconCatalog::new(&[
         ),
     ),
     IconCatalogEntry::new(
+        IconRole::ViewActivity,
+        IconGlyph::new(
+            include_bytes!("../../../assets/icons/generated/lucide/activity.svg"),
+            "lucide:activity",
+        ),
+    ),
+    IconCatalogEntry::new(
         IconRole::ViewConceal,
         IconGlyph::new(
             include_bytes!("../../../assets/icons/generated/lucide/eye-off.svg"),
             "lucide:eye-off",
+        ),
+    ),
+    IconCatalogEntry::new(
+        IconRole::ViewMaximize,
+        IconGlyph::new(
+            include_bytes!("../../../assets/icons/generated/lucide/maximize-2.svg"),
+            "lucide:maximize-2",
         ),
     ),
     IconCatalogEntry::new(
@@ -192,10 +213,24 @@ pub const APP_ICON_CATALOG: IconCatalog = IconCatalog::new(&[
         ),
     ),
     IconCatalogEntry::new(
+        IconRole::ViewRestore,
+        IconGlyph::new(
+            include_bytes!("../../../assets/icons/generated/lucide/minimize-2.svg"),
+            "lucide:minimize-2",
+        ),
+    ),
+    IconCatalogEntry::new(
         IconRole::ViewReveal,
         IconGlyph::new(
             include_bytes!("../../../assets/icons/generated/lucide/eye.svg"),
             "lucide:eye",
+        ),
+    ),
+    IconCatalogEntry::new(
+        IconRole::ViewTheme,
+        IconGlyph::new(
+            include_bytes!("../../../assets/icons/generated/lucide/palette.svg"),
+            "lucide:palette",
         ),
     ),
     IconCatalogEntry::new(
