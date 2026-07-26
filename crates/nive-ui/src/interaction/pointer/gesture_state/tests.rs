@@ -145,19 +145,91 @@ fn waits_for_drag_threshold_then_moves_and_releases() {
     );
 }
 
-#[test]
-fn cancels_active_drag() {
+fn dragging_state() -> (PointerGestureState<&'static str>, Instant) {
     let mut state = PointerGestureState::new().with_drag_threshold(1.0);
     let now = Instant::now();
 
     state.handle_event(&moved(0.0, 0.0), now, |_| Some("row"));
     state.handle_event(&press(mouse::Button::Left), now, |_| Some("row"));
     state.handle_event(&moved(2.0, 0.0), now, |_| Some("row"));
-    let cancelled = state.handle_event(&Event::Mouse(mouse::Event::CursorLeft), now, |_| {
+
+    (state, now)
+}
+
+#[test]
+fn leaving_the_window_suspends_the_drag_instead_of_cancelling_it() {
+    let (mut state, now) = dragging_state();
+
+    let left = state.handle_event(&Event::Mouse(mouse::Event::CursorLeft), now, |_| {
+        Some("row")
+    });
+    assert!(left.is_empty(), "leaving the window emitted {left:?}");
+
+    // The button never came up, so moving back inside carries on the same drag.
+    let resumed = state.handle_event(&moved(40.0, 0.0), now, |_| Some("row"));
+
+    assert_eq!(
+        resumed.iter().map(|g| g.kind).collect::<Vec<_>>(),
+        vec![PointerGestureKind::DragMoved]
+    );
+    assert_eq!(resumed[0].position.x, 40.0);
+}
+
+#[test]
+fn releasing_after_a_window_round_trip_still_terminates_the_drag() {
+    let (mut state, now) = dragging_state();
+
+    state.handle_event(&Event::Mouse(mouse::Event::CursorLeft), now, |_| {
+        Some("row")
+    });
+    state.handle_event(&Event::Mouse(mouse::Event::CursorEntered), now, |_| {
+        Some("row")
+    });
+    state.handle_event(&moved(40.0, 0.0), now, |_| Some("row"));
+    let released = state.handle_event(&release(mouse::Button::Left), now, |_| Some("row"));
+
+    assert_eq!(
+        released.iter().map(|g| g.kind).collect::<Vec<_>>(),
+        vec![
+            PointerGestureKind::Released,
+            PointerGestureKind::DragReleased
+        ]
+    );
+}
+
+#[test]
+fn a_press_that_never_became_a_drag_also_survives_leaving() {
+    let mut state = PointerGestureState::new().with_drag_threshold(1.0);
+    let now = Instant::now();
+
+    state.handle_event(&moved(0.0, 0.0), now, |_| Some("row"));
+    state.handle_event(&press(mouse::Button::Left), now, |_| Some("row"));
+    state.handle_event(&Event::Mouse(mouse::Event::CursorLeft), now, |_| {
+        Some("row")
+    });
+    let released = state.handle_event(&release(mouse::Button::Left), now, |_| Some("row"));
+
+    assert!(
+        released
+            .iter()
+            .any(|g| g.kind == PointerGestureKind::Released),
+        "the press was lost: {released:?}"
+    );
+}
+
+#[test]
+fn losing_window_focus_cancels_an_active_drag() {
+    let (mut state, now) = dragging_state();
+
+    let cancelled = state.handle_event(&Event::Window(iced::window::Event::Unfocused), now, |_| {
         Some("row")
     });
 
     assert_eq!(cancelled[0].kind, PointerGestureKind::DragCancelled);
+    // The session is gone, so a later move proposes nothing.
+    assert!(state
+        .handle_event(&moved(80.0, 0.0), now, |_| Some("row"))
+        .is_empty());
 }
 
 #[test]
