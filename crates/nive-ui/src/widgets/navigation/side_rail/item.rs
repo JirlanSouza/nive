@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::widgets::primitives::IconRole;
+use crate::IconRef;
 
 /// Data for one side rail entry.
 ///
@@ -17,7 +17,7 @@ use crate::widgets::primitives::IconRole;
 pub struct SideRailItem<'a, Id> {
     pub(super) id: Id,
     pub(super) label: Cow<'a, str>,
-    pub(super) icon: Option<IconRole>,
+    pub(super) icon: Option<IconRef>,
     pub(super) selected: bool,
     pub(super) disabled: bool,
     pub(super) tooltip: Option<Cow<'a, str>>,
@@ -47,8 +47,8 @@ impl<'a, Id> SideRailItem<'a, Id> {
     }
 
     /// Sets the upright icon rendered at the icon end of the item.
-    pub fn icon(mut self, icon: IconRole) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 

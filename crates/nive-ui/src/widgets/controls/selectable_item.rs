@@ -13,7 +13,7 @@ use crate::Element;
 use super::button::ButtonFocusRing;
 use crate::advanced::pressable::Pressable;
 use crate::widgets::display::measured_text::{EllipsisStrategy, MeasuredText};
-use crate::widgets::primitives::{icon, IconRole};
+use crate::widgets::primitives::{icon, IconRef};
 use crate::widgets::{StatusIndicator, ToneDot};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,7 +41,7 @@ struct SelectableItemMetrics {
 pub struct SelectableItem<'a, Message> {
     label: &'a str,
     selected: bool,
-    leading_icon: Option<IconRole>,
+    leading_icon: Option<IconRef>,
     leading_color: Option<Color>,
     status_indicator: Option<StatusIndicator<'a>>,
     reserve_status_indicator: bool,
@@ -81,8 +81,8 @@ where
         self
     }
 
-    pub fn leading_icon(mut self, icon: IconRole) -> Self {
-        self.leading_icon = Some(icon);
+    pub fn leading_icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.leading_icon = Some(icon.into());
         self
     }
 
@@ -245,7 +245,7 @@ where
         }
 
         if let Some(icon) = self.leading_icon {
-            content = content.push(icon::role(icon).custom_size(metrics.icon_size));
+            content = content.push(icon::reference(icon).custom_size(metrics.icon_size));
         }
 
         content = content.push(label);

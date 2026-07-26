@@ -7,7 +7,7 @@ use iced::{
 
 use crate::theme::{self, text as theme_text, SpaceStep, TextRole, TypographyRole};
 use crate::widgets::feedback::Spinner;
-use crate::widgets::primitives::{icon, IconRole};
+use crate::widgets::primitives::{icon, IconRef, IconRole};
 use crate::Element;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -24,7 +24,7 @@ const VERTICAL_OFFSET_BOTTOM_FILL_PORTION: u16 = 14;
 pub struct EmptyState<'a, Message> {
     title: Cow<'a, str>,
     description: Option<Cow<'a, str>>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     loading: bool,
     action: Option<Element<'a, Message>>,
 }
@@ -48,8 +48,8 @@ where
         self
     }
 
-    pub fn icon(mut self, icon: IconRole) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 
@@ -69,7 +69,8 @@ where
             Spinner::new().md().into()
         } else {
             container(
-                icon::role(self.icon.unwrap_or(IconRole::MailInbox)).custom_size(metrics.icon_size),
+                icon::reference(self.icon.unwrap_or(IconRole::MailInbox.into()))
+                    .custom_size(metrics.icon_size),
             )
             .style(icon_container_style())
             .into()

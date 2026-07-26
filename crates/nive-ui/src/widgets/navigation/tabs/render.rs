@@ -350,7 +350,7 @@ where
             .width(Length::Shrink);
 
         if let Some(icon) = tab.icon {
-            content = content.push(icon_widget::role(icon).custom_size(metrics.icon_size));
+            content = content.push(icon_widget::reference(icon).custom_size(metrics.icon_size));
         }
 
         if tab.pinned {
@@ -398,7 +398,10 @@ where
                 (false, false) => None,
             };
             let mut option = MenuRadioOption::new(entry.id, entry.label).disabled(entry.disabled);
-            if let Some(icon) = entry.icon.or(entry.pinned.then_some(IconRole::TabPinned)) {
+            if let Some(icon) = entry
+                .icon
+                .or(entry.pinned.then_some(IconRole::TabPinned.into()))
+            {
                 option = option.icon(icon);
             }
             if let Some(annotation) = annotation {

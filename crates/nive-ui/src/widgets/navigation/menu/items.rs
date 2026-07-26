@@ -7,7 +7,7 @@ use super::{
     MenuSubmenu,
 };
 use crate::widgets::controls::CheckboxState;
-use crate::widgets::primitives::IconRole;
+use crate::IconRef;
 
 impl<'a, Message: Clone> MenuCommand<'a, Message> {
     pub fn new(label: impl Into<Cow<'a, str>>) -> Self {
@@ -55,8 +55,8 @@ impl<'a, Message: Clone> MenuCommand<'a, Message> {
         self.disabled || self.source_disabled
     }
 
-    pub fn icon(mut self, icon: IconRole) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 
@@ -143,8 +143,8 @@ impl<'a, T> MenuRadioOption<'a, T> {
         }
     }
 
-    pub fn icon(mut self, icon: IconRole) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 
@@ -208,8 +208,8 @@ impl<'a, Message> MenuSubmenu<'a, Message> {
         }
     }
 
-    pub fn icon(mut self, icon: IconRole) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 

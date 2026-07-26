@@ -2,8 +2,8 @@ use nive_core::Action;
 
 use super::style as theme_toolbar;
 use crate::widgets::controls::button::{self, GroupedItemKind, GroupedItemSpec, SelectionChrome};
-use crate::widgets::primitives::IconRole;
 use crate::Element;
+use crate::IconRef;
 
 /// Action rendered inside a `Toolbar`.
 ///
@@ -11,7 +11,7 @@ use crate::Element;
 /// expose `danger()` or `suggested()` shortcuts.
 pub struct ToolbarAction<'a, Message> {
     label: Option<&'a str>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     selected: bool,
     destructive: bool,
     disabled: bool,
@@ -28,11 +28,11 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
     }
 
     /// Projects a shared action while adding a UI-owned icon.
-    pub fn from_action_with_icon(action: &'a Action<Message>, icon: IconRole) -> Self {
-        Self::from_action_parts(action, Some(icon))
+    pub fn from_action_with_icon(action: &'a Action<Message>, icon: impl Into<IconRef>) -> Self {
+        Self::from_action_parts(action, Some(icon.into()))
     }
 
-    fn from_action_parts(action: &'a Action<Message>, icon: Option<IconRole>) -> Self {
+    fn from_action_parts(action: &'a Action<Message>, icon: Option<IconRef>) -> Self {
         Self {
             label: Some(action.label()),
             icon,
@@ -46,10 +46,10 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
         }
     }
 
-    pub fn icon(icon: IconRole) -> Self {
+    pub fn icon(icon: impl Into<IconRef>) -> Self {
         Self {
             label: None,
-            icon: Some(icon),
+            icon: Some(icon.into()),
             selected: false,
             destructive: false,
             disabled: false,
@@ -74,10 +74,10 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
         }
     }
 
-    pub fn icon_label(icon: IconRole, label: &'a str) -> Self {
+    pub fn icon_label(icon: impl Into<IconRef>, label: &'a str) -> Self {
         Self {
             label: Some(label),
-            icon: Some(icon),
+            icon: Some(icon.into()),
             selected: false,
             destructive: false,
             disabled: false,
@@ -164,6 +164,8 @@ impl<'a, Message: Clone + 'a> ToolbarAction<'a, Message> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[allow(unused_imports)]
+    use crate::IconRole;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     enum Message {
@@ -179,7 +181,7 @@ mod tests {
         let projected = ToolbarAction::from_action_with_icon(&action, IconRole::ActionConfirm);
 
         assert_eq!(projected.label, Some("Save"));
-        assert_eq!(projected.icon, Some(IconRole::ActionConfirm));
+        assert_eq!(projected.icon, Some(IconRole::ActionConfirm.into()));
         assert_eq!(projected.tooltip, Some("Persist the current buffer"));
         assert_eq!(projected.on_press, Some(Message::Save));
         assert!(!projected.disabled);

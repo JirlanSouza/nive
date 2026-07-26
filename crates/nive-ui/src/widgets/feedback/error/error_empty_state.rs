@@ -1,14 +1,12 @@
-use crate::{
-    widgets::{EmptyState, IconRole},
-    Element,
-};
+use crate::{widgets::EmptyState, Element};
 
 use super::{ErrorFeedbackAction, ErrorFeedbackActionRow};
+use crate::IconRef;
 
 pub struct ErrorEmptyState<'a, Message> {
     title: &'a str,
     description: Option<&'a str>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     actions: Vec<ErrorFeedbackAction<'a, Message>>,
 }
 
@@ -30,8 +28,8 @@ where
         self
     }
 
-    pub fn icon(mut self, icon: IconRole) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 

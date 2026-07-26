@@ -13,10 +13,12 @@ use crate::widgets::controls::button::{Button, GroupedItemKind, GroupedItemSpec,
 use crate::widgets::controls::form_frame::{FormControlFrame, FormFrameAppearance};
 use crate::widgets::controls::input::Input;
 use crate::widgets::feedback::Spinner;
-use crate::widgets::primitives::{icon as icon_widget, IconRole, StatusIndicator, ToneDot};
+use crate::widgets::primitives::{icon as icon_widget, IconRef, StatusIndicator, ToneDot};
 use crate::Element;
 
 use self::style as theme_input_group;
+#[allow(unused_imports)]
+use crate::IconRole;
 
 pub use style::InputGroupVariant;
 
@@ -47,9 +49,9 @@ pub struct InputGroup<'a, Message> {
 enum InputGroupSlot<'a, Message> {
     Prefix(Cow<'a, str>),
     Unit(Cow<'a, str>),
-    Icon(IconRole),
+    Icon(IconRef),
     Status(StatusIndicator<'a>),
-    Action(Button<'a, Message>),
+    Action(Box<Button<'a, Message>>),
     Visual(Element<'a, Message>),
 }
 
@@ -95,16 +97,22 @@ where
         )
     }
 
-    pub fn leading_icon(self, leading: IconRole) -> Self {
-        self.push_slot(InputGroupSlotSide::Leading, InputGroupSlot::Icon(leading))
+    pub fn leading_icon(self, leading: impl Into<IconRef>) -> Self {
+        self.push_slot(
+            InputGroupSlotSide::Leading,
+            InputGroupSlot::Icon(leading.into()),
+        )
     }
 
-    pub fn semantic_icon(self, icon: IconRole) -> Self {
+    pub fn semantic_icon(self, icon: impl Into<IconRef>) -> Self {
         self.leading_icon(icon)
     }
 
     pub fn leading_action(self, leading: Button<'a, Message>) -> Self {
-        self.push_slot(InputGroupSlotSide::Leading, InputGroupSlot::Action(leading))
+        self.push_slot(
+            InputGroupSlotSide::Leading,
+            InputGroupSlot::Action(Box::new(leading)),
+        )
     }
 
     /// Adds an arbitrary rectangular leading slot.
@@ -118,8 +126,11 @@ where
         )
     }
 
-    pub fn trailing_icon(self, trailing: IconRole) -> Self {
-        self.push_slot(InputGroupSlotSide::Trailing, InputGroupSlot::Icon(trailing))
+    pub fn trailing_icon(self, trailing: impl Into<IconRef>) -> Self {
+        self.push_slot(
+            InputGroupSlotSide::Trailing,
+            InputGroupSlot::Icon(trailing.into()),
+        )
     }
 
     pub fn status(self, status: StatusIndicator<'a>) -> Self {
@@ -129,7 +140,7 @@ where
     pub fn trailing_action(self, trailing: Button<'a, Message>) -> Self {
         self.push_slot(
             InputGroupSlotSide::Trailing,
-            InputGroupSlot::Action(trailing),
+            InputGroupSlot::Action(Box::new(trailing)),
         )
     }
 
@@ -365,7 +376,7 @@ where
                 metrics,
             ),
             InputGroupSlot::Icon(icon) => slot_container(
-                icon_widget::role(icon)
+                icon_widget::reference(icon)
                     .custom_size(metrics.icon_size)
                     .into(),
                 radius,

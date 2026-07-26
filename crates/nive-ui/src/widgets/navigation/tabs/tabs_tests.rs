@@ -9,6 +9,8 @@ use super::geometry::{
 };
 use super::*;
 use crate::interaction::{ContextTarget, DropDecision};
+#[allow(unused_imports)]
+use crate::IconRole;
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq)]
@@ -370,7 +372,7 @@ fn menu_entries_are_pinned_first_and_preserve_metadata() {
     );
     assert!(entries[0].active);
     assert!(entries[0].pinned);
-    assert_eq!(entries[0].icon, Some(IconRole::Folder));
+    assert_eq!(entries[0].icon, Some(IconRole::Folder.into()));
     assert!(entries[1].dirty);
     assert!(entries[2].disabled);
 }

@@ -46,7 +46,7 @@ where
                 let leading: Element<'a, Message> = suggestion.leading.map_or_else(
                     || Space::new().width(Length::Fixed(MENU_ICON_SIZE)).into(),
                     |role| {
-                        container(icon::role(role).custom_size(MENU_ICON_SIZE))
+                        container(icon::reference(role).custom_size(MENU_ICON_SIZE))
                             .width(Length::Fixed(MENU_ICON_SIZE))
                             .center_y(Length::Fill)
                             .into()

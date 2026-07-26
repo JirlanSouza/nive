@@ -14,8 +14,8 @@ mod tests;
 
 use crate::widgets::controls::CheckboxState;
 use crate::widgets::overlays::{PopoverCollision, PopoverPlacement};
-use crate::widgets::primitives::IconRole;
 use crate::Element;
+use crate::IconRef;
 
 const MENU_MAX_WIDTH: f32 = 320.0;
 pub(crate) const MENU_LIST_INSET: f32 = 4.0;
@@ -109,7 +109,7 @@ pub struct Menu<'a, Message> {
 pub struct MenuCommand<'a, Message> {
     id: Option<ActionId>,
     label: Cow<'a, str>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     shortcut: Option<ShortcutBinding>,
     destructive: bool,
     disabled: bool,
@@ -138,7 +138,7 @@ pub struct MenuCheckbox<'a, Message> {
 pub struct MenuRadioOption<'a, T> {
     value: T,
     label: Cow<'a, str>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     annotation: Option<Cow<'a, str>>,
     disabled: bool,
 }
@@ -160,7 +160,7 @@ pub struct MenuRadioGroup<'a, T, Message> {
 /// or leaf-dismissal policy.
 pub struct MenuSubmenu<'a, Message> {
     label: Cow<'a, str>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     disabled: bool,
     child: Box<Menu<'a, Message>>,
 }
@@ -180,7 +180,7 @@ enum MenuEvent<Message> {
 
 struct MenuRadioRow<'a, Message> {
     label: Cow<'a, str>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     annotation: Option<Cow<'a, str>>,
     selected: bool,
     disabled: bool,

@@ -11,6 +11,7 @@ use crate::widgets::primitives::icon;
 use crate::widgets::primitives::text as theme_text;
 use crate::widgets::primitives::IconRole;
 use crate::Element;
+use crate::IconRef;
 
 /// Canonical Dialog header: a required title, optional supporting
 /// description, optional semantic leading icon, and an optional safe close
@@ -22,7 +23,7 @@ use crate::Element;
 pub struct DialogHeader<'a, Message> {
     title: Cow<'a, str>,
     description: Option<Cow<'a, str>>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     close: Option<DialogHeaderClose<'a, Message>>,
 }
 
@@ -49,8 +50,8 @@ where
         self
     }
 
-    pub fn icon(mut self, icon: IconRole) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 
@@ -86,7 +87,7 @@ where
             .width(Length::Fill);
 
         if let Some(icon_role) = self.icon {
-            content = content.push(icon::role(icon_role));
+            content = content.push(icon::reference(icon_role));
         }
 
         content = content.push(title_column.width(Length::Fill));
@@ -114,6 +115,8 @@ where
 #[cfg(test)]
 mod dialog_header_tests {
     use super::*;
+    #[allow(unused_imports)]
+    use crate::IconRole;
 
     #[test]
     fn accepts_borrowed_and_owned_titles() {
@@ -150,7 +153,7 @@ mod dialog_header_tests {
         let configured: DialogHeader<'_, ()> = DialogHeader::new("Title")
             .description("Supporting copy")
             .icon(IconRole::DialogWarning);
-        assert_eq!(configured.icon, Some(IconRole::DialogWarning));
+        assert_eq!(configured.icon, Some(IconRole::DialogWarning.into()));
         assert_eq!(
             configured.description,
             Some(Cow::Borrowed("Supporting copy"))

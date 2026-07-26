@@ -15,7 +15,7 @@ use self::{
 };
 use crate::advanced::pressable::{FocusRingPlacement, Pressable};
 use crate::widgets::overlays::tooltip as tooltip_widget;
-use crate::widgets::primitives::IconRole;
+use crate::IconRef;
 
 pub use style::{button_control_state, focus_ring, ButtonFocusRing};
 pub use style::{ButtonIntent, ButtonVariant};
@@ -23,8 +23,8 @@ pub use style::{ButtonIntent, ButtonVariant};
 /// Action button with separate intent and visual variant axes.
 pub struct Button<'a, Message> {
     content: Content<'a, Message>,
-    leading_icon: Option<IconRole>,
-    trailing_icon: Option<IconRole>,
+    leading_icon: Option<IconRef>,
+    trailing_icon: Option<IconRef>,
     intent: ButtonIntent,
     variant: ButtonVariant,
     size: ControlSize,
@@ -160,14 +160,14 @@ where
 /// let _ = button::icon::<()>(IconRole::WindowClose);
 /// ```
 pub fn icon<'a, Message>(
-    app_icon: IconRole,
+    app_icon: impl Into<IconRef>,
     semantic_name: impl Into<Cow<'a, str>>,
 ) -> Button<'a, Message>
 where
     Message: Clone + 'a,
 {
     let mut button = Button::new(
-        Content::Icon(app_icon),
+        Content::Icon(app_icon.into()),
         ButtonIntent::Neutral,
         ButtonVariant::Ghost,
     );
@@ -328,13 +328,13 @@ where
         self
     }
 
-    pub fn leading_icon(mut self, icon: IconRole) -> Self {
-        self.leading_icon = Some(icon);
+    pub fn leading_icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.leading_icon = Some(icon.into());
         self
     }
 
-    pub fn trailing_icon(mut self, icon: IconRole) -> Self {
-        self.trailing_icon = Some(icon);
+    pub fn trailing_icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.trailing_icon = Some(icon.into());
         self
     }
 
@@ -480,6 +480,8 @@ mod button_tests {
     use super::*;
     use crate::test_support::{named_probe, WidgetHarness};
     use crate::theme::{ThemeBuilder, ThemeDensity, ThemeMode, TypographyRole};
+    #[allow(unused_imports)]
+    use crate::IconRole;
     use iced::{
         keyboard::{
             self,

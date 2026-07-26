@@ -258,7 +258,7 @@ where
     };
 
     let leading: Element<'a, Message> = match item.icon {
-        Some(role) => icon::role(role).md().into(),
+        Some(role) => icon::reference(role).md().into(),
         None => Space::new().width(Length::Shrink).into(),
     };
 

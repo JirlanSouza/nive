@@ -8,7 +8,7 @@ use super::{
 };
 use crate::interaction::ContextRequest;
 use crate::theme::{ControlSize, SurfaceRole};
-use crate::widgets::primitives::IconRole;
+use crate::IconRef;
 
 impl<'a, Id, Message> TabBar<'a, Id, Message>
 where
@@ -193,8 +193,8 @@ impl<'a, Id> TabItem<'a, Id> {
         self.label.as_ref()
     }
 
-    pub fn icon(mut self, icon: IconRole) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 

@@ -20,7 +20,7 @@ use crate::widgets::display::measured_text::{EllipsisStrategy, MeasuredText};
 use crate::widgets::navigation::command_palette::format_shortcut;
 use crate::widgets::overlays::popover;
 use crate::widgets::overlays::{PopoverInset, PopoverWidth};
-use crate::widgets::primitives::{icon as icon_widget, text as text_widget, IconRole};
+use crate::widgets::primitives::{icon as icon_widget, text as text_widget, IconRef, IconRole};
 use crate::Element;
 
 pub(super) fn menu_level_content<'a, Message: Clone + 'a>(
@@ -267,7 +267,7 @@ pub(super) fn menu_level_content<'a, Message: Clone + 'a>(
 #[allow(clippy::too_many_arguments)]
 pub(super) fn menu_row<'a, Message: Clone + 'a>(
     choice_mark: Option<&'static str>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     label: Cow<'a, str>,
     trailing: Option<MenuTrailing<'a>>,
     selected: bool,
@@ -290,7 +290,7 @@ pub(super) fn menu_row<'a, Message: Clone + 'a>(
     }
     if reserve_icon {
         let leading: Element<'a, MenuEvent<Message>> = match icon {
-            Some(icon) => container(icon_widget::role(icon).custom_size(MENU_ICON_SIZE))
+            Some(icon) => container(icon_widget::reference(icon).custom_size(MENU_ICON_SIZE))
                 .width(Length::Fixed(MENU_ICON_SIZE))
                 .center_y(Length::Fill)
                 .into(),

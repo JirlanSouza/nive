@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use super::{AutocompleteResults, AutocompleteSuggestion};
-use crate::widgets::primitives::IconRole;
+use crate::IconRef;
 
 impl<'a, T> AutocompleteSuggestion<'a, T>
 where
@@ -31,7 +31,7 @@ where
         self.label.as_ref()
     }
 
-    pub fn leading_icon(&self) -> Option<IconRole> {
+    pub fn leading_icon(&self) -> Option<IconRef> {
         self.leading
     }
 
@@ -43,8 +43,8 @@ where
         self.disabled
     }
 
-    pub fn leading(mut self, icon: IconRole) -> Self {
-        self.leading = Some(icon);
+    pub fn leading(mut self, icon: impl Into<IconRef>) -> Self {
+        self.leading = Some(icon.into());
         self
     }
 

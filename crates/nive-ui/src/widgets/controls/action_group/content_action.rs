@@ -6,6 +6,7 @@ use iced::{
     Alignment, Background, Border, Color, Length, Padding, Shadow,
 };
 
+use crate::IconRef;
 use crate::{
     advanced::pressable::{FocusRingPlacement, Pressable},
     theme::{
@@ -13,10 +14,7 @@ use crate::{
         TypographyRole,
     },
     widgets::{
-        controls::button::ButtonFocusRing,
-        feedback::Spinner,
-        overlays::tooltip,
-        primitives::{Icon, IconRole},
+        controls::button::ButtonFocusRing, feedback::Spinner, overlays::tooltip, primitives::Icon,
     },
     Element,
 };
@@ -32,7 +30,7 @@ enum ContentShape {
 pub struct ContentAction<'a, Message> {
     shape: ContentShape,
     label: Cow<'a, str>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     destructive: bool,
     disabled: bool,
     loading: bool,
@@ -48,21 +46,21 @@ impl<'a, Message: Clone + 'a> ContentAction<'a, Message> {
     }
 
     /// Creates an icon-only action with required meaningful label metadata.
-    pub fn icon(icon: IconRole, label: impl Into<Cow<'a, str>>) -> Self {
+    pub fn icon(icon: impl Into<IconRef>, label: impl Into<Cow<'a, str>>) -> Self {
         let label = label.into();
         let tooltip = Some(label.clone());
         Self {
             tooltip,
-            ..Self::new(ContentShape::Icon, label, Some(icon))
+            ..Self::new(ContentShape::Icon, label, Some(icon.into()))
         }
     }
 
     /// Creates a visible icon plus 14 px label action.
-    pub fn icon_label(icon: IconRole, label: impl Into<Cow<'a, str>>) -> Self {
-        Self::new(ContentShape::IconLabel, label.into(), Some(icon))
+    pub fn icon_label(icon: impl Into<IconRef>, label: impl Into<Cow<'a, str>>) -> Self {
+        Self::new(ContentShape::IconLabel, label.into(), Some(icon.into()))
     }
 
-    fn new(shape: ContentShape, label: Cow<'a, str>, icon: Option<IconRole>) -> Self {
+    fn new(shape: ContentShape, label: Cow<'a, str>, icon: Option<IconRef>) -> Self {
         Self {
             shape,
             label,
@@ -139,7 +137,7 @@ impl<'a, Message: Clone + 'a> ContentAction<'a, Message> {
             content = content.push(indicator);
         }
         if let Some(icon) = self.icon {
-            content = content.push(Icon::role(icon).custom_size(metrics.icon_size));
+            content = content.push(Icon::reference(icon).custom_size(metrics.icon_size));
         }
         if self.shape != ContentShape::Icon {
             content = content.push(
@@ -299,6 +297,8 @@ fn content_action_style(
 mod tests {
     use super::*;
     use crate::theme::{ThemeDensity, ThemeMode};
+    #[allow(unused_imports)]
+    use crate::IconRole;
 
     #[test]
     fn icon_only_action_keeps_required_label_as_default_tooltip() {
