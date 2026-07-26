@@ -37,11 +37,23 @@ pub(super) fn run_in_dir(command: IconsCommands, root: &Path) -> Result<()> {
         IconsCommands::AddSymbol {
             variant,
             provider_ref,
-        } => icons_add_symbol(&paths, &variant, &provider_ref),
+            framework,
+        } => icons_add_symbol(
+            &paths,
+            &variant,
+            &provider_ref,
+            generation_target(framework),
+        ),
         IconsCommands::SetRole {
             role_name,
             provider_ref,
-        } => icons_set_role(&paths, &role_name, &provider_ref),
+            framework,
+        } => icons_set_role(
+            &paths,
+            &role_name,
+            &provider_ref,
+            generation_target(framework),
+        ),
         IconsCommands::AddCustom { name, path } => icons_add_custom(&paths, &name, &path),
         IconsCommands::Init => icons_init(&paths),
         IconsCommands::Search { query, provider } => icons_search(&paths, &provider, &query),
@@ -210,7 +222,12 @@ pub(super) fn missing_required_role_failures(
         .collect()
 }
 
-pub(super) fn icons_add_symbol(paths: &IconPaths, variant: &str, value: &str) -> Result<()> {
+pub(super) fn icons_add_symbol(
+    paths: &IconPaths,
+    variant: &str,
+    value: &str,
+    target: IconGenerationTarget,
+) -> Result<()> {
     validate_variant(variant)?;
     require_manifest(paths)?;
 
@@ -222,10 +239,15 @@ pub(super) fn icons_add_symbol(paths: &IconPaths, variant: &str, value: &str) ->
         .insert(variant.to_string(), icon_ref.normalized());
 
     write_manifest(paths, &manifest)?;
-    icons_sync(paths, IconGenerationTarget::App)
+    icons_sync(paths, target)
 }
 
-pub(super) fn icons_set_role(paths: &IconPaths, role_name: &str, value: &str) -> Result<()> {
+pub(super) fn icons_set_role(
+    paths: &IconPaths,
+    role_name: &str,
+    value: &str,
+    target: IconGenerationTarget,
+) -> Result<()> {
     validate_role_name(role_name)?;
     require_manifest(paths)?;
 
@@ -237,7 +259,7 @@ pub(super) fn icons_set_role(paths: &IconPaths, role_name: &str, value: &str) ->
         .insert(role_name.to_string(), icon_ref.normalized());
 
     write_manifest(paths, &manifest)?;
-    icons_sync(paths, IconGenerationTarget::App)
+    icons_sync(paths, target)
 }
 
 pub(super) fn icons_add_custom(paths: &IconPaths, name: &str, source_path: &str) -> Result<()> {

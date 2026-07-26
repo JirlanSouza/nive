@@ -100,6 +100,9 @@ pub enum IconsCommands {
         variant: String,
         /// Provider ref, e.g. lucide:user or custom:brand-mark. Bare values are Lucide shorthand.
         provider_ref: String,
+        /// Write framework-internal modules for the nive-ui crate
+        #[arg(long, default_value_t = false)]
+        framework: bool,
     },
     /// Map a semantic role to a provider ref and sync
     #[command(name = "set-role")]
@@ -108,6 +111,9 @@ pub enum IconsCommands {
         role_name: String,
         /// Provider ref, e.g. lucide:x or custom:brand-close. Bare values are Lucide shorthand.
         provider_ref: String,
+        /// Write framework-internal modules for the nive-ui crate
+        #[arg(long, default_value_t = false)]
+        framework: bool,
     },
     /// Register a custom SVG in icons.toml
     #[command(name = "add-custom")]
