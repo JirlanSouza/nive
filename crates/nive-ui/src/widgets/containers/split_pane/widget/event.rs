@@ -8,7 +8,7 @@ use iced::{
 use crate::interaction::{Orientation, PointerButton, PointerGesture, PointerGestureKind};
 
 use super::super::helpers::{
-    apply_snap, clamp_ratio, hit_bounds, maximum_ratio, metrics, minimum_ratio, SplitPaneMetrics,
+    apply_snap, clamp_ratio, hit_bounds, maximum_ratio, metrics, minimum_ratio, SplitDividerMetrics,
 };
 use super::super::state::{DragSession, SnapConfig, SplitPaneRegion, SplitPaneState};
 use super::super::SplitPaneConstraints;
@@ -113,20 +113,24 @@ pub(super) fn has_primary_gesture(gestures: &[PointerGesture<SplitPaneRegion>]) 
         .any(|gesture| gesture.button == PointerButton::Primary)
 }
 
+/// A press that landed away from the grip.
+///
+/// An unresolvable cursor position is never treated as outside, so a press
+/// while the pointer sits beyond the window cannot end an ongoing drag.
 pub(super) fn primary_press_outside_hit(
     event: &Event,
     cursor: mouse::Cursor,
     hit_bounds: Rectangle,
 ) -> bool {
-    match event {
+    let position = match event {
         Event::Mouse(iced::mouse::Event::ButtonPressed(iced::mouse::Button::Left)) => {
-            !cursor.is_over(hit_bounds)
+            cursor.position()
         }
-        Event::Touch(iced::touch::Event::FingerPressed { position, .. }) => {
-            !hit_bounds.contains(*position)
-        }
-        _ => false,
-    }
+        Event::Touch(iced::touch::Event::FingerPressed { position, .. }) => Some(*position),
+        _ => return false,
+    };
+
+    position.is_some_and(|position| !hit_bounds.contains(position))
 }
 
 pub(super) fn current_divider_bounds(layout: Layout<'_>) -> Option<Rectangle> {
@@ -136,17 +140,10 @@ pub(super) fn current_divider_bounds(layout: Layout<'_>) -> Option<Rectangle> {
 pub(super) fn current_hit_bounds(
     layout: Layout<'_>,
     orientation: Orientation,
-    metrics: SplitPaneMetrics,
+    metrics: SplitDividerMetrics,
 ) -> Option<Rectangle> {
     current_divider_bounds(layout)
         .map(|divider_bounds| hit_bounds(divider_bounds, layout.bounds(), orientation, metrics))
-}
-
-pub(super) fn resize_interaction(orientation: Orientation) -> mouse::Interaction {
-    match orientation {
-        Orientation::Horizontal => mouse::Interaction::ResizingColumn,
-        Orientation::Vertical => mouse::Interaction::ResizingRow,
-    }
 }
 
 pub(super) fn axis_position(orientation: Orientation, position: Point) -> f32 {

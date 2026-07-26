@@ -9,14 +9,15 @@ use iced::{
 
 use crate::interaction::{Orientation, StepAdjustment};
 
-use super::helpers::{clamp_ratio, cross_length, main_length, metrics, pane_sizes};
+use super::helpers::{
+    clamp_ratio, cross_length, draw_grip, main_length, metrics, pane_sizes, resize_interaction,
+    resolve_visual_state,
+};
 use super::state::SplitPaneState;
 use super::SplitPane;
 
-use self::draw::{draw_grip, resolve_visual_state};
-use self::event::{current_divider_bounds, current_hit_bounds, resize_interaction};
+use self::event::{current_divider_bounds, current_hit_bounds};
 
-mod draw;
 mod event;
 
 #[cfg(test)]

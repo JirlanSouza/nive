@@ -4,10 +4,10 @@ use crate::interaction::Orientation;
 use crate::theme::{BorderRole, ControlSize, Theme, ThemeDensity, ThemeMode};
 
 use super::super::super::helpers::{
-    focus_seam_color, metrics, metrics_for_control, visible_grip_bounds, visual_seam_bounds,
+    focus_seam_color, metrics, metrics_for_control, resolve_visual_state, visible_grip_bounds,
+    visual_seam_bounds, DividerVisualState,
 };
 use super::super::super::SplitPane;
-use super::super::draw::{resolve_visual_state, DividerVisualState};
 use super::support::{Harness, ORIGIN};
 
 const CONTROL_SIZES: [ControlSize; 4] = [
