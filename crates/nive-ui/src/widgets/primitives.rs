@@ -11,4 +11,4 @@ pub use icon::{Icon, IconSize, Rotation};
 pub use separator::{Separator, SeparatorExtent, SeparatorStrength};
 pub use tone_dot::{StatusIndicator, ToneDot};
 
-pub use crate::icons::{IconGlyph, IconRole, IconSource};
+pub use crate::icons::{IconGlyph, IconRef, IconRole, IconSource};

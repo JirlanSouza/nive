@@ -183,8 +183,8 @@ pub(super) fn generate_symbols_source(
     target: IconGenerationTarget,
 ) -> Result<String> {
     let import = match target {
-        IconGenerationTarget::App => "use nive::prelude::IconSource;",
-        IconGenerationTarget::Framework => "use crate::icons::IconSource;",
+        IconGenerationTarget::App => "use nive::prelude::{IconRef, IconSource};",
+        IconGenerationTarget::Framework => "use crate::icons::{IconRef, IconSource};",
     };
     let mut source = format!(
         "// Bundled Lucide icons are sourced from Lucide (https://lucide.dev) and distributed under the ISC License.\n{import}\n\n#[allow(dead_code)]\n#[derive(Debug, Clone, Copy, PartialEq, Eq)]\npub enum IconSymbol",
@@ -240,6 +240,12 @@ pub(super) fn generate_symbols_source(
         source.push_str("        }\n");
     }
 
+    source.push_str("    }\n");
+    source.push_str("}\n\n");
+    // Lets a generated symbol drop straight into any widget icon slot.
+    source.push_str("impl From<IconSymbol> for IconRef {\n");
+    source.push_str("    fn from(symbol: IconSymbol) -> Self {\n");
+    source.push_str("        Self::from_source(symbol)\n");
     source.push_str("    }\n");
     source.push_str("}\n");
     Ok(source)
