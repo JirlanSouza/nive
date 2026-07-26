@@ -57,7 +57,7 @@ app-dev-cwd cwd package binary features_env:
       if [ -n "${NIVE_DEVTOOLS:-}" ]; then
         printf 'Devtools window enabled: %s\n' "$NIVE_DEVTOOLS"
       fi
-      ./target/debug/{{ binary }} 2>&1 &
+      "${CARGO_TARGET_DIR:-./target}/debug/{{ binary }}" 2>&1 &
       app_pid=$!
       reload_requested=0
 

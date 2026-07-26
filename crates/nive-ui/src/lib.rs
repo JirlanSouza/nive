@@ -202,7 +202,7 @@ pub(crate) use impl_layout_builders;
 pub mod widgets;
 
 pub use bootstrap::{BootstrapError, BootstrapView};
-pub use icons::{IconCatalog, IconCatalogEntry, IconGlyph, IconRole, IconSource};
+pub use icons::{IconCatalog, IconCatalogEntry, IconGlyph, IconRef, IconRole, IconSource};
 pub use theme::{Theme, ThemeBuilder, ThemeCatalog, ThemeData, ThemeDensity, ThemeId};
 pub use tokens::color;
 pub use tokens::radius;
