@@ -12,7 +12,7 @@ use crate::interaction::Orientation;
 use crate::theme::ControlSize;
 use crate::{Element, Theme};
 
-use super::super::super::helpers::{metrics, SplitPaneMetrics};
+use super::super::super::helpers::{metrics, SplitDividerMetrics};
 use super::super::super::state::SplitPaneState;
 use super::super::super::SplitPane;
 use super::super::event::{current_divider_bounds, current_hit_bounds};
@@ -92,7 +92,7 @@ pub(super) struct Harness {
     size: Size,
     cursor: mouse::Cursor,
     orientation: Orientation,
-    metrics: SplitPaneMetrics,
+    metrics: SplitDividerMetrics,
 }
 
 impl Harness {
@@ -213,7 +213,7 @@ impl Harness {
             .bounds()
     }
 
-    pub(super) fn metrics(&self) -> SplitPaneMetrics {
+    pub(super) fn metrics(&self) -> SplitDividerMetrics {
         self.metrics
     }
 
