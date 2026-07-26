@@ -2,6 +2,7 @@ use nive::prelude::*;
 
 use super::tone::tone_label;
 use super::{AppCommand, DocumentId, Message, PanelActionId, WorkbenchMonitor};
+use crate::icons::IconSymbol;
 
 impl WorkbenchMonitor {
     pub(super) fn toolbar(&self) -> Toolbar<'_, Message> {
@@ -15,7 +16,7 @@ impl WorkbenchMonitor {
             .group(
                 ToolbarGroup::new()
                     .action(
-                        ToolbarAction::icon_label(IconRole::ViewRefresh, "Run health check")
+                        ToolbarAction::icon_label(IconRole::ViewActivity, "Run health check")
                             .loading(self.model.running_jobs() > 0)
                             .on_press(Message::Command(AppCommand::RunHealthCheck)),
                     )
@@ -36,7 +37,7 @@ impl WorkbenchMonitor {
                             .on_press(Message::Command(AppCommand::SwitchEnvironment)),
                     )
                     .action(
-                        ToolbarAction::icon_label(IconRole::DialogInformation, "Theme")
+                        ToolbarAction::icon_label(IconRole::ViewTheme, "Theme")
                             .selected(matches!(self.theme, ThemePreference::Dark))
                             .on_press(Message::ToggleTheme),
                     ),
@@ -45,7 +46,7 @@ impl WorkbenchMonitor {
             .group(
                 ToolbarGroup::new()
                     .action(
-                        ToolbarAction::icon_label(IconRole::DialogWarning, "Latest alert")
+                        ToolbarAction::icon_label(IconRole::NotificationAlert, "Latest alert")
                             .disabled(latest_alert.is_none())
                             .on_press_maybe(latest_alert),
                     )
@@ -62,21 +63,21 @@ impl WorkbenchMonitor {
     ) -> Vec<WorkbenchPanel<'_, &'static str, PanelActionId, Message>> {
         vec![
             WorkbenchPanel::new("services", "Services", self.services_view())
-                .icon(IconRole::Folder)
+                .icon(IconSymbol::Server)
                 .count_badge(self.model.services.len() as u64)
                 .status_text(self.overall_tone(), tone_label(self.overall_tone()))
                 .action(PanelAction::icon(
                     PanelActionId::RunHealth,
-                    IconRole::ViewRefresh,
+                    IconRole::ViewActivity,
                     "Run health check",
                 ))
                 .action(PanelAction::icon(
                     PanelActionId::Refresh,
-                    IconRole::ViewReveal,
+                    IconRole::ViewRefresh,
                     "Refresh panel",
                 )),
             WorkbenchPanel::new("hosts", "Hosts", self.hosts_view())
-                .icon(IconRole::OpenMenu)
+                .icon(IconSymbol::Server)
                 .count_badge(self.model.hosts.len() as u64)
                 .status_text(self.host_tone(), tone_label(self.host_tone())),
             WorkbenchPanel::new("alerts", "Alerts", self.alerts_left_view())
@@ -84,7 +85,7 @@ impl WorkbenchMonitor {
                 .count_badge(self.active_alert_count() as u64)
                 .status_text(self.alert_tone(), tone_label(self.alert_tone())),
             WorkbenchPanel::new("dashboards", "Dashboards", self.dashboards_view())
-                .icon(IconRole::DialogInformation)
+                .icon(IconSymbol::Dashboard)
                 .status_text(ToneRole::Accent, "Active"),
             WorkbenchPanel::new("explorer", "Explorer", self.explorer_view())
                 .icon(IconRole::Folder)
@@ -124,7 +125,7 @@ impl WorkbenchMonitor {
             // stream state earns the tab's single signal slot instead.
             logs_panel_slot("logs", self.logs_view()).status_text(ToneRole::Accent, "Live"),
             bottom_panel_slot("events", "Events", self.events_view())
-                .icon(IconRole::MailInbox)
+                .icon(IconSymbol::Event)
                 .count_badge(self.model.events.len() as u64)
                 .action(PanelAction::icon(
                     PanelActionId::Clear,
@@ -204,10 +205,10 @@ impl WorkbenchMonitor {
         }
     }
 
-    const fn document_icon(&self, id: DocumentId) -> IconRole {
+    fn document_icon(&self, id: DocumentId) -> IconRef {
         match id {
-            DocumentId::Dashboard(_) => IconRole::DialogInformation,
-            DocumentId::Service(_) => IconRole::Folder,
+            DocumentId::Dashboard(_) => IconSymbol::Dashboard.into(),
+            DocumentId::Service(_) => IconSymbol::Server.into(),
         }
     }
 }

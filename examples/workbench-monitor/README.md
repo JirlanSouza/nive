@@ -157,10 +157,10 @@ Inspector panel the same way the existing Services/Hosts lists do.
 The reference composition for visual review is `ThemeDensity::Compact` with
 `WorkbenchShell::chrome_size(ControlSize::Sm)`, in both Light and Dark, at the
 canonical `1440x900`, `800x600`, and `1024x480` viewports. The Monitor owns
-its own bottom split ratio (`0.82`, set on its seeded `WorkbenchLayoutState`)
-so the document canvas holds the dominant share of the body; the generic
-`WorkbenchSplitRatios::default()` (`0.72`) is untouched by this app-local
-value.
+its own bottom region height (`180` logical pixels, set on its seeded
+`WorkbenchLayoutState`) so the document canvas holds the dominant share of the
+body; the generic `WorkbenchPaneSizes::default()` (`240`) is untouched by this
+app-local value.
 
 ## Document and panel structure
 

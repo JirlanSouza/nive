@@ -18,6 +18,7 @@ pub fn view(app: &WidgetGallery) -> Element<'_, Message> {
             section("Panels, scrollbars, and separators", structural_widgets()),
             section("Vertical rails", side_rails(app)),
             section("SplitPane", split_pane(app)),
+            section("SplitStack", split_stack(app)),
             section("Trees", trees(app)),
             section("Selectable controls", selectable(app)),
         ]
@@ -269,6 +270,94 @@ fn split_pane(app: &WidgetGallery) -> Element<'_, Message> {
             .height(72),
         ]
         .spacing(12),
+    ]
+    .spacing(12)
+    .into()
+}
+
+/// Drops a collapsed side pane from the stack, the way the workbench swaps an
+/// expanded region for its rail.
+fn collapsible_stack<'a>(
+    app: &'a WidgetGallery,
+    pane: &dyn Fn(&'static str, SurfaceRole) -> Panel<'a, Message>,
+) -> Element<'a, Message> {
+    let mut stack = SplitStack::horizontal();
+
+    if app.layout.stack_collapsed != Some(0) {
+        stack = stack.pane(
+            SplitStackPane::fixed(
+                pane("Fixed leading", SurfaceRole::Canvas),
+                app.layout.stack_leading,
+            )
+            .minimum(120.0)
+            .collapsible(true),
+        );
+    }
+
+    stack = stack.pane(SplitStackPane::fill(pane("Fill centre", SurfaceRole::Elevated)).minimum(160.0));
+
+    if app.layout.stack_collapsed != Some(2) {
+        stack = stack.pane(
+            SplitStackPane::fixed(
+                pane("Fixed trailing", SurfaceRole::Canvas),
+                app.layout.stack_trailing,
+            )
+            .minimum(120.0)
+            .collapsible(true),
+        );
+    }
+
+    stack
+        .on_resize(Message::StackResized)
+        .on_collapse(Message::StackCollapsed)
+        .height(180)
+        .into()
+}
+
+fn split_stack(app: &WidgetGallery) -> Element<'_, Message> {
+    let pane = |label: &'static str, role: SurfaceRole| {
+        Panel::new(ntext::body(label)).body_padding(14).role(role)
+    };
+
+    column![
+        ntext::body_small(
+            "Drag either divider: the pane on the far side keeps its exact width, \
+             and the divider stops once the centre reaches its minimum. Keep \
+             dragging past that stop to collapse the side pane; the button below \
+             brings it back at the width it had before."
+        ),
+        row![
+            nbutton::secondary("Restore sides").on_press(Message::StackRestored),
+            ntext::body_small(if app.layout.stack_collapsed.is_some() {
+                "A side pane is collapsed."
+            } else {
+                "Both side panes are open."
+            }),
+        ]
+        .spacing(8),
+        collapsible_stack(app, &pane),
+        row![
+            SplitStack::<Message>::horizontal()
+                .pane(SplitStackPane::fixed(ntext::body_small("Locked"), 120.0))
+                .pane(SplitStackPane::fill(ntext::body_small("Inert")))
+                .locked(true)
+                .on_resize(Message::StackResized)
+                .height(72),
+            // No Fill pane and invalid minimums: both normalize deterministically.
+            SplitStack::<Message>::horizontal()
+                .pane(SplitStackPane::fixed(ntext::body_small("Display-only"), 120.0))
+                .pane(
+                    SplitStackPane::fixed(ntext::body_small("No callback"), f32::NAN)
+                        .minimum(f32::INFINITY)
+                )
+                .height(72),
+        ]
+        .spacing(12),
+        SplitStack::vertical()
+            .pane(SplitStackPane::fill(pane("Fill upper", SurfaceRole::Canvas)).minimum(48.0))
+            .pane(SplitStackPane::fixed(pane("Fixed lower", SurfaceRole::Elevated), 64.0).minimum(40.0))
+            .on_resize(Message::StackResized)
+            .height(160),
     ]
     .spacing(12)
     .into()

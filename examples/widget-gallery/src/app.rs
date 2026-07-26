@@ -233,6 +233,9 @@ pub struct LayoutState {
     pub selected_item: usize,
     pub split_ratio: f32,
     pub vertical_split_ratio: f32,
+    pub stack_leading: f32,
+    pub stack_trailing: f32,
+    pub stack_collapsed: Option<usize>,
     pub expanded_tree_nodes: BTreeSet<DemoTreeNode>,
     pub tree_state: TreeState<DemoTreeNode>,
     pub tree_selection_mode: SelectionMode,
@@ -320,6 +323,9 @@ pub enum Message {
     TreeContextMenuDismissed,
     SplitRatioChanged(f32),
     VerticalSplitRatioChanged(f32),
+    StackResized(SplitResize),
+    StackCollapsed(SplitCollapse),
+    StackRestored,
     ShowDialog(DialogKind),
     CloseDialog,
     TogglePopover(PopoverKind),
@@ -415,6 +421,9 @@ impl Default for LayoutState {
             selected_item: 0,
             split_ratio: 0.42,
             vertical_split_ratio: 0.35,
+            stack_leading: 180.0,
+            stack_trailing: 200.0,
+            stack_collapsed: None,
             expanded_tree_nodes: [
                 DemoTreeNode::Examples,
                 DemoTreeNode::WidgetGallery,
@@ -664,6 +673,25 @@ impl Application for WidgetGallery {
             }
             Message::SplitRatioChanged(ratio) => self.layout.split_ratio = ratio,
             Message::VerticalSplitRatioChanged(ratio) => self.layout.vertical_split_ratio = ratio,
+            Message::StackResized(resize) => match resize.divider {
+                0 => self.layout.stack_leading = resize.leading,
+                _ => self.layout.stack_trailing = resize.trailing,
+            },
+            Message::StackCollapsed(collapse) => {
+                // Pane indices shift once a side is gone, so resolve the side
+                // against what is currently shown rather than the raw index.
+                let leading_open = self.layout.stack_collapsed != Some(0);
+                let side = if leading_open && collapse.pane == 0 { 0 } else { 2 };
+
+                // The reported length predates the drag, so the pane returns to
+                // its old width rather than the minimum it was squeezed to.
+                match side {
+                    0 => self.layout.stack_leading = collapse.restore,
+                    _ => self.layout.stack_trailing = collapse.restore,
+                }
+                self.layout.stack_collapsed = Some(side);
+            }
+            Message::StackRestored => self.layout.stack_collapsed = None,
             Message::ShowDialog(dialog) => self.overlays.active_dialog = Some(dialog),
             Message::CloseDialog => self.overlays.active_dialog = None,
             Message::TogglePopover(popover) => {

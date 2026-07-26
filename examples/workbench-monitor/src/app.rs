@@ -312,7 +312,7 @@ impl WorkbenchMonitor {
         layout.set_active_panel(WorkbenchRegion::Left, "services");
         layout.set_active_panel(WorkbenchRegion::Right, "inspector");
         layout.set_active_panel(WorkbenchRegion::Bottom, "alerts");
-        layout.set_split_ratio(WorkbenchRegion::Bottom, 0.82);
+        layout.set_region_size(WorkbenchRegion::Bottom, 180.0);
 
         let mode = SimulationMode::from_env();
 
@@ -357,14 +357,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn seeded_layout_owns_the_bottom_ratio_without_leaking_a_framework_default() {
+    fn seeded_layout_owns_the_bottom_size_without_leaking_a_framework_default() {
         let app = WorkbenchMonitor::seeded();
-        let ratios = app.layout.split_ratios();
+        let sizes = app.layout.pane_sizes();
 
-        assert_eq!(ratios.bottom, 0.82);
-        assert_eq!(ratios.left, 0.22);
-        assert_eq!(ratios.right, 0.78);
-        assert_eq!(WorkbenchSplitRatios::default().bottom, 0.72);
+        assert_eq!(sizes.bottom, 180.0);
+        // Region widths in logical pixels, both left at the framework default.
+        assert_eq!(sizes.left, 240.0);
+        assert_eq!(sizes.right, 300.0);
+        assert_eq!(WorkbenchPaneSizes::default().bottom, 240.0);
     }
 
     #[test]
