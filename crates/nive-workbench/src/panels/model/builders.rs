@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use nive_ui::theme::ToneRole;
 use nive_ui::{
     widgets::{BadgeContent, StatusIndicator},
-    Element, IconRole,
+    Element,
 };
 
 use super::{
@@ -11,14 +11,19 @@ use super::{
     WorkbenchPanelEvent, WorkbenchPanelHostState,
 };
 use crate::layout::WorkbenchRegion;
+use nive_ui::IconRef;
 
 impl<'a, ActionId> PanelAction<'a, ActionId> {
     /// Creates an icon-only action with a required accessible label.
-    pub fn icon(id: ActionId, icon: IconRole, accessible_label: impl Into<Cow<'a, str>>) -> Self {
+    pub fn icon(
+        id: ActionId,
+        icon: impl Into<IconRef>,
+        accessible_label: impl Into<Cow<'a, str>>,
+    ) -> Self {
         Self {
             id,
             label: None,
-            icon: Some(icon),
+            icon: Some(icon.into()),
             accessible_label: accessible_label.into(),
             disabled: false,
         }
@@ -37,12 +42,16 @@ impl<'a, ActionId> PanelAction<'a, ActionId> {
     }
 
     /// Creates an icon+text action.
-    pub fn icon_text(id: ActionId, icon: IconRole, label: impl Into<Cow<'a, str>>) -> Self {
+    pub fn icon_text(
+        id: ActionId,
+        icon: impl Into<IconRef>,
+        label: impl Into<Cow<'a, str>>,
+    ) -> Self {
         let label = label.into();
         Self {
             id,
             label: Some(label.clone()),
-            icon: Some(icon),
+            icon: Some(icon.into()),
             accessible_label: label,
             disabled: false,
         }
@@ -121,8 +130,8 @@ impl<'a, PanelId, ActionId, Message> WorkbenchPanel<'a, PanelId, ActionId, Messa
     }
 
     /// Sets panel icon.
-    pub fn icon(mut self, icon: IconRole) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 
@@ -301,10 +310,14 @@ impl<PanelId> Default for WorkbenchPanelHostState<PanelId> {
 
 impl<'a, PanelId> PanelRailItem<'a, PanelId> {
     /// Creates a side-rail item with a required accessible label.
-    pub fn new(panel_id: PanelId, icon: IconRole, label: impl Into<Cow<'a, str>>) -> Self {
+    pub fn new(
+        panel_id: PanelId,
+        icon: impl Into<IconRef>,
+        label: impl Into<Cow<'a, str>>,
+    ) -> Self {
         Self {
             id: panel_id,
-            icon,
+            icon: icon.into(),
             label: label.into(),
             selected: false,
             disabled: false,

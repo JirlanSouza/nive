@@ -19,8 +19,8 @@ use super::Message;
 use crate::layout_probe;
 use crate::panels::PanelAction;
 use crate::{
-    StatusBar, StatusItem, WorkbenchDocument, WorkbenchLayoutState, WorkbenchPanel,
-    WorkbenchRegion, WorkbenchShell,
+    StatusBar, StatusItem, WorkbenchDocument, WorkbenchEvent, WorkbenchLayoutChange,
+    WorkbenchLayoutState, WorkbenchPanel, WorkbenchRegion, WorkbenchShell,
 };
 
 #[derive(Clone, Copy)]
@@ -219,8 +219,8 @@ fn left_split_interaction(
         &renderer,
     );
     let probes = layout_probe::snapshot();
-    let leading = probes["left_split_leading"];
-    let trailing = probes["left_split_trailing"];
+    let leading = probes["left_pane"];
+    let trailing = probes["center_pane"];
     let hit_thickness = 12.0_f32.max(theme.control_metrics(expected_hit_size).icon_size);
     let point = Point::new(
         trailing.x - 0.5 - hit_thickness / 2.0 + 0.25,
@@ -280,12 +280,11 @@ fn assert_common_expanded_geometry(snapshot: &LayoutSnapshot) {
         "bottom_tab_track",
         "bottom_controls",
         "bottom_content",
-        "left_split_leading",
-        "left_split_trailing",
-        "right_split_leading",
-        "right_split_trailing",
-        "bottom_split_leading",
-        "bottom_split_trailing",
+        "left_pane",
+        "center_pane",
+        "right_pane",
+        "upper_pane",
+        "bottom_pane",
     ] {
         assert_in_viewport(snapshot.probe(name), snapshot.viewport, name);
     }
@@ -348,19 +347,9 @@ fn assert_common_expanded_geometry(snapshot: &LayoutSnapshot) {
         snapshot.content_gap
     );
 
-    assert_split_gap(snapshot, "left_split_leading", "left_split_trailing", true);
-    assert_split_gap(
-        snapshot,
-        "right_split_leading",
-        "right_split_trailing",
-        true,
-    );
-    assert_split_gap(
-        snapshot,
-        "bottom_split_leading",
-        "bottom_split_trailing",
-        false,
-    );
+    assert_split_gap(snapshot, "left_pane", "center_pane", true);
+    assert_split_gap(snapshot, "center_pane", "right_pane", true);
+    assert_split_gap(snapshot, "upper_pane", "bottom_pane", false);
 
     let status_content = snapshot.probe("status_content");
     assert_eq!(status.height, snapshot.status_extent);
@@ -390,6 +379,470 @@ fn assert_split_gap(
     } else {
         assert!(leading.y + leading.height <= trailing.y);
     }
+}
+
+/// Split harness viewport, wide enough that no pane sits on a pixel minimum.
+const SPLIT_VIEWPORT: Size = Size::new(1400.0, 900.0);
+
+/// Renders a left/center/right shell and returns its layout probes.
+struct SplitHarness {
+    element: Element<'static, Message>,
+    tree: Tree,
+    node: iced::advanced::layout::Node,
+    renderer: iced::Renderer,
+    cursor: mouse::Cursor,
+    viewport: Size,
+}
+
+impl SplitHarness {
+    fn new(state: WorkbenchLayoutState<&'static str, &'static str>) -> Self {
+        Self::sized(state, SPLIT_VIEWPORT)
+    }
+
+    fn sized(state: WorkbenchLayoutState<&'static str, &'static str>, viewport: Size) -> Self {
+        let mut element = WorkbenchShell::new(state, Message::Workbench)
+            .left_panels([
+                WorkbenchPanel::new("files", "Files", fill_space()).icon(IconRole::Folder),
+                WorkbenchPanel::new("search", "Search", fill_space()).icon(IconRole::EditFind),
+            ])
+            .documents([WorkbenchDocument::new("readme", "README.md")])
+            .document_content(fill_space())
+            .right_panels([WorkbenchPanel::new("inspector", "Inspector", fill_space())
+                .icon(IconRole::NiveDisclosureRight)])
+            .bottom_panels([WorkbenchPanel::new("problems", "Problems", fill_space())])
+            .view();
+
+        let mut tree = Tree::new(&element);
+        let renderer = test_renderer();
+        element.as_widget_mut().diff(&mut tree);
+        let node = element.as_widget_mut().layout(
+            &mut tree,
+            &renderer,
+            &Limits::new(Size::ZERO, viewport),
+        );
+
+        Self {
+            element,
+            tree,
+            node,
+            renderer,
+            cursor: mouse::Cursor::Unavailable,
+            viewport,
+        }
+    }
+
+    fn probes(&self) -> BTreeMap<&'static str, Rectangle> {
+        layout_probe::clear();
+        let _ = self.element.as_widget().mouse_interaction(
+            &self.tree,
+            Layout::new(&self.node),
+            mouse::Cursor::Unavailable,
+            &Rectangle::with_size(self.viewport),
+            &self.renderer,
+        );
+
+        layout_probe::snapshot()
+    }
+
+    /// Center of the one-pixel divider separating two probed regions.
+    fn divider_x(&self, trailing: &'static str) -> f32 {
+        self.probes()[trailing].x - 0.5
+    }
+
+    fn update(&mut self, event: iced::Event) -> Vec<Message> {
+        if let iced::Event::Mouse(mouse::Event::CursorMoved { position }) = event {
+            self.cursor = mouse::Cursor::Available(position);
+        }
+
+        let mut messages = Vec::new();
+        let mut clipboard = iced::advanced::clipboard::Null;
+        let mut shell = iced::advanced::Shell::new(&mut messages);
+        self.element.as_widget_mut().update(
+            &mut self.tree,
+            &event,
+            Layout::new(&self.node),
+            self.cursor,
+            &self.renderer,
+            &mut clipboard,
+            &mut shell,
+            &Rectangle::with_size(self.viewport),
+        );
+        drop(shell);
+
+        messages
+    }
+
+    /// Drags a divider horizontally and returns every emitted workbench event.
+    ///
+    /// The first move only crosses the gesture drag threshold and anchors the
+    /// drag origin, so `delta` is measured from that anchor.
+    fn drag_x(&mut self, from: Point, delta: f32) -> Vec<Message> {
+        self.drag(
+            from,
+            |point, offset| Point::new(point.x + offset, point.y),
+            delta,
+        )
+    }
+
+    /// Drags a divider vertically, as [`Self::drag_x`] does along the other axis.
+    fn drag_y(&mut self, from: Point, delta: f32) -> Vec<Message> {
+        self.drag(
+            from,
+            |point, offset| Point::new(point.x, point.y + offset),
+            delta,
+        )
+    }
+
+    fn drag(
+        &mut self,
+        from: Point,
+        offset: impl Fn(Point, f32) -> Point,
+        delta: f32,
+    ) -> Vec<Message> {
+        let _ = self.update(iced::Event::Mouse(mouse::Event::CursorMoved {
+            position: from,
+        }));
+        let _ = self.update(iced::Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        // Crosses the 4px drag threshold and becomes the drag anchor.
+        let anchor = offset(from, 8.0);
+        let _ = self.update(iced::Event::Mouse(mouse::Event::CursorMoved {
+            position: anchor,
+        }));
+
+        self.update(iced::Event::Mouse(mouse::Event::CursorMoved {
+            position: offset(anchor, delta),
+        }))
+    }
+}
+
+fn split_state(left: f32, right: f32) -> WorkbenchLayoutState<&'static str, &'static str> {
+    let mut state = WorkbenchLayoutState::default().with_active_document("readme");
+    let _ = state.set_region_size(WorkbenchRegion::Left, left);
+    let _ = state.set_region_size(WorkbenchRegion::Right, right);
+    state
+}
+
+fn applied(
+    state: &WorkbenchLayoutState<&'static str, &'static str>,
+    messages: &[Message],
+) -> WorkbenchLayoutState<&'static str, &'static str> {
+    let mut next = state.clone();
+    for Message::Workbench(event) in messages {
+        event.apply_to(&mut next);
+    }
+    next
+}
+
+/// Vertical pitch of a rail item under the harness theme: an icon, its rotated
+/// label, and padding.
+const RAIL_ITEM_EXTENT: f32 = 72.0;
+
+/// Clicks the rail item at `index`, counting from the rail's top.
+fn click_rail_item(harness: &mut SplitHarness, rail: &'static str, index: usize) -> Vec<Message> {
+    let bounds = harness.probes()[rail];
+    let point = Point::new(
+        bounds.center_x(),
+        bounds.y + RAIL_ITEM_EXTENT * (index as f32 + 0.5),
+    );
+
+    let _ = harness.update(iced::Event::Mouse(mouse::Event::CursorMoved {
+        position: point,
+    }));
+    let _ = harness.update(iced::Event::Mouse(mouse::Event::ButtonPressed(
+        mouse::Button::Left,
+    )));
+
+    harness.update(iced::Event::Mouse(mouse::Event::ButtonReleased(
+        mouse::Button::Left,
+    )))
+}
+
+fn split_theme() -> ThemeTestGuard {
+    ThemeTestGuard::activate(
+        Theme::builder("Split coupling harness", ThemeMode::Dark)
+            .density(ThemeDensity::Standard)
+            .build(),
+    )
+}
+
+fn maximized_state(
+    region: WorkbenchRegion,
+    panel: &'static str,
+) -> WorkbenchLayoutState<&'static str, &'static str> {
+    let mut state = split_state(280.0, 320.0);
+    let _ = state.maximize_panel(region, panel);
+    let _ = state.set_active_panel(region, panel);
+    state
+}
+
+#[test]
+fn maximizing_keeps_every_rail_and_its_items() {
+    let _guard = split_theme();
+    let state = maximized_state(WorkbenchRegion::Left, "files");
+    let mut harness = SplitHarness::new(state.clone());
+    let probes = harness.probes();
+
+    // The maximized region takes the content area but no rail disappears.
+    assert!(probes.contains_key("maximized_pane"));
+    assert!(probes.contains_key("left_rail"));
+    assert!(
+        probes.contains_key("right_rail"),
+        "the opposite rail vanished while maximized"
+    );
+
+    // The maximized region keeps its whole panel list, so a sibling item is
+    // still there to click; with only the maximized panel this lands on nothing.
+    let switched = applied(&state, &click_rail_item(&mut harness, "left_rail", 1));
+    assert_eq!(
+        switched.active_panel(WorkbenchRegion::Left),
+        Some(&"search")
+    );
+    assert!(
+        switched.maximized().is_some(),
+        "switching left the maximized view"
+    );
+}
+
+#[test]
+fn reaching_for_the_opposite_rail_leaves_the_maximized_view() {
+    let _guard = split_theme();
+    let state = maximized_state(WorkbenchRegion::Left, "files");
+    let mut harness = SplitHarness::new(state.clone());
+    let restored = applied(&state, &click_rail_item(&mut harness, "right_rail", 0));
+
+    assert!(restored.maximized().is_none());
+    assert_eq!(
+        restored.active_panel(WorkbenchRegion::Right),
+        Some(&"inspector")
+    );
+    // The ordinary three-region body is back.
+    let probes = SplitHarness::new(restored).probes();
+    assert!(probes.contains_key("left_pane"));
+    assert!(probes.contains_key("right_pane"));
+    assert!(!probes.contains_key("maximized_pane"));
+}
+
+#[test]
+fn clicking_the_active_rail_item_toggles_its_region() {
+    let _guard = split_theme();
+    let expanded = split_state(280.0, 320.0);
+
+    // The rail paints the first panel as active, so clicking it folds the region.
+    let mut harness = SplitHarness::new(expanded.clone());
+    let messages = click_rail_item(&mut harness, "left_rail", 0);
+    let collapsed = applied(&expanded, &messages);
+
+    assert!(
+        collapsed.is_collapsed(WorkbenchRegion::Left),
+        "clicking the active rail item did not collapse: {messages:?}"
+    );
+    assert!(!collapsed.is_collapsed(WorkbenchRegion::Right));
+
+    // Clicking it again brings the region back at the width it kept.
+    let mut harness = SplitHarness::new(collapsed.clone());
+    let restored = applied(&collapsed, &click_rail_item(&mut harness, "left_rail", 0));
+
+    assert!(!restored.is_collapsed(WorkbenchRegion::Left));
+    assert_eq!(
+        SplitHarness::new(restored).probes()["left_pane"].width,
+        280.0
+    );
+}
+
+#[test]
+fn clicking_an_inactive_rail_item_selects_instead_of_collapsing() {
+    let _guard = split_theme();
+    let mut state = split_state(280.0, 320.0);
+    // Make the second panel active, so the first rail item is now the inactive one.
+    let _ = state.set_active_panel(WorkbenchRegion::Left, "search");
+
+    let mut harness = SplitHarness::new(state.clone());
+    let next = applied(&state, &click_rail_item(&mut harness, "left_rail", 0));
+
+    assert!(!next.is_collapsed(WorkbenchRegion::Left));
+    assert_eq!(next.active_panel(WorkbenchRegion::Left), Some(&"files"));
+}
+
+#[test]
+fn dragging_a_side_divider_past_its_minimum_collapses_that_region() {
+    let _guard = split_theme();
+    let state = split_state(280.0, 320.0);
+    let mut harness = SplitHarness::new(state.clone());
+    let divider = harness.divider_x("center_pane");
+    // The left region has 120 of slack above its 160 minimum; the next 32 are
+    // over-travel and trip the collapse.
+    let messages = harness.drag_x(Point::new(divider, 400.0), -200.0);
+    let collapsed = applied(&state, &messages);
+
+    assert!(collapsed.is_collapsed(WorkbenchRegion::Left));
+    // The stored width is the one from before the drag, not the minimum the
+    // same drag squeezed the region to.
+    assert_eq!(collapsed.pane_sizes().left, 280.0);
+    assert!(!collapsed.is_collapsed(WorkbenchRegion::Right));
+
+    let probes = SplitHarness::new(collapsed.clone()).probes();
+    assert!(!probes.contains_key("left_pane"));
+    assert!(probes.contains_key("left_rail"));
+
+    // Restoring through the rail brings the region back at its pre-drag width.
+    let mut restored = collapsed;
+    let _ = restored.restore_region(WorkbenchRegion::Left);
+    assert_eq!(
+        SplitHarness::new(restored).probes()["left_pane"].width,
+        280.0
+    );
+}
+
+#[test]
+fn the_bottom_divider_stops_at_its_minimum_instead_of_collapsing() {
+    let _guard = split_theme();
+    let state = split_state(280.0, 320.0);
+    let mut harness = SplitHarness::new(state.clone());
+    let divider_y = harness.probes()["bottom_pane"].y - 0.5;
+    let messages = harness.drag_y(Point::new(400.0, divider_y), 2_000.0);
+    let dragged = applied(&state, &messages);
+
+    assert!(!dragged.is_collapsed(WorkbenchRegion::Bottom));
+    assert!(SplitHarness::new(dragged).probes()["bottom_pane"].height >= 95.0);
+}
+
+#[test]
+fn resizing_one_region_never_moves_the_opposite_region() {
+    let _guard = split_theme();
+    let baseline = SplitHarness::new(split_state(280.0, 320.0)).probes();
+
+    // Swept across each divider's whole travel. The range stops where the shell
+    // can still seat both sides plus the centre minimum; past that the
+    // documented reverse-order yield takes over, which the drag-to-limit test
+    // covers instead.
+    for step in 0..=60 {
+        let size = 160.0 + 10.0 * step as f32;
+
+        let left_moved = SplitHarness::new(split_state(size, 320.0)).probes();
+        assert_eq!(
+            left_moved["right_pane"].width, baseline["right_pane"].width,
+            "left={size} moved the right region"
+        );
+
+        let right_moved = SplitHarness::new(split_state(280.0, size)).probes();
+        assert_eq!(
+            right_moved["left_pane"].width, baseline["left_pane"].width,
+            "right={size} moved the left region"
+        );
+        assert!(
+            right_moved["center_pane"].width >= 239.0,
+            "right={size} crushed the centre: {}",
+            right_moved["center_pane"].width
+        );
+    }
+}
+
+#[test]
+fn dragging_the_right_divider_reports_only_the_right_region() {
+    let _guard = split_theme();
+    let state = split_state(280.0, 320.0);
+    let mut harness = SplitHarness::new(state.clone());
+    let divider = harness.divider_x("right_pane");
+    let messages = harness.drag_x(Point::new(divider, 400.0), -200.0);
+
+    assert!(!messages.is_empty(), "right divider drag emitted nothing");
+    for Message::Workbench(event) in &messages {
+        assert!(
+            matches!(
+                event,
+                WorkbenchEvent::Layout(WorkbenchLayoutChange::RegionResized {
+                    region: WorkbenchRegion::Right,
+                    ..
+                })
+            ),
+            "right divider drag touched another region: {event:?}"
+        );
+    }
+
+    let dragged = applied(&state, &messages);
+    assert_eq!(dragged.pane_sizes().left, state.pane_sizes().left);
+    assert!(dragged.pane_sizes().right > state.pane_sizes().right);
+
+    let after = SplitHarness::new(dragged).probes();
+    let before = SplitHarness::new(state).probes();
+    assert_eq!(
+        after["left_pane"].width, before["left_pane"].width,
+        "the left region followed the right divider"
+    );
+}
+
+#[test]
+fn a_region_divider_dragged_to_its_limit_still_leaves_the_other_alone() {
+    let _guard = split_theme();
+
+    for region in [WorkbenchRegion::Left, WorkbenchRegion::Right] {
+        let state = split_state(280.0, 320.0);
+        let before = SplitHarness::new(state.clone()).probes();
+        let mut harness = SplitHarness::new(state.clone());
+
+        // Far beyond the divider's travel in the direction that grows its region.
+        let (probe, delta, opposite) = match region {
+            WorkbenchRegion::Left => ("center_pane", 2_000.0, "right_pane"),
+            _ => ("right_pane", -2_000.0, "left_pane"),
+        };
+        let divider = harness.divider_x(probe);
+        let messages = harness.drag_x(Point::new(divider, 400.0), delta);
+        let after = SplitHarness::new(applied(&state, &messages)).probes();
+
+        assert_eq!(
+            after[opposite].width, before[opposite].width,
+            "{region:?} at its limit moved {opposite}"
+        );
+        assert!(
+            after["center_pane"].width >= 239.0,
+            "{region:?} crushed the centre: {}",
+            after["center_pane"].width
+        );
+    }
+}
+
+#[test]
+fn dragging_a_divider_moves_it_one_to_one_in_pixels() {
+    let _guard = split_theme();
+    let state = split_state(280.0, 320.0);
+    let before = SplitHarness::new(state.clone()).probes();
+    let mut harness = SplitHarness::new(state.clone());
+    let divider = harness.divider_x("center_pane");
+    let messages = harness.drag_x(Point::new(divider, 400.0), 120.0);
+
+    assert!(!messages.is_empty(), "left divider drag emitted nothing");
+    let dragged = applied(&state, &messages);
+    assert_eq!(dragged.pane_sizes().right, state.pane_sizes().right);
+
+    let after = SplitHarness::new(dragged.clone()).probes();
+    let grew = after["left_pane"].width - before["left_pane"].width;
+    assert!(
+        (grew - 120.0).abs() <= 1.0,
+        "left divider drag was not one-to-one: grew by {grew}"
+    );
+    assert_eq!(
+        after["right_pane"].x, before["right_pane"].x,
+        "the right region followed the left divider"
+    );
+    // The stored size is the region's own width in logical pixels.
+    assert_eq!(dragged.pane_sizes().left, after["left_pane"].width);
+}
+
+#[test]
+fn widening_the_shell_widens_only_the_centre() {
+    let _guard = split_theme();
+    let state = split_state(280.0, 320.0);
+    let narrow = SplitHarness::sized(state.clone(), Size::new(1400.0, 900.0)).probes();
+    let wide = SplitHarness::sized(state, Size::new(1920.0, 900.0)).probes();
+
+    assert_eq!(wide["left_pane"].width, narrow["left_pane"].width);
+    assert_eq!(wide["right_pane"].width, narrow["right_pane"].width);
+    assert_eq!(
+        wide["center_pane"].width - narrow["center_pane"].width,
+        520.0
+    );
 }
 
 #[test]
@@ -465,11 +918,11 @@ fn collapsed_regions_omit_only_their_split_without_expanding_the_shell() {
 
         match region {
             WorkbenchRegion::Left => {
-                assert!(snapshot.maybe_probe("left_split_leading").is_none());
+                assert!(snapshot.maybe_probe("left_pane").is_none());
                 assert_in_viewport(snapshot.probe("left_rail"), snapshot.viewport, "left rail");
             }
             WorkbenchRegion::Right => {
-                assert!(snapshot.maybe_probe("right_split_leading").is_none());
+                assert!(snapshot.maybe_probe("right_pane").is_none());
                 assert_in_viewport(
                     snapshot.probe("right_rail"),
                     snapshot.viewport,
@@ -477,7 +930,7 @@ fn collapsed_regions_omit_only_their_split_without_expanding_the_shell() {
                 );
             }
             WorkbenchRegion::Bottom => {
-                assert!(snapshot.maybe_probe("bottom_split_leading").is_none());
+                assert!(snapshot.maybe_probe("bottom_pane").is_none());
                 assert!(snapshot.maybe_probe("bottom_selector").is_none());
             }
             WorkbenchRegion::Toolbar | WorkbenchRegion::Center | WorkbenchRegion::Status => {

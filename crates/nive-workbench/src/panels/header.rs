@@ -5,7 +5,7 @@ use iced::{widget::container, Length, Padding};
 use nive_ui::theme::{self, ControlSize, ToneRole};
 use nive_ui::widgets::BadgeContent;
 use nive_ui::widgets::{SectionHeader, SectionHeaderAction, SectionHeaderStatus};
-use nive_ui::{Element, IconRole};
+use nive_ui::{Element, IconRef, IconRole};
 
 use super::model::PanelHeaderBar;
 use crate::layout::WorkbenchRegion;
@@ -109,6 +109,42 @@ where
     }
 }
 
+/// The single maximize control a panel header shows.
+///
+/// One button carries both directions: a maximized host offers restore, and any
+/// other maximizable host offers maximize.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum MaximizeToggle {
+    Maximize,
+    Restore,
+}
+
+impl MaximizeToggle {
+    pub(super) fn resolve(restorable: bool, maximizable: bool) -> Option<Self> {
+        if restorable {
+            Some(Self::Restore)
+        } else if maximizable {
+            Some(Self::Maximize)
+        } else {
+            None
+        }
+    }
+
+    fn icon(self) -> IconRole {
+        match self {
+            Self::Restore => IconRole::ViewRestore,
+            Self::Maximize => IconRole::ViewMaximize,
+        }
+    }
+
+    fn tooltip(self) -> &'static str {
+        match self {
+            Self::Restore => "Restore panel",
+            Self::Maximize => "Maximize panel",
+        }
+    }
+}
+
 pub(super) fn trailing_controls<'a, PanelId, ActionId, Message>(
     region: WorkbenchRegion,
     panel_id: PanelId,
@@ -149,24 +185,21 @@ where
     if has_app_actions && has_builtin {
         controls.push(SectionHeaderAction::separator());
     }
-    if flags.restorable {
-        controls.push(header_button(
-            IconRole::ViewReveal,
-            "Restore panel",
-            mapper(WorkbenchPanelEvent::PanelRestoreRequested {
+    if let Some(toggle) = MaximizeToggle::resolve(flags.restorable, flags.maximizable) {
+        let event = match toggle {
+            MaximizeToggle::Restore => WorkbenchPanelEvent::PanelRestoreRequested {
                 region,
                 panel_id: panel_id.clone(),
-            }),
-        ));
-    }
-    if flags.maximizable {
-        controls.push(header_button(
-            IconRole::NiveDisclosureUp,
-            "Maximize panel",
-            mapper(WorkbenchPanelEvent::MaximizeRequested {
+            },
+            MaximizeToggle::Maximize => WorkbenchPanelEvent::MaximizeRequested {
                 region,
                 panel_id: panel_id.clone(),
-            }),
+            },
+        };
+        controls.push(header_button(
+            toggle.icon(),
+            toggle.tooltip(),
+            mapper(event),
         ));
     }
     if flags.collapsible {
@@ -191,7 +224,7 @@ where
 }
 
 fn header_button<'a, Message>(
-    icon: IconRole,
+    icon: impl Into<IconRef>,
     tooltip: &'a str,
     message: Message,
 ) -> SectionHeaderAction<'a, Message>
@@ -209,5 +242,39 @@ fn tone_icon(tone: ToneRole) -> IconRole {
         ToneRole::Warning => IconRole::DialogWarning,
         ToneRole::Success => IconRole::DialogInformation,
         ToneRole::Accent | ToneRole::Info | ToneRole::Neutral => IconRole::DialogInformation,
+    }
+}
+
+#[cfg(test)]
+mod header_icon_tests {
+    use super::*;
+
+    #[test]
+    fn one_control_carries_both_maximize_directions() {
+        // `restorable` is only set while the host is maximized.
+        assert_eq!(
+            MaximizeToggle::resolve(true, true),
+            Some(MaximizeToggle::Restore)
+        );
+        assert_eq!(
+            MaximizeToggle::resolve(false, true),
+            Some(MaximizeToggle::Maximize)
+        );
+        assert_eq!(MaximizeToggle::resolve(false, false), None);
+        // A maximized host restores even if the panel opted out of maximizing.
+        assert_eq!(
+            MaximizeToggle::resolve(true, false),
+            Some(MaximizeToggle::Restore)
+        );
+    }
+
+    #[test]
+    fn each_direction_carries_its_own_icon_and_name() {
+        assert_eq!(MaximizeToggle::Maximize.icon(), IconRole::ViewMaximize);
+        assert_eq!(MaximizeToggle::Restore.icon(), IconRole::ViewRestore);
+        assert_ne!(
+            MaximizeToggle::Maximize.tooltip(),
+            MaximizeToggle::Restore.tooltip()
+        );
     }
 }

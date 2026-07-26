@@ -1,7 +1,7 @@
 use iced::widget::{text, Space};
 use nive_ui::{
     theme::ControlSize,
-    widgets::{SplitPane, Toolbar},
+    widgets::{SplitStack, SplitStackPane, Toolbar},
     IconRole,
 };
 
@@ -152,7 +152,9 @@ fn public_chrome_size_builders_compile() {
     )
     .chrome_size(ControlSize::Md);
 
-    let _split_pane = SplitPane::<()>::new(Space::new(), Space::new())
+    let _split_stack = SplitStack::<()>::horizontal()
+        .pane(SplitStackPane::fixed(Space::new(), 120.0).minimum(60.0))
+        .pane(SplitStackPane::fill(Space::new()))
         .size(ControlSize::Xs)
         .xs()
         .sm()
@@ -164,9 +166,9 @@ fn public_chrome_size_builders_compile() {
 fn workbench_event_applies_builtin_view_state_transitions() {
     let mut state = WorkbenchLayoutState::<&str, &str>::default();
 
-    WorkbenchEvent::<&str, &str, &str>::Layout(WorkbenchLayoutChange::SplitRatioChanged {
+    WorkbenchEvent::<&str, &str, &str>::Layout(WorkbenchLayoutChange::RegionResized {
         region: WorkbenchRegion::Left,
-        ratio: 0.4,
+        size: 400.0,
     })
     .apply_to(&mut state);
     WorkbenchEvent::<&str, &str, &str>::Panel(WorkbenchPanelEvent::Selected {
@@ -177,7 +179,7 @@ fn workbench_event_applies_builtin_view_state_transitions() {
     WorkbenchEvent::<&str, &str, &str>::Document(WorkbenchDocumentEvent::Select("readme"))
         .apply_to(&mut state);
 
-    assert_eq!(state.split_ratios().left, 0.4);
+    assert_eq!(state.pane_sizes().left, 400.0);
     assert_eq!(state.active_panel(WorkbenchRegion::Left), Some(&"files"));
     assert_eq!(state.active_document(), Some(&"readme"));
 }

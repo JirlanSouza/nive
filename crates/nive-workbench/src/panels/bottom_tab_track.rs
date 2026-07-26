@@ -136,8 +136,8 @@ where
             .height(Length::Fill)
             .width(Length::Shrink);
         if let Some(icon) = item.metadata.icon {
-            content =
-                content.push(nive_ui::widgets::Icon::role(icon).custom_size(metrics.icon_size));
+            content = content
+                .push(nive_ui::widgets::Icon::reference(icon).custom_size(metrics.icon_size));
         }
         content = content.push(
             text(item.metadata.label.clone())

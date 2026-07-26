@@ -6,7 +6,7 @@ use nive_ui::theme::ControlSize;
 use nive_ui::widgets::{
     TabBar, TabCloseRequest, TabCloseTrigger, TabDrop, TabDropTarget, TabItem, TabTearOff,
 };
-use nive_ui::{Element, IconRole};
+use nive_ui::{Element, IconRef};
 
 use crate::layout_probe;
 
@@ -19,7 +19,7 @@ pub use header::DocumentHeader;
 pub struct WorkbenchDocument<'a, Id> {
     id: Id,
     label: Cow<'a, str>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     dirty: bool,
     pinned: bool,
     closable: bool,
@@ -128,7 +128,7 @@ impl<'a, Id> WorkbenchDocument<'a, Id> {
     }
 
     /// Returns configured icon role.
-    pub const fn icon_role(&self) -> Option<IconRole> {
+    pub const fn icon_role(&self) -> Option<IconRef> {
         self.icon
     }
 
@@ -158,8 +158,8 @@ impl<'a, Id> WorkbenchDocument<'a, Id> {
     }
 
     /// Sets the document icon.
-    pub fn icon(mut self, icon: IconRole) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 

@@ -4,10 +4,11 @@ use std::borrow::Cow;
 
 use nive_ui::{
     widgets::{BadgeContent, RailSide, StatusIndicator},
-    Element, IconRole,
+    Element,
 };
 
 use crate::layout::WorkbenchRegion;
+use nive_ui::IconRef;
 
 /// Selector placement for panels in a host.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,7 +53,7 @@ pub enum PanelHostMode {
 pub struct PanelAction<'a, ActionId> {
     pub(super) id: ActionId,
     pub(super) label: Option<Cow<'a, str>>,
-    pub(super) icon: Option<IconRole>,
+    pub(super) icon: Option<IconRef>,
     pub(super) accessible_label: Cow<'a, str>,
     pub(super) disabled: bool,
 }
@@ -61,7 +62,7 @@ pub struct PanelAction<'a, ActionId> {
 pub struct WorkbenchPanel<'a, PanelId, ActionId, Message> {
     pub(super) id: PanelId,
     pub(super) title: Cow<'a, str>,
-    pub(super) icon: Option<IconRole>,
+    pub(super) icon: Option<IconRef>,
     pub(super) badge: Option<BadgeContent<'a>>,
     pub(super) status: Option<StatusIndicator<'a>>,
     pub(super) content: Element<'a, Message>,
@@ -151,7 +152,7 @@ pub enum WorkbenchPanelEvent<PanelId, ActionId> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PanelRailItem<'a, PanelId> {
     pub(super) id: PanelId,
-    pub(super) icon: IconRole,
+    pub(super) icon: IconRef,
     pub(super) label: Cow<'a, str>,
     pub(super) selected: bool,
     pub(super) disabled: bool,
@@ -188,7 +189,7 @@ pub struct BottomHeaderTab<'a, PanelId> {
     /// Visible label.
     pub label: Cow<'a, str>,
     /// Optional icon.
-    pub icon: Option<IconRole>,
+    pub icon: Option<IconRef>,
     /// Optional badge or count, competing with `status` for the signal slot.
     pub badge: Option<BadgeContent<'a>>,
     /// Optional complete labelled status, competing with `badge` for the slot.
@@ -205,7 +206,7 @@ pub struct PanelHeaderBar<'a, PanelId, ActionId> {
     pub(super) panel_id: PanelId,
     pub(super) title: Cow<'a, str>,
     pub(super) tooltip: Option<Cow<'a, str>>,
-    pub(super) icon: Option<IconRole>,
+    pub(super) icon: Option<IconRef>,
     pub(super) badge: Option<BadgeContent<'a>>,
     pub(super) status: Option<StatusIndicator<'a>>,
     pub(super) actions: Vec<PanelAction<'a, ActionId>>,
