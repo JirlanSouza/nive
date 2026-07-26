@@ -2,10 +2,8 @@ use std::borrow::Cow;
 
 use nive_core::ErrorPresentation;
 
-use crate::{
-    theme::ToneRole,
-    widgets::{IconRole, StatusIndicator},
-};
+use crate::IconRef;
+use crate::{theme::ToneRole, widgets::StatusIndicator};
 
 /// Declarative tree node data consumed by the high-level `Tree` widget.
 ///
@@ -17,7 +15,7 @@ pub struct TreeNode<'a, Id> {
     id: Id,
     label: Cow<'a, str>,
     children: Option<TreeChildren<'a, Id>>,
-    leading_icon: Option<IconRole>,
+    leading_icon: Option<IconRef>,
     status: Option<StatusIndicator<'a>>,
     trailing_text: Option<Cow<'a, str>>,
     disabled: bool,
@@ -93,8 +91,8 @@ impl<'a, Id> TreeNode<'a, Id> {
     }
 
     /// Adds a leading icon to the row rendered for this node.
-    pub fn leading_icon(mut self, icon: IconRole) -> Self {
-        self.leading_icon = Some(icon);
+    pub fn leading_icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.leading_icon = Some(icon.into());
         self
     }
 
@@ -146,7 +144,7 @@ impl<'a, Id> TreeNode<'a, Id> {
     }
 
     /// Returns this node's leading icon metadata.
-    pub fn leading_icon_name(&self) -> Option<IconRole> {
+    pub fn leading_icon_name(&self) -> Option<IconRef> {
         self.leading_icon
     }
 
@@ -181,6 +179,8 @@ impl<'a, Id> TreeNode<'a, Id> {
 #[cfg(test)]
 mod tree_node_tests {
     use super::*;
+    #[allow(unused_imports)]
+    use crate::IconRole;
 
     #[test]
     fn leaf_has_no_children() {
@@ -252,7 +252,7 @@ mod tree_node_tests {
             .trailing_text("4 KB")
             .disabled(true);
 
-        assert_eq!(node.leading_icon_name(), Some(IconRole::Folder));
+        assert_eq!(node.leading_icon_name(), Some(IconRole::Folder.into()));
         assert_eq!(
             node.status().map(StatusIndicator::tone),
             Some(ToneRole::Info)

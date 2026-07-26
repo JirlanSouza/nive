@@ -10,8 +10,8 @@ use iced::{border::Radius, touch, Length, Rectangle};
 
 use crate::advanced::focus::FocusState;
 use crate::theme::ControlSize;
-use crate::widgets::primitives::IconRole;
 use crate::Element;
+use crate::IconRef;
 
 /// One typed option in a canonical [`SegmentedControl`].
 ///
@@ -20,7 +20,7 @@ use crate::Element;
 pub struct SegmentedOption<'a, T> {
     value: T,
     label: Cow<'a, str>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     disabled: bool,
 }
 

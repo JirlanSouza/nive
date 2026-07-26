@@ -73,6 +73,7 @@ use crate::theme::{ControlSize, SurfaceRole};
 use crate::Element;
 
 use super::overflow::{Overflow, OverflowDirection};
+use crate::IconRef;
 
 mod builder;
 mod geometry;
@@ -85,8 +86,6 @@ mod widget;
 mod tabs_tests;
 #[cfg(test)]
 mod widget_tests;
-
-use crate::widgets::primitives::IconRole;
 
 type SelectCallback<'a, Id, Message> = Rc<dyn Fn(Id) -> Message + 'a>;
 type CloseCallback<'a, Id, Message> = Box<dyn Fn(TabCloseRequest<Id>) -> Message + 'a>;
@@ -120,7 +119,7 @@ pub struct TabBar<'a, Id, Message> {
 pub struct TabItem<'a, Id> {
     id: Id,
     label: Cow<'a, str>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     dirty: bool,
     pinned: bool,
     closable: bool,
@@ -248,7 +247,7 @@ struct DisplayTab<Id> {
 struct AllTabsMenuEntry<'a, Id> {
     id: Id,
     label: Cow<'a, str>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     active: bool,
     dirty: bool,
     pinned: bool,

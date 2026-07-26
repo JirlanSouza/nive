@@ -8,9 +8,9 @@ mod tests;
 
 use std::borrow::Cow;
 
+use crate::IconRef;
 use crate::{
     theme::{ControlSize, FieldValidation},
-    widgets::primitives::IconRole,
     Element,
 };
 use iced::{widget::Id, Length};
@@ -27,7 +27,7 @@ where
 {
     value: T,
     label: Cow<'a, str>,
-    leading: Option<IconRole>,
+    leading: Option<IconRef>,
     trailing: Option<Cow<'a, str>>,
     disabled: bool,
 }

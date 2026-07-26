@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::widgets::{IconRole, StatusIndicator};
+use crate::widgets::{IconRef, StatusIndicator};
 
 use super::{TreeChildren, TreeNode, TreeState};
 
@@ -21,7 +21,7 @@ pub(crate) struct VisibleTreeRow<'a, Id> {
     pub(crate) expanded: Option<bool>,
     pub(crate) disabled: bool,
     pub(crate) label: Cow<'a, str>,
-    pub(crate) leading_icon: Option<IconRole>,
+    pub(crate) leading_icon: Option<IconRef>,
     pub(crate) status: Option<StatusIndicator<'a>>,
     pub(crate) trailing_text: Option<Cow<'a, str>>,
 }
@@ -373,7 +373,7 @@ mod visible_tree_tests {
         assert_eq!(row.visible_index, 0);
         assert_eq!(row.expanded, None);
         assert!(row.disabled);
-        assert_eq!(row.leading_icon, Some(IconRole::Folder));
+        assert_eq!(row.leading_icon, Some(IconRole::Folder.into()));
         assert_eq!(
             row.status.as_ref().map(StatusIndicator::tone),
             Some(crate::theme::ToneRole::Warning)

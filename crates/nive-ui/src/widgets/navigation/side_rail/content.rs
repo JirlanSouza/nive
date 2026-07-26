@@ -116,7 +116,7 @@ where
 
         if let Some(icon) = item.icon {
             content = content.push(
-                icon_widget::role(icon)
+                icon_widget::reference(icon)
                     .custom_size(metrics.icon_size)
                     .color_maybe(None),
             );

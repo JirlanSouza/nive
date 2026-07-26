@@ -4,6 +4,8 @@ use crate::test_support::WidgetHarness;
 use crate::theme;
 use crate::widgets::controls::{choice_test_support::key_pressed, Field, FieldControl, Input};
 use crate::widgets::navigation::menu::{MENU_LIST_INSET, MENU_ROW_HEIGHT};
+#[allow(unused_imports)]
+use crate::IconRole;
 use iced::{keyboard::key, mouse, window, Event, Point, Size};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,7 +38,7 @@ fn suggestion_keeps_typed_value_and_owned_or_borrowed_presentation() {
 
     assert_eq!(values[0].value(), &Project(1));
     assert_eq!(values[0].label(), "Nive Core");
-    assert_eq!(values[1].leading_icon(), Some(IconRole::EditFind));
+    assert_eq!(values[1].leading_icon(), Some(IconRole::EditFind.into()));
     assert_eq!(values[1].trailing_text(), Some("Rust"));
     assert!(values[1].is_disabled());
 }

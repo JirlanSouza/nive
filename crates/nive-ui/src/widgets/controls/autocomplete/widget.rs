@@ -35,7 +35,7 @@ enum ResultsSnapshot<T> {
 struct SuggestionSnapshot<T> {
     value: T,
     label: String,
-    leading: Option<crate::IconRole>,
+    leading: Option<crate::IconRef>,
     trailing: Option<String>,
     disabled: bool,
 }

@@ -932,12 +932,26 @@ fn release_far_outside_with_tear_off_emits_tear_off() {
 }
 
 #[test]
-fn escape_mid_drag_emits_nothing() {
+fn leaving_the_window_mid_drag_keeps_the_drag_alive() {
     let mut harness = Harness::new(standard_bar().into(), Size::new(480.0, 80.0));
     let from = harness.tab_center(1);
     harness.drag_without_release(from, Point::new(from.x + 80.0, from.y));
 
     let result = harness.cursor_left();
+
+    assert!(result.messages.is_empty());
+    // The button is still down, so the tab is still being dragged and the
+    // gesture can still resolve into a reorder or a tear-off on release.
+    assert!(harness.state().dragged_id.is_some());
+}
+
+#[test]
+fn losing_window_focus_mid_drag_cancels() {
+    let mut harness = Harness::new(standard_bar().into(), Size::new(480.0, 80.0));
+    let from = harness.tab_center(1);
+    harness.drag_without_release(from, Point::new(from.x + 80.0, from.y));
+
+    let result = harness.update(Event::Window(iced::window::Event::Unfocused));
 
     assert!(result.messages.is_empty());
     assert!(harness.state().dragged_id.is_none());

@@ -13,7 +13,7 @@ use crate::widgets::controls::button::ButtonFocusRing;
 
 mod style;
 use crate::advanced::pressable::Pressable;
-use crate::widgets::primitives::{icon as icon_widget, IconRole};
+use crate::widgets::primitives::{icon as icon_widget, IconRef, IconRole};
 use crate::widgets::{StatusIndicator, ToneDot};
 
 /// Drop-target edge rendered as a drag/drop affordance on a row.
@@ -55,7 +55,7 @@ pub struct TreeItem<'a, Message> {
     selected: bool,
     disabled: bool,
     focused: bool,
-    leading_icon: Option<IconRole>,
+    leading_icon: Option<IconRef>,
     status: Option<StatusIndicator<'a>>,
     trailing_text: Option<Cow<'a, str>>,
     trailing: Option<Element<'a, Message>>,
@@ -133,8 +133,8 @@ where
     }
 
     /// Adds a leading icon before the label.
-    pub fn leading_icon(mut self, icon: IconRole) -> Self {
-        self.leading_icon = Some(icon);
+    pub fn leading_icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.leading_icon = Some(icon.into());
         self
     }
 
@@ -300,7 +300,7 @@ where
                 } else {
                     self.on_toggle.clone().or_else(|| self.on_press.clone())
                 };
-                let button = button::Button::new(expander_content(icon, metrics.icon_size))
+                let button = button::Button::new(expander_content(icon.into(), metrics.icon_size))
                     .style(theme_tree_item::expander_style(
                         self.selected,
                         metrics.radius,
@@ -381,7 +381,7 @@ where
         }
 
         if let Some(icon) = self.leading_icon {
-            content = content.push(icon_widget::role(icon).custom_size(metrics.icon_size));
+            content = content.push(icon_widget::reference(icon).custom_size(metrics.icon_size));
         }
 
         content = content.push(
@@ -424,11 +424,11 @@ where
         .into()
 }
 
-fn expander_content<'a, Message>(icon: IconRole, icon_size: f32) -> Element<'a, Message>
+fn expander_content<'a, Message>(icon: IconRef, icon_size: f32) -> Element<'a, Message>
 where
     Message: 'a,
 {
-    container(icon_widget::role(icon).custom_size(icon_size))
+    container(icon_widget::reference(icon).custom_size(icon_size))
         .align_x(Alignment::Center)
         .align_y(Alignment::Center)
         .width(Length::Fill)
@@ -448,6 +448,8 @@ where
 #[cfg(test)]
 mod tree_item_tests {
     use super::*;
+    #[allow(unused_imports)]
+    use crate::IconRole;
 
     #[derive(Clone)]
     enum TestMessage {}
@@ -477,8 +479,10 @@ mod tree_item_tests {
     #[test]
     fn expander_content_fills_fixed_button_height() {
         let metrics = theme_tree_item::metrics(ControlSize::Sm);
-        let content =
-            expander_content::<TestMessage>(IconRole::NiveDisclosureRight, metrics.icon_size);
+        let content = expander_content::<TestMessage>(
+            IconRole::NiveDisclosureRight.into(),
+            metrics.icon_size,
+        );
 
         assert_eq!(content.as_widget().size().height, Length::Fill);
     }

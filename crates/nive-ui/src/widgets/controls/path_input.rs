@@ -2,7 +2,7 @@ use iced::Length;
 
 use crate::theme::ControlSize;
 use crate::widgets::controls::{button, input};
-use crate::widgets::{IconRole, InputGroup};
+use crate::widgets::{IconRef, IconRole, InputGroup};
 use crate::Element;
 
 /// Controlled path text input with a browse affordance.
@@ -14,7 +14,7 @@ pub struct PathInput<'a, Message> {
     value: &'a str,
     browse_label: &'a str,
     semantic_name: Option<&'a str>,
-    leading_icon: Option<IconRole>,
+    leading_icon: Option<IconRef>,
     size: ControlSize,
     width: Length,
     disabled: bool,
@@ -52,8 +52,8 @@ where
         self
     }
 
-    pub fn leading_icon(mut self, icon: IconRole) -> Self {
-        self.leading_icon = Some(icon);
+    pub fn leading_icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.leading_icon = Some(icon.into());
         self
     }
 
@@ -122,7 +122,7 @@ where
         }
 
         let browse = button::icon(
-            self.leading_icon.unwrap_or(IconRole::Folder),
+            self.leading_icon.unwrap_or(IconRole::Folder.into()),
             self.browse_label,
         )
         .disabled(self.disabled)

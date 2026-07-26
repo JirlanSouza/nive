@@ -11,6 +11,8 @@ use iced::{
 use nive_core::{Action, ShortcutBinding};
 
 use crate::test_support::{layout as widget_layout, WidgetHarness};
+#[allow(unused_imports)]
+use crate::IconRole;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Message {
@@ -37,7 +39,7 @@ fn action_projection_preserves_command_semantics_and_ui_decoration() {
     );
     assert!(!command.is_disabled());
     assert_eq!(command.on_press, Some(Message::Save));
-    assert_eq!(command.icon, Some(IconRole::ActionConfirm));
+    assert_eq!(command.icon, Some(IconRole::ActionConfirm.into()));
     assert!(command.destructive);
     assert_eq!(command.dismiss_policy, MenuDismissPolicy::KeepOpen);
 }

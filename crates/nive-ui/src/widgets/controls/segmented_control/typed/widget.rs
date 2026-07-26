@@ -81,7 +81,9 @@ where
 
         if reserve_icon {
             let icon: Element<'a, Message> = if let Some(role) = option.icon {
-                icon::role(role).custom_size(metrics.form.icon_size).into()
+                icon::reference(role)
+                    .custom_size(metrics.form.icon_size)
+                    .into()
             } else {
                 iced::widget::Space::new()
                     .width(metrics.form.icon_size)

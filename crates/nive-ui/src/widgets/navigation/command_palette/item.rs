@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use nive_core::{Action, ShortcutBinding};
 
-use crate::icons::IconRole;
+use crate::icons::IconRef;
 
 /// One command presented inside a [`super::CommandPalette`].
 ///
@@ -13,7 +13,7 @@ use crate::icons::IconRole;
 #[derive(Clone)]
 pub struct CommandPaletteItem<'a, M> {
     pub id: &'a str,
-    pub icon: Option<IconRole>,
+    pub icon: Option<IconRef>,
     pub label: &'a str,
     pub description: Option<&'a str>,
     pub shortcut_label: Option<Cow<'a, str>>,
@@ -34,8 +34,8 @@ impl<'a, M> CommandPaletteItem<'a, M> {
         }
     }
 
-    pub fn icon(mut self, icon: IconRole) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 

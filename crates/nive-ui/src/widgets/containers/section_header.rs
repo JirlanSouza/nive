@@ -13,7 +13,7 @@ use crate::theme::{self, ControlSize, TextRole, ToneRole};
 use crate::widgets::controls::button;
 use crate::widgets::feedback::presentation::{resource_status_phase, ResourceStatusPhase};
 use crate::widgets::feedback::ResourceStatusPresentation;
-use crate::widgets::primitives::{icon, IconRole};
+use crate::widgets::primitives::{icon, IconRef, IconRole};
 use crate::widgets::{Badge, BadgeContent, StatusIndicator, ToneDot};
 use crate::Element;
 
@@ -26,7 +26,7 @@ use self::style as theme_section_header;
 /// separately with [`crate::theme::TypographyRole::Heading`].
 pub struct SectionHeader<'a, Message> {
     title: Cow<'a, str>,
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     badge: Option<BadgeContent<'a>>,
     title_tooltip: Option<Cow<'a, str>>,
     size: ControlSize,
@@ -36,7 +36,7 @@ pub struct SectionHeader<'a, Message> {
 }
 
 pub struct SectionHeaderAction<'a, Message> {
-    icon: Option<IconRole>,
+    icon: Option<IconRef>,
     label: Option<Cow<'a, str>>,
     tooltip: Option<Cow<'a, str>>,
     disabled: bool,
@@ -54,7 +54,7 @@ enum SectionHeaderStatusKind<'a> {
         tone: ToneRole,
     },
     IconLabel {
-        icon: IconRole,
+        icon: IconRef,
         label: Cow<'a, str>,
         tone: ToneRole,
     },
@@ -83,8 +83,8 @@ where
         self
     }
 
-    pub fn icon(mut self, icon: IconRole) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 
@@ -191,7 +191,7 @@ where
             .width(Length::Fill);
         if let Some(icon) = self.icon {
             leading = leading.push(
-                icon::role(icon)
+                icon::reference(icon)
                     .custom_size(metrics.icon_size)
                     .color(theme::active().text(TextRole::Secondary).color),
             );
@@ -247,9 +247,9 @@ impl<'a, Message> SectionHeaderAction<'a, Message>
 where
     Message: Clone + 'a,
 {
-    pub fn icon(icon: IconRole) -> Self {
+    pub fn icon(icon: impl Into<IconRef>) -> Self {
         Self {
-            icon: Some(icon),
+            icon: Some(icon.into()),
             label: None,
             tooltip: None,
             disabled: false,
@@ -269,9 +269,9 @@ where
         }
     }
 
-    pub fn icon_text(icon: IconRole, label: impl Into<Cow<'a, str>>) -> Self {
+    pub fn icon_text(icon: impl Into<IconRef>, label: impl Into<Cow<'a, str>>) -> Self {
         Self {
-            icon: Some(icon),
+            icon: Some(icon.into()),
             label: Some(label.into()),
             tooltip: None,
             disabled: false,
@@ -360,9 +360,12 @@ where
                 .ghost()
                 .padding(Padding::ZERO.horizontal(metrics.action_gap)),
             (Some(icon), Some(label)) => {
-                let content = row![icon::role(icon).custom_size(metrics.icon_size), text(label)]
-                    .spacing(metrics.status_gap)
-                    .align_y(Alignment::Center);
+                let content = row![
+                    icon::reference(icon).custom_size(metrics.icon_size),
+                    text(label)
+                ]
+                .spacing(metrics.status_gap)
+                .align_y(Alignment::Center);
                 button::Button::custom(content.into())
                     .ghost()
                     .padding(Padding::ZERO.horizontal(metrics.action_gap))
@@ -391,10 +394,14 @@ impl<'a> SectionHeaderStatus<'a> {
         }
     }
 
-    pub fn icon_label(icon: IconRole, label: impl Into<Cow<'a, str>>, tone: ToneRole) -> Self {
+    pub fn icon_label(
+        icon: impl Into<IconRef>,
+        label: impl Into<Cow<'a, str>>,
+        tone: ToneRole,
+    ) -> Self {
         Self {
             kind: SectionHeaderStatusKind::IconLabel {
-                icon,
+                icon: icon.into(),
                 label: label.into(),
                 tone,
             },
@@ -502,7 +509,9 @@ impl<'a> SectionHeaderStatus<'a> {
                 let color = theme::active().tone(tone).color;
 
                 row![
-                    icon::role(icon).custom_size(metrics.icon_size).color(color),
+                    icon::reference(icon)
+                        .custom_size(metrics.icon_size)
+                        .color(color),
                     text(label)
                         .font(metrics.status_style.font)
                         .size(metrics.status_style.size)

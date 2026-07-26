@@ -91,7 +91,7 @@ fn item_metadata_builders_store_contract_fields() {
 
     assert_eq!(item.id(), &"explorer");
     assert_eq!(item.label(), "Explorer");
-    assert_eq!(item.icon, Some(IconRole::Folder));
+    assert_eq!(item.icon, Some(IconRole::Folder.into()));
     assert!(item.selected);
     assert!(item.disabled);
     assert_eq!(item.tooltip.as_deref(), Some("Open explorer"));

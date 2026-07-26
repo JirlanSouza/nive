@@ -4,7 +4,7 @@ use iced::Length;
 
 use super::{SegmentedControl, SegmentedControlVariant, SegmentedOption};
 use crate::theme::ControlSize;
-use crate::widgets::primitives::IconRole;
+use crate::IconRef;
 
 impl<'a, T> SegmentedOption<'a, T> {
     pub fn new(value: T, label: impl Into<Cow<'a, str>>) -> Self {
@@ -22,8 +22,8 @@ impl<'a, T> SegmentedOption<'a, T> {
         }
     }
 
-    pub fn icon(mut self, icon: IconRole) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<IconRef>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 
