@@ -2,9 +2,10 @@ mod action;
 mod group;
 mod separator;
 mod style;
+mod viewport_fill;
 
 use iced::{
-    widget::{container, rule, scrollable, stack, Row},
+    widget::{container, rule, scrollable, stack, Row, Space},
     Alignment, Length, Padding,
 };
 
@@ -27,6 +28,7 @@ pub struct Toolbar<'a, Message> {
 enum ToolbarItem<'a, Message> {
     Group(ToolbarGroup<'a, Message>),
     Separator,
+    Spacer,
 }
 
 impl<'a, Message> Toolbar<'a, Message>
@@ -54,6 +56,13 @@ where
     /// Adds an explicit semantic boundary between toolbar groups.
     pub fn separator(mut self) -> Self {
         self.items.push(ToolbarItem::Separator);
+        self
+    }
+
+    /// Pushes following groups to the trailing edge when the toolbar fills a
+    /// finite width.
+    pub fn spacer(mut self) -> Self {
+        self.items.push(ToolbarItem::Spacer);
         self
     }
 
@@ -87,6 +96,10 @@ where
 
     fn into_element(self) -> Element<'a, Message> {
         let metrics = theme_toolbar::metrics(self.size);
+        let has_spacer = self
+            .items
+            .iter()
+            .any(|item| matches!(item, ToolbarItem::Spacer));
         let mut groups = Row::new()
             .spacing(metrics.group_gap)
             .align_y(Alignment::Center)
@@ -96,17 +109,35 @@ where
             groups = groups.push(match item {
                 ToolbarItem::Group(group) => group.into_element(metrics),
                 ToolbarItem::Separator => self::separator::separator(metrics),
+                ToolbarItem::Spacer => Space::new()
+                    .width(Length::Fill)
+                    .height(Length::Fixed(metrics.action_height))
+                    .into(),
             });
         }
 
         let groups: Element<'a, Message> = match self.width {
-            Some(width) => scrollable(groups)
-                .direction(scrollable::Direction::Horizontal(
-                    scrollable::Scrollbar::hidden(),
-                ))
-                .width(width)
-                .height(Length::Fixed(metrics.action_height))
-                .into(),
+            Some(width) => {
+                if has_spacer {
+                    groups = groups.width(Length::Fill);
+                }
+
+                if has_spacer {
+                    viewport_fill::viewport_fill(
+                        groups,
+                        width,
+                        Length::Fixed(metrics.action_height),
+                    )
+                } else {
+                    scrollable(groups)
+                        .direction(scrollable::Direction::Horizontal(
+                            scrollable::Scrollbar::hidden(),
+                        ))
+                        .width(width)
+                        .height(Length::Fixed(metrics.action_height))
+                        .into()
+                }
+            }
             None => groups.into(),
         };
 
@@ -165,7 +196,7 @@ where
 mod tests {
     use std::time::Duration;
 
-    use iced::{Event, Point, Size};
+    use iced::{mouse, Event, Point, Size};
 
     use super::*;
     use crate::{test_support::WidgetHarness, widgets::IconRole};
@@ -209,6 +240,81 @@ mod tests {
         harness.update(redraw(start + Duration::from_millis(500)));
 
         assert!(!harness.has_overlay());
+    }
+
+    #[test]
+    fn spacer_pushes_following_group_to_finite_trailing_edge() {
+        let width = 320.0;
+        let metrics = theme_toolbar::metrics(ControlSize::Sm);
+        let toolbar: Element<'_, &'static str> = Toolbar::new()
+            .group(
+                ToolbarGroup::new()
+                    .action(ToolbarAction::icon(IconRole::ViewRefresh).on_press("leading")),
+            )
+            .spacer()
+            .group(
+                ToolbarGroup::new()
+                    .action(ToolbarAction::icon(IconRole::ViewRefresh).on_press("trailing")),
+            )
+            .fill_width()
+            .into();
+        let mut harness = WidgetHarness::new(toolbar, Size::new(width, 80.0));
+        harness.set_cursor(Point::new(
+            width - metrics.toolbar_padding_h - metrics.action_height / 2.0,
+            metrics.height / 2.0,
+        ));
+
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        let released = harness.update(Event::Mouse(mouse::Event::ButtonReleased(
+            mouse::Button::Left,
+        )));
+
+        assert_eq!(released.messages, vec!["trailing"]);
+    }
+
+    #[test]
+    fn spacer_keeps_trailing_group_reachable_when_content_overflows() {
+        let width = 120.0;
+        let metrics = theme_toolbar::metrics(ControlSize::Sm);
+        let toolbar: Element<'_, &'static str> = Toolbar::new()
+            .group(
+                ToolbarGroup::new().action(
+                    ToolbarAction::icon_label(IconRole::ViewRefresh, "Long leading action")
+                        .on_press("leading"),
+                ),
+            )
+            .spacer()
+            .group(
+                ToolbarGroup::new()
+                    .action(ToolbarAction::icon(IconRole::ViewRefresh).on_press("trailing")),
+            )
+            .fill_width()
+            .into();
+        let mut harness = WidgetHarness::new(toolbar, Size::new(width, 80.0));
+        harness.set_cursor(Point::new(width / 2.0, metrics.height / 2.0));
+
+        let scrolled = harness.update(Event::Mouse(mouse::Event::WheelScrolled {
+            delta: mouse::ScrollDelta::Pixels {
+                x: -1_000.0,
+                y: 0.0,
+            },
+        }));
+        assert!(scrolled.captured);
+
+        harness.set_cursor(Point::new(
+            width - metrics.toolbar_padding_h - metrics.action_height / 2.0,
+            metrics.height / 2.0,
+        ));
+        harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        let released = harness.update(Event::Mouse(mouse::Event::ButtonReleased(
+            mouse::Button::Left,
+        )));
+
+        assert_eq!(released.messages, vec!["trailing"]);
     }
 
     fn redraw(now: iced::time::Instant) -> Event {
