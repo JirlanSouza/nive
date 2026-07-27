@@ -6,20 +6,22 @@ It renders a deterministic service-monitoring desktop shell with simulated
 services, hosts, alerts, logs, events, jobs, command palette actions, dialogs,
 toasts, document tabs, side rails, bottom tabs, and a status bar.
 
-The command palette (Cmd+K, or the "Open command palette" action) hosts the
-canonical `nive_ui::widgets::CommandPalette` directly, projecting its items
-from the shell's shared `ActionMap` via `nive_workbench::action_palette_items`
-— the monitor owns only `open` and the controlled query. It preserves focus,
-horizontal long-value behavior, filtered actions, overlay placement, and
-shell geometry at narrow viewports.
+The command palette (Cmd+K on macOS, Ctrl+K elsewhere, or the toolbar search
+action) hosts the canonical `nive_ui::widgets::CommandPalette` directly,
+projecting its items from the shell's shared `ActionMap` via
+`nive_workbench::action_palette_items` — except for its self-referential
+"Open command palette" action. The monitor owns only `open` and the controlled
+query. It preserves focus, horizontal long-value behavior, filtered actions,
+overlay placement, and shell geometry at narrow viewports.
 
 Toasts are emitted only through the runtime effect flow (`Effect::toast`),
 never by constructing `ToastHost` directly. A completed "Run health check"
 emits a success toast at the `BottomEnd` default, with a safe inset kept
 clear of the status bar (`StatusBar::height` fed into
 `ApplicationConfig::toast_insets`, computed once from the fixed
-`ControlSize::Sm` chrome). "Simulate sync failure" emits a `Toast::error`
-showing only the safe summary; its "View details" action opens
+`ControlSize::Sm` chrome). The command-palette-only "Demo: simulate sync
+failure" action emits a `Toast::error` showing only the safe summary; its
+"View details" action opens
 `ErrorDetailsDialog` with the full diagnostic text, which the toast itself
 never shows.
 
@@ -30,9 +32,11 @@ no application focus manager or second overlay root is required.
 
 The settings area uses a titled immediate `Switch::setting`, a two-option typed
 environment `SegmentedControl`, and a genuine dashboard
-`Select<ServiceScope>` that filters application-owned service data. Toolbar
-theme actions and document/panel navigation keep their specialized ownership;
-they are not modeled as form selection controls.
+`Select<ServiceScope>` that filters application-owned service data. The
+toolbar keeps one labelled primary operation, a compact command-palette
+trigger, and trailing environment/alert/theme utilities; document/panel
+navigation keeps its specialized ownership. These actions are not modeled as
+form selection controls.
 
 Framework-owned icon-only, truncated, and non-obvious actions use shared
 Tooltip disclosure while retaining independent semantic names. Complete visible
@@ -55,9 +59,9 @@ toolbar size chosen by the caller.
 
 The reference composition uses `DocumentHeader` for principal service and
 dashboard titles, `SectionHeader` for compact sections, explicit StatusBar
-lanes, transparent toolbar groups, Panel-owned internal seams with body-owned
-inset, 12/6 overlay scrollbars, dedicated bottom controls, and public
-`WorkbenchPaneConstraints`.
+lanes, leading and trailing transparent toolbar groups separated by flexible
+space, Panel-owned internal seams with body-owned inset, 12/6 overlay
+scrollbars, dedicated bottom controls, and public `WorkbenchPaneConstraints`.
 
 Document tabs use the refined controlled `TabBar`; side selectors use public
 edge-rail presentation; service and Inspector choices use semantic
@@ -118,20 +122,21 @@ are covered by automated tests.
 
 For the CommandPalette pass, open it and verify: rendering and the controlled
 query as you type; commands projected from the shared `ActionMap` (including
-"Run health check", "Toggle theme", and the panel/document toggles); and that
-selecting or dismissing it closes the palette without leaving stale query
-text. Confirm it replaces rather than stacks with the alert Dialog if both are
-triggered.
+"Run health check", "Toggle theme", "Demo: simulate sync failure", and the
+panel/document toggles); and that selecting or dismissing it closes the
+palette without leaving stale query text. Confirm it replaces rather than
+stacks with the alert Dialog if both are triggered.
 
 For the Toast pass, trigger "Run health check" (toolbar or command palette)
 and let it complete — confirm a success toast appears bottom-right, clear of
-the status bar. Press "Simulate sync failure" and confirm the toast shows
-only the safe summary; press its "View details" action and confirm the full
-diagnostic text — never shown in the toast itself — appears in
-`ErrorDetailsDialog`, dismissible by `Escape`, an outside press, or its close
-control. Open the alert Dialog or the CommandPalette while a toast is visible
-and confirm existing toasts render beneath its scrim and stop counting down,
-and that a newly triggered toast stays queued until the modal closes.
+the status bar. Run "Demo: simulate sync failure" from the command palette and
+confirm the palette closes while the toast shows only the safe summary; press
+its "View details" action and confirm the full diagnostic text — never shown
+in the toast itself — appears in `ErrorDetailsDialog`, dismissible by
+`Escape`, an outside press, or its close control. Open the alert Dialog or the
+CommandPalette while a toast is visible and confirm existing toasts render
+beneath its scrim and stop counting down, and that a newly triggered toast
+stays queued until the modal closes.
 
 For the anchored-popup pass, verify icon-only Tooltip disclosure without
 redundant labelled-action copies, all-tabs Menu order/selection/focus/overflow,
@@ -178,8 +183,9 @@ scoped to the service), followed by its action group.
 The Inspector and the active document divide entity information by data
 type instead of duplicating it: the document owns metrics and detail, the
 Inspector owns identity, relation, and situation (Service, Host, Health,
-Zone, Environment) for the current selection — it does not repeat a metric
-value the active document already shows as a metric card. The shared
+Zone, Environment) for the current selection, plus the local action that
+clears that selection — it does not repeat a metric value the active document
+already shows as a metric card. The shared
 `inspector_panel` helper (`nive-workbench`) also owns body inset and
 scrolling for its `Content` state, and contributes no panel status there,
 since the body already shows the content; `NoSelection`, `Loading`, and

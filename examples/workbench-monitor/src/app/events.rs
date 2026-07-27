@@ -30,6 +30,7 @@ impl WorkbenchMonitor {
                 PanelActionId::Refresh => self.model.events.push("Panel refresh requested".into()),
                 PanelActionId::RunHealth => self.model.run_health_check(),
                 PanelActionId::Clear => self.model.events.clear(),
+                PanelActionId::ClearSelection => self.clear_selection(),
             },
             WorkbenchEvent::Panel(WorkbenchPanelEvent::CloseRequested { region, .. }) => {
                 self.layout.collapse_region(region);
@@ -65,6 +66,11 @@ impl WorkbenchMonitor {
     pub(super) fn select(&mut self, selection: Selection) {
         self.selected = selection;
         self.inspector_loading_until = Some(self.model.tick + 2);
+    }
+
+    pub(super) fn clear_selection(&mut self) {
+        self.selected = Selection::None;
+        self.inspector_loading_until = None;
     }
 
     pub(super) fn open_document(&mut self, id: DocumentId) {
@@ -142,5 +148,34 @@ mod tests {
         assert!(!app.palette_open);
         assert!(app.palette_query.is_empty());
         assert_eq!(app.documents, documents);
+    }
+
+    #[test]
+    fn clearing_selection_removes_pending_inspector_loading_state() {
+        let mut app = WorkbenchMonitor::seeded();
+
+        app.select(Selection::Host("data-01"));
+        assert!(app.inspector_loading_until.is_some());
+
+        app.clear_selection();
+
+        assert_eq!(app.selected, Selection::None);
+        assert_eq!(app.inspector_loading_until, None);
+    }
+
+    #[test]
+    fn inspector_clear_action_does_not_clear_the_events_panel() {
+        let mut app = WorkbenchMonitor::seeded();
+        let events = app.model.events.clone();
+
+        app.apply_workbench_event(WorkbenchEvent::Panel(WorkbenchPanelEvent::Action {
+            region: WorkbenchRegion::Right,
+            panel_id: "inspector",
+            action_id: PanelActionId::ClearSelection,
+        }));
+
+        assert_eq!(app.selected, Selection::None);
+        assert_eq!(app.inspector_loading_until, None);
+        assert_eq!(app.model.events, events);
     }
 }

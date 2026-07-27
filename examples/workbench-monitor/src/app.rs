@@ -9,7 +9,6 @@ mod tone;
 
 use std::{borrow::Cow, time::Duration};
 
-use iced::keyboard;
 use nive::prelude::ui::{ToastInsets, UserFacingError};
 use nive::{prelude::*, ActionMap};
 
@@ -58,7 +57,6 @@ pub(crate) enum Message {
     InspectHost(&'static str),
     ShowAlert(u32),
     AcknowledgeAlert(u32),
-    ClearSelection,
     CloseDialog,
     SimulateSyncFailure,
     ShowSyncErrorDetails(UserFacingError),
@@ -117,6 +115,7 @@ pub(crate) enum PanelActionId {
     Refresh,
     RunHealth,
     Clear,
+    ClearSelection,
 }
 
 impl Application for WorkbenchMonitor {
@@ -174,9 +173,9 @@ impl Application for WorkbenchMonitor {
                 self.select(Selection::Alert(id));
             }
             Message::AcknowledgeAlert(id) => self.model.acknowledge_alert(id),
-            Message::ClearSelection => self.select(Selection::None),
             Message::CloseDialog => self.alert_dialog = None,
             Message::SimulateSyncFailure => {
+                self.close_palette();
                 let error = UserFacingError::custom(
                     "workbench-monitor",
                     "Could not sync fleet status (endpoint: https://status.internal.example)",
@@ -189,6 +188,7 @@ impl Application for WorkbenchMonitor {
             Message::ShowSyncErrorDetails(error) => self.sync_error = Some(error),
             Message::CloseSyncErrorDialog => self.sync_error = None,
             Message::ToggleTheme => {
+                self.close_palette();
                 self.theme = match self.theme {
                     ThemePreference::Dark => ThemePreference::Light,
                     _ => ThemePreference::Dark,
@@ -233,7 +233,7 @@ impl Application for WorkbenchMonitor {
             .status(self.status_bar())
             .view();
 
-        let all_items = action_palette_items(&self.commands);
+        let all_items = self.palette_items();
         let visible = command_palette_filter(&self.palette_query, &all_items);
         let items: Vec<_> = visible
             .into_iter()
@@ -261,20 +261,10 @@ impl Application for WorkbenchMonitor {
     }
 
     fn subscription(&self, _context: Context<'_, Self::Window>) -> Subscription<Self::Message> {
-        let keys = keyboard::listen().filter_map(|event| match event {
-            keyboard::Event::KeyPressed {
-                key: keyboard::Key::Character(key),
-                modifiers,
-                ..
-            } if modifiers.command() && key.eq_ignore_ascii_case("k") => Some(Message::OpenPalette),
-            _ => None,
-        });
-
         if self.installs_tick_timer() {
-            let timer = iced::time::every(Duration::from_millis(900)).map(|_| Message::Tick);
-            Subscription::batch([timer, keys])
+            iced::time::every(Duration::from_millis(900)).map(|_| Message::Tick)
         } else {
-            keys
+            Subscription::none()
         }
     }
 
@@ -304,6 +294,13 @@ impl WorkbenchMonitor {
     /// from explicit user actions.
     fn installs_tick_timer(&self) -> bool {
         matches!(self.mode, SimulationMode::Live)
+    }
+
+    fn palette_items(&self) -> Vec<CommandPaletteItem<'_, Message>> {
+        action_palette_items(&self.commands)
+            .into_iter()
+            .filter(|item| item.id != "monitor.palette")
+            .collect()
     }
 
     fn seeded() -> Self {
@@ -377,5 +374,16 @@ mod tests {
 
         app.mode = SimulationMode::Frozen;
         assert!(!app.installs_tick_timer());
+    }
+
+    #[test]
+    fn palette_does_not_offer_its_own_open_action() {
+        let app = WorkbenchMonitor::seeded();
+        let items = app.palette_items();
+
+        assert!(items.iter().all(|item| item.id != "monitor.palette"));
+        assert!(items
+            .iter()
+            .any(|item| item.id == "monitor.demo_sync_failure"));
     }
 }

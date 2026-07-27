@@ -11,6 +11,11 @@ impl WorkbenchMonitor {
             .active_alerts()
             .next()
             .map(|alert| Message::ShowAlert(alert.id));
+        let theme_tooltip = if matches!(self.theme, ThemePreference::Dark) {
+            "Switch to light theme"
+        } else {
+            "Switch to dark theme"
+        };
 
         Toolbar::new()
             .group(
@@ -21,39 +26,32 @@ impl WorkbenchMonitor {
                             .on_press(Message::Command(AppCommand::RunHealthCheck)),
                     )
                     .action(
-                        ToolbarAction::icon_label(IconRole::DialogWarning, "Simulate sync failure")
-                            .on_press(Message::SimulateSyncFailure),
-                    )
-                    .action(
-                        ToolbarAction::icon_label(IconRole::EditFind, "Command palette")
+                        ToolbarAction::icon(IconRole::EditFind)
+                            .tooltip("Open command palette")
                             .on_press(Message::OpenPalette),
                     ),
             )
-            .separator()
+            .spacer()
             .group(
                 ToolbarGroup::new()
                     .action(
-                        ToolbarAction::icon_label(IconRole::PreferencesSystem, "Switch env")
-                            .on_press(Message::Command(AppCommand::SwitchEnvironment)),
+                        ToolbarAction::icon_label(
+                            IconRole::PreferencesSystem,
+                            self.model.environment_label(),
+                        )
+                        .tooltip("Switch environment")
+                        .on_press(Message::Command(AppCommand::SwitchEnvironment)),
                     )
                     .action(
-                        ToolbarAction::icon_label(IconRole::ViewTheme, "Theme")
-                            .selected(matches!(self.theme, ThemePreference::Dark))
-                            .on_press(Message::ToggleTheme),
-                    ),
-            )
-            .separator()
-            .group(
-                ToolbarGroup::new()
-                    .action(
-                        ToolbarAction::icon_label(IconRole::NotificationAlert, "Latest alert")
+                        ToolbarAction::icon(IconRole::NotificationAlert)
+                            .tooltip("Show latest alert")
                             .disabled(latest_alert.is_none())
                             .on_press_maybe(latest_alert),
                     )
                     .action(
-                        ToolbarAction::icon_label(IconRole::WindowClose, "Clear selection")
-                            .disabled(matches!(self.selected, super::Selection::None))
-                            .on_press(Message::ClearSelection),
+                        ToolbarAction::icon(IconRole::ViewTheme)
+                            .tooltip(theme_tooltip)
+                            .on_press(Message::ToggleTheme),
                     ),
             )
     }
@@ -113,7 +111,16 @@ impl WorkbenchMonitor {
             }
         };
 
-        vec![inspector_panel("inspector", state)]
+        let mut panel = inspector_panel("inspector", state);
+        if !matches!(self.selected, super::Selection::None) {
+            panel = panel.action(PanelAction::icon(
+                PanelActionId::ClearSelection,
+                IconRole::WindowClose,
+                "Clear selection",
+            ));
+        }
+
+        vec![panel]
     }
 
     pub(super) fn bottom_panels(
@@ -148,7 +155,6 @@ impl WorkbenchMonitor {
                 ),
         ]
     }
-
     pub(super) fn document_tabs(&self) -> Vec<WorkbenchDocument<'static, DocumentId>> {
         self.documents
             .iter()
@@ -232,6 +238,29 @@ mod tests {
             .expect("services status indicator");
         assert!(!status.label().trim().is_empty());
         assert_eq!(status.tone(), app.overall_tone());
+    }
+
+    #[test]
+    fn inspector_exposes_clear_selection_only_while_an_entity_is_selected() {
+        let mut app = WorkbenchMonitor::seeded();
+
+        let has_clear_action = app.right_panels().first().is_some_and(|panel| {
+            panel
+                .panel_actions()
+                .iter()
+                .any(|action| action.id() == &PanelActionId::ClearSelection)
+        });
+        assert!(has_clear_action);
+
+        app.clear_selection();
+
+        let has_clear_action = app.right_panels().first().is_some_and(|panel| {
+            panel
+                .panel_actions()
+                .iter()
+                .any(|action| action.id() == &PanelActionId::ClearSelection)
+        });
+        assert!(!has_clear_action);
     }
 
     #[test]
