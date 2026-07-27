@@ -27,7 +27,56 @@ pub(super) struct TooltipState {
     pub(super) visible: bool,
     pub(super) block_private_traversal: bool,
     entered_at: Option<iced::time::Instant>,
-    pub(super) escape_suppressed: bool,
+    /// Dismissal is tracked per channel, and each channel clears only when its
+    /// own intent ends: the pointer's when the pointer leaves, focus's when
+    /// focus leaves.
+    ///
+    /// One shared flag cannot work, because activating an anchor also focuses
+    /// it. A pointer dismissal waiting on focus to end would outlive the press
+    /// that caused it for as long as the anchor stayed focused, and the anchor
+    /// would never explain itself again.
+    suppressed_for_pointer: bool,
+    suppressed_for_focus: bool,
+}
+
+impl TooltipState {
+    /// Pointer intent the reader has not already dismissed.
+    pub(super) fn pointer_intent(&self) -> bool {
+        self.hovered && !self.suppressed_for_pointer
+    }
+
+    /// Focus intent the reader has not already dismissed.
+    pub(super) fn focus_intent(&self) -> bool {
+        self.focused && !self.suppressed_for_focus
+    }
+
+    /// Dismisses both channels, so neither a resting pointer nor the focus the
+    /// press just granted can bring the tooltip back.
+    fn dismiss(&mut self) {
+        self.visible = false;
+        self.suppressed_for_pointer = true;
+        self.suppressed_for_focus = true;
+    }
+
+    /// Takes in the intent arriving with an event, releasing any dismissal
+    /// whose channel has gone quiet.
+    ///
+    /// Must run *before* this event's own dismissal is applied. A press arrives
+    /// while the anchor is not focused yet — the focus it grants only shows up
+    /// on the next pass — so releasing afterwards would drop the focus
+    /// dismissal the press just took, and the anchor would explain itself again
+    /// on top of whatever the press opened.
+    fn observe_intent(&mut self, hovered: bool, focused: bool) {
+        self.hovered = hovered;
+        self.focused = focused;
+
+        if !hovered {
+            self.suppressed_for_pointer = false;
+        }
+        if !focused {
+            self.suppressed_for_focus = false;
+        }
+    }
 }
 
 pub(super) struct TooltipWidget<'a, Message> {
@@ -148,19 +197,23 @@ impl<Message> Widget<Message, crate::theme::Theme, iced::Renderer> for TooltipWi
         let now = self.now_override.unwrap_or_else(|| event_now(event));
         let state = tree.state.downcast_mut::<TooltipState>();
         let was_visible = state.visible;
-        state.hovered = hovered;
-        state.focused = focused;
+        state.observe_intent(hovered, focused);
 
         if is_escape(event) && state.visible {
-            state.visible = false;
-            state.escape_suppressed = true;
+            state.dismiss();
             shell.request_redraw();
         }
 
-        let has_intent = (hovered || focused) && !state.escape_suppressed;
-        if !hovered && !focused {
-            state.escape_suppressed = false;
+        // Activating the anchor answers the question the tooltip was about to
+        // ask, and whatever the press opens is anchored in the same place, so a
+        // tooltip that stayed up would cover it. Dismiss even before the reveal
+        // delay elapses, or the tooltip would surface on top of the new overlay.
+        if hovered && is_primary_press(event) {
+            state.dismiss();
+            shell.request_redraw();
         }
+
+        let has_intent = state.pointer_intent() || state.focus_intent();
 
         if !has_intent {
             state.visible = false;
@@ -404,6 +457,14 @@ fn is_escape(event: &Event) -> bool {
             key: keyboard::Key::Named(Named::Escape),
             ..
         })
+    )
+}
+
+fn is_primary_press(event: &Event) -> bool {
+    matches!(
+        event,
+        Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
+            | Event::Touch(iced::touch::Event::FingerPressed { .. })
     )
 }
 

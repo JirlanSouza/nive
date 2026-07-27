@@ -277,8 +277,8 @@ impl operation::Operation for CollectCandidates<'_> {
             });
             self.candidates.push(Candidate {
                 key,
-                hovered: tooltip.hovered && !tooltip.escape_suppressed,
-                focused: tooltip.focused && !tooltip.escape_suppressed,
+                hovered: tooltip.pointer_intent(),
+                focused: tooltip.focus_intent(),
             });
         }
     }
