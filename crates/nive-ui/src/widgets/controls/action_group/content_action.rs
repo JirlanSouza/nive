@@ -252,31 +252,36 @@ fn content_action_style(
             && !explicitly_disabled
             && matches!(status, button::Status::Hovered | button::Status::Pressed);
 
-        let (background, foreground) = if explicitly_disabled {
-            (Color::TRANSPARENT, theme.text(TextRole::Disabled).color)
-        } else if destructive && interacting {
-            let danger = theme.tone(ToneRole::Danger);
-            (
-                if status == button::Status::Pressed {
-                    danger.container.scale_alpha(1.18)
-                } else {
-                    danger.container
-                },
-                danger.color,
-            )
-        } else if interacting {
-            let interaction = if status == button::Status::Pressed {
-                InteractionState::PRESSED
+        let mut state = ControlState::new().interaction(match status {
+            button::Status::Hovered => InteractionState::HOVERED,
+            button::Status::Pressed => InteractionState::PRESSED,
+            button::Status::Active | button::Status::Disabled => InteractionState::NONE,
+        });
+        if explicitly_disabled {
+            state = state.disabled();
+        }
+        // Embedded resolves the untouched and disabled fills to transparent, so
+        // only the destructive tone needs its own projection here.
+        let control = theme.control(ControlRole::Embedded, state);
+        let danger = theme.tone(ToneRole::Danger);
+
+        let background = if destructive && interacting {
+            if status == button::Status::Pressed {
+                danger.container.scale_alpha(1.18)
             } else {
-                InteractionState::HOVERED
-            };
-            let control = theme.control(
-                ControlRole::Embedded,
-                ControlState::new().interaction(interaction),
-            );
-            (control.background, theme.text(TextRole::Primary).color)
+                danger.container
+            }
         } else {
-            (Color::TRANSPARENT, theme.text(TextRole::Secondary).color)
+            control.background
+        };
+        let foreground = if explicitly_disabled {
+            theme.text(TextRole::Disabled).color
+        } else if destructive && interacting {
+            danger.color
+        } else if interacting {
+            theme.text(TextRole::Primary).color
+        } else {
+            theme.text(TextRole::Secondary).color
         };
 
         button::Style {

@@ -17,7 +17,7 @@ use super::{SelectEvent, SelectList, SelectListState};
 use crate::{
     theme::{
         choice::{self, ChoicePersistentState, ChoiceStateInput},
-        BorderRole, ControlRole, FieldValidation, TypographyRole,
+        BorderRole, FieldValidation, TypographyRole,
     },
     widgets::{
         controls::select::SelectOption,
@@ -266,7 +266,6 @@ where
                 pressed: state.pressed == Some(index),
                 focused: self.focus_visible.get() && state.highlight == Some(index),
             });
-            let control = theme.control(ControlRole::Selectable, resolved.control);
             renderer.fill_quad(
                 renderer::Quad {
                     bounds,
@@ -274,7 +273,7 @@ where
                     shadow: Shadow::default(),
                     snap: true,
                 },
-                control.background,
+                menu::style::row_fill(theme, resolved),
             );
             if resolved.control.interaction.focused {
                 renderer.fill_quad(

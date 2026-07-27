@@ -78,7 +78,7 @@ fn widget_taxonomy_exposes_category_facades() {
     let _: Element<'_, ()> = display::Badge::count(3).into();
     let _: Element<'_, ()> = display::MetadataTag::code("1.4.0-beta.2").into();
     let _: Element<'_, ()> = display::InitialAvatar::new("Ada Lovelace").person().into();
-    let _: Element<'_, ()> = navigation::Toolbar::new().into();
+    let _: Element<'_, ()> = navigation::Toolbar::new().spacer().into();
     let _: Element<'_, ()> = navigation::SideRail::new(navigation::RailSide::Left)
         .on_select(|_: &str| ())
         .item(
