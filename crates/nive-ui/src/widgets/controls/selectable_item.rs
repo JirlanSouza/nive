@@ -348,7 +348,11 @@ fn resolved_control(
     if matches!(variant, SelectableItemVariant::Selected) {
         state = state.selected();
     }
-    theme.control(ControlRole::Selectable, state)
+    // Embedded: a list item paints on the surface hosting the list and owns no
+    // chrome, so untouched and disabled resolve transparent without a local
+    // guard, and hover/pressed composite over whichever surface that is.
+    // Selection is resolved before the role, so it is unaffected.
+    theme.control(ControlRole::Embedded, state)
 }
 
 fn content_color(
@@ -401,13 +405,9 @@ fn color_square_style(
 fn default_style(theme: &crate::theme::Theme, status: Status) -> button::Style {
     let theme = *theme;
     let control = resolved_control(theme, SelectableItemVariant::Default, status);
-    let background = match status {
-        Status::Active | Status::Disabled => Color::TRANSPARENT,
-        Status::Hovered | Status::Pressed => control.background,
-    };
 
     button::Style {
-        background: Some(Background::Color(background)),
+        background: Some(Background::Color(control.background)),
         text_color: content_color(&theme, SelectableItemVariant::Default, status),
         border: transparent_border(),
         shadow: Shadow::default(),
@@ -491,6 +491,35 @@ mod selectable_item_tests {
         assert_eq!(
             background_color(&style),
             selected.background.scale_alpha(0.60)
+        );
+    }
+
+    #[test]
+    fn untouched_and_disabled_fills_come_from_the_theme_not_a_local_guard() {
+        let theme = Theme::Dark;
+
+        for status in [Status::Active, Status::Disabled] {
+            let style = style(SelectableItemVariant::Default, 6.0)(&theme, status);
+
+            assert_eq!(
+                background_color(&style),
+                theme
+                    .control(ControlRole::Embedded, button_control_state(status))
+                    .background,
+                "{status:?} must resolve its fill through Embedded rather than a local branch"
+            );
+            assert_eq!(background_color(&style).a, 0.0);
+        }
+
+        // And hover still paints, so the assertion above is not describing a
+        // widget that simply never fills.
+        assert_ne!(
+            background_color(&style(SelectableItemVariant::Default, 6.0)(
+                &theme,
+                Status::Hovered
+            ))
+            .a,
+            0.0
         );
     }
 

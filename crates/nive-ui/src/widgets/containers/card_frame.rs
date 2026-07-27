@@ -123,11 +123,9 @@ pub(super) fn resolve_interaction_style(
     let interacting = capable
         && !explicitly_disabled
         && matches!(status, button::Status::Hovered | button::Status::Pressed);
-    let background = if selected || interacting {
-        control.background
-    } else {
-        Color::TRANSPARENT
-    };
+    // `status` is already neutralized above when the frame is not capable, so
+    // the unselected Embedded path resolves a transparent fill on its own.
+    let background = control.background;
     let foreground = if explicitly_disabled {
         theme.text(TextRole::Disabled).color
     } else if selected {

@@ -1,7 +1,7 @@
 use iced::{
     border::Radius,
     widget::button::{self, Status},
-    Background, Border, Color, Shadow,
+    Background, Border, Shadow,
 };
 
 use crate::theme::{
@@ -143,12 +143,10 @@ pub(crate) fn toolbar_style(
         if selected {
             state = state.selected();
         }
-        let control = theme.control(ControlRole::Selectable, state);
-        let background = if selected || interacting {
-            control.background
-        } else {
-            Color::TRANSPARENT
-        };
+        // Embedded: toolbar chrome paints on the bar hosting it, so untouched
+        // and disabled resolve transparent without a local guard. Selection is
+        // resolved before the role and is therefore unchanged.
+        let control = theme.control(ControlRole::Embedded, state);
         let text_color = match status {
             Status::Disabled => control.foreground,
             Status::Hovered | Status::Pressed => theme.text(TextRole::Primary).color,
@@ -157,7 +155,7 @@ pub(crate) fn toolbar_style(
         };
 
         button::Style {
-            background: Some(Background::Color(background)),
+            background: Some(Background::Color(control.background)),
             text_color,
             border: transparent_border_with_radius(radius),
             shadow: Shadow::default(),
