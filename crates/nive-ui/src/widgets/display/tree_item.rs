@@ -1,7 +1,8 @@
 use std::borrow::Cow;
 
 use iced::{
-    widget::{button, column, container, text, Row, Space},
+    mouse,
+    widget::{button, column, container, mouse_area, text, Row, Space},
     Alignment, Length, Padding,
 };
 
@@ -11,7 +12,9 @@ use crate::Element;
 use self::style::{self as theme_tree_item, TreeItemVariant};
 use crate::widgets::controls::button::ButtonFocusRing;
 
+mod pointer;
 mod style;
+use self::pointer::{PointerProbe, RowPointer};
 use crate::advanced::pressable::Pressable;
 use crate::widgets::primitives::{icon as icon_widget, IconRef, IconRole};
 use crate::widgets::{StatusIndicator, ToneDot};
@@ -257,14 +260,45 @@ where
         row = row.push(self.expander(metrics));
         row = row.push(self.main_button(metrics));
 
+        // The row container is the only element spanning the whole row, so it
+        // paints every fill — but a style closure cannot see the cursor. The
+        // probe carries the pointer state across without touching layout or
+        // intercepting any event.
+        let pointer = RowPointer::default();
         let drop_into = drop_edge == Some(TreeItemDropEdge::Into);
-        let row_element: Element<'a, Message> = container(row)
-            .style(theme_tree_item::row_style(
-                selected, disabled, focused, dragging, drop_into,
-            ))
-            .width(Length::Fill)
-            .height(Length::Fixed(metrics.height))
-            .into();
+        let row_state = {
+            let pointer = pointer.clone();
+            move || theme_tree_item::TreeRowState {
+                selected,
+                disabled,
+                focused,
+                hovered: pointer.hovered(),
+                pressed: pointer.pressed(),
+                dragging,
+                drop_into,
+            }
+        };
+        // The row declares its own cursor, the way Menu rows and tabs do, rather
+        // than inheriting it from the inner button. A composed hierarchy such as
+        // `Tree` handles the click itself and only hands the button an
+        // `on_press` when that click would change state, so a row can be fully
+        // clickable while its button reports as inert — and the cursor would
+        // then contradict both the click and the hover fill.
+        let row_element: Element<'a, Message> = PointerProbe::new(
+            mouse_area(
+                container(row)
+                    .style(move |theme| theme_tree_item::row_style(row_state())(theme))
+                    .width(Length::Fill)
+                    .height(Length::Fixed(metrics.height)),
+            )
+            .interaction(if disabled {
+                mouse::Interaction::None
+            } else {
+                mouse::Interaction::Pointer
+            }),
+            pointer,
+        )
+        .into();
 
         match drop_edge {
             Some(TreeItemDropEdge::Before) => column![drop_edge_bar(), row_element].into(),
@@ -280,7 +314,7 @@ where
         }
 
         button::Button::new(Space::new().width(Length::Fill).height(Length::Fill))
-            .style(theme_tree_item::indent_style(self.selected))
+            .style(theme_tree_item::indent_style())
             .padding(Padding::ZERO)
             .width(Length::Fixed(indent_width))
             .height(Length::Fixed(metrics.height))
