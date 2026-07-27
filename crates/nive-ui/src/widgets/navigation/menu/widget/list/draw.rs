@@ -5,8 +5,9 @@ use iced::{
 
 use crate::theme::{
     choice::{self, ChoiceStateInput},
-    BorderRole, ControlRole, FieldValidation,
+    BorderRole, FieldValidation,
 };
+use crate::widgets::navigation::menu::style::row_fill;
 use crate::widgets::navigation::menu::widget::helpers::slot_bounds;
 use crate::widgets::navigation::menu::widget::{MenuList, MenuListState};
 use crate::widgets::navigation::menu::MENU_ROW_RADIUS;
@@ -28,6 +29,14 @@ where
     ) {
         let state = tree.state.downcast_ref::<MenuListState>();
         let focus_visible = self.focus_visible(state);
+        // Entering a level parks a navigation cursor on the first eligible row.
+        // Painting it would highlight a row nowhere near the pointer in a menu
+        // opened by clicking, so it stays invisible until the reader moves it —
+        // or until they opened the level by keyboard, where it is their only cue.
+        let highlighted = state
+            .highlight_is_visible(focus_visible)
+            .then_some(state.highlight)
+            .flatten();
         for (index, slot) in self
             .slots
             .iter()
@@ -42,11 +51,10 @@ where
                 validation: FieldValidation::Valid,
                 callback_present: slot.eligible,
                 disabled: slot.disabled,
-                hovered: state.highlight == Some(index),
+                hovered: highlighted == Some(index),
                 pressed: state.pressed == Some(index),
-                focused: focus_visible && state.highlight == Some(index),
+                focused: focus_visible && highlighted == Some(index),
             });
-            let control = theme.control(ControlRole::Selectable, resolved.control);
             renderer.fill_quad(
                 renderer::Quad {
                     bounds,
@@ -54,7 +62,7 @@ where
                     shadow: Shadow::default(),
                     snap: true,
                 },
-                control.background,
+                row_fill(theme, resolved),
             );
         }
         self.content.as_widget().draw(
@@ -67,9 +75,8 @@ where
             viewport,
         );
         if focus_visible {
-            if let Some(bounds) = state
-                .highlight
-                .and_then(|index| slot_bounds(&self.slots, layout.bounds(), index))
+            if let Some(bounds) =
+                highlighted.and_then(|index| slot_bounds(&self.slots, layout.bounds(), index))
             {
                 renderer.fill_quad(
                     renderer::Quad {

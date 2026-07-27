@@ -6,8 +6,8 @@ use std::{
 use iced::Rectangle;
 
 use super::{
-    MenuBranchHandle, MenuLevelContext, MenuListState, MenuSlot, MenuTrailingMeasure,
-    SEPARATOR_HEIGHT,
+    HighlightOrigin, LevelHighlight, MenuBranchHandle, MenuLevelContext, MenuListState,
+    MenuRowSpec, MenuSlot, MenuTrailingMeasure, SEPARATOR_HEIGHT,
 };
 use crate::widgets::navigation::menu::MENU_ROW_HEIGHT;
 use crate::{
@@ -36,25 +36,22 @@ impl MenuBranchHandle {
 }
 
 impl<Message> MenuSlot<Message> {
-    #[allow(clippy::too_many_arguments)]
     pub(in crate::widgets::navigation::menu) fn row(
-        eligible: bool,
+        spec: MenuRowSpec,
         activation: Option<Message>,
         label: impl Into<String>,
         trailing: Option<MenuTrailingMeasure>,
-        persistent: ChoicePersistentState,
-        disabled: bool,
         logical_focus: Rc<Cell<bool>>,
         branch: Option<MenuBranchHandle>,
     ) -> Self {
         Self {
-            eligible,
+            eligible: spec.eligible,
             separator: false,
             activation,
             label: Some(label.into()),
             trailing,
-            persistent,
-            disabled,
+            persistent: spec.persistent,
+            disabled: spec.disabled,
             logical_focus: Some(logical_focus),
             branch,
         }
@@ -116,11 +113,60 @@ impl Default for MenuListState {
 }
 
 impl MenuListState {
+    /// Writes this level's highlight, recording whether it was established.
+    ///
+    /// The `origin` is what stops a rebuild from reviving a highlight the
+    /// pointer cleared — see [`HighlightOrigin`].
+    pub(in crate::widgets::navigation::menu) fn set_highlight<Message>(
+        &mut self,
+        slots: &[MenuSlot<Message>],
+        highlight: Option<usize>,
+        origin: HighlightOrigin,
+    ) {
+        self.highlight = highlight;
+        self.highlighted_label = highlight
+            .and_then(|index| slots.get(index))
+            .and_then(|slot| slot.label.clone());
+
+        self.level_highlight = match origin {
+            HighlightOrigin::Decision => LevelHighlight::Chosen,
+            HighlightOrigin::Entry => LevelHighlight::Parked,
+            // A rebuild carries the highlight across without advancing how far
+            // the level has got, so it can neither establish one nor promote a
+            // parked cursor into a chosen row.
+            HighlightOrigin::Reconciliation => self.level_highlight,
+        };
+    }
+
+    pub(in crate::widgets::navigation::menu) fn highlight_established(&self) -> bool {
+        !matches!(self.level_highlight, LevelHighlight::Unvisited)
+    }
+
+    /// Whether the highlighted row should be painted.
+    ///
+    /// An entry highlight is a navigation cursor, not a response to anything the
+    /// reader did, so it stays unpainted until they move it — unless they opened
+    /// the level by keyboard, where it is the only thing telling them where they
+    /// are.
+    pub(in crate::widgets::navigation::menu) fn highlight_is_visible(
+        &self,
+        focus_visible: bool,
+    ) -> bool {
+        matches!(self.level_highlight, LevelHighlight::Chosen) || focus_visible
+    }
+
+    /// Forgets that this level established a highlight, so entering it again
+    /// starts from the first eligible row.
+    pub(in crate::widgets::navigation::menu) fn forget_highlight_session(&mut self) {
+        self.level_highlight = LevelHighlight::Unvisited;
+    }
+
     pub(in crate::widgets::navigation::menu) fn new(root: bool) -> Self {
         Self {
             focus: root.then(|| FocusState::new(FocusVisibility::Auto)),
             highlight: None,
             highlighted_label: None,
+            level_highlight: LevelHighlight::Unvisited,
             pressed: None,
             typeahead: String::new(),
             typeahead_deadline: None,
