@@ -1,14 +1,15 @@
 use std::{borrow::Cow, cell::Cell, rc::Rc};
 
 use iced::{
+    advanced::mouse,
     widget::{container, mouse_area, text, Column, Row, Space},
     Alignment, Length, Padding,
 };
 
 use super::style as menu_style;
 use super::widget::{
-    MenuBranch, MenuBranchHandle, MenuLevelContext, MenuList, MenuSlot, MenuTrailingMeasure,
-    MenuTrailingTrack,
+    MenuBranch, MenuBranchHandle, MenuLevelContext, MenuList, MenuRowSpec, MenuSlot,
+    MenuTrailingMeasure, MenuTrailingTrack,
 };
 use super::{
     MenuEntry, MenuEvent, MenuTrailing, MENU_COLUMN_GAP, MENU_ICON_SIZE, MENU_LIST_INSET,
@@ -47,132 +48,142 @@ pub(super) fn menu_level_content<'a, Message: Clone + 'a>(
     let mut content = Column::new().padding(MENU_LIST_INSET).width(Length::Fill);
     let mut slots = Vec::with_capacity(entries.len());
 
+    let tracks = MenuRowTracks {
+        choice: reserve_choice,
+        icon: reserve_icon,
+        trailing_width: reserve_trailing.then(|| trailing_width.clone()),
+    };
+
     for entry in entries {
-        let (eligible, activation, label, trailing_measure, persistent, explicitly_disabled) =
-            match &entry {
-                MenuEntry::Command(command) => {
-                    let activation = (!command.is_disabled())
-                        .then_some(command.on_press.clone())
-                        .flatten()
-                        .map(|message| MenuEvent::Activate(message, command.dismiss_policy));
-                    (
-                        activation.is_some(),
-                        activation,
-                        command.label.to_string(),
-                        command.shortcut.map(|shortcut| {
-                            MenuTrailingMeasure::Text(
-                                format_shortcut(&shortcut).into_owned(),
-                                TypographyRole::CodeSmall,
-                            )
-                        }),
-                        ChoicePersistentState::Unselected,
-                        command.is_disabled(),
-                    )
-                }
-                MenuEntry::Checkbox(checkbox) => {
-                    let activation = (!checkbox.disabled)
-                        .then(|| {
-                            checkbox
-                                .on_toggle
-                                .as_ref()
-                                .map(|callback| callback(checkbox.state.next()))
-                        })
-                        .flatten()
-                        .map(|message| MenuEvent::Activate(message, checkbox.dismiss_policy));
-                    (
-                        activation.is_some(),
-                        activation,
-                        checkbox.label.to_string(),
-                        checkbox.shortcut.map(|shortcut| {
-                            MenuTrailingMeasure::Text(
-                                format_shortcut(&shortcut).into_owned(),
-                                TypographyRole::CodeSmall,
-                            )
-                        }),
-                        match checkbox.state {
+        let (spec, activation, label, trailing_measure) = match &entry {
+            MenuEntry::Command(command) => {
+                let activation = (!command.is_disabled())
+                    .then_some(command.on_press.clone())
+                    .flatten()
+                    .map(|message| MenuEvent::Activate(message, command.dismiss_policy));
+                (
+                    MenuRowSpec {
+                        persistent: ChoicePersistentState::Unselected,
+                        eligible: activation.is_some(),
+                        disabled: command.is_disabled(),
+                        destructive: command.destructive,
+                    },
+                    activation,
+                    command.label.to_string(),
+                    command.shortcut.map(|shortcut| {
+                        MenuTrailingMeasure::Text(
+                            format_shortcut(&shortcut).into_owned(),
+                            TypographyRole::CodeSmall,
+                        )
+                    }),
+                )
+            }
+            MenuEntry::Checkbox(checkbox) => {
+                let activation = (!checkbox.disabled)
+                    .then(|| {
+                        checkbox
+                            .on_toggle
+                            .as_ref()
+                            .map(|callback| callback(checkbox.state.next()))
+                    })
+                    .flatten()
+                    .map(|message| MenuEvent::Activate(message, checkbox.dismiss_policy));
+                (
+                    MenuRowSpec {
+                        persistent: match checkbox.state {
                             CheckboxState::Unchecked => ChoicePersistentState::Unselected,
                             CheckboxState::Checked => ChoicePersistentState::Selected,
                             CheckboxState::Mixed => ChoicePersistentState::Mixed,
                         },
-                        checkbox.disabled,
-                    )
-                }
-                MenuEntry::Radio(radio) => {
-                    let activation = (!radio.disabled)
-                        .then_some(radio.on_press.clone())
-                        .flatten()
-                        .map(|message| MenuEvent::Activate(message, radio.dismiss_policy));
-                    (
-                        activation.is_some(),
-                        activation,
-                        radio.label.to_string(),
-                        radio.annotation.as_ref().map(|annotation| {
-                            MenuTrailingMeasure::Text(
-                                annotation.to_string(),
-                                TypographyRole::BodySmall,
-                            )
-                        }),
-                        if radio.selected {
+                        eligible: activation.is_some(),
+                        disabled: checkbox.disabled,
+                        destructive: false,
+                    },
+                    activation,
+                    checkbox.label.to_string(),
+                    checkbox.shortcut.map(|shortcut| {
+                        MenuTrailingMeasure::Text(
+                            format_shortcut(&shortcut).into_owned(),
+                            TypographyRole::CodeSmall,
+                        )
+                    }),
+                )
+            }
+            MenuEntry::Radio(radio) => {
+                let activation = (!radio.disabled)
+                    .then_some(radio.on_press.clone())
+                    .flatten()
+                    .map(|message| MenuEvent::Activate(message, radio.dismiss_policy));
+                (
+                    MenuRowSpec {
+                        persistent: if radio.selected {
                             ChoicePersistentState::Selected
                         } else {
                             ChoicePersistentState::Unselected
                         },
-                        radio.disabled,
-                    )
-                }
-                MenuEntry::Submenu(submenu) => (
-                    !submenu.disabled,
-                    None,
-                    submenu.label.to_string(),
-                    Some(MenuTrailingMeasure::Icon),
-                    ChoicePersistentState::Unselected,
-                    submenu.disabled,
-                ),
-                MenuEntry::Separator => (
-                    false,
-                    None,
-                    String::new(),
-                    None,
-                    ChoicePersistentState::Unselected,
-                    false,
-                ),
-            };
+                        eligible: activation.is_some(),
+                        disabled: radio.disabled,
+                        destructive: false,
+                    },
+                    activation,
+                    radio.label.to_string(),
+                    radio.annotation.as_ref().map(|annotation| {
+                        MenuTrailingMeasure::Text(annotation.to_string(), TypographyRole::BodySmall)
+                    }),
+                )
+            }
+            MenuEntry::Submenu(submenu) => (
+                MenuRowSpec {
+                    persistent: ChoicePersistentState::Unselected,
+                    eligible: !submenu.disabled,
+                    disabled: submenu.disabled,
+                    destructive: false,
+                },
+                None,
+                submenu.label.to_string(),
+                Some(MenuTrailingMeasure::Icon),
+            ),
+            MenuEntry::Separator => (
+                MenuRowSpec {
+                    persistent: ChoicePersistentState::Unselected,
+                    eligible: false,
+                    disabled: false,
+                    destructive: false,
+                },
+                None,
+                String::new(),
+                None,
+            ),
+        };
         let logical_focus = Rc::new(Cell::new(false));
         let branch = matches!(&entry, MenuEntry::Submenu(_)).then(MenuBranchHandle::new);
         slots.push(if matches!(&entry, MenuEntry::Separator) {
             MenuSlot::separator()
         } else {
             MenuSlot::row(
-                eligible,
+                spec,
                 activation.clone(),
                 label,
                 trailing_measure,
-                persistent,
-                explicitly_disabled,
                 logical_focus.clone(),
                 branch.clone(),
             )
         });
         content = content.push(match entry {
-            MenuEntry::Command(command) => {
-                let disabled = command.is_disabled();
-                menu_row(
-                    None,
-                    command.icon,
-                    command.label,
-                    command
+            MenuEntry::Command(command) => menu_row(
+                MenuRowContent {
+                    choice_mark: None,
+                    icon: command.icon,
+                    label: command.label,
+                    trailing: command
                         .shortcut
                         .map(|shortcut| MenuTrailing::Shortcut(format_shortcut(&shortcut))),
-                    false,
-                    command.destructive,
-                    disabled,
-                    activation,
-                    reserve_choice,
-                    reserve_icon,
-                    logical_focus,
-                    reserve_trailing.then(|| trailing_width.clone()),
-                )
-            }
+                },
+                spec,
+                activation,
+                tracks.clone(),
+                logical_focus,
+            ),
             MenuEntry::Checkbox(checkbox) => {
                 let mark = match checkbox.state {
                     CheckboxState::Unchecked => None,
@@ -180,51 +191,45 @@ pub(super) fn menu_level_content<'a, Message: Clone + 'a>(
                     CheckboxState::Mixed => Some("−"),
                 };
                 menu_row(
-                    mark,
-                    None,
-                    checkbox.label,
-                    checkbox
-                        .shortcut
-                        .map(|shortcut| MenuTrailing::Shortcut(format_shortcut(&shortcut))),
-                    checkbox.state != CheckboxState::Unchecked,
-                    false,
-                    checkbox.disabled,
+                    MenuRowContent {
+                        choice_mark: mark,
+                        icon: None,
+                        label: checkbox.label,
+                        trailing: checkbox
+                            .shortcut
+                            .map(|shortcut| MenuTrailing::Shortcut(format_shortcut(&shortcut))),
+                    },
+                    spec,
                     activation,
-                    reserve_choice,
-                    reserve_icon,
+                    tracks.clone(),
                     logical_focus,
-                    reserve_trailing.then(|| trailing_width.clone()),
                 )
             }
             MenuEntry::Radio(radio) => menu_row(
-                radio.selected.then_some("●"),
-                radio.icon,
-                radio.label,
-                radio.annotation.map(MenuTrailing::Annotation),
-                radio.selected,
-                false,
-                radio.disabled,
+                MenuRowContent {
+                    choice_mark: radio.selected.then_some("●"),
+                    icon: radio.icon,
+                    label: radio.label,
+                    trailing: radio.annotation.map(MenuTrailing::Annotation),
+                },
+                spec,
                 activation,
-                reserve_choice,
-                reserve_icon,
+                tracks.clone(),
                 logical_focus,
-                reserve_trailing.then(|| trailing_width.clone()),
             ),
             MenuEntry::Submenu(submenu) => {
                 let branch = branch.expect("submenu branch handle");
                 let row = menu_row(
+                    MenuRowContent {
+                        choice_mark: None,
+                        icon: submenu.icon,
+                        label: submenu.label,
+                        trailing: Some(MenuTrailing::Submenu),
+                    },
+                    spec,
                     None,
-                    submenu.icon,
-                    submenu.label,
-                    Some(MenuTrailing::Submenu),
-                    false,
-                    false,
-                    submenu.disabled,
-                    None,
-                    reserve_choice,
-                    reserve_icon,
+                    tracks.clone(),
                     logical_focus,
-                    reserve_trailing.then(|| trailing_width.clone()),
                 );
                 let mut child = *submenu.child;
                 if matches!(child.entries.last(), Some(MenuEntry::Separator)) {
@@ -264,31 +269,48 @@ pub(super) fn menu_level_content<'a, Message: Clone + 'a>(
     .into()
 }
 
-#[allow(clippy::too_many_arguments)]
+/// Which columns every row in a level reserves, so their contents line up.
+///
+/// Layout, not state — kept apart from [`MenuRowSpec`] for that reason, and
+/// identical for every row in the level.
+#[derive(Debug, Clone)]
+pub(super) struct MenuRowTracks {
+    pub(super) choice: bool,
+    pub(super) icon: bool,
+    pub(super) trailing_width: Option<Rc<Cell<f32>>>,
+}
+
+/// What a row shows, as opposed to [`MenuRowSpec`], which is what it is.
+pub(super) struct MenuRowContent<'a> {
+    pub(super) choice_mark: Option<&'static str>,
+    pub(super) icon: Option<IconRef>,
+    pub(super) label: Cow<'a, str>,
+    pub(super) trailing: Option<MenuTrailing<'a>>,
+}
+
 pub(super) fn menu_row<'a, Message: Clone + 'a>(
-    choice_mark: Option<&'static str>,
-    icon: Option<IconRef>,
-    label: Cow<'a, str>,
-    trailing: Option<MenuTrailing<'a>>,
-    selected: bool,
-    destructive: bool,
-    disabled: bool,
+    row: MenuRowContent<'a>,
+    spec: MenuRowSpec,
     activation: Option<MenuEvent<Message>>,
-    reserve_choice: bool,
-    reserve_icon: bool,
+    tracks: MenuRowTracks,
     logical_focus: Rc<Cell<bool>>,
-    trailing_width: Option<Rc<Cell<f32>>>,
 ) -> Element<'a, MenuEvent<Message>> {
+    let MenuRowContent {
+        choice_mark,
+        icon,
+        label,
+        trailing,
+    } = row;
     let mut content: Row<'a, MenuEvent<Message>, crate::theme::Theme, iced::Renderer> =
         Row::new().spacing(MENU_COLUMN_GAP);
-    if reserve_choice {
+    if tracks.choice {
         content = content.push(
             container(text(choice_mark.unwrap_or("")))
                 .width(Length::Fixed(MENU_ICON_SIZE))
                 .center_y(Length::Fill),
         );
     }
-    if reserve_icon {
+    if tracks.icon {
         let leading: Element<'a, MenuEvent<Message>> = match icon {
             Some(icon) => container(icon_widget::reference(icon).custom_size(MENU_ICON_SIZE))
                 .width(Length::Fixed(MENU_ICON_SIZE))
@@ -310,7 +332,7 @@ pub(super) fn menu_row<'a, Message: Clone + 'a>(
         .align_y(Alignment::Center)
         .width(Length::Fill)
         .height(Length::Fill);
-    if let Some(width) = trailing_width {
+    if let Some(width) = tracks.trailing_width {
         let trailing: Element<'a, MenuEvent<Message>> = match trailing {
             Some(MenuTrailing::Shortcut(label)) => text_widget::code_small(label).into(),
             Some(MenuTrailing::Annotation(annotation)) => {
@@ -324,19 +346,28 @@ pub(super) fn menu_row<'a, Message: Clone + 'a>(
         content = content.push(MenuTrailingTrack::new(trailing, width));
     }
 
+    // A row that can be activated or opened owns its cursor, the way tabs and
+    // the overflow chevrons own theirs. Ineligible rows — explicitly disabled,
+    // display-only, or the already committed choice — keep the default cursor,
+    // matching the fact that they take no highlight either.
     let row = mouse_area(
         container(content)
             .style(menu_style::row_style(
-                selected,
-                destructive,
-                disabled,
+                spec.selected(),
+                spec.destructive,
+                spec.disabled,
                 MENU_ROW_RADIUS,
             ))
             .padding(Padding::ZERO.horizontal(MENU_ROW_PADDING_H))
             .height(Length::Fixed(MENU_ROW_HEIGHT))
             .width(Length::Fill),
-    );
-    match (!disabled).then_some(activation).flatten() {
+    )
+    .interaction(if spec.eligible {
+        mouse::Interaction::Pointer
+    } else {
+        mouse::Interaction::None
+    });
+    match (!spec.disabled).then_some(activation).flatten() {
         Some(activation) => row.on_release(activation).into(),
         None => row.into(),
     }

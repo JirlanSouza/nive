@@ -151,17 +151,6 @@ pub(super) fn update_submenu_pointer_intent<Message>(
     }
 }
 
-pub(super) fn set_highlight<Message>(
-    slots: &[MenuSlot<Message>],
-    state: &mut MenuListState,
-    highlight: Option<usize>,
-) {
-    state.highlight = highlight;
-    state.highlighted_label = highlight
-        .and_then(|index| slots.get(index))
-        .and_then(|slot| slot.label.clone());
-}
-
 pub(super) fn move_highlight<Message>(
     slots: &[MenuSlot<Message>],
     current: Option<usize>,

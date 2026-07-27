@@ -18,8 +18,9 @@ use crate::{advanced::focus::FocusState, Element};
 
 use super::helpers::{
     ensure_overlay_nodes, first_eligible, max_trailing_width, natural_width,
-    reconcile_open_submenu, set_highlight, slot_bounds, sync_logical_focus,
+    reconcile_open_submenu, slot_bounds, sync_logical_focus,
 };
+use super::HighlightOrigin;
 
 impl<'a, Message> MenuList<'a, Message> {
     pub(in crate::widgets::navigation::menu) fn new(
@@ -99,6 +100,9 @@ where
     fn diff(&self, tree: &mut Tree) {
         tree.diff_children(&[self.content.as_widget()]);
         let state = tree.state.downcast_mut::<MenuListState>();
+        if !self.level_active(state) {
+            state.forget_highlight_session();
+        }
         let reconciled = state
             .highlighted_label
             .as_deref()
@@ -116,8 +120,17 @@ where
                     .highlight
                     .filter(|index| self.slots.get(*index).is_some_and(|slot| slot.eligible))
             })
-            .or_else(|| first_eligible(&self.slots));
-        set_highlight(&self.slots, state, reconciled);
+            .or_else(|| {
+                // Only recover when a highlight existed and its row left the
+                // model. A highlight the pointer cleared has no label, and a
+                // rebuild must not invent one for it.
+                state
+                    .highlighted_label
+                    .is_some()
+                    .then(|| first_eligible(&self.slots))
+                    .flatten()
+            });
+        state.set_highlight(&self.slots, reconciled, HighlightOrigin::Reconciliation);
         reconcile_open_submenu(&self.slots, state);
         ensure_overlay_nodes(&self.slots, state);
         sync_logical_focus(&self.slots, state, self.focus_visible(state));
@@ -165,9 +178,13 @@ where
             }
             self.shared_focus_visible.set(focus.is_focus_visible());
         }
-        let entered = self.level_active(state) && state.highlight.is_none();
+        let entered = self.level_active(state) && !state.highlight_established();
         if entered {
-            set_highlight(&self.slots, state, first_eligible(&self.slots));
+            state.set_highlight(
+                &self.slots,
+                first_eligible(&self.slots),
+                HighlightOrigin::Entry,
+            );
             self.request_highlight_visible(state, layout);
         }
         ensure_overlay_nodes(&self.slots, state);

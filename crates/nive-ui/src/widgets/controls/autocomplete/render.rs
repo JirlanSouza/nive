@@ -11,7 +11,11 @@ use super::widget::HighlightVisibility;
 use super::AutocompleteResults;
 use crate::widgets::overlays::anchored_overlay::scroll::EnsureVisibleHandle;
 use crate::{
-    theme::{self, TextRole, ToneRole, TypographyRole},
+    theme::{
+        self,
+        choice::{self, ChoicePersistentState, ChoiceStateInput},
+        FieldValidation, TextRole, ToneRole, TypographyRole,
+    },
     widgets::{
         display::measured_text::{EllipsisStrategy, MeasuredText},
         navigation::menu::{
@@ -76,12 +80,19 @@ where
                         .style({
                             let highlighted = Rc::clone(&highlighted);
                             move |theme| {
-                                menu::style::row_style(
-                                    false,
-                                    highlighted.get() == Some(index),
-                                    suggestion_disabled,
-                                    MENU_ROW_RADIUS,
-                                )(theme)
+                                let resolved = choice::resolve_state(ChoiceStateInput {
+                                    // Suggestions are transient candidates, so
+                                    // the highlight is the only state a row
+                                    // carries — never committed selection.
+                                    persistent: ChoicePersistentState::Unselected,
+                                    validation: FieldValidation::Valid,
+                                    callback_present: !suggestion_disabled,
+                                    disabled: suggestion_disabled,
+                                    hovered: highlighted.get() == Some(index),
+                                    pressed: false,
+                                    focused: false,
+                                });
+                                menu::style::row_style_with_fill(theme, resolved, MENU_ROW_RADIUS)
                             }
                         })
                         .padding(Padding::ZERO.horizontal(MENU_ROW_PADDING_H))

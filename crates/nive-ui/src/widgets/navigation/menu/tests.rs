@@ -425,6 +425,261 @@ fn highlighted_capable_row_reconciles_by_label_after_reorder() {
     assert_eq!(harness.state::<widget::MenuListState>().highlight, Some(0));
 }
 
+/// The shape TabBar's all-tabs menu produces: the committed row is ineligible
+/// because activating it would republish the value it already holds, so the
+/// first *eligible* row is the second one.
+fn radio_menu_with_a_disabled_row() -> Element<'static, Message> {
+    Menu::new(Space::new())
+        .radio_group(
+            MenuRadioGroup::new(Some(1))
+                .option(MenuRadioOption::new(1, "Committed"))
+                .option(MenuRadioOption::new(2, "Second"))
+                .option(MenuRadioOption::new(3, "Unavailable").disabled(true))
+                .on_select(Message::Select),
+        )
+        .into_content()
+}
+
+#[test]
+fn opening_by_pointer_parks_the_navigation_cursor_without_painting_it() {
+    let mut harness = WidgetHarness::new(radio_menu_with_a_disabled_row(), Size::new(320.0, 140.0));
+    harness.focus_next();
+    let state = harness.state::<widget::MenuListState>();
+
+    // The cursor is placed so arrows and Enter work immediately...
+    assert_eq!(state.highlight, Some(1));
+    // ...but a level entered without the keyboard must not paint it, or a menu
+    // opened by clicking shows a highlighted row nowhere near the pointer.
+    assert!(
+        !state.highlight_is_visible(false),
+        "an entry highlight must stay unpainted when the level was not entered by keyboard"
+    );
+    assert!(
+        state.highlight_is_visible(true),
+        "the same highlight is the only cue a keyboard reader has, so focus-visible paints it"
+    );
+}
+
+#[test]
+fn moving_the_highlight_makes_it_visible_even_without_focus_visible() {
+    let mut harness = WidgetHarness::new(radio_menu_with_a_disabled_row(), Size::new(320.0, 140.0));
+    harness.focus_next();
+    let row = Point::new(12.0, MENU_LIST_INSET + MENU_ROW_HEIGHT / 2.0);
+    harness.set_cursor(row);
+    harness.update(Event::Mouse(mouse::Event::CursorMoved { position: row }));
+
+    assert!(
+        harness
+            .state::<widget::MenuListState>()
+            .highlight_is_visible(false),
+        "a highlight the reader moved is painted whether or not focus is visible"
+    );
+}
+
+/// Every shape of ineligibility at once: a committed choice, a display-only
+/// command with no callback, and an explicitly disabled row — plus two rows that
+/// are genuinely activatable, at indices 1 and 3.
+fn five_row_menu() -> Element<'static, Message> {
+    Menu::new(Space::new())
+        .radio_group(
+            MenuRadioGroup::new(Some(1))
+                .option(MenuRadioOption::new(1, "Committed"))
+                .option(MenuRadioOption::new(2, "Selectable"))
+                .on_select(Message::Select),
+        )
+        .command(MenuCommand::new("Display only"))
+        .command(MenuCommand::new("Runnable").on_press(Message::Save))
+        .command(
+            MenuCommand::new("Unavailable")
+                .on_press(Message::Save)
+                .disabled(true),
+        )
+        .into_content()
+}
+
+#[test]
+fn a_keyboard_entered_level_moves_on_the_first_arrow_rather_than_revealing() {
+    // Entering by keyboard paints the parked cursor immediately, so there is
+    // nothing to reveal and the first arrow must step — the reveal shortcut
+    // applies only while the cursor is still unpainted.
+    let mut harness = WidgetHarness::new(five_row_menu(), Size::new(320.0, 220.0));
+    harness.focus_next();
+    assert_eq!(harness.state::<widget::MenuListState>().highlight, Some(1));
+
+    harness.update(key_pressed(key::Named::ArrowDown, key::Code::ArrowDown));
+
+    assert_eq!(
+        harness.state::<widget::MenuListState>().highlight,
+        Some(3),
+        "a keyboard-entered level steps to the next eligible row"
+    );
+}
+
+#[test]
+fn navigation_and_cursor_agree_on_which_rows_are_eligible() {
+    // Every shape of ineligibility at once: a committed choice, a display-only
+    // command with no callback, and an explicitly disabled row — plus two rows
+    // that are genuinely activatable.
+    let menu = five_row_menu;
+    let row_count = 5;
+    let centre = |index: usize| {
+        Point::new(
+            12.0,
+            MENU_LIST_INSET + MENU_ROW_HEIGHT * index as f32 + MENU_ROW_HEIGHT / 2.0,
+        )
+    };
+
+    // Trail one: what keyboard navigation can reach.
+    let mut harness = WidgetHarness::new(menu(), Size::new(320.0, 220.0));
+    harness.focus_next();
+    let mut reachable = Vec::new();
+    for _ in 0..row_count {
+        if let Some(index) = harness.state::<widget::MenuListState>().highlight {
+            if !reachable.contains(&index) {
+                reachable.push(index);
+            }
+        }
+        harness.update(key_pressed(key::Named::ArrowDown, key::Code::ArrowDown));
+    }
+
+    // Trail two: what the pointer is invited to click.
+    let mut pointable = Vec::new();
+    for index in 0..row_count {
+        harness.set_cursor(centre(index));
+        if harness.mouse_interaction() == mouse::Interaction::Pointer {
+            pointable.push(index);
+        }
+    }
+
+    assert_eq!(
+        reachable, pointable,
+        "the rows navigation reaches and the rows the cursor invites must be the same set"
+    );
+    assert_eq!(
+        reachable,
+        vec![1, 3],
+        "only the uncommitted radio option and the runnable command are eligible"
+    );
+}
+
+#[test]
+fn pointing_at_an_uneligible_row_clears_the_highlight_and_no_rebuild_restores_it() {
+    let mut harness = WidgetHarness::new(radio_menu_with_a_disabled_row(), Size::new(320.0, 140.0));
+    harness.focus_next();
+    assert_eq!(harness.state::<widget::MenuListState>().highlight, Some(1));
+
+    // Third row: past the 4px list inset, two 28px rows above it.
+    let disabled_row = Point::new(
+        12.0,
+        MENU_LIST_INSET + MENU_ROW_HEIGHT * 2.0 + MENU_ROW_HEIGHT / 2.0,
+    );
+    harness.set_cursor(disabled_row);
+    harness.update(Event::Mouse(mouse::Event::CursorMoved {
+        position: disabled_row,
+    }));
+
+    assert_eq!(
+        harness.state::<widget::MenuListState>().highlight,
+        None,
+        "a row that cannot be highlighted must leave the list with no highlight"
+    );
+
+    // The app rebuilds its view every frame, so reconciliation must not treat a
+    // deliberately cleared highlight as an uninitialized one.
+    harness.replace(radio_menu_with_a_disabled_row());
+    assert_eq!(
+        harness.state::<widget::MenuListState>().highlight,
+        None,
+        "a rebuild must not move the highlight onto the first eligible row"
+    );
+
+    let _ = harness.focused_count();
+    assert_eq!(
+        harness.state::<widget::MenuListState>().highlight,
+        None,
+        "a focus pass must not move the highlight onto the first eligible row"
+    );
+}
+
+#[test]
+fn leaving_the_list_clears_the_highlight_without_reviving_it() {
+    let mut harness = WidgetHarness::new(radio_menu_with_a_disabled_row(), Size::new(320.0, 140.0));
+    harness.focus_next();
+    harness.update(Event::Mouse(mouse::Event::CursorLeft));
+
+    assert_eq!(harness.state::<widget::MenuListState>().highlight, None);
+
+    harness.replace(radio_menu_with_a_disabled_row());
+
+    assert_eq!(harness.state::<widget::MenuListState>().highlight, None);
+}
+
+#[test]
+fn only_rows_that_can_be_activated_carry_the_pointer_cursor() {
+    let mut harness = WidgetHarness::new(radio_menu_with_a_disabled_row(), Size::new(320.0, 140.0));
+    let row_center = |index: f32| {
+        Point::new(
+            12.0,
+            MENU_LIST_INSET + MENU_ROW_HEIGHT * index + MENU_ROW_HEIGHT / 2.0,
+        )
+    };
+
+    // Row 1 is the only eligible one: row 0 is the committed choice and row 2 is
+    // disabled, and neither takes a highlight either.
+    for (index, expected) in [
+        (0.0, mouse::Interaction::None),
+        (1.0, mouse::Interaction::Pointer),
+        (2.0, mouse::Interaction::None),
+    ] {
+        harness.set_cursor(row_center(index));
+
+        assert_eq!(
+            harness.mouse_interaction(),
+            expected,
+            "row {index} reported the wrong cursor"
+        );
+    }
+}
+
+#[test]
+fn reopening_a_level_establishes_its_highlight_again() {
+    let child =
+        Menu::new(Space::new()).command(MenuCommand::new("Save child").on_press(Message::Save));
+    let content = Menu::new(Space::new())
+        .submenu(MenuSubmenu::new("More", child))
+        .into_content();
+    let mut harness = WidgetHarness::new(content, Size::new(640.0, 320.0));
+    harness.focus_next();
+    harness.update(key_pressed(key::Named::ArrowRight, key::Code::ArrowRight));
+    harness
+        .update_overlay(key_pressed(key::Named::ArrowLeft, key::Code::ArrowLeft))
+        .expect("child overlay");
+    assert!(!harness.has_overlay());
+
+    harness.update(key_pressed(key::Named::ArrowRight, key::Code::ArrowRight));
+    let activated = harness
+        .update_overlay(key_pressed(key::Named::Enter, key::Code::Enter))
+        .expect("reopened child overlay");
+
+    assert_eq!(
+        activated.messages,
+        vec![Message::Save],
+        "a reopened level must highlight its first eligible row again"
+    );
+}
+
+#[test]
+fn keyboard_navigation_resumes_after_the_pointer_clears_the_highlight() {
+    let mut harness = WidgetHarness::new(radio_menu_with_a_disabled_row(), Size::new(320.0, 140.0));
+    harness.focus_next();
+    harness.update(Event::Mouse(mouse::Event::CursorLeft));
+    assert_eq!(harness.state::<widget::MenuListState>().highlight, None);
+
+    harness.update(key_pressed(key::Named::ArrowDown, key::Code::ArrowDown));
+
+    assert_eq!(harness.state::<widget::MenuListState>().highlight, Some(1));
+}
+
 #[test]
 fn parked_pointer_does_not_reset_keyboard_navigation() {
     let content = Menu::new(Space::new())

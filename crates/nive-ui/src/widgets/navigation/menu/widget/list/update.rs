@@ -7,9 +7,11 @@ use iced::{
 use crate::widgets::navigation::menu::widget::helpers::{
     close_submenu, first_eligible, is_primary_press, last_eligible, move_highlight, open_submenu,
     pointer_highlight_position, primary_press_position, reconcile_closed_submenu, release_position,
-    set_highlight, slot_at, sync_logical_focus, typeahead_match, update_submenu_pointer_intent,
+    slot_at, sync_logical_focus, typeahead_match, update_submenu_pointer_intent,
 };
-use crate::widgets::navigation::menu::widget::{MenuList, MenuListState, TYPEAHEAD_TIMEOUT};
+use crate::widgets::navigation::menu::widget::{
+    HighlightOrigin, MenuList, MenuListState, TYPEAHEAD_TIMEOUT,
+};
 
 impl<'a, Message> MenuList<'a, Message>
 where
@@ -115,7 +117,7 @@ where
             let highlight = position
                 .and_then(|position| slot_at(&self.slots, layout.bounds(), position))
                 .filter(|index| self.slots[*index].eligible);
-            set_highlight(&self.slots, state, highlight);
+            state.set_highlight(&self.slots, highlight, HighlightOrigin::Decision);
             update_submenu_pointer_intent(&self.slots, state, highlight, shell);
             sync_logical_focus(&self.slots, state, self.focus_visible(state));
         }
@@ -221,7 +223,7 @@ where
                     if let Some(index) =
                         typeahead_match(&self.slots, state.highlight, state.typeahead.as_str())
                     {
-                        set_highlight(&self.slots, state, Some(index));
+                        state.set_highlight(&self.slots, Some(index), HighlightOrigin::Decision);
                         self.request_highlight_visible(state, layout);
                         sync_logical_focus(&self.slots, state, self.focus_visible(state));
                     }
@@ -250,32 +252,54 @@ where
                 }
                 return;
             }
-            let moved = match event {
-                Event::Keyboard(keyboard::Event::KeyPressed {
-                    key: keyboard::Key::Named(Named::ArrowDown),
-                    ..
-                }) => move_highlight(&self.slots, state.highlight, 1),
-                Event::Keyboard(keyboard::Event::KeyPressed {
-                    key: keyboard::Key::Named(Named::ArrowUp),
-                    ..
-                }) => move_highlight(&self.slots, state.highlight, -1),
-                Event::Keyboard(keyboard::Event::KeyPressed {
-                    key: keyboard::Key::Named(Named::Home),
-                    ..
-                }) => first_eligible(&self.slots),
-                Event::Keyboard(keyboard::Event::KeyPressed {
-                    key: keyboard::Key::Named(Named::End),
-                    ..
-                }) => last_eligible(&self.slots),
-                _ => return,
+            let Some(nav) = navigation_intent(event) else {
+                return;
             };
-            if moved != state.highlight {
-                set_highlight(&self.slots, state, moved);
+            // Entry parks a cursor without painting it, so the reader cannot see
+            // where a step would start from. The first arrow therefore reveals
+            // it in place; without this, opening a menu by clicking and pressing
+            // Down would begin one row past where the menu is pointing.
+            let parked = !state.highlight_is_visible(self.focus_visible(state));
+            let moved = match nav {
+                Nav::Step(_) if parked && state.highlight.is_some() => state.highlight,
+                Nav::Step(direction) => move_highlight(&self.slots, state.highlight, direction),
+                Nav::First => first_eligible(&self.slots),
+                Nav::Last => last_eligible(&self.slots),
+            };
+            // `parked` alone is a reason to write: revealing keeps the same index
+            // but promotes the cursor to a chosen row, which is what paints it.
+            if moved != state.highlight || parked {
+                state.set_highlight(&self.slots, moved, HighlightOrigin::Decision);
                 self.request_highlight_visible(state, layout);
                 sync_logical_focus(&self.slots, state, self.focus_visible(state));
                 shell.request_redraw();
             }
             shell.capture_event();
         }
+    }
+}
+
+/// Keyboard navigation a menu level understands.
+///
+/// Resolved before the highlight decision so the reveal rule below is written
+/// once, rather than repeated per arrow key.
+enum Nav {
+    /// Move by one eligible row in this direction.
+    Step(isize),
+    First,
+    Last,
+}
+
+fn navigation_intent(event: &Event) -> Option<Nav> {
+    let Event::Keyboard(keyboard::Event::KeyPressed { key, .. }) = event else {
+        return None;
+    };
+
+    match key {
+        keyboard::Key::Named(Named::ArrowDown) => Some(Nav::Step(1)),
+        keyboard::Key::Named(Named::ArrowUp) => Some(Nav::Step(-1)),
+        keyboard::Key::Named(Named::Home) => Some(Nav::First),
+        keyboard::Key::Named(Named::End) => Some(Nav::Last),
+        _ => None,
     }
 }
