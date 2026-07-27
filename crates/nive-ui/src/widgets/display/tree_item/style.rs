@@ -7,7 +7,6 @@ use iced::{
 use crate::advanced::control_style::{
     border_with_radius, disabled_alpha, transparent_border, transparent_border_with_radius,
 };
-use crate::widgets::controls::button::button_control_state;
 
 use crate::theme::{
     self, control_metrics, BorderRole, BorderSpec, ControlRole, ControlSize, ControlState,
@@ -70,16 +69,13 @@ pub fn item_style(
 ) -> impl Fn(&crate::theme::Theme, button::Status) -> button::Style {
     move |theme: &crate::theme::Theme, status: button::Status| {
         let theme = *theme;
-        let control = theme.control(ControlRole::Standard, button_control_state(status));
         let disabled = theme.control(ControlRole::Standard, ControlState::DISABLED);
 
-        let background = match (variant, status) {
-            (TreeItemVariant::Selected, _) => Color::TRANSPARENT,
-            (TreeItemVariant::Default, button::Status::Hovered | button::Status::Pressed) => {
-                control.background
-            }
-            (TreeItemVariant::Default, _) => Color::TRANSPARENT,
-        };
+        // The row container paints every fill, because it is the only element
+        // spanning the whole row; this button covers only the space left after
+        // indentation and the expander, so a fill here would stop short of the
+        // row's leading edge.
+        let background = Color::TRANSPARENT;
 
         let text_color = match (variant, status) {
             (_, button::Status::Disabled) => disabled.foreground,
@@ -111,13 +107,10 @@ pub fn expander_style(
 ) -> impl Fn(&crate::theme::Theme, button::Status) -> button::Style {
     move |theme: &crate::theme::Theme, status: button::Status| {
         let theme = *theme;
-        let control = theme.control(ControlRole::Standard, button_control_state(status));
 
-        let background = match (selected, status) {
-            (true, _) => Color::TRANSPARENT,
-            (false, button::Status::Hovered | button::Status::Pressed) => control.background,
-            (false, _) => Color::TRANSPARENT,
-        };
+        // The row container paints the fill for the whole row, expander
+        // included, so this button never paints its own.
+        let background = Color::TRANSPARENT;
 
         let text_color = match (selected, status) {
             (_, button::Status::Disabled) => disabled_alpha(theme.text(TextRole::Muted).color),
@@ -140,21 +133,10 @@ pub fn expander_style(
     }
 }
 
-pub fn indent_style(
-    selected: bool,
-) -> impl Fn(&crate::theme::Theme, button::Status) -> button::Style {
-    move |theme: &crate::theme::Theme, status: button::Status| {
-        let theme = *theme;
-        let control = theme.control(ControlRole::Standard, button_control_state(status));
-
-        let background = if selected {
-            Color::TRANSPARENT
-        } else {
-            match status {
-                button::Status::Hovered | button::Status::Pressed => control.background,
-                _ => Color::TRANSPARENT,
-            }
-        };
+pub fn indent_style() -> impl Fn(&crate::theme::Theme, button::Status) -> button::Style {
+    move |_theme: &crate::theme::Theme, _status: button::Status| {
+        // As with the expander, the row container owns the fill.
+        let background = Color::TRANSPARENT;
 
         button::Style {
             background: Some(Background::Color(background)),
@@ -170,47 +152,73 @@ pub fn indent_style(
     }
 }
 
-pub fn row_style(
-    selected: bool,
-    disabled: bool,
-    focused: bool,
-    dragging: bool,
-    drop_into: bool,
-) -> impl Fn(&crate::theme::Theme) -> container::Style {
+/// Everything the row container needs to paint itself.
+///
+/// Grouped rather than passed as a run of booleans, so no caller can transpose
+/// two of them.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(super) struct TreeRowState {
+    pub(super) selected: bool,
+    pub(super) disabled: bool,
+    pub(super) focused: bool,
+    pub(super) hovered: bool,
+    pub(super) pressed: bool,
+    pub(super) dragging: bool,
+    pub(super) drop_into: bool,
+}
+
+/// The row container paints every fill, because it is the only element that
+/// spans the whole row.
+///
+/// Indentation and the branch expander are siblings of the button, not children
+/// of it, so a fill painted by the button stops short of the row's leading edge.
+/// Selection was already painted here; hover and pressed join it, which is why
+/// the row needs the pointer state that [`super::pointer::PointerProbe`] carries
+/// across.
+pub(super) fn row_style(row: TreeRowState) -> impl Fn(&crate::theme::Theme) -> container::Style {
     move |theme: &crate::theme::Theme| {
         let theme = *theme;
 
         // Selected×disabled is resolved once, centrally (no widget-local
         // alpha); model focus renders a layout-neutral affordance
         // independent of selection.
-        let mut state = ControlState::new().interaction(if focused {
+        let interaction = if row.pressed {
+            InteractionState::PRESSED
+        } else if row.hovered {
+            InteractionState::HOVERED
+        } else if row.focused {
             InteractionState::FOCUSED
         } else {
             InteractionState::NONE
-        });
-        if selected {
+        };
+        let mut state = ControlState::new().interaction(interaction);
+        if row.selected {
             state = state.selected();
         }
-        if disabled {
+        if row.disabled {
             state = state.disabled();
         }
-        let control = theme.control(ControlRole::Selectable, state);
+        // Embedded so an untouched, unselected row adds nothing over the surface
+        // hosting the tree, and hover/pressed composite over it.
+        let control = theme.control(ControlRole::Embedded, state);
 
-        let mut background = if selected {
+        // Focus is a border here, not a fill: a focused-but-unselected row must
+        // stay distinguishable from a hovered one.
+        let mut background = if row.selected || row.hovered || row.pressed {
             control.background
         } else {
             Color::TRANSPARENT
         };
-        if dragging {
+        if row.dragging {
             background = background.scale_alpha(0.5);
         }
 
         // A drag-over `Into` target takes visual priority over the focus
         // border: the two never carry real meaning at once, since pointer
         // drag and keyboard focus-visible are mutually exclusive input modes.
-        let border = if drop_into {
+        let border = if row.drop_into {
             border_with_radius(theme.border(BorderRole::Accent), 0.0)
-        } else if focused {
+        } else if row.focused {
             border_with_radius(theme.border(BorderRole::Focus), 0.0)
         } else {
             transparent_border()
@@ -264,7 +272,10 @@ mod tree_item_tests {
     #[test]
     fn selected_item_uses_app_selected_control_background() {
         let theme = Theme::Dark;
-        let item = row_style(true, false, false, false, false)(&theme);
+        let item = row_style(TreeRowState {
+            selected: true,
+            ..TreeRowState::default()
+        })(&theme);
 
         assert_eq!(
             background_color(&item),
@@ -279,8 +290,15 @@ mod tree_item_tests {
     #[test]
     fn dragging_row_dims_the_resolved_background() {
         let theme = Theme::Dark;
-        let plain = row_style(true, false, false, false, false)(&theme);
-        let dragging = row_style(true, false, false, true, false)(&theme);
+        let plain = row_style(TreeRowState {
+            selected: true,
+            ..TreeRowState::default()
+        })(&theme);
+        let dragging = row_style(TreeRowState {
+            selected: true,
+            dragging: true,
+            ..TreeRowState::default()
+        })(&theme);
 
         assert_eq!(
             background_color(&dragging),
@@ -291,7 +309,11 @@ mod tree_item_tests {
     #[test]
     fn drop_into_target_renders_the_accent_border_over_focus() {
         let theme = Theme::Dark;
-        let item = row_style(false, false, true, false, true)(&theme);
+        let item = row_style(TreeRowState {
+            focused: true,
+            drop_into: true,
+            ..TreeRowState::default()
+        })(&theme);
 
         assert_eq!(item.border.color, theme.border(BorderRole::Accent).color);
         assert!(item.border.width > 0.0);
@@ -300,7 +322,11 @@ mod tree_item_tests {
     #[test]
     fn disabled_selected_row_uses_the_shared_resolver_not_a_local_alpha() {
         let theme = Theme::Dark;
-        let item = row_style(true, true, false, false, false)(&theme);
+        let item = row_style(TreeRowState {
+            selected: true,
+            disabled: true,
+            ..TreeRowState::default()
+        })(&theme);
         let selected = theme.control(ControlRole::Selectable, ControlState::SELECTED);
 
         // Same canonical dimming button/style.rs and selectable_item.rs use
@@ -314,8 +340,11 @@ mod tree_item_tests {
     #[test]
     fn focused_row_renders_the_focus_border_independent_of_selection() {
         let theme = Theme::Dark;
-        let unfocused = row_style(false, false, false, false, false)(&theme);
-        let focused = row_style(false, false, true, false, false)(&theme);
+        let unfocused = row_style(TreeRowState::default())(&theme);
+        let focused = row_style(TreeRowState {
+            focused: true,
+            ..TreeRowState::default()
+        })(&theme);
 
         assert_eq!(unfocused.border.width, 0.0);
         assert_eq!(focused.border.color, theme.border(BorderRole::Focus).color);
@@ -354,30 +383,70 @@ mod tree_item_tests {
     }
 
     #[test]
-    fn indent_hover_shows_control_background() {
+    fn only_the_row_paints_a_fill_so_hover_spans_the_whole_row() {
         let theme = Theme::Dark;
-        let style = indent_style(false)(&theme, button::Status::Hovered);
-        let expected = theme
-            .control(ControlRole::Standard, ControlState::HOVERED)
-            .background;
 
-        assert_eq!(button_background_color(&style), expected);
+        // Indentation and the expander are siblings of the button, so a fill
+        // painted by any of the three would stop short of the row's edges. None
+        // of them may paint one, in any status.
+        for status in [
+            button::Status::Active,
+            button::Status::Hovered,
+            button::Status::Pressed,
+            button::Status::Disabled,
+        ] {
+            assert_eq!(
+                button_background_color(&indent_style()(&theme, status)),
+                Color::TRANSPARENT,
+                "indentation must not paint a fill ({status:?})"
+            );
+            assert_eq!(
+                button_background_color(&expander_style(false, 4.0)(&theme, status)),
+                Color::TRANSPARENT,
+                "the expander must not paint a fill ({status:?})"
+            );
+            assert_eq!(
+                button_background_color(&item_style(TreeItemVariant::Default, 4.0)(&theme, status)),
+                Color::TRANSPARENT,
+                "the row button must not paint a fill ({status:?})"
+            );
+        }
+
+        // The row container, which spans the whole row, is where they land.
+        let hovered = row_style(TreeRowState {
+            hovered: true,
+            ..TreeRowState::default()
+        })(&theme);
+        let pressed = row_style(TreeRowState {
+            pressed: true,
+            ..TreeRowState::default()
+        })(&theme);
+        let untouched = row_style(TreeRowState::default())(&theme);
+
+        assert_eq!(background_color(&untouched), Color::TRANSPARENT);
+        assert_ne!(background_color(&hovered).a, 0.0);
+        assert!(
+            background_color(&pressed).a > background_color(&hovered).a,
+            "pressed must intensify past hover"
+        );
     }
 
     #[test]
-    fn indent_selected_hover_is_transparent() {
+    fn a_focused_but_unselected_row_stays_distinct_from_a_hovered_one() {
         let theme = Theme::Dark;
-        let style = indent_style(true)(&theme, button::Status::Hovered);
+        let focused = row_style(TreeRowState {
+            focused: true,
+            ..TreeRowState::default()
+        })(&theme);
+        let hovered = row_style(TreeRowState {
+            hovered: true,
+            ..TreeRowState::default()
+        })(&theme);
 
-        assert_eq!(button_background_color(&style), Color::TRANSPARENT);
-    }
-
-    #[test]
-    fn indent_active_is_transparent() {
-        let theme = Theme::Dark;
-        let style = indent_style(false)(&theme, button::Status::Active);
-
-        assert_eq!(button_background_color(&style), Color::TRANSPARENT);
+        // Focus is a border, hover is a fill: the two must not be confusable.
+        assert_eq!(background_color(&focused), Color::TRANSPARENT);
+        assert_ne!(focused.border.color, Color::TRANSPARENT);
+        assert_ne!(background_color(&hovered).a, 0.0);
     }
 
     fn background_color(style: &container::Style) -> Color {
