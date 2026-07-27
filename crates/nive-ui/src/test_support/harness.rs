@@ -348,6 +348,16 @@ impl<'a, Message> WidgetHarness<'a, Message> {
         );
     }
 
+    /// One rasterization of the whole surface, for callers sampling many pixels.
+    ///
+    /// Prefer this over [`pixel`] in a loop, which would redraw and rasterize
+    /// the entire surface per sample.
+    pub(crate) fn pixmap(&mut self) -> tiny_skia::Pixmap {
+        self.draw();
+
+        rasterize(&mut self.renderer, self.maximum)
+    }
+
     pub(crate) fn has_overlay(&mut self) -> bool {
         let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
         self.element
