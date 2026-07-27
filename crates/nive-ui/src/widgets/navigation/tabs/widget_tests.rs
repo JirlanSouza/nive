@@ -379,14 +379,18 @@ impl<'a> Harness<'a> {
     }
 
     fn pixel_at(&mut self, point: Point) -> [u8; 4] {
+        crate::test_support::pixel(&self.pixmap(), point)
+    }
+
+    /// One rasterization of the whole surface, for callers that sample many
+    /// pixels — [`Self::pixel_at`] redraws per call, which is quadratic when
+    /// scanning a region.
+    fn pixmap(&mut self) -> tiny_skia::Pixmap {
         self.draw();
 
         let surface = Size::new(ORIGIN.x + self.size.width, ORIGIN.y + self.size.height);
 
-        crate::test_support::pixel(
-            &crate::test_support::rasterize(&mut self.renderer, surface),
-            point,
-        )
+        crate::test_support::rasterize(&mut self.renderer, surface)
     }
 
     fn interaction_at(&mut self, position: Point) -> mouse::Interaction {
@@ -506,6 +510,69 @@ fn overflow_menu_selection_uses_on_select() {
 
     assert_eq!(result.messages, vec![Msg::Select(1)]);
     assert!(!harness.state().menu_open.get());
+}
+
+#[test]
+fn the_unsaved_indicator_is_a_dot_not_a_bar_filling_its_slot() {
+    let metrics = super::style::metrics(crate::theme::ControlSize::Sm);
+    let bar = |dirty: bool| {
+        TabBar::new(1u8)
+            .tabs([item(1).dirty(dirty), item(2)])
+            .fill_width()
+            .on_select(Msg::Select)
+    };
+    let mut marked = Harness::new(bar(true).into(), Size::new(640.0, 80.0));
+    let mut clean = Harness::new(bar(false).into(), Size::new(640.0, 80.0));
+    let tab = marked.tab_bounds(1);
+    let (marked, clean) = (marked.pixmap(), clean.pixmap());
+
+    // Rather than guess where the status slot sits, diff the two renders: every
+    // pixel that changed is the indicator, and its extent is what distinguishes
+    // a dot from a slot-filling bar.
+    let mut top = f32::MAX;
+    let mut bottom = f32::MIN;
+    let mut width = 0u32;
+    for x in (tab.x as u32)..((tab.x + tab.width) as u32) {
+        let mut column_marked = false;
+        for y in (tab.y as u32)..((tab.y + tab.height) as u32) {
+            let at = Point::new(x as f32, y as f32);
+            let (a, b) = (
+                crate::test_support::pixel(&marked, at),
+                crate::test_support::pixel(&clean, at),
+            );
+            // Ignore antialiasing fringes on the rounded edges.
+            if a.iter().zip(b).any(|(a, b)| a.abs_diff(b) > 8) {
+                column_marked = true;
+                top = top.min(y as f32);
+                bottom = bottom.max(y as f32);
+            }
+        }
+        if column_marked {
+            width += 1;
+        }
+    }
+
+    assert!(
+        bottom >= top,
+        "the unsaved indicator painted nothing at all"
+    );
+    let height = bottom - top + 1.0;
+    assert!(
+        height <= metrics.dirty_size + 2.0,
+        "the indicator is {height}px tall, so it is a bar rather than a \
+         {}px dot centred in its slot",
+        metrics.dirty_size
+    );
+    assert!(
+        height < tab.height / 2.0,
+        "the indicator spans {height}px of a {}px tab, which fills the slot",
+        tab.height
+    );
+    assert!(
+        f32::from(width as u16) <= metrics.dirty_size + 2.0,
+        "the indicator is {width}px wide rather than {}px",
+        metrics.dirty_size
+    );
 }
 
 #[test]
