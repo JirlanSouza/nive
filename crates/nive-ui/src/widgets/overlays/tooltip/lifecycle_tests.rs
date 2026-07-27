@@ -130,6 +130,101 @@ fn color_input_tooltip_closes_when_pointer_moves_to_empty_space() {
     assert!(!harness.has_overlay());
 }
 
+#[test]
+fn activating_the_anchor_dismisses_the_tooltip_until_the_pointer_returns() {
+    let start = iced::time::Instant::now();
+    let visible_at = start + Duration::from_millis(500);
+    let mut harness =
+        WidgetHarness::new(tooltip_at(start, 1, true, false), Size::new(320.0, 120.0));
+    harness.update(redraw(start));
+    harness.replace(tooltip_at(visible_at, 1, true, false));
+    harness.update(redraw(visible_at));
+    assert_eq!(visible_keys(&mut harness).len(), 1);
+
+    // Pressing the anchor opens whatever the anchor owns, in the same place the
+    // tooltip occupies, so the tooltip has to yield.
+    harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+        mouse::Button::Left,
+    )));
+    assert!(
+        visible_keys(&mut harness).is_empty(),
+        "pressing the anchor must dismiss its tooltip"
+    );
+
+    // Still pointing at the anchor long afterwards must not bring it back, or it
+    // would surface on top of what the press opened.
+    let much_later = visible_at + Duration::from_secs(5);
+    harness.replace(tooltip_at(much_later, 1, true, false));
+    harness.update(redraw(much_later));
+    assert!(
+        visible_keys(&mut harness).is_empty(),
+        "a resting pointer must not revive a dismissed tooltip"
+    );
+
+    // Leaving and deliberately approaching again explains the anchor once more.
+    harness.replace(tooltip_at(much_later, 1, false, false));
+    harness.update(redraw(much_later));
+    let returned = much_later + Duration::from_millis(500);
+    harness.replace(tooltip_at(much_later, 1, true, false));
+    harness.update(redraw(much_later));
+    harness.replace(tooltip_at(returned, 1, true, false));
+    harness.update(redraw(returned));
+
+    assert_eq!(visible_keys(&mut harness).len(), 1);
+}
+
+#[test]
+fn the_focus_a_press_grants_does_not_strand_the_dismissed_tooltip() {
+    let start = iced::time::Instant::now();
+    let visible_at = start + Duration::from_millis(500);
+    let mut harness =
+        WidgetHarness::new(tooltip_at(start, 1, true, false), Size::new(320.0, 120.0));
+    harness.update(redraw(start));
+    harness.replace(tooltip_at(visible_at, 1, true, false));
+    harness.update(redraw(visible_at));
+    assert_eq!(visible_keys(&mut harness).len(), 1);
+
+    // Activating an anchor also focuses it, so from here on the anchor is
+    // focused as well as hovered.
+    harness.update(Event::Mouse(mouse::Event::ButtonPressed(
+        mouse::Button::Left,
+    )));
+    let held = visible_at + Duration::from_secs(5);
+    harness.replace(tooltip_at(held, 1, true, true));
+    harness.update(redraw(held));
+    assert!(
+        visible_keys(&mut harness).is_empty(),
+        "a pointer resting on the anchor it just activated must not revive the tooltip"
+    );
+
+    // The pointer leaves while the press's focus remains. Focus alone must not
+    // reveal what the reader just dismissed.
+    let left = held + Duration::from_secs(1);
+    harness.replace(tooltip_at(left, 1, false, true));
+    harness.update(redraw(left));
+    let waited = left + Duration::from_secs(1);
+    harness.replace(tooltip_at(waited, 1, false, true));
+    harness.update(redraw(waited));
+    assert!(
+        visible_keys(&mut harness).is_empty(),
+        "residual focus from the press must not reveal the tooltip on its own"
+    );
+
+    // Approaching again is a fresh pointer intent and must be explained, even
+    // though the anchor never lost the focus the press gave it.
+    harness.replace(tooltip_at(waited, 1, true, true));
+    harness.update(redraw(waited));
+    let returned = waited + Duration::from_millis(500);
+    harness.replace(tooltip_at(returned, 1, true, true));
+    harness.update(redraw(returned));
+
+    assert_eq!(
+        visible_keys(&mut harness).len(),
+        1,
+        "the anchor must explain itself again once the pointer returns"
+    );
+}
+
 fn tooltip_at(
     now: iced::time::Instant,
     key: u64,
