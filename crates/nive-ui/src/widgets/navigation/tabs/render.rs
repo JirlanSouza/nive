@@ -247,15 +247,7 @@ where
         )
         .center_x(Length::Fill)
         .center_y(Length::Fill);
-        let dirty = container(Space::new())
-            .style(theme_tabs::status_indicator_style(
-                metrics.dirty_size,
-                tab.dirty && !show_close,
-            ))
-            .width(Length::Fixed(metrics.dirty_size))
-            .height(Length::Fixed(metrics.dirty_size))
-            .center_x(Length::Fill)
-            .center_y(Length::Fill);
+        let dirty = theme_tabs::unsaved_indicator(metrics.dirty_size, tab.dirty && !show_close);
         let status: Element<'_, Message> = container(stack![dirty, close])
             .width(Length::Fixed(status_side))
             .height(Length::Fixed(metrics.tab_height))

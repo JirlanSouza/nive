@@ -1,12 +1,13 @@
 use iced::{
-    widget::{container, rule},
-    Background, Border, Color, Shadow,
+    widget::{container, rule, Space},
+    Background, Border, Color, Length, Shadow,
 };
 
 use crate::advanced::control_style::transparent_border_with_radius;
 use crate::widgets::controls::button::{focus_ring, ButtonFocusRing};
+use crate::Element;
 
-use crate::theme::{self, ControlRole, ControlSize, ControlState, SurfaceRole, Theme};
+use crate::theme::{self, ControlRole, ControlSize, ControlState, SurfaceRole, TextRole, Theme};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TabBarMetrics {
@@ -242,14 +243,39 @@ pub(super) fn dragged_veil_style(
     }
 }
 
-pub(super) fn status_indicator_style(
+/// The unsaved-work dot, centred in the status slot it is given.
+///
+/// Returns the whole element rather than a style, because the dot's paint and
+/// its dimensions have to agree and a caller cannot be trusted to restate the
+/// size: `center_x`/`center_y` *set* the length they centre within, so applying
+/// them to the painted container silently replaces its size with `Fill` and
+/// smears the dot across the entire slot. Two containers — the inner one is the
+/// dot, the outer one places it — and neither is reachable separately.
+///
+/// `visible` toggles by color instead of by presence, so the tab's shape stays
+/// the same in every state, for the reason [`active_indicator_style`] documents.
+pub(super) fn unsaved_indicator<'a, Message: 'a>(size: f32, visible: bool) -> Element<'a, Message> {
+    container(
+        container(Space::new())
+            .style(unsaved_dot_style(size, visible))
+            .width(Length::Fixed(size))
+            .height(Length::Fixed(size)),
+    )
+    .center_x(Length::Fill)
+    .center_y(Length::Fill)
+    .into()
+}
+
+/// Deliberately private: only [`unsaved_indicator`] may apply it, which is what
+/// keeps the paint and the dimensions from drifting apart.
+fn unsaved_dot_style(
     size: f32,
     visible: bool,
 ) -> impl Fn(&crate::theme::Theme) -> container::Style {
     move |theme: &crate::theme::Theme| container::Style {
         text_color: None,
         background: Some(Background::Color(if visible {
-            insertion_marker_color(theme)
+            unsaved_indicator_color(theme)
         } else {
             Color::TRANSPARENT
         })),
@@ -259,6 +285,19 @@ pub(super) fn status_indicator_style(
     }
 }
 
+/// The dot marking a document with unsaved work.
+///
+/// Neutral on purpose. It is a durable property of the document, not a
+/// selection or a focus affordance, and the accent family is reserved for
+/// those — a small accent mark sitting in the tab's status slot reads as one of
+/// them. This is why it does not share the insertion marker's color despite
+/// both being small marks in the tab strip: they occupy different slots and
+/// mean different things.
+pub(super) fn unsaved_indicator_color(theme: &crate::theme::Theme) -> iced::Color {
+    theme.text(TextRole::Primary).color
+}
+
+/// The bar showing where a dragged tab would land.
 pub(super) fn insertion_marker_color(theme: &crate::theme::Theme) -> iced::Color {
     theme
         .control(ControlRole::Selectable, ControlState::SELECTED)
@@ -268,6 +307,62 @@ pub(super) fn insertion_marker_color(theme: &crate::theme::Theme) -> iced::Color
 #[cfg(test)]
 mod tabs_tests {
     use super::*;
+
+    #[test]
+    fn the_unsaved_dot_is_neutral_and_not_mistakable_for_selection_or_focus() {
+        for mode in [
+            crate::theme::ThemeMode::Light,
+            crate::theme::ThemeMode::Dark,
+        ] {
+            let theme = Theme::from_mode(mode);
+            let unsaved = unsaved_indicator_color(&theme);
+
+            assert_eq!(unsaved, theme.text(TextRole::Primary).color);
+            // The accent family belongs to selection and focus. A mark this small
+            // sitting in the tab's status slot would read as one of them.
+            assert_ne!(unsaved, theme.tone(crate::theme::ToneRole::Accent).color);
+            assert_ne!(unsaved, theme.border(crate::theme::BorderRole::Focus).color);
+            assert_ne!(
+                unsaved,
+                theme
+                    .control(ControlRole::Selectable, ControlState::SELECTED)
+                    .background
+            );
+        }
+    }
+
+    #[test]
+    fn the_unsaved_dot_and_the_drop_marker_are_independent() {
+        for mode in [
+            crate::theme::ThemeMode::Light,
+            crate::theme::ThemeMode::Dark,
+        ] {
+            let theme = Theme::from_mode(mode);
+
+            // Different slots, different meanings: one is a durable property of
+            // the document, the other a transient drag affordance. Re-coupling
+            // them would let a change to either silently move the other.
+            assert_ne!(
+                unsaved_indicator_color(&theme),
+                insertion_marker_color(&theme)
+            );
+        }
+    }
+
+    #[test]
+    fn a_hidden_status_indicator_paints_nothing() {
+        let theme = Theme::Dark;
+
+        assert_eq!(
+            unsaved_dot_style(6.0, false)(&theme).background,
+            Some(Background::Color(Color::TRANSPARENT))
+        );
+        assert_eq!(
+            unsaved_dot_style(6.0, true)(&theme).background,
+            Some(Background::Color(unsaved_indicator_color(&theme)))
+        );
+    }
+
     #[test]
     fn metrics_follow_control_size() {
         assert_eq!(
