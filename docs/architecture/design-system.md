@@ -112,6 +112,16 @@ flowchart LR
 permite que um único role de controle cubra todos os estados visuais sem ramificação manual
 no widget.
 
+`ControlRole` responde a uma pergunta ortogonal ao estado: o controle tem corpo próprio
+ou pinta sobre a superfície que o hospeda? `Standard` e `Selectable` têm corpo e o
+preenchem em repouso. `Embedded` não tem chrome próprio — rows de popup, ações de toolbar,
+ações de card e de conteúdo — então em repouso e desabilitado **não pinta nada**, deixando
+a superfície host aparecer, e projeta hover/pressed como camadas translúcidas que compõem
+sobre qualquer host (Panel a Popover) em vez de cores opacas calibradas para uma só
+superfície. O role escolhe apenas de quais fills a precedência de estado tira o resultado,
+nunca a precedência: seleção é resolvida antes do role, então a escada de selected é
+idêntica para todos.
+
 > **Lacuna do roadmap:** hoje `tokens::color` é hex/RGB. A migração para **OKLCH** (M0) entra
 > exatamente nesta camada de tokens, sem mexer na API de roles acima.
 
@@ -491,6 +501,13 @@ controlado pelo app. O campo é fill width, Sm por default, integra o
 atômicos; o app possui query, filtering/order, retrieval e seleção. O caret
 permanece no Input e highlight lógico não altera a query. Retrieval Error é
 conteúdo do popup, nunca `FieldValidation::Invalid` implícito.
+
+Menu, Select e Autocomplete resolvem o fill de row por uma única projeção
+compartilhada (`ControlRole::Embedded`), então as três listas são visualmente
+indistinguíveis. Row em repouso ou desabilitada não pinta nada e deixa a superfície
+do Popover aparecer — só highlight, pressed e a opção commitada carregam fill.
+Highlight é fill neutro, nunca tom de texto, e nunca empresta o tratamento de
+seleção commitada ou destrutivo.
 
 Mudanças visuais de overlay, highlight, result state e chevron são imediatas.
 Interpolação pertence ao follow-up `adopt-motion-preference-in-anchored-overlays`
