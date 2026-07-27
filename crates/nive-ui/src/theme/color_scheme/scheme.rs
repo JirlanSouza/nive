@@ -95,6 +95,14 @@ struct ControlColors {
     pressed: Color,
     disabled: Color,
     selected: Color,
+    /// Surface-agnostic transient fills for
+    /// [`ControlRole::Embedded`](crate::theme::ControlRole::Embedded). They are
+    /// translucent instead of mixed against the app background so a control
+    /// that paints on top of a host surface reads as emphasis over any of
+    /// them, from Panel to Popover. `hover`/`pressed` above are opaque and
+    /// therefore only calibrated for the one surface they were mixed for.
+    hover_layer: Color,
+    pressed_layer: Color,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

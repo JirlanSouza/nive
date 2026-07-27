@@ -48,10 +48,23 @@ pub enum ToneRole {
 }
 
 /// Control chrome roles.
+///
+/// The role answers one question: does the control own a body of its own, or
+/// does it paint on top of a host surface? It never changes state precedence —
+/// only which neutral fills that precedence draws from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ControlRole {
+    /// The control owns its body and fills it at rest: fields, the Select
+    /// trigger, ordinary buttons.
     Standard,
+    /// The control paints on top of whichever surface hosts it and owns no
+    /// chrome: popup rows, toolbar actions, card and content actions. Untouched
+    /// and disabled render nothing at all, and hover/pressed are translucent
+    /// layers that read as emphasis over every host surface rather than opaque
+    /// fills calibrated for one of them.
     Embedded,
+    /// Like [`ControlRole::Standard`], but for a control whose body also
+    /// carries durable selection: choice anchors, tabs, rail items.
     Selectable,
 }
 
