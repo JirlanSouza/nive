@@ -7,8 +7,8 @@ mod selection;
 mod widget_tests;
 
 use iced::{
-    widget::{button, column, container, scrollable},
-    Length, Padding,
+    widget::{column, container, mouse_area, scrollable},
+    Length,
 };
 
 use crate::interaction::{ActivationBehavior, ActivationTrigger, RenameBehavior, SelectionMode};
@@ -330,17 +330,19 @@ where
             });
         }
 
-        let clear_msg = self.empty_space_event(state);
-        let mut bg_button = button(rows)
-            .width(Length::Fill)
-            .padding(Padding::ZERO)
-            .style(|_theme, _status| button::Style::default());
-
-        if let Some(msg) = clear_msg {
-            bg_button = bg_button.on_press(msg);
+        // Clicking empty space clears the selection. A `button` would be the
+        // obvious wrapper, but `button` answers `mouse_interaction` for its
+        // whole area without consulting its children — so whenever there is no
+        // selection to clear it has no `on_press`, reports the default cursor,
+        // and overrides the pointer cursor every row underneath it declares.
+        // `mouse_area` delegates instead, and honours event capture, so a click
+        // landing on a row still belongs to that row.
+        let mut background = mouse_area(rows);
+        if let Some(msg) = self.empty_space_event(state) {
+            background = background.on_press(msg);
         }
 
-        let content: Element<'a, Message> = bg_button.into();
+        let content: Element<'a, Message> = background.into();
 
         if self.scroll {
             let mut scrollable = scrollable(content)
