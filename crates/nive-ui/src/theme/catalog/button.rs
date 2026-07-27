@@ -276,14 +276,13 @@ pub(super) fn embedded_button(theme: &Theme, status: button::Status) -> button::
         button::Status::Disabled => theme.text(TextRole::Muted).color.scale_alpha(0.55),
         button::Status::Active => theme.text(TextRole::Secondary).color,
     };
-    let background = match status {
-        button::Status::Active | button::Status::Disabled => Color::TRANSPARENT,
-        button::Status::Hovered => control.background.scale_alpha(0.70),
-        button::Status::Pressed => control.background.scale_alpha(0.86),
-    };
 
     button::Style {
-        background: Some(Background::Color(background)),
+        // Embedded resolves untouched and disabled to a transparent fill and
+        // hover/pressed to the shared state layers, so the fill needs no local
+        // scaling. The foreground above still uses this catalog's own disabled
+        // ramp, shared by every button style in this module.
+        background: Some(Background::Color(control.background)),
         text_color: foreground,
         border: transparent_border_with_radius(theme.shape(ShapeSize::Md).radius()),
         shadow: Shadow::default(),
