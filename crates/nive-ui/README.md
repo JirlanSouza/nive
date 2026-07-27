@@ -244,10 +244,11 @@ not yet imply native AccessKit name/relationship emission.
   initials and the provider-neutral `IconRole::Identity` fallback.
   `MetadataTag::code` owns literal technical metadata.
 - `Toolbar` owns its surface, inset, bottom seam, and horizontal overflow.
-  `ToolbarGroup` accepts navigation-owned `ToolbarAction`. Content-owned
-  `ActionGroup` lives under `widgets::controls`, accepts `ContentAction`, keeps
-  14 px labels at every `ControlSize`, and wraps complete controls only after
-  explicit `.wrap()`.
+  `Toolbar::spacer()` anchors following groups to the trailing edge at finite
+  fill widths. `ToolbarGroup` accepts navigation-owned `ToolbarAction`.
+  Content-owned `ActionGroup` lives under `widgets::controls`, accepts
+  `ContentAction`, keeps 14 px labels at every `ControlSize`, and wraps complete
+  controls only after explicit `.wrap()`.
 - `Panel` is square and borderless by default. Header and body are adjacent,
   the header/body seam is overlaid by `Panel`, and `body_padding` affects only
   body content. Rounded, bordered, or elevated standalone treatment is opt-in.

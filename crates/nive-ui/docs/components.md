@@ -239,8 +239,9 @@ disabled styling. `fill_width()` does not stretch items or enable wrapping;
 
 `Toolbar` is a surface bar for application chrome. Its `size` configures the
 `ToolbarAction` values inside `ToolbarGroup`; the toolbar itself may add
-surrounding chrome padding. Toolbar items are not accepted by content
-`ActionGroup`.
+surrounding chrome padding. `Toolbar::spacer()` pushes following groups to the
+trailing edge when the toolbar fills a finite width. Toolbar items are not
+accepted by content `ActionGroup`.
 
 ### Card/content-action migration
 
