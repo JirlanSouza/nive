@@ -13,6 +13,16 @@ use crate::theme::{
 };
 use crate::tokens::shadow;
 
+/// The neutral (unselected) fills one control role paints per interaction
+/// state, resolved once so [`ColorScheme::control`] keeps a single state
+/// precedence for every role.
+struct RoleFills {
+    idle: Color,
+    hover: Color,
+    pressed: Color,
+    disabled: Color,
+}
+
 impl ColorScheme {
     pub(crate) fn from_mode(mode: ThemeMode) -> Self {
         Self::from_palette(
@@ -83,6 +93,20 @@ impl ColorScheme {
         } else {
             mix(app, foreground, 0.05)
         };
+        // Translucent so they composite over whichever surface hosts the
+        // control instead of over `app`, giving one emphasis weight on every
+        // surface rather than the opaque tokens' accidental one, which grew
+        // stronger the darker the host happened to be.
+        //
+        // Calibrated on separation from the host, not on matching the opaque
+        // token: matching it on Panel left only ~0.043 luminance of separation,
+        // which reads as nothing on the darker Sidebar where trees and rails
+        // live. These land near 0.07 on every surface, matching what light mode
+        // already achieved. Light needs more alpha for the same perceived
+        // weight, because it darkens a near-white host rather than lightening a
+        // near-black one.
+        let control_hover_layer = with_alpha(foreground, if is_dark { 0.10 } else { 0.09 });
+        let control_pressed_layer = with_alpha(foreground, if is_dark { 0.15 } else { 0.13 });
         let neutral = mix(foreground, app, if is_dark { 0.38 } else { 0.42 });
         let neutral_bg = with_alpha(text_muted, if is_dark { 0.16 } else { 0.10 });
         let primary_subtle = with_alpha(primary, if is_dark { 0.16 } else { 0.12 });
@@ -119,6 +143,8 @@ impl ColorScheme {
                 pressed: control_pressed,
                 disabled: control_disabled,
                 selected: primary_subtle,
+                hover_layer: control_hover_layer,
+                pressed_layer: control_pressed_layer,
             },
             tone: ToneColors {
                 neutral: ToneColorsForRole::new(neutral, neutral_bg, border_subtle, is_dark),
@@ -220,37 +246,58 @@ impl ColorScheme {
         }
     }
 
+    /// Whether the role owns chrome of its own, or paints on top of whatever
+    /// surface hosts it. `Embedded` does the latter, so its untouched states
+    /// contribute nothing and its transient states are translucent layers that
+    /// composite correctly over every host from Panel to Popover.
+    fn role_fills(&self, role: ControlRole) -> RoleFills {
+        match role {
+            ControlRole::Standard | ControlRole::Selectable => RoleFills {
+                idle: self.control.active,
+                hover: self.control.hover,
+                pressed: self.control.pressed,
+                disabled: self.control.disabled,
+            },
+            ControlRole::Embedded => RoleFills {
+                idle: Color::TRANSPARENT,
+                hover: self.control.hover_layer,
+                pressed: self.control.pressed_layer,
+                disabled: Color::TRANSPARENT,
+            },
+        }
+    }
+
     /// Resolves the complete combined `selected × hover/pressed/focus ×
     /// disabled` control state in one place. Widgets consume this instead of
     /// scaling semantic colors locally: selection stays persistently
     /// distinguishable, hover/pressed intensify it, disabled is resolved
     /// once (suppressing hover/pressed and dimming selection by a single
     /// canonical amount, never a widget-local alpha), and focus-visible is a
-    /// layout-neutral border swap independent of selection. Category-owned
-    /// visual projection — which of these fields a widget actually paints —
-    /// remains with the caller.
+    /// layout-neutral border swap independent of selection. `role` chooses
+    /// which neutral fills that precedence draws from, never the precedence
+    /// itself. Category-owned visual projection — which of these fields a
+    /// widget actually paints — remains with the caller.
     pub fn control(&self, role: ControlRole, state: ControlState) -> ControlSpec {
         if state.selected {
             return self.selected_control_spec(state);
         }
 
+        let fills = self.role_fills(role);
+
         if !state.enabled {
             return self.control_spec(
-                self.control.disabled,
+                fills.disabled,
                 self.text.disabled,
                 self.border(BorderRole::Subtle),
             );
         }
 
         let background = if state.interaction.pressed || state.interaction.dragged {
-            self.control.pressed
+            fills.pressed
         } else if state.interaction.hovered || state.interaction.focused {
-            self.control.hover
+            fills.hover
         } else {
-            match role {
-                ControlRole::Standard | ControlRole::Selectable => self.control.active,
-                ControlRole::Embedded => Color::TRANSPARENT,
-            }
+            fills.idle
         };
         let border = if state.interaction.focused {
             self.border(BorderRole::Focus)
