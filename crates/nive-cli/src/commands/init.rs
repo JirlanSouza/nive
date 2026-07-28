@@ -7,14 +7,12 @@ use std::{fs, path::Path};
 
 use toml_edit::{DocumentMut, Item, Table};
 
-use super::{
-    icons,
-    new::{
-        build_nive_dep, for_each_template, render_template, target_relative_path, templates_for,
-        to_title_case,
-    },
-    workspace::register_member,
+use super::icons;
+use super::new::{
+    build_nive_dep, for_each_template, render_template, target_relative_path, templates_for,
+    to_title_case,
 };
+use super::workspace::register_member;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
