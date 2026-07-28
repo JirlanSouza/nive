@@ -75,9 +75,11 @@ pub(super) fn workbench_theme_catalog() -> ThemeCatalog {
     ThemeCatalog::new(
         Theme::builder("Workbench Monitor Light", ThemeMode::Light)
             .density(ThemeDensity::Compact)
+            .icons(crate::icons::APP_ICON_CATALOG)
             .build(),
         Theme::builder("Workbench Monitor Dark", ThemeMode::Dark)
             .density(ThemeDensity::Compact)
+            .icons(crate::icons::APP_ICON_CATALOG)
             .build(),
     )
 }
