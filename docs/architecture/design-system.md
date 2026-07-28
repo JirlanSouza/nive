@@ -98,6 +98,35 @@ classDiagram
     ThemeCatalog ..> Theme : resolve(mode)
 ```
 
+### O que o app controla, e o que é derivado
+
+O app monta o tema por `ThemeBuilder` e entrega o par por
+`ApplicationConfig::theme_catalog(ThemeCatalog::new(light, dark))`. O que ele
+define:
+
+| superfície | tipo |
+|---|---|
+| seis cores | `ThemePalette`, ou os setters `accent`/`text`/`app_background`/`success`/`warning`/`danger` |
+| quatro escalas | `TypographyScale`, `ShapeScale`, `SpacingScale`, `ControlMetricsScale` |
+| densidade | `ThemeDensity` |
+| ícones | `IconCatalog` |
+
+`ThemeBuilder::from_theme(theme)` parte de um tema existente e muda só o
+necessário; `Theme::custom(ThemeData)` aceita os dados prontos.
+
+**O que o app não define:** as ~30 cores semânticas — `surface.*`, `border.*`,
+`control.*`, `tone.*`. Elas são derivadas da paleta por
+`ColorScheme::from_palette`, e os campos de `ColorScheme` são privados.
+
+Isso é deliberado. A derivação é o que faz as invariantes valerem para um tema de
+marca e não só para os padrões: os pisos de contraste de texto, a adjacência
+entre superfícies, e a escada `idle → hover → pressed` subindo na direção do
+foreground em ambos os modos. Um app que fixasse `control.hover` diretamente
+tornaria essas garantias falsas para si mesmo, sem aviso.
+
+Se um tom específico não sai da paleta, o caminho é ajustar a paleta — não furar
+a derivação.
+
 ## 2. Resolução por Role (token → role → spec → pixel)
 
 ```mermaid

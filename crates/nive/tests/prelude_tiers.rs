@@ -668,3 +668,76 @@ fn public_umbrella_preludes_expose_popup_control_contracts() {
     minimal_popup_control_contract::_assert_minimal_prelude_exposes_popup_control_chain();
     extended_popup_control_contract::_assert_extended_prelude_exposes_popup_control_chain();
 }
+
+// A public builder method whose parameter type the prelude does not export is
+// unreachable to an app that follows the framework's own rules: a scaffolded
+// app must not declare `iced` directly. This drives every `ThemeBuilder` method
+// through `nive::prelude::*` alone, so a type leaving the public surface stops
+// compiling here rather than in someone's first branded theme.
+mod theme_builder_contract {
+    use nive::prelude::*;
+
+    pub fn _assert_every_theme_builder_method_is_reachable() {
+        let palette = ThemePalette {
+            background: Color::WHITE,
+            text: Color::BLACK,
+            primary: Color::from_rgb(0.2, 0.4, 0.9),
+            success: Color::from_rgb(0.1, 0.6, 0.3),
+            warning: Color::from_rgb(0.8, 0.6, 0.1),
+            danger: Color::from_rgb(0.8, 0.2, 0.2),
+        };
+
+        let _from_palette = ThemeBuilder::new("contract", ThemeMode::Light)
+            .palette(palette)
+            .build();
+
+        let _from_colors = ThemeBuilder::new("contract", ThemeMode::Dark)
+            .name("renamed")
+            .mode(ThemeMode::Dark)
+            .app_background(Color::BLACK)
+            .text(Color::WHITE)
+            .accent(Color::from_rgb(0.2, 0.4, 0.9))
+            .success(Color::from_rgb(0.1, 0.6, 0.3))
+            .warning(Color::from_rgb(0.8, 0.6, 0.1))
+            .danger(Color::from_rgb(0.8, 0.2, 0.2))
+            .density(ThemeDensity::Compact)
+            .icons(IconCatalog::new(&[]))
+            .build();
+
+        let shapes = theme::shape::scale();
+        let typography = theme::typography::scale();
+        let spacing = theme::spacing::scale();
+        let _from_scales = ThemeBuilder::new("scales", ThemeMode::Light)
+            .typography(typography)
+            .shapes(shapes)
+            .spacing(spacing)
+            .controls(theme::component::scale(shapes, typography, spacing))
+            .build();
+
+        // The scale types are nameable through the same flat path as their
+        // siblings, not only through their defining module.
+        let _named: (
+            theme::TypographyScale,
+            theme::ShapeScale,
+            theme::SpacingScale,
+            theme::ControlMetricsScale,
+        ) = (
+            typography,
+            shapes,
+            spacing,
+            theme::component::scale(shapes, typography, spacing),
+        );
+
+        // Deriving from an existing theme, then handing the data back as a
+        // custom theme, is the other documented door.
+        let _data: ThemeData = ThemeBuilder::from_theme(Theme::Dark).build_data();
+        let _derived = ThemeBuilder::from_theme(Theme::Light)
+            .accent(Color::from_rgb(0.9, 0.3, 0.1))
+            .build();
+    }
+}
+
+#[test]
+fn minimal_prelude_exposes_every_theme_builder_input() {
+    theme_builder_contract::_assert_every_theme_builder_method_is_reachable();
+}
