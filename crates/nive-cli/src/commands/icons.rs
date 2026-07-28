@@ -152,6 +152,17 @@ pub fn run(command: IconsCommands) -> Result<()> {
     run_in_dir(command, &cwd)
 }
 
+/// Exposed so `nive init` establishes the icon workflow the same way
+/// `nive icons init` does.
+pub(super) fn init_in_dir(root: &std::path::Path) -> Result<()> {
+    run_in_dir(IconsCommands::Init, root)
+}
+
+#[cfg(test)]
+pub(super) fn check_in_dir(root: &std::path::Path) -> Result<()> {
+    run_in_dir(IconsCommands::Check { framework: false }, root)
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 struct LucideMetadata {
     #[serde(default)]

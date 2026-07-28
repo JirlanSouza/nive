@@ -73,8 +73,19 @@ nive icons gallery --provider lucide
 ```
 
 `nive icons check` is offline. It validates `icons.toml`, generated Rust
-modules, generated SVG assets, custom SVG paths, stale files, and required
-framework role coverage without fetching provider data.
+modules, generated SVG assets, custom SVG paths, and stale files without
+fetching provider data.
+
+Your manifest is *additive* over the framework catalog: declare only the roles
+you override. A role you never mention resolves to Nive's default glyph, and a
+new `IconRole` in a later Nive release will not invalidate your manifest.
+
+The CLI checks that a role name is well-formed kebab-case, not that your Nive
+version declares it — it generates code for whichever `nive` your `Cargo.toml`
+points at, and only your compiler knows that version's roles. A name Nive does
+not have therefore surfaces as `no variant named ... in IconRole`. Run
+`nive icons list --provider lucide` for provider discovery, and see `IconRole`
+in the `nive` API docs for the roles your version declares.
 
 ## Generated Modules
 

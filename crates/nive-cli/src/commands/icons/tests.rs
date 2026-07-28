@@ -191,10 +191,7 @@ fn custom_svg_sync_and_check_are_offline() {
     write_svg(&tempdir.path().join("assets/icons/custom/brand-mark.svg"));
 
     let manifest = manifest_with_refs(
-        &default_role_refs()
-            .iter()
-            .map(|(role, value)| (role.as_str(), value.as_str()))
-            .collect::<Vec<_>>(),
+        &[("window-close", "lucide:x"), ("identity", "lucide:user")],
         &[("BrandMark", "custom:brand-mark")],
         &[("brand-mark", "assets/icons/custom/brand-mark.svg")],
     );
@@ -222,57 +219,31 @@ fn custom_svg_sync_and_check_are_offline() {
 }
 
 #[test]
-fn check_reports_missing_required_role_coverage() {
+fn an_app_manifest_is_additive_over_the_framework_catalog() {
+    // Requiring the full list would mean every new `IconRole` invalidated every
+    // existing app.
     let tempdir = tempfile::tempdir().expect("tempdir");
     let paths = IconPaths::from_root(tempdir.path());
-    write_manifest(
-        &paths.manifest,
-        &manifest_with_refs(&[("window-close", "lucide:x")], &[], &[]),
-    );
+    write_manifest(&paths.manifest, &manifest_with_refs(&[], &[], &[]));
 
-    let error =
-        icons_check(&paths, IconGenerationTarget::App).expect_err("missing roles should fail");
+    icons_sync(&paths, IconGenerationTarget::App).expect("an empty manifest syncs");
 
-    assert!(
-        error.to_string().contains("Icon check failed"),
-        "unexpected error: {error}"
-    );
+    icons_check(&paths, IconGenerationTarget::App)
+        .expect("an app declaring no roles at all is valid");
 }
 
 #[test]
-fn required_role_coverage_includes_identity() {
-    assert!(required_role_names().contains(&"identity"));
+fn semantic_roles_keep_their_own_variants() {
+    // Both resolve to a Lucide glyph another role also uses; that must not
+    // collapse them into one variant.
     assert_eq!(
         role_variant("identity").expect("identity variant"),
         "Identity"
     );
-}
-
-#[test]
-fn required_role_coverage_includes_validation_error_and_identity() {
-    assert!(required_role_names().contains(&"validation-error"));
-    assert!(required_role_names().contains(&"identity"));
     assert_eq!(
         role_variant("validation-error").expect("validation-error variant"),
         "ValidationError"
     );
-}
-
-#[test]
-fn missing_validation_error_has_an_actionable_offline_diagnostic() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let paths = IconPaths::from_root(tempdir.path());
-    let mut manifest = empty_manifest();
-    manifest.roles = default_role_refs();
-    manifest.roles.remove("validation-error");
-
-    let failures = missing_required_role_failures(&paths, &manifest);
-
-    assert_eq!(failures.len(), 1);
-    assert!(failures[0].contains("`validation-error`"));
-    assert!(failures[0].contains("[roles]"));
-    assert!(failures[0].contains("nive icons sync"));
-    assert!(manifest.roles.contains_key("identity"));
 }
 
 #[test]
@@ -345,4 +316,101 @@ fn framework_generation_uses_crate_imports() {
     assert!(symbols.contains("use crate::icons::{IconRef, IconSource};"));
     // A generated symbol must drop straight into a widget icon slot.
     assert!(symbols.contains("impl From<IconSymbol> for IconRef"));
+}
+
+/// The roles `IconRole` declares, read from `nive-ui`'s source because the CLI
+/// does not depend on it. Test-only: nothing in production reads this.
+fn framework_roles() -> Vec<(String, String)> {
+    let source =
+        fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../nive-ui/src/icons.rs"))
+            .expect("nive-ui icons.rs is readable from the workspace");
+    let body = source
+        .split_once("fn canonical_name")
+        .expect("canonical_name exists")
+        .1;
+    let body = body.split_once("\n    }").expect("its match ends").0;
+
+    body.lines()
+        .filter_map(|line| line.split_once("=> \""))
+        .filter_map(|(variant, rest)| {
+            let name = rest.split_once('"')?.0;
+            let variant = variant.trim().strip_prefix("Self::")?.trim();
+            Some((name.to_string(), variant.to_string()))
+        })
+        .collect()
+}
+
+#[test]
+fn deriving_the_variant_agrees_with_every_role_the_framework_declares() {
+    // Spelling the variant instead of looking it up is only safe if the rule
+    // matches what `IconRole` declares.
+    let roles = framework_roles();
+
+    assert!(
+        !roles.is_empty(),
+        "failed to read any role from nive-ui; this test's parser needs updating"
+    );
+
+    for (name, expected) in roles {
+        assert_eq!(
+            role_variant(&name).expect("a framework role name is well formed"),
+            expected,
+            "derived variant for `{name}` does not match IconRole"
+        );
+    }
+}
+
+#[test]
+fn a_role_the_cli_has_never_heard_of_still_generates() {
+    // An app pinned to a newer `nive` than the CLI build. The CLI must spell the
+    // role and let the app's compiler judge it.
+    let manifest = manifest_with_refs(&[("view-hypothetical", "lucide:x")], &[], &[]);
+
+    let catalog = generate_catalog_source(&manifest, IconGenerationTarget::App)
+        .expect("an unrecognised role is not the CLI's to reject");
+
+    assert!(
+        catalog.contains("IconRole::ViewHypothetical"),
+        "expected the derived variant in:\n{catalog}"
+    );
+}
+
+#[test]
+fn a_malformed_role_name_is_rejected_but_an_unknown_one_is_not() {
+    // Form is what this tool can see; existence is the app compiler's question.
+    for malformed in [
+        "View-Theme",
+        "view_theme",
+        "",
+        "view--theme",
+        "2fast",
+        "vïew",
+    ] {
+        assert!(
+            validate_role_name(malformed).is_err(),
+            "`{malformed}` is not a legal role name"
+        );
+    }
+
+    validate_role_name("view-hypothetical").expect("an unknown but well-formed role is accepted");
+}
+
+#[test]
+fn init_and_scaffold_agree_on_the_starting_manifest() {
+    // `nive icons init` and `nive new` are two doors into the same project
+    // shape. Both must hand the author an additive manifest rather than a copy
+    // of the framework's role list.
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let paths = IconPaths::from_root(tempdir.path());
+
+    icons_init(&paths).expect("init icons");
+
+    let manifest = read_manifest(&paths.manifest).expect("read manifest");
+    assert!(
+        manifest.roles.is_empty(),
+        "init must not pre-declare framework roles, got {:?}",
+        manifest.roles.keys().collect::<Vec<_>>()
+    );
+
+    icons_check(&paths, IconGenerationTarget::App).expect("a freshly initialised app checks clean");
 }

@@ -10,8 +10,6 @@ use flate2::read::GzDecoder;
 use serde::{Deserialize, Deserializer};
 use tar::Archive;
 
-#[cfg(test)]
-use super::manifest::role_lucide_defaults;
 use super::{
     IconPaths, LucideIconMetadata, LucideIconMetadataFile, LucideMetadata, LucideProvider, Result,
 };
@@ -50,27 +48,19 @@ impl LucideMetadata {
         self.icons.iter().find(|icon| icon.name == slug)
     }
 
+    /// Offline provider metadata: enough icons to exercise alias, tag, category,
+    /// and use-case matching. A fixture, not a second opinion about what Lucide
+    /// or `nive-ui` contains.
     #[cfg(test)]
     pub(super) fn fallback() -> Self {
-        let mut icons: Vec<_> = role_lucide_defaults()
-            .iter()
-            .map(|(_role, slug, _variant)| LucideIconMetadata {
-                name: (*slug).to_string(),
-                aliases: Vec::new(),
-                tags: Vec::new(),
-                categories: vec!["nive-default".to_string()],
-                use_cases: vec!["framework role default".to_string()],
-            })
-            .collect();
-
-        if let Some(user) = icons.iter_mut().find(|icon| icon.name == "user") {
-            user.aliases = vec!["account".to_string(), "person".to_string()];
-            user.tags = vec!["profile".to_string(), "avatar".to_string()];
-            user.categories = vec!["users".to_string()];
-            user.use_cases = vec!["account menu".to_string()];
-        }
-
-        icons.extend([
+        let mut icons = vec![
+            LucideIconMetadata {
+                name: "user".to_string(),
+                aliases: vec!["account".to_string(), "person".to_string()],
+                tags: vec!["profile".to_string(), "avatar".to_string()],
+                categories: vec!["users".to_string()],
+                use_cases: vec!["account menu".to_string()],
+            },
             LucideIconMetadata {
                 name: "arrow-up".to_string(),
                 aliases: vec!["up".to_string()],
@@ -85,10 +75,16 @@ impl LucideMetadata {
                 categories: vec!["security".to_string()],
                 use_cases: vec!["verified state".to_string()],
             },
-        ]);
+            LucideIconMetadata {
+                name: "x".to_string(),
+                aliases: vec!["close".to_string()],
+                tags: vec!["dismiss".to_string()],
+                categories: vec!["navigation".to_string()],
+                use_cases: vec!["close a window".to_string()],
+            },
+        ];
 
         icons.sort_by(|left, right| left.name.cmp(&right.name));
-        icons.dedup_by(|left, right| left.name == right.name);
         Self {
             cache_version: Self::CACHE_VERSION,
             icons,

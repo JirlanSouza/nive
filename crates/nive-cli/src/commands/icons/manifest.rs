@@ -90,10 +90,15 @@ impl IconPaths {
     }
 }
 
+/// A manifest that declares nothing but its provider.
+///
+/// Roles start empty on purpose: an application's manifest is additive over the
+/// framework catalog, so an app that overrides nothing declares nothing. The
+/// framework's own full mapping lives in `crates/nive-ui/icons.toml`.
 pub(super) fn empty_manifest() -> IconsManifest {
     IconsManifest {
         provider: ProviderConfig::default(),
-        roles: default_role_refs(),
+        roles: BTreeMap::new(),
         symbols: BTreeMap::new(),
         custom: BTreeMap::new(),
     }
@@ -345,16 +350,39 @@ pub(super) fn write_manifest(paths: &IconPaths, manifest: &IconsManifest) -> Res
     Ok(())
 }
 
+/// Checks that a role name is *spelled* like a role, not that it exists —
+/// existence is the app compiler's question. A well-formed name guarantees the
+/// variant [`role_variant`] derives is a legal Rust identifier.
 pub(super) fn validate_role_name(name: &str) -> Result<()> {
-    if role_variant(name).is_ok() {
-        return Ok(());
+    let malformed = |reason: &str| -> Result<()> {
+        Err(format!(
+            "Icon role `{name}` is not kebab-case ASCII ({reason}). \
+             Roles are declared by `IconRole` in the `nive` version this project \
+             depends on; see its API docs for the list."
+        )
+        .into())
+    };
+
+    let Some(first) = name.chars().next() else {
+        return malformed("empty");
+    };
+
+    if !first.is_ascii_lowercase() {
+        return malformed("must start with a lowercase ASCII letter");
     }
 
-    Err(format!(
-        "Unknown icon role `{name}`. Expected one of: {}",
-        required_role_names().join(", ")
-    )
-    .into())
+    if !name
+        .chars()
+        .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
+    {
+        return malformed("only lowercase ASCII letters, digits, and `-` are allowed");
+    }
+
+    if name.split('-').any(str::is_empty) {
+        return malformed("segments cannot be empty");
+    }
+
+    Ok(())
 }
 
 pub(super) fn validate_variant(variant: &str) -> Result<()> {
@@ -424,67 +452,18 @@ pub(super) fn ensure_provider(provider: &str) -> Result<()> {
     }
 }
 
-pub(super) fn default_role_refs() -> BTreeMap<String, String> {
-    role_lucide_defaults()
-        .iter()
-        .map(|(role, slug, _variant)| ((*role).to_string(), format!("lucide:{slug}")))
-        .collect()
-}
+/// The `IconRole` variant a role name generates, derived rather than looked up
+/// so a CLI build can generate code for a `nive` it has never seen. The app's
+/// compiler resolves the variant against the version the app depends on.
+pub(super) fn role_variant(role: &str) -> Result<String> {
+    validate_role_name(role)?;
 
-pub(super) fn required_role_names() -> Vec<&'static str> {
-    role_lucide_defaults()
-        .iter()
-        .map(|(role, _slug, _variant)| *role)
-        .collect()
-}
-
-pub(super) fn role_variant(role: &str) -> Result<&'static str> {
-    role_lucide_defaults()
-        .iter()
-        .find(|(candidate, _slug, _variant)| *candidate == role)
-        .map(|(_role, _slug, variant)| *variant)
-        .ok_or_else(|| format!("Unknown icon role `{role}`.").into())
-}
-
-pub(super) fn role_lucide_defaults() -> &'static [(&'static str, &'static str, &'static str)] {
-    &[
-        ("action-confirm", "check", "ActionConfirm"),
-        ("dialog-error", "circle-alert", "DialogError"),
-        ("dialog-information", "info", "DialogInformation"),
-        ("dialog-success", "circle-check", "DialogSuccess"),
-        ("dialog-warning", "triangle-alert", "DialogWarning"),
-        ("edit-copy", "copy", "EditCopy"),
-        ("edit-delete", "trash", "EditDelete"),
-        ("edit-find", "search", "EditFind"),
-        ("edit-modify", "pencil", "EditModify"),
-        ("folder", "folder", "Folder"),
-        ("go-next", "arrow-right", "GoNext"),
-        ("go-previous", "arrow-left", "GoPrevious"),
-        ("identity", "user", "Identity"),
-        ("list-add", "plus", "ListAdd"),
-        ("list-remove", "minus", "ListRemove"),
-        ("mail-inbox", "inbox", "MailInbox"),
-        ("nive-disclosure-down", "chevron-down", "NiveDisclosureDown"),
-        ("nive-disclosure-left", "chevron-left", "NiveDisclosureLeft"),
-        (
-            "nive-disclosure-right",
-            "chevron-right",
-            "NiveDisclosureRight",
-        ),
-        ("nive-disclosure-up", "chevron-up", "NiveDisclosureUp"),
-        ("open-menu", "menu", "OpenMenu"),
-        ("preferences-system", "settings", "PreferencesSystem"),
-        ("tab-pinned", "pin", "TabPinned"),
-        ("validation-error", "circle-alert", "ValidationError"),
-        ("notification-alert", "bell", "NotificationAlert"),
-        ("view-activity", "activity", "ViewActivity"),
-        ("view-conceal", "eye-off", "ViewConceal"),
-        ("view-maximize", "maximize-2", "ViewMaximize"),
-        ("view-more", "ellipsis", "ViewMore"),
-        ("view-refresh", "refresh-cw", "ViewRefresh"),
-        ("view-restore", "minimize-2", "ViewRestore"),
-        ("view-theme", "palette", "ViewTheme"),
-        ("view-reveal", "eye", "ViewReveal"),
-        ("window-close", "x", "WindowClose"),
-    ]
+    Ok(role
+        .split('-')
+        .map(|word| {
+            let mut chars = word.chars();
+            let first = chars.next().expect("validated role has no empty segment");
+            first.to_ascii_uppercase().to_string() + chars.as_str()
+        })
+        .collect())
 }
