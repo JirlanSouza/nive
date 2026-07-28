@@ -340,8 +340,10 @@ irreversible crates.io publication. The distribution channel is
    just readiness
    ```
 
-   `just readiness` now includes both the local `[patch.crates-io]` scaffold
-   smoke and the GitHub consumer smoke (`just scaffold-smoke-github`).
+   `just readiness` includes the local `[patch.crates-io]` scaffold smoke, the
+   GitHub consumer smoke (`just scaffold-smoke-github`), and the workspace
+   smoke (`just workspace-smoke`), which proves `nive new` and `nive init`
+   inside a Cargo workspace the user owns.
 
 3. **Create an annotated tag:**
 
