@@ -1,8 +1,8 @@
 use iced::{window, Task};
 
-use crate::application::program::{
-    CoreMessage, NiveMessage, ProbeCatalogEntry, Program, RuntimeMessage,
-};
+#[cfg(feature = "devtools")]
+use crate::application::program::{CoreMessage, NiveMessage};
+use crate::application::program::{ProbeCatalogEntry, Program, RuntimeMessage};
 use crate::application::Application;
 #[cfg(feature = "devtools")]
 use crate::devtools::{DevtoolsHostState, DevtoolsWindowSpec};
