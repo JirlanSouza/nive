@@ -411,6 +411,56 @@ fn embedded_emphasis_reads_the_same_on_every_host_surface() {
     }
 }
 
+/// Idle → hover → pressed must climb monotonically *toward the foreground*.
+///
+/// Distance from idle is not enough: a hover that moves the wrong way clears a
+/// distance check while reading as a dent rather than a lift. In dark mode the
+/// body-owning roles drew hover from `surface_elevated` and pressed from
+/// `mix(app, foreground, _)` — two different scales — which put pressed below
+/// hover on Button, Tabs, TreeItem, SideRail, and the choice anchors.
+#[test]
+fn hover_then_pressed_climb_toward_the_foreground_for_every_role() {
+    for mode in [ThemeMode::Light, ThemeMode::Dark] {
+        let theme = Theme::from_mode(mode);
+        let host = theme.surface(SurfaceRole::Panel).background;
+        let idle = luminance(host);
+        let toward_foreground = luminance(theme.text(TextRole::Primary).color) > idle;
+
+        for role in [
+            ControlRole::Standard,
+            ControlRole::Selectable,
+            ControlRole::Embedded,
+        ] {
+            let hovered = luminance(composite(
+                theme.control(role, ControlState::HOVERED).background,
+                host,
+            ));
+            let pressed = luminance(composite(
+                theme.control(role, ControlState::PRESSED).background,
+                host,
+            ));
+
+            let climbs = |from: f32, to: f32| {
+                if toward_foreground {
+                    to > from
+                } else {
+                    to < from
+                }
+            };
+
+            assert!(
+                climbs(idle, hovered),
+                "{mode:?} {role:?}: hover ({hovered:.4}) does not lift off idle ({idle:.4})"
+            );
+            assert!(
+                climbs(hovered, pressed),
+                "{mode:?} {role:?}: pressed ({pressed:.4}) does not intensify past \
+                 hover ({hovered:.4})"
+            );
+        }
+    }
+}
+
 #[test]
 fn embedded_and_body_owning_roles_share_one_selected_ladder() {
     for mode in [ThemeMode::Light, ThemeMode::Dark] {

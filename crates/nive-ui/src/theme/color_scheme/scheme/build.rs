@@ -87,7 +87,15 @@ impl ColorScheme {
         } else {
             mix(app, foreground, 0.06)
         };
-        let control_pressed = mix(app, foreground, 0.10);
+        // Pressed steps off hover, not off `app`. In dark the idle fill is the
+        // panel itself and hover lifts to `surface_elevated`, so a fill mixed
+        // from `app` lands *below* both — which is what made pressing read as
+        // less emphasis than hovering on every body-owning role.
+        let control_pressed = if is_dark {
+            mix(control_hover, foreground, 0.06)
+        } else {
+            mix(app, foreground, 0.10)
+        };
         let control_disabled = if is_dark {
             surface
         } else {
