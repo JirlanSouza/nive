@@ -1,27 +1,27 @@
-# L1 — Diagrama de Contexto
+# L1 — Context Diagram
 
-Nive como caixa-preta entre as pessoas que o usam e os sistemas externos sobre os quais se
-apoia.
+Nive as a black box between the people who use it and the external systems it
+rests on.
 
 ```mermaid
 flowchart LR
-    dev([App Developer<br/>Constrói aplicações desktop em Rust/Iced usando o Nive])
-    user([Usuário Final<br/>Usa o app desktop construído com Nive])
+    dev([App Developer<br/>Builds Rust/Iced desktop applications with Nive])
+    user([End User<br/>Uses the desktop app built with Nive])
 
-    nive["Nive Framework<br/>Framework Rust/Iced de propósito geral, adequado também a UIs de alta densidade de dados.<br/>Design system + runtime + DX tooling."]
+    nive["Nive Framework<br/>General-purpose Rust/Iced framework, also suited to data-dense UIs.<br/>Design system + runtime + DX tooling."]
 
-    iced["Iced 0.14<br/>Runtime GUI com arquitetura Elm, renderização via wgpu, canvas e svg"]
-    os["Plataforma do SO<br/>macOS, Windows, Linux: janelas, input, ícone de app, file dialogs"]
-    registry["crates.io / docs.rs<br/>Distribuição e documentação dos crates"]
-    icons["Icon providers<br/>Lucide SVGs e SVGs custom locais compilados em build-time pela CLI"]
+    iced["Iced 0.14<br/>Elm-architecture GUI runtime, rendering through wgpu, canvas, and svg"]
+    os["OS Platform<br/>macOS, Windows, Linux: windows, input, app icon, file dialogs"]
+    registry["crates.io / docs.rs<br/>Crate distribution and documentation"]
+    icons["Icon providers<br/>Lucide SVGs and local custom SVGs, compiled in at build time by the CLI"]
 
-    dev -->|Programa com / depende de<br/>API Rust| nive
-    user -->|Interage com o app construído com| nive
-    nive -->|Construído sobre| iced
-    iced -->|Renderiza, abre janelas e captura input via| os
-    nive -->|Instala ícone de app / abre file dialogs<br/>objc2 / winres / rfd| os
+    dev -->|Programs against / depends on<br/>the Rust API| nive
+    user -->|Interacts with the app built with| nive
+    nive -->|Built on| iced
+    iced -->|Renders, opens windows, and captures input through| os
+    nive -->|Installs the app icon / opens file dialogs<br/>objc2 / winres / rfd| os
     dev -->|cargo install nive-cli / cargo add nive| registry
-    nive -->|nive icons sincroniza glifos de| icons
+    nive -->|nive icons syncs glyphs from| icons
 
     classDef person fill:#f7f7f7,stroke:#666,color:#222;
     classDef system fill:#e8f1ff,stroke:#4b77be,color:#111;
@@ -31,20 +31,21 @@ flowchart LR
     class iced,os,registry,icons external;
 ```
 
-## Notas
+## Notes
 
-- **Domínio-agnóstico na fronteira:** o runtime nunca depende de tipos de domínio do app;
-  clientes/serviços do produto são construídos no *bootstrap* e injetados em
-  `Application::init`.
-- **Dois consumidores humanos:** o *App Developer* (API/DX) e o *Usuário Final* (a UI
-  renderizada). O roadmap equilibra ambos: DX para o dev, densidade/performance para o
-  usuário.
-- **Duas portas de entrada:** `nive new <nome>` cria um projeto — registrando-o como
-  membro se houver um workspace acima, senão o Cargo recusa o build — e `nive init`
-  adota o Nive num crate que já existe, escrevendo só o que falta e nunca
-  sobrescrevendo arquivo do autor. `cargo add nive` cobre a dependência, mas não o
-  workflow de ícones que a CLI estabelece.
-- O acoplamento ao SO é fino e isolado em `platform/` (ícone de app, file picker). O
-  workspace tem apenas **2 ocorrências de `unsafe`**: o FFI objc2 do ícone de app no macOS
-  (`platform/app_icon.rs`) e um `transmute_copy::<(), Window>` no *program runner*
-  (`application/program.rs`) que materializa a janela-unit de apps de janela única.
+- **Domain-agnostic at the boundary:** the runtime never depends on the app's
+  domain types; product clients and services are built during *bootstrap* and
+  injected into `Application::init`.
+- **Two human consumers:** the *App Developer* (API and DX) and the *End User*
+  (the rendered UI). The roadmap balances both: DX for the developer, density and
+  performance for the user.
+- **Two doors in:** `nive new <name>` creates a project — registering it as a
+  member when a workspace sits above it, without which Cargo refuses the build —
+  and `nive init` adopts Nive in a crate that already exists, writing only what is
+  missing and never overwriting a file the author wrote. `cargo add nive` covers
+  the dependency but not the icon workflow the CLI establishes.
+- Coupling to the OS is thin and isolated in `platform/` (app icon, file picker).
+  The workspace holds only **two occurrences of `unsafe`**: the objc2 FFI for the
+  macOS app icon (`platform/app_icon.rs`), and a `transmute_copy::<(), Window>` in
+  the *program runner* (`application/program.rs`) that materialises the unit
+  window of single-window apps.

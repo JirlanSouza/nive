@@ -1,229 +1,229 @@
-# API Alvo - Fase 1
+# Target API — Phase 1
 
-Este documento registra o contrato publico alvo para apps Nive antes da primeira
-publicacao. Ele complementa [`api-surface.md`](api-surface.md), que descreve a
-superficie existente; aqui ficam as decisoes que devem orientar breaking changes,
-templates, exemplos e proximas fases do roadmap.
+This document records the target public contract for Nive apps before the first
+publication. It complements [`api-surface.md`](api-surface.md), which describes
+the surface that exists; here are the decisions that should steer breaking
+changes, templates, examples, and the next roadmap phases.
 
-## Principio
+## Principle
 
-Um app desktop real deve conseguir começar por `nive::prelude::*`, crescer para
-`nive::prelude::ui::*` quando usar estado async, dialogs ou janelas em runtime, e
-recorrer a `nive::runtime::*` ou `nive::ui::*` apenas quando estiver trabalhando
-diretamente na camada correspondente.
+A real desktop app should be able to start from `nive::prelude::*`, grow into
+`nive::prelude::ui::*` when it uses async state, dialogs, or runtime windows, and
+reach for `nive::runtime::*` or `nive::ui::*` only when working directly in that
+layer.
 
-Crate-root reexports continuam convenientes antes da publicacao, mas o scaffold,
-exemplos e docs devem tratar os preludes como o contrato principal.
+Crate-root re-exports stay convenient before publication, but the scaffold,
+examples, and docs should treat the preludes as the primary contract.
 
-## Prelude alvo
+## Target prelude
 
-| Caminho | Papel | Deve conter |
-|---------|-------|-------------|
-| `nive::prelude::*` | Tier padrao de app e scaffold simples | `Application`, `ApplicationConfig`, `run`, `Effect`, `MessageContext`, `MessageSource`, `Context`, `ScreenView`, `Task`, `Subscription`, theme basico, `Toast`, `Action`, `ActionId`, `ActionMap`, `RuntimeEvent`, tipos de declaracao de janela (`WindowSpec`, `WindowRole`, `WindowCardinality`, `WindowCommand`), settings/session basicos, erros de runtime, geometria Iced e `nive_ui::prelude::*`. |
-| `nive::prelude::ui::*` | Tier estendido de app | Tudo do tier padrao mais `Resource`, `Operation`, `OperationRegistry`, `DialogRequest`, `DialogDismiss`, `ScreenEffect`, `UserFacingError`, `BootstrapSpec`, `BrandContent`, `ToastDuration`, `ToastTone`, `WindowHandle`, `WindowRegistry`, `WindowMode`, `WindowChrome` e params de file picker quando a feature estiver ativa. |
-| `nive::runtime::prelude::*` | Consumidor direto de runtime | Mesmo recorte de runtime dos tiers acima, sem depender da facade umbrella. Deve continuar util para crates que nao querem importar widgets. |
-| `nive::ui::prelude::*` | Consumidor direto do design system | `Element`, `Renderer`, layout Iced comum, theme, hosts, contratos de apresentacao e widgets publicos da facade de UI. |
+| Path | Role | Should contain |
+|------|------|----------------|
+| `nive::prelude::*` | Default app tier and simple scaffold | `Application`, `ApplicationConfig`, `run`, `Effect`, `MessageContext`, `MessageSource`, `Context`, `ScreenView`, `Task`, `Subscription`, basic theming, `Toast`, `Action`, `ActionId`, `ActionMap`, `RuntimeEvent`, window declaration types (`WindowSpec`, `WindowRole`, `WindowCardinality`, `WindowCommand`), basic settings/session, runtime errors, Iced geometry, and `nive_ui::prelude::*`. |
+| `nive::prelude::ui::*` | Extended app tier | Everything in the default tier plus `Resource`, `Operation`, `OperationRegistry`, `DialogRequest`, `DialogDismiss`, `ScreenEffect`, `UserFacingError`, `BootstrapSpec`, `BrandContent`, `ToastDuration`, `ToastTone`, `WindowHandle`, `WindowRegistry`, `WindowMode`, `WindowChrome`, and the file-picker params when that feature is on. |
+| `nive::runtime::prelude::*` | Direct runtime consumer | The same runtime slice as the tiers above, without depending on the umbrella facade. Should stay useful for crates that do not want to import widgets. |
+| `nive::ui::prelude::*` | Direct design-system consumer | `Element`, `Renderer`, common Iced layout, the theme, hosts, presentation contracts, and the UI facade's public widgets. |
 
-Decisao: manter `nive::prelude::*` e `nive::prelude::ui::*` como caminho feliz
-do usuario final. `nive::runtime::prelude::*` e `nive::ui::prelude::*` sao
-estaveis para consumidores por camada, mas nao devem ser necessarios no scaffold
-gerado pelo CLI.
+Decision: keep `nive::prelude::*` and `nive::prelude::ui::*` as the end user's
+happy path. `nive::runtime::prelude::*` and `nive::ui::prelude::*` are stable for
+per-layer consumers, but should never be needed in the CLI-generated scaffold.
 
-## Action, Command e Shortcut
+## Action, Command, and Shortcut
 
-Decisao: `Action` continua sendo o nome central para uma intencao de produto
-exibivel e ativavel pelo usuario.
+Decision: `Action` remains the central name for a product intent the user can see
+and activate.
 
-- `ActionId` identifica uma acao de produto de forma estavel.
-- `Action<M>` carrega label, descricao, enabled state, atalho opcional e a
-  mensagem emitida quando ativada.
-- `ActionMap<M>` e o catalogo ordenado que alimenta atalhos, command palette,
-  menus e toolbars.
-- `ShortcutMap<M>` continua existindo para atalhos que nao precisam estar no
-  catalogo visual de acoes.
+- `ActionId` identifies a product action stably.
+- `Action<M>` carries the label, description, enabled state, an optional
+  shortcut, and the message emitted on activation.
+- `ActionMap<M>` is the ordered catalogue feeding shortcuts, the command palette,
+  menus, and toolbars.
+- `ShortcutMap<M>` still exists for shortcuts that need not appear in the visual
+  action catalogue.
 
-`Command` nao substitui `Action` agora. No vocabulario alvo, `Command` fica
-reservado para efeitos imperativos de runtime ou de plataforma ja existentes,
-como `RuntimeCommand` e `WindowCommand`. Um `CommandRegistry` nao deve ser criado
-antes do primeiro app real provar que `ActionMap` e insuficiente para menus,
-toolbars, atalhos e command palette.
+`Command` does not replace `Action` now. In the target vocabulary, `Command` is
+reserved for the imperative runtime or platform effects that already exist, such
+as `RuntimeCommand` and `WindowCommand`. A `CommandRegistry` should not be
+created before the first real app proves `ActionMap` insufficient for menus,
+toolbars, shortcuts, and the command palette.
 
-## Effect e RuntimeCommand
+## Effect and RuntimeCommand
 
-Decisao original da Fase 1: manter os nomes `Update`, `AppUpdate` e
+Original Phase 1 decision: keep the names `Update`, `AppUpdate`, and
 `RuntimeCommand`.
 
-Decisao revisada (mudanca `refine-runtime-effect-window-commands`): unificar
-`Update`/`AppUpdate` num unico tipo publico `Effect<M, K = Never>` e remover o
-eixo de outcome generico, que os hooks de `Application` nunca produziam (o
-runtime descartava esse outcome). Outcome tipado de tela/componente continua
-existindo, mas em `ScreenEffect` (child-to-parent `Output`), nao no contrato de
-efeito da aplicacao.
+Revised decision (the `refine-runtime-effect-window-commands` change): unify
+`Update`/`AppUpdate` into a single public `Effect<M, K = Never>` and drop the
+generic outcome axis, which `Application`'s hooks never produced — the runtime
+discarded that outcome. A screen or component's typed outcome still exists, but
+in `ScreenEffect` (child-to-parent `Output`), not in the application's effect
+contract.
 
-`RuntimeCommand<K>` deixou de ser reexportado no prelude/crate-root: passou a
-ser um tipo interno ao crate, drenado pelo runner. App authors constroem
-efeitos por construtores diretos (`Effect::task`, `Effect::toast`,
-`Effect::window`, `Effect::theme`, `Effect::exit`) e compoem com `with_task`,
-`with_toast`, `with_window`, `with_theme`, `with_exit` — sem nunca nomear
-`RuntimeCommand`.
+`RuntimeCommand<K>` is no longer re-exported from the prelude or crate root: it
+became a crate-internal type, drained by the runner. App authors build effects
+through direct constructors (`Effect::task`, `Effect::toast`, `Effect::window`,
+`Effect::theme`, `Effect::exit`) and compose with `with_task`, `with_toast`,
+`with_window`, `with_theme`, and `with_exit` — never naming `RuntimeCommand`.
 
-`RuntimeCommand<K>` continua representando apenas efeitos que o runtime executa
-depois do `update` do app:
+`RuntimeCommand<K>` still represents only the effects the runtime executes after
+the app's `update`:
 
 - `Toast(Toast)`
 - `Window(WindowCommand<K>)`
 - `Theme(ThemePreference)`
 - `Exit`
 
-Nao renomear `RuntimeCommand` para `Action` ou `Command`. A separacao alvo e:
-`Action` descreve algo que o usuario pode ativar; `RuntimeCommand` descreve um
-efeito que o runtime deve drenar — mas o tipo em si permanece interno ao crate.
+Do not rename `RuntimeCommand` to `Action` or `Command`. The target separation is:
+`Action` describes something the user can activate; `RuntimeCommand` describes an
+effect the runtime must drain — while the type itself stays internal to the crate.
 
 ## Context
 
-Decisao: `Context` permanece pequeno, barato e somente leitura.
+Decision: `Context` stays small, cheap, and read-only.
 
-Ele deve expor identidade do app, tema ativo/preferido, consulta de janelas e
-estado de saida. Nao deve virar service locator. Clientes de produto, repositorios
-e servicos externos entram pelo `Bootstrap` e vivem no estado do app.
+It should expose app identity, the active and preferred theme, window lookup, and
+exit state. It must not become a service locator. Product clients, repositories,
+and external services arrive through `Bootstrap` and live in the app's state.
 
-Novas capacidades de runtime so devem entrar em `Context` quando forem:
+New runtime capabilities should enter `Context` only when they are:
 
-- globais ao runtime;
-- somente leitura ou representadas por comando explicito em `Effect`;
-- necessarias em mais de uma area do contrato de app.
+- global to the runtime;
+- read-only, or represented by an explicit command in `Effect`;
+- needed in more than one area of the app contract.
 
-## Resource e Operation
+## Resource and Operation
 
-Decisao: manter `Resource`, `Operation`, `OperationRegistry`, `RequestId` e
-`Settled` como vocabulario alvo para async state.
+Decision: keep `Resource`, `Operation`, `OperationRegistry`, `RequestId`, and
+`Settled` as the target vocabulary for async state.
 
-- `Resource<T>` representa valor carregado assincronamente com
-  stale-while-revalidate e rejeicao de resposta obsoleta.
-- `Operation<C>` representa mutacao async sem valor persistente, preservando o
-  input enquanto roda ou falha.
-- `OperationRegistry` representa painel/registro de operacoes nomeadas em voo,
-  especialmente para status global, progresso e cancelamento.
-- `RequestId` e `Settled<T>` continuam publicos porque sao parte do contrato de
-  recebimento das tasks, mas pertencem ao tier estendido.
+- `Resource<T>` represents an asynchronously loaded value with
+  stale-while-revalidate and stale-response rejection.
+- `Operation<C>` represents an async mutation with no persistent value,
+  preserving its input while running or after failing.
+- `OperationRegistry` represents a panel or register of named in-flight
+  operations, particularly for global status, progress, and cancellation.
+- `RequestId` and `Settled<T>` stay public because they are part of the contract
+  for receiving tasks, but belong to the extended tier.
 
-Nao criar outra familia de nomes como `AsyncResource`, `AsyncTask` ou
-`Mutation` antes do primeiro app real. A proxima evolucao deve melhorar helpers,
-progresso e cancelamento sem trocar o vocabulario central.
+Do not create another family of names such as `AsyncResource`, `AsyncTask`, or
+`Mutation` before the first real app. The next evolution should improve helpers,
+progress, and cancellation without swapping the central vocabulary.
 
-## Toast, Error e Feedback
+## Toast, Error, and Feedback
 
-Decisao: manter separacao headless/runtime versus apresentacao/UI.
+Decision: keep the headless/runtime versus presentation/UI separation.
 
-- `Toast` e evento user-facing temporario emitido por `Effect::toast`.
-- `ToastState` e fila/estado de runtime; pode continuar publico para testes,
-  hosts customizados e integracao avancada, mas nao entra no caminho feliz do
-  scaffold.
-- `UserFacingError` e o erro apresentavel por runtime, `Resource` e `Operation`.
-- Widgets de feedback em `nive-ui` devem depender de traits de apresentacao, nao
-  de tipos concretos de `nive-runtime`.
+- `Toast` is a temporary user-facing event emitted by `Effect::toast`.
+- `ToastState` is the runtime queue and state; it may stay public for tests,
+  custom hosts, and advanced integration, but does not enter the scaffold's happy
+  path.
+- `UserFacingError` is the presentable error used by the runtime, `Resource`, and
+  `Operation`.
+- Feedback widgets in `nive-ui` should depend on presentation traits, not on
+  concrete `nive-runtime` types.
 
-Fase 3: `ToastRequest` foi removido da API publica. `Toast` e o nome alvo.
+Phase 3: `ToastRequest` was removed from the public API. `Toast` is the target
+name.
 
 ## Window lifecycle
 
-Decisao: manter o modelo atual de janelas como contrato alvo.
+Decision: keep the current window model as the target contract.
 
-- `WindowSpec` declara aparencia e comportamento inicial.
-- `WindowRole` separa janelas de app e auxiliares.
-- `WindowCardinality` limita single versus multiple.
-- `WindowCommand<K>` e o efeito emitido pelo app para abrir, focar ou fechar
-  janelas.
-- `WindowHandle<K>` e `WindowRegistry<K>` representam estado de runtime e ficam
-  no tier estendido.
-- `WindowMode` e `WindowChrome` permanecem conceitos publicos, mas nao precisam
-  estar no tier minimo.
+- `WindowSpec` declares initial appearance and behaviour.
+- `WindowRole` separates app windows from auxiliary ones.
+- `WindowCardinality` bounds single versus multiple.
+- `WindowCommand<K>` is the effect the app emits to open, focus, or close
+  windows.
+- `WindowHandle<K>` and `WindowRegistry<K>` represent runtime state and stay in
+  the extended tier.
+- `WindowMode` and `WindowChrome` remain public concepts, but need not be in the
+  minimal tier.
 
-Fase 3: `open_window` virou helper interno do runtime/devtools. Apps devem emitir
-`WindowCommand` via `Effect`. `WindowRegistration` permanece fora dos preludes e
-fica acessivel pelo modulo `nive_runtime::application` apenas como tipo retornado
-pelos introspectores de `ApplicationConfig`.
+Phase 3: `open_window` became an internal runtime/devtools helper. Apps emit
+`WindowCommand` through `Effect`. `WindowRegistration` stays out of the preludes
+and remains reachable through the `nive_runtime::application` module only as the
+type returned by `ApplicationConfig`'s introspectors.
 
-## Decisao sobre nive-core
+## The nive-core decision
 
-Decisao original da Fase 1: nao criar `nive-core` naquele momento.
+Original Phase 1 decision: do not create `nive-core` at that time.
 
-Motivo: os candidatos atuais ainda pertencem claramente a uma camada existente.
-`Error`/`Result` sao entrada do runtime; `RequestId`, `OperationId` e `ActionId`
-tem semantica ligada a runtime/estado/acoes; metadata e capabilities ainda nao
-formam um contrato compartilhado independente de UI e runtime.
+Reason: the candidates then still belonged clearly to an existing layer.
+`Error`/`Result` are runtime input; `RequestId`, `OperationId`, and `ActionId`
+carry semantics tied to runtime, state, and actions; metadata and capabilities did
+not yet form a shared contract independent of UI and runtime.
 
-Decisao revisada apos a Fase 3: criar um `nive-core` minimo na Fase 4 para
-contratos compartilhados de apresentacao/status.
+Decision revised after Phase 3: create a minimal `nive-core` in Phase 4 for shared
+presentation and status contracts.
 
-Motivo: `nive-ui` definia traits como `ErrorPresentation`,
-`ResourceStatusPresentation`, `OperationStatusPresentation` e
-`ToastPresentation`, enquanto `nive-runtime` implementava esses traits para
-`UserFacingError`, `Resource<T>`, `Operation<C>` e `ToastItem`. Isso criava uma
-fronteira conceitual invertida: a UI definia contratos headless que descrevem
-estado e feedback do runtime.
+Reason: `nive-ui` defined traits such as `ErrorPresentation`,
+`ResourceStatusPresentation`, `OperationStatusPresentation`, and
+`ToastPresentation`, while `nive-runtime` implemented them for
+`UserFacingError`, `Resource<T>`, `Operation<C>`, and `ToastItem`. That inverted
+a conceptual boundary: the UI defined headless contracts describing runtime state
+and feedback.
 
-**Executado na Fase 4:** `nive-core` existe como membro do workspace
-(`crates/nive-core`, zero dependencias). Os quatro traits e `ToastTone`
-migraram para la; `nive-ui` reexporta-os nos mesmos caminhos publicos
-(`widgets`, `widgets::feedback`, `overlays`, `prelude`, raiz para
-`ToastPresentation`/`ToastTone`) e `nive-runtime` os implementa importando de
-`nive_core` em vez de `nive_ui::widgets`. `nive_runtime::ToastTone` e
-`nive_runtime::ToastPosition` deixaram de ser tipos proprios: o primeiro e um
-reexport de `nive_core::ToastTone`, o segundo de `nive_ui::ToastPosition` —
-eliminando os dois pares `impl From` duplicados e o workaround de glob
-ambiguo em `crates/nive/src/lib.rs`.
+**Done in Phase 4:** `nive-core` exists as a workspace member
+(`crates/nive-core`, zero dependencies). The four traits and `ToastTone` moved
+there; `nive-ui` re-exports them at the same public paths (`widgets`,
+`widgets::feedback`, `overlays`, `prelude`, and the root for
+`ToastPresentation`/`ToastTone`), and `nive-runtime` implements them importing
+from `nive_core` rather than `nive_ui::widgets`. `nive_runtime::ToastTone` and
+`nive_runtime::ToastPosition` stopped being types of their own: the first is a
+re-export of `nive_core::ToastTone`, the second of `nive_ui::ToastPosition` —
+removing both duplicated `impl From` pairs and the ambiguous-glob workaround in
+`crates/nive/src/lib.rs`.
 
-Escopo do `nive-core` na Fase 4:
+`nive-core`'s Phase 4 scope:
 
-- contratos de apresentacao de erro (`ErrorPresentation`);
-- contratos de apresentacao de toast (`ToastPresentation`);
-- contratos de status de resource/operation (`ResourceStatusPresentation`,
+- error presentation contracts (`ErrorPresentation`);
+- toast presentation contracts (`ToastPresentation`);
+- resource/operation status contracts (`ResourceStatusPresentation`,
   `OperationStatusPresentation`);
-- `ToastTone`, movido porque `ToastPresentation::tone()` o retorna e a
-  duplicacao runtime/UI ja tinha vazado para o usuario.
+- `ToastTone`, moved because `ToastPresentation::tone()` returns it and the
+  runtime/UI duplication had already leaked to the user.
 
-Fora do escopo inicial (permanece nas camadas atuais):
+Out of the initial scope, staying in their current layers:
 
 - `Resource`, `Operation`, `OperationRegistry`;
 - `UserFacingError`, `Toast`, `ToastState`, `ToastItem`;
 - `Action`, `ActionMap`;
 - `WindowSpec`, `RuntimeCommand`;
-- `Error`/`Result` de runtime;
-- IDs fortes ainda ligados a uma camada especifica;
-- `ToastPosition` (vocabulario de layout de UI, permanece em `nive-ui` e e
-  reexportado por `nive-runtime`);
-- metadata, capabilities e version sem consumidor concreto.
+- runtime `Error`/`Result`;
+- strong IDs still tied to a specific layer;
+- `ToastPosition` (UI layout vocabulary; stays in `nive-ui` and is re-exported by
+  `nive-runtime`);
+- metadata, capabilities, and version, with no concrete consumer.
 
-## Renomeacoes alvo
+## Target renames
 
-| Atual | Decisao |
-|-------|---------|
-| `ToastRequest` | Removido na Fase 3; usar `Toast`. |
-| `Action` | Manter; nao renomear para `Command`. |
-| `RuntimeCommand` | Manter o nome; deixou de ser reexportado no prelude/crate-root (interno ao crate). |
-| `WindowCommand` | Manter como efeito especifico de janela. |
-| `Resource` / `Operation` | Manter como nomes finais de async state. |
+| Current | Decision |
+|---------|----------|
+| `ToastRequest` | Removed in Phase 3; use `Toast`. |
+| `Action` | Keep; do not rename to `Command`. |
+| `RuntimeCommand` | Keep the name; no longer re-exported from the prelude or crate root (crate-internal). |
+| `WindowCommand` | Keep as the window-specific effect. |
+| `Resource` / `Operation` | Keep as the final async-state names. |
 
-## Remocoes ou restricoes alvo
+## Target removals and restrictions
 
-- Nao adicionar alias `Command` para `Action`.
-- Nao adicionar `CommandRegistry` ate validacao por app real.
-- Nao promover `WindowRegistration` para prelude.
-- Manter `open_window` como helper interno; apps usam `WindowCommand`.
-- `ToastRequest` ja foi removido; nao reintroduzir alias legado.
-- Tratar crate-root wildcard usage como conveniencia beta; templates e exemplos
-  devem preferir os preludes.
+- Do not add a `Command` alias for `Action`.
+- Do not add a `CommandRegistry` until a real app validates the need.
+- Do not promote `WindowRegistration` into the prelude.
+- Keep `open_window` an internal helper; apps use `WindowCommand`.
+- `ToastRequest` is already removed; do not reintroduce a legacy alias.
+- Treat crate-root wildcard usage as an alpha convenience; templates and examples
+  should prefer the preludes.
 
-## Criterio de aceite da Fase 1
+## Phase 1 acceptance criteria
 
-- Um app novo tem caminho previsivel: `nive::prelude::*` primeiro,
-  `nive::prelude::ui::*` quando precisar do tier estendido.
-- `Action`, `RuntimeCommand` e `WindowCommand` nao competem semanticamente.
-- `Context` nao acumula servicos de produto.
-- `Resource` e `Operation` sao o vocabulario final para request/response e
-  mutacoes async.
-- A decisao revisada sobre `nive-core` esta explicita: criar somente o core
-  minimo de contratos neutros na Fase 4.
-- A proxima fase pode reorganizar `nive-ui` sem rediscutir o contrato principal
-  de app.
+- A new app has a predictable path: `nive::prelude::*` first,
+  `nive::prelude::ui::*` when it needs the extended tier.
+- `Action`, `RuntimeCommand`, and `WindowCommand` do not compete semantically.
+- `Context` does not accumulate product services.
+- `Resource` and `Operation` are the final vocabulary for request/response and
+  async mutations.
+- The revised `nive-core` decision is explicit: create only the minimal core of
+  neutral contracts in Phase 4.
+- The next phase can reorganise `nive-ui` without relitigating the primary app
+  contract.

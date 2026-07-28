@@ -82,10 +82,17 @@ On first launch, Nive installs a `.desktop` entry and icon PNG to `~/.local/shar
 
 ## Documentation
 
-- [Getting Started Guide](docs/guides/getting-started.md)
+Building an app:
+
+- [Getting Started](docs/guides/getting-started.md)
+- [Theming](docs/guides/theming.md)
 - [Adding Icons](docs/guides/adding-icons.md)
+- [Architecture diagrams](docs/architecture/README.md)
+
+Working on Nive itself:
+
 - [Development Guide](docs/development.md)
-- [Architecture](docs/agents/architecture.md)
+- [Contributor and agent context](docs/agents/architecture.md)
 
 ## Examples
 

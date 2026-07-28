@@ -37,6 +37,23 @@ This creates a new directory with:
 - `justfile` with development commands
 - `icons.toml` for provider-neutral icon management
 
+Creating the app inside an existing Cargo workspace works: it is registered as
+a member for you, so the first `cargo build` succeeds.
+
+## Adding Nive to a Crate You Already Have
+
+```bash
+cd my-crate
+nive init --git https://github.com/JirlanSouza/nive --tag v0.1.0-alpha.1
+```
+
+`nive init` adds the `nive` dependency, sets up the icon workflow, and fills in
+whatever boilerplate the crate is missing.
+
+It never overwrites a file you wrote. Anything it skips is listed in the output,
+so you can merge by hand what it refused to replace, and running it twice
+changes nothing.
+
 ## Understanding the Structure
 
 ### Application Trait
@@ -108,6 +125,8 @@ fn main() -> nive::Result {
 
 ## Next Steps
 
+- [Theming](theming.md) — build your own light/dark pair
 - [Adding Icons](adding-icons.md)
+- [Architecture diagrams](../architecture/README.md) — how the framework is put
+  together
 - Explore the [API documentation](https://docs.rs/nive) _(available after crates.io publication)_
-- Check out the [architecture guide](../agents/architecture.md)

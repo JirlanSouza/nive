@@ -28,7 +28,7 @@ See `nive-runtime/docs/devtools.md` for usage.
 
 ## Status
 
-Part of Nive **v0.1.0**, a beta release. Generated APIs may change before 1.0.
+Part of Nive **v0.1.0-alpha.1**, a pre-crates.io alpha. Generated APIs break between alphas.
 This crate enforces `#![warn(missing_docs)]` and is fully documented.
 
 ## License

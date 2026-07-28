@@ -63,8 +63,8 @@ let actions = ActionMap::new().action(
 
 ## Status
 
-Part of Nive **v0.1.0**, a pre-publication alpha. Public APIs may change
-before 1.0.
+Part of Nive **v0.1.0-alpha.1**, a pre-crates.io alpha. Public APIs break
+between alphas.
 
 ## License
 
