@@ -76,6 +76,14 @@ jobs:
         shell: bash
         run: bash scripts/scaffold-smoke-github.sh dashboard
 
+      - name: Workspace smoke new
+        shell: bash
+        run: bash scripts/workspace-smoke.sh new
+
+      - name: Workspace smoke init
+        shell: bash
+        run: bash scripts/workspace-smoke.sh init
+
       - name: Icons check
         run: ../../target/release/nive icons check
         working-directory: crates/nive-ui

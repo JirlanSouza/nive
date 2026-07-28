@@ -85,7 +85,20 @@ just icons-set-role <role-name> <provider-ref>
 ```bash
 # Create a new app using the framework
 nive new test-app
+
+# Or add Nive to a crate that already exists
+cd existing-crate && nive init
 ```
+
+`nive new` registers the app in an enclosing Cargo workspace, so a test app
+created inside this repository builds without editing the root manifest. The
+flip side: it *is* a member afterwards, so `cargo test --workspace` will pick it
+up — delete the directory and its `members` entry when you are done, or scaffold
+outside the repo.
+
+`nive init` writes only files the crate does not have and lists everything it
+skipped; it is safe to run in a crate with code in it, and running it twice
+changes nothing.
 
 ## Architecture
 
@@ -377,6 +390,13 @@ cargo install --git https://github.com/JirlanSouza/nive --tag v0.1.0-alpha.1 --l
 \`\`\`bash
 nive new my-app --git https://github.com/JirlanSouza/nive --tag v0.1.0-alpha.1
 cd my-app && cargo build
+\`\`\`
+
+### Adopt Nive in an existing crate
+
+\`\`\`bash
+cd my-crate
+nive init --git https://github.com/JirlanSouza/nive --tag v0.1.0-alpha.1
 \`\`\`
 
 ### Add as a dependency
