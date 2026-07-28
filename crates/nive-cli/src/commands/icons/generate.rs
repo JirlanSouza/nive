@@ -145,13 +145,17 @@ pub(super) fn generate_catalog_source(
     manifest: &IconsManifest,
     target: IconGenerationTarget,
 ) -> Result<String> {
-    let import = match target {
-        IconGenerationTarget::App => {
-            "use nive::prelude::{IconCatalog, IconCatalogEntry, IconGlyph, IconRole};"
-        }
-        IconGenerationTarget::Framework => {
-            "use crate::icons::{IconCatalog, IconCatalogEntry, IconGlyph, IconRole};"
-        }
+    let path = match target {
+        IconGenerationTarget::App => "nive::prelude",
+        IconGenerationTarget::Framework => "crate::icons",
+    };
+    // An app that overrides no role generates an empty catalog, which would
+    // otherwise import three types it never names — and greet the reader with
+    // an `unused_imports` warning on their first build.
+    let import = if manifest.roles.is_empty() {
+        format!("use {path}::IconCatalog;")
+    } else {
+        format!("use {path}::{{IconCatalog, IconCatalogEntry, IconGlyph, IconRole}};")
     };
     let mut source = format!(
         "// Bundled Lucide icons are sourced from Lucide (https://lucide.dev) and distributed under the ISC License.\n{import}\n\npub const APP_ICON_CATALOG: IconCatalog = IconCatalog::new(&[\n",
@@ -161,7 +165,7 @@ pub(super) fn generate_catalog_source(
         let icon_ref = ProviderRef::parse(value)?;
         source.push_str("    IconCatalogEntry::new(\n");
         source.push_str("        IconRole::");
-        source.push_str(role_variant(role_name)?);
+        source.push_str(&role_variant(role_name)?);
         source.push_str(",\n");
         source.push_str("        IconGlyph::new(\n");
         source.push_str("            include_bytes!(\"");

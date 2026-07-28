@@ -11,12 +11,12 @@ use super::lucide::{
 };
 use super::manifest::{
     empty_manifest, ensure_provider, read_custom_svg, read_manifest, require_manifest,
-    required_role_names, validate_custom_svg_path, validate_ref_custom_target, validate_ref_name,
-    validate_role_name, validate_variant, write_manifest,
+    validate_custom_svg_path, validate_ref_custom_target, validate_ref_name, validate_role_name,
+    validate_variant, write_manifest,
 };
 use super::{
-    IconGenerationTarget, IconPaths, IconsCommands, IconsManifest, LucideProvider,
-    LucideProviderConfig, ProviderRef, Result,
+    IconGenerationTarget, IconPaths, IconsCommands, LucideProvider, LucideProviderConfig,
+    ProviderRef, Result,
 };
 
 pub(super) fn run_in_dir(command: IconsCommands, root: &Path) -> Result<()> {
@@ -133,8 +133,10 @@ pub(super) fn icons_check(paths: &IconPaths, target: IconGenerationTarget) -> Re
     let manifest = read_manifest(&paths.manifest)?;
     let mut failures = Vec::new();
 
-    failures.extend(missing_required_role_failures(paths, &manifest));
-
+    // Role coverage is deliberately unchecked for both targets: an app's
+    // manifest is additive, and the framework's coverage belongs to `nive-ui`,
+    // which declares `IconRole` and compares against the enum itself in
+    // `default_catalog_covers_all_roles`.
     for (name, source_path) in &manifest.custom {
         if let Err(error) = validate_custom_svg_path(paths, source_path) {
             failures.push(format!(
@@ -204,22 +206,6 @@ pub(super) fn icons_check(paths: &IconPaths, target: IconGenerationTarget) -> Re
     }
 
     Err(format!("Icon check failed: {} issue(s)", failures.len()).into())
-}
-
-pub(super) fn missing_required_role_failures(
-    paths: &IconPaths,
-    manifest: &IconsManifest,
-) -> Vec<String> {
-    required_role_names()
-        .into_iter()
-        .filter(|role| !manifest.roles.contains_key(*role))
-        .map(|role| {
-            format!(
-                "{} is missing required icon role `{role}`. Add a provider mapping under `[roles]` and run `nive icons sync`.",
-                display_path(&paths.manifest)
-            )
-        })
-        .collect()
 }
 
 pub(super) fn icons_add_symbol(

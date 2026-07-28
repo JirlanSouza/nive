@@ -15,6 +15,10 @@ pub fn glyph_for(role: IconRole) -> IconGlyph {
 mod tests {
     use super::*;
 
+    /// `default_glyph_for` unwraps its lookup, so a role missing from
+    /// `icons.toml` panics in every app that renders it. No tool can check this:
+    /// `nive-cli` generates the catalog but does not know what `IconRole`
+    /// declares. On failure, add the role and run `just icons-sync`.
     #[test]
     fn default_catalog_covers_all_roles() {
         for role in IconRole::ALL {

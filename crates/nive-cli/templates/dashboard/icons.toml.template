@@ -4,37 +4,26 @@ stroke_width = "2"
 stroke_linecap = "round"
 stroke_linejoin = "round"
 
+# Semantic roles the framework's widgets render. Nive ships a default glyph for
+# every one of them, so this section stays empty until you want to replace one:
+#
+#   window-close = "lucide:x"
+#   folder = "custom:brand-folder"
+#
+# `nive icons list` shows the roles and their current glyphs; `nive icons search
+# <query>` and `nive icons gallery --open` help pick a replacement.
 [roles]
-action-confirm = "lucide:check"
-dialog-error = "lucide:circle-alert"
-dialog-information = "lucide:info"
-dialog-success = "lucide:circle-check"
-dialog-warning = "lucide:triangle-alert"
-edit-copy = "lucide:copy"
-edit-delete = "lucide:trash"
-edit-find = "lucide:search"
-edit-modify = "lucide:pencil"
-folder = "lucide:folder"
-go-next = "lucide:arrow-right"
-go-previous = "lucide:arrow-left"
-identity = "lucide:user"
-list-add = "lucide:plus"
-list-remove = "lucide:minus"
-mail-inbox = "lucide:inbox"
-nive-disclosure-down = "lucide:chevron-down"
-nive-disclosure-left = "lucide:chevron-left"
-nive-disclosure-right = "lucide:chevron-right"
-nive-disclosure-up = "lucide:chevron-up"
-open-menu = "lucide:menu"
-preferences-system = "lucide:settings"
-tab-pinned = "lucide:pin"
-validation-error = "lucide:circle-alert"
-view-conceal = "lucide:eye-off"
-view-more = "lucide:ellipsis"
-view-refresh = "lucide:refresh-cw"
-view-reveal = "lucide:eye"
-window-close = "lucide:x"
 
+# Icons this app renders directly, generated as named Rust variants:
+#
+#   BrandMark = "custom:brand-mark"
+#
+# Add one with `nive icons add-symbol BrandMark custom:brand-mark`.
 [symbols]
 
+# Local SVG files referenced as `custom:<name>`:
+#
+#   brand-mark = "assets/icons/brand-mark.svg"
+#
+# Add one with `nive icons add-custom brand-mark assets/icons/brand-mark.svg`.
 [custom]
