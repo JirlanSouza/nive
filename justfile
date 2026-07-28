@@ -72,6 +72,17 @@ scaffold-smoke-github-dashboard:
 # Smoke-check all scaffolds using the GitHub alpha dependency shape
 scaffold-smoke-github: scaffold-smoke-github-basic scaffold-smoke-github-dashboard
 
+# Smoke-check `nive new` inside a user-owned Cargo workspace
+workspace-smoke-new:
+    bash scripts/workspace-smoke.sh new
+
+# Smoke-check `nive init` adopting a crate inside a user-owned Cargo workspace
+workspace-smoke-init:
+    bash scripts/workspace-smoke.sh init
+
+# Smoke-check both CLI entry points inside a user-owned Cargo workspace
+workspace-smoke: workspace-smoke-new workspace-smoke-init
+
 # Verify publishable crates can be packaged in dependency order
 package-check:
     cargo package --package nive-core
@@ -83,7 +94,7 @@ package-check:
     cargo package --package nive-cli
 
 # Run local readiness checks that mirror CI categories
-readiness: fmt-check check test lint doc-check examples-check scaffold-smoke scaffold-smoke-github package-check icons-check
+readiness: fmt-check check test lint doc-check examples-check scaffold-smoke scaffold-smoke-github workspace-smoke package-check icons-check
 
 # List framework icons
 icons-list:

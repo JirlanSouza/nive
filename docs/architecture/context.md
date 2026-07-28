@@ -39,6 +39,11 @@ flowchart LR
 - **Dois consumidores humanos:** o *App Developer* (API/DX) e o *Usuário Final* (a UI
   renderizada). O roadmap equilibra ambos: DX para o dev, densidade/performance para o
   usuário.
+- **Duas portas de entrada:** `nive new <nome>` cria um projeto — registrando-o como
+  membro se houver um workspace acima, senão o Cargo recusa o build — e `nive init`
+  adota o Nive num crate que já existe, escrevendo só o que falta e nunca
+  sobrescrevendo arquivo do autor. `cargo add nive` cobre a dependência, mas não o
+  workflow de ícones que a CLI estabelece.
 - O acoplamento ao SO é fino e isolado em `platform/` (ícone de app, file picker). O
   workspace tem apenas **2 ocorrências de `unsafe`**: o FFI objc2 do ícone de app no macOS
   (`platform/app_icon.rs`) e um `transmute_copy::<(), Window>` no *program runner*

@@ -3,10 +3,12 @@ use std::path::Path;
 
 use include_dir::{include_dir, Dir};
 
+use super::workspace::register_member;
+
 static BASIC_TEMPLATES: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/basic");
 static DASHBOARD_TEMPLATES: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/dashboard");
 
-fn to_title_case(s: &str) -> String {
+pub(super) fn to_title_case(s: &str) -> String {
     s.split(['_', '-'])
         .filter(|w| !w.is_empty())
         .map(|word| {
@@ -28,7 +30,7 @@ fn to_title_case(s: &str) -> String {
 /// - `--git <url>` plus exactly one of `--tag`, `--rev`, or `--branch` → Git form
 ///
 /// Returns an error for invalid combinations.
-fn build_nive_dep(
+pub(super) fn build_nive_dep(
     git: Option<&str>,
     tag: Option<&str>,
     rev: Option<&str>,
@@ -74,36 +76,71 @@ fn build_nive_dep(
     }
 }
 
+pub(super) fn templates_for(dashboard: bool) -> &'static Dir<'static> {
+    if dashboard {
+        &DASHBOARD_TEMPLATES
+    } else {
+        &BASIC_TEMPLATES
+    }
+}
+
+pub(super) fn target_relative_path(file: &include_dir::File) -> String {
+    file.path().to_string_lossy().replace(".template", "")
+}
+
+pub(super) fn render_template(
+    file: &include_dir::File,
+    app_name: &str,
+    title: &str,
+    nive_dep: &str,
+) -> String {
+    file.contents_utf8()
+        .unwrap_or("")
+        .replace("{{app_name}}", app_name)
+        .replace("{{app_name_title}}", title)
+        .replace("{{nive_dep}}", nive_dep)
+}
+
+pub(super) fn for_each_template(
+    dir: &'static Dir<'static>,
+    visit: &mut dyn FnMut(
+        &'static include_dir::File<'static>,
+    ) -> Result<(), Box<dyn std::error::Error>>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for file in dir.files() {
+        visit(file)?;
+    }
+
+    for subdir in dir.dirs() {
+        for_each_template(subdir, visit)?;
+    }
+
+    Ok(())
+}
+
 fn copy_templates(
-    dir: &Dir,
+    dir: &'static Dir<'static>,
     app_dir: &Path,
     app_name: &str,
     title: &str,
     nive_dep: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    for file in dir.files() {
-        let relative_path = file.path();
-        let target_relative = relative_path.to_string_lossy().replace(".template", "");
+    for_each_template(dir, &mut |file| {
+        let target_relative = target_relative_path(file);
         let target_path = app_dir.join(&target_relative);
 
         if let Some(parent) = target_path.parent() {
             fs::create_dir_all(parent)?;
         }
 
-        let content = file.contents_utf8().unwrap_or("");
-        let content = content.replace("{{app_name}}", app_name);
-        let content = content.replace("{{app_name_title}}", title);
-        let content = content.replace("{{nive_dep}}", nive_dep);
-
-        fs::write(&target_path, content)?;
+        fs::write(
+            &target_path,
+            render_template(file, app_name, title, nive_dep),
+        )?;
         println!("  Created {}", target_relative);
-    }
 
-    for subdir in dir.dirs() {
-        copy_templates(subdir, app_dir, app_name, title, nive_dep)?;
-    }
-
-    Ok(())
+        Ok(())
+    })
 }
 
 pub fn run(
@@ -114,7 +151,20 @@ pub fn run(
     rev: Option<&str>,
     branch: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let app_dir = Path::new(name);
+    let parent = std::env::current_dir()?;
+    run_in_dir(&parent, name, dashboard, git, tag, rev, branch)
+}
+
+pub(super) fn run_in_dir(
+    parent: &Path,
+    name: &str,
+    dashboard: bool,
+    git: Option<&str>,
+    tag: Option<&str>,
+    rev: Option<&str>,
+    branch: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let app_dir = &parent.join(name);
 
     if app_dir.exists() {
         return Err(format!("Directory already exists: {}", app_dir.display()).into());
@@ -123,11 +173,7 @@ pub fn run(
     let nive_dep = build_nive_dep(git, tag, rev, branch, dashboard)?;
 
     let title = to_title_case(name);
-    let templates = if dashboard {
-        &DASHBOARD_TEMPLATES
-    } else {
-        &BASIC_TEMPLATES
-    };
+    let templates = templates_for(dashboard);
 
     println!(
         "Creating new Nive app: {} ({})",
@@ -138,6 +184,10 @@ pub fn run(
     fs::create_dir_all(app_dir)?;
 
     copy_templates(templates, app_dir, name, &title, &nive_dep)?;
+
+    if let Some(report) = register_member(app_dir)?.report() {
+        println!("{report}");
+    }
 
     println!("\nSuccess! Created {} at {}", name, app_dir.display());
     println!("\nNext steps:");

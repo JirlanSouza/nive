@@ -21,6 +21,7 @@ time = "0.3"
 tokio = "1"
 iced = { version = "0.14", features = ["tokio", "svg", "advanced", "canvas"] }
 toml = "0.8.2"
+toml_edit = "0.22"
 clap = { version = "4", features = ["derive"] }
 include_dir = "0.7"
 unicode-segmentation = "1"

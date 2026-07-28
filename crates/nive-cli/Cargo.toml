@@ -26,6 +26,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tar = "0.4"
 toml = { workspace = true }
+toml_edit = { workspace = true }
 ureq = "3"
 
 [dev-dependencies]

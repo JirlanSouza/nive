@@ -12,7 +12,8 @@ A Rust/Iced framework for building desktop applications.
 - **Anchored Popup Controls**: Collision-safe Tooltip/Popover, typed Menu,
   Select, and Autocomplete composition with one shared logical-focus root
 - **Icon Management**: Theme-owned icon roles, app symbols, and provider-neutral `nive icons` CLI
-- **Scaffolding**: `nive new` CLI for quick project setup
+- **Scaffolding**: `nive new` to start a project, `nive init` to add Nive to one
+  you already have
 
 ## Quick Start
 
@@ -30,6 +31,20 @@ cd my-app
 cargo build
 cargo run
 ```
+
+Creating the app inside an existing Cargo workspace is fine — it is registered as
+a member for you, so the first `cargo build` works.
+
+To add Nive to a crate you already have, run `nive init` in it instead:
+
+```bash
+cd my-existing-crate
+nive init --git https://github.com/JirlanSouza/nive --tag v0.1.0-alpha.1
+```
+
+It adds the dependency, sets up the icon workflow, and fills in whatever
+boilerplate is missing. It never overwrites a file you wrote — anything it
+skips is listed in the output.
 
 > **crates.io (final release):** `cargo install nive-cli` and `nive = "0.1"` will be
 > the install path after the v0.1.0 crates.io publication.
