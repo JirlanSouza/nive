@@ -101,11 +101,15 @@ where
         self
     }
 
+    /// The stack is built whether or not there are toasts to put in it.
+    ///
+    /// Returning bare `content` while empty would make the first toast change
+    /// the shape of the tree, not just what is painted. Both wrappers are
+    /// stateless, so `Tree::diff` compares `Tag::stateless()` on each side,
+    /// concludes nothing changed, and zips children belonging to different
+    /// widgets — shifting every slot below by one level and discarding the
+    /// screen's focus, scroll, and pressed state as a toast pops up.
     pub fn into_element(mut self) -> Element<'a, Message> {
-        if self.items.is_empty() {
-            return self.content;
-        }
-
         // Newest item is always first in `self.items` (nearest the origin).
         // For a bottom origin the newest must land closest to the bottom
         // edge, so the visual column is built oldest-first; for a top

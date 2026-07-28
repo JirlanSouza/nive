@@ -192,6 +192,109 @@ mod identity {
         harness.draw();
     }
 
+    /// Content with typed widget state below a stateless wrapper — the shape of
+    /// a real screen, and what the mis-zip below has to land on to be caught.
+    fn stateful_content() -> Element<'static, &'static str> {
+        iced::widget::container(iced::widget::row![
+            button::primary("One")
+                .id(iced::widget::Id::new("one"))
+                .on_press("one"),
+            button::secondary("Two")
+                .id(iced::widget::Id::new("two"))
+                .on_press("two"),
+        ])
+        .into()
+    }
+
+    fn host_with_toast_count(count: usize) -> Element<'static, &'static str> {
+        let toasts: &'static [FakeToast] =
+            (0..count as u64).map(FakeToast).collect::<Vec<_>>().leak();
+
+        ToastHost::new(stateful_content())
+            .toasts(
+                toasts.iter(),
+                |_id: u64| "dismiss",
+                |_toast: &FakeToast| None,
+            )
+            .into()
+    }
+
+    /// `ToastHost::into_element` returns bare `content` when there are no
+    /// toasts and `stack![content, overlay]` when there are any, so the first
+    /// toast changes the shape of the tree rather than only what is painted.
+    /// Both wrappers are stateless, so `Tree::diff` sees `Tag::stateless()` on
+    /// each side, concludes nothing changed, and zips children belonging to
+    /// different widgets — every slot below shifts by one level.
+    ///
+    /// A toast arriving is not an interaction with the screen behind it, so
+    /// nothing there may move.
+    #[test]
+    fn a_toast_arriving_does_not_disturb_the_screen_behind_it() {
+        let mut harness = WidgetHarness::new(host_with_toast_count(0), Size::new(400.0, 300.0));
+        harness.focus_next();
+        let focused = harness.focusable_ids();
+        assert_eq!(
+            harness.focused_widgets(),
+            1,
+            "sanity: a control in the content is focused"
+        );
+
+        harness.replace(host_with_toast_count(1));
+
+        assert_eq!(
+            harness.focused_widgets(),
+            1,
+            "focus in the content survives a toast appearing"
+        );
+        assert_eq!(
+            harness.focusable_ids(),
+            focused,
+            "the content's controls keep their identity"
+        );
+    }
+
+    /// The stable shape costs an always-present full-size overlay above the
+    /// content. It must stay transparent to input: an idle screen with no
+    /// toasts has to behave exactly as if the host were not there.
+    #[test]
+    fn an_empty_overlay_does_not_intercept_the_content() {
+        let mut harness = WidgetHarness::new(host_with_toast_count(0), Size::new(400.0, 300.0));
+
+        let first = harness.focusable_ids()[0].clone();
+        let target = harness
+            .focusable_bounds(&first)
+            .expect("the content's first control has bounds");
+        harness.set_cursor(target.center());
+
+        let messages = harness
+            .update(Event::Mouse(mouse::Event::ButtonPressed(
+                mouse::Button::Left,
+            )))
+            .messages;
+        let released = harness
+            .update(Event::Mouse(mouse::Event::ButtonReleased(
+                mouse::Button::Left,
+            )))
+            .messages;
+
+        assert!(
+            messages.iter().chain(released.iter()).any(|m| *m == "one"),
+            "a click on the content must reach it, got {messages:?} then {released:?}"
+        );
+    }
+
+    #[test]
+    fn the_first_and_last_toast_do_not_reshape_the_tree() {
+        let mut harness = WidgetHarness::new(host_with_toast_count(0), Size::new(400.0, 300.0));
+        harness.draw();
+
+        harness.replace(host_with_toast_count(3));
+        harness.draw();
+
+        harness.replace(host_with_toast_count(0));
+        harness.draw();
+    }
+
     fn host_with_pause(ids: [u64; 3]) -> Element<'static, &'static str> {
         let toasts: &'static [FakeToast] =
             ids.into_iter().map(FakeToast).collect::<Vec<_>>().leak();
