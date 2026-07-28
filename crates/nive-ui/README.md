@@ -304,20 +304,26 @@ not yet imply native AccessKit name/relationship emission.
   independently from durable selection. Tree renders every expanded-visible
   row and does not virtualize the viewport.
 
-## Usage (monorepo path dependency)
+## Usage
+
+Applications depend on the `nive` umbrella crate, not on `nive-ui` directly:
 
 ```toml
 [dependencies]
-nive-ui = { path = "../nive-ui" }
+nive = { git = "https://github.com/JirlanSouza/nive", tag = "v0.1.0-alpha.1" }
 ```
 
 ```rust
-use nive_ui::prelude::*;
+use nive::prelude::*;
 ```
+
+Depending on `nive-ui` alone is for crates that build widgets rather than
+applications, and gives up the runtime, window management, and feedback layers.
 
 ## Status
 
-Part of Nive **v0.1.0**, a beta release. Public APIs may change before 1.0.
+Part of Nive **v0.1.0-alpha.1**, a pre-crates.io alpha. Public APIs break
+between alphas.
 
 The full `missing_docs` long tail (per-field and per-method docs across the
 widget catalog) is not yet complete and is tracked as post-v0.1 work.

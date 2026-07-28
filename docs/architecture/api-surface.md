@@ -1,18 +1,18 @@
-# Superfície de API
+# API Surface
 
-O contrato que um app implementa, como a superfície pública é organizada em *prelude tiers*,
-e quais APIs ficam atrás de feature flags.
+The contract an app implements, how the public surface is layered into *prelude
+tiers*, and which APIs sit behind feature flags.
 
-> Este arquivo descreve a superfície existente. As decisões de contrato alvo
-> pré-publicação, renomeações e remoções ficam em
+> This file describes the surface that exists. Target-contract decisions for
+> before publication — renames and removals — live in
 > [`api-target.md`](api-target.md).
 
 ---
 
-## 1. Prelude tiers (importação estável em camadas)
+## 1. Prelude tiers (stable layered imports)
 
-A superfície é estratificada para que um app simples compile com um único `use`, e apps
-maiores subam de tier sob demanda.
+The surface is stratified so a simple app compiles with a single `use`, and
+larger apps move up a tier when they need to.
 
 ```mermaid
 flowchart TD
@@ -20,53 +20,58 @@ flowchart TD
     appui(["use nive::prelude::ui::*"]) --> extended
 
     subgraph tiers["nive::prelude"]
-        minimal["**tier mínimo** (template-stable)<br/>Application · Effect · MessageContext · MessageSource · Context · run · ScreenView<br/>Toast · ToastPosition · Theme · ThemeBuilder · ThemeController · ThemePreference · ThemeMode<br/>ShortcutMap · Action · ActionMap · RuntimeEvent · DiagnosticEventLog<br/>WindowSpec · WindowRole · WindowCardinality · WindowCommand · CloseDecision · ExitDecision · Size/Point"]
-        extended["**tier estendido (ui)** = mínimo +<br/>Resource · Operation · OperationRegistry<br/>DialogRequest · WindowHandle · WindowRegistry · WindowMode<br/>UserFacingError · BootstrapSpec · BrandContent<br/>ToastDuration · ScreenEffect"]
+        minimal["**minimal tier** (template-stable)<br/>Application · Effect · MessageContext · MessageSource · Context · run · ScreenView<br/>Toast · ToastPosition · Theme · ThemeBuilder · ThemePalette · ThemeController · ThemePreference · ThemeMode<br/>ShortcutMap · Action · ActionMap · RuntimeEvent · DiagnosticEventLog<br/>WindowSpec · WindowRole · WindowCardinality · WindowCommand · CloseDecision · ExitDecision · Size/Point"]
+        extended["**extended tier (ui)** = minimal +<br/>Resource · Operation · OperationRegistry<br/>DialogRequest · WindowHandle · WindowRegistry · WindowMode<br/>UserFacingError · BootstrapSpec · BrandContent<br/>ToastDuration · ScreenEffect"]
         extended --> minimal
     end
 
     minimal --> uiprelude["+ nive_ui::prelude::* (Element, layout, widgets) + Icon"]
-    extended -.feature file-picker.-> fp["FileFilter · PickFileParams · SaveFileParams"]
+    extended -.file-picker feature.-> fp["FileFilter · PickFileParams · SaveFileParams"]
 ```
 
-**Regra:** o template do `nive new` (counter) compila só com o tier mínimo — que já inclui
-toasts básicos (`Toast`), theming (`Theme`/`ThemeBuilder`/`ThemeController`), atalhos
-(`ShortcutMap`), ações, eventos de runtime (`RuntimeEvent`) e a *declaração* de janelas
-(`WindowSpec`/`WindowRole`). Troque para `nive::prelude::ui::*` ao usar **estado async**
-(`Resource`/`Operation`), **dialogs**, **`UserFacingError`**, **bootstrap/splash**
-(`BootstrapSpec`/`BrandContent`), **handles de janela em runtime**
-(`WindowHandle`/`WindowRegistry`/`WindowMode`), **`ToastDuration`** ou **params de file-picker**.
+**The rule:** the `nive new` template (a counter) compiles on the minimal tier
+alone — which already carries basic toasts (`Toast`), theming
+(`Theme`/`ThemeBuilder`/`ThemePalette`/`ThemeController`), shortcuts
+(`ShortcutMap`), actions, runtime events (`RuntimeEvent`), and window
+*declaration* (`WindowSpec`/`WindowRole`). Move to `nive::prelude::ui::*` for
+**async state** (`Resource`/`Operation`), **dialogs**, **`UserFacingError`**,
+**bootstrap/splash** (`BootstrapSpec`/`BrandContent`), **runtime window handles**
+(`WindowHandle`/`WindowRegistry`/`WindowMode`), **`ToastDuration`**, or
+**file-picker params**.
+
+A tier that exports a builder exports every type that builder's methods accept,
+so an app never has to reach past `nive` to call one.
 
 ---
 
-## 2. Módulos runtime por área
+## 2. Runtime modules by area
 
-Além dos preludes, `nive-runtime` expõe módulos públicos por área para consumidores
-diretos da camada runtime:
+Besides the preludes, `nive-runtime` exposes public modules per area for direct
+consumers of the runtime layer:
 
-| Módulo | Papel |
-|--------|-------|
-| `nive_runtime::application` | Contrato `Application`, `ApplicationConfig`, `Context`, `Effect`, `MessageContext`, eventos de runtime e runner público. |
-| `nive_core::actions` | `Action`, `ActionId`, `ActionMap` e atalhos neutros compartilhados. |
-| `nive_runtime::input` | Atalhos e navegação por teclado. |
-| `nive_runtime::lifecycle` | Bootstrap, decisões de close/exit, `WindowCommand`, specs e registry de janelas. |
-| `nive_runtime::state` | `Resource`, `Operation`, `OperationRegistry`, `RequestId`, `Settled` e helpers de tempo. |
-| `nive_runtime::feedback` | `Toast`, `ToastState`, `UserFacingError` e tipos relacionados. |
-| `nive_runtime::screen` | `ScreenView`, `ScreenEffect` e contratos de dialog. |
-| `nive_runtime::settings` | `SettingsConfig`, `RuntimeSession` e sessão de janelas. |
-| `nive_runtime::support` | Diagnósticos, panic hook e runtime event log. |
+| Module | Role |
+|--------|------|
+| `nive_runtime::application` | The `Application` contract, `ApplicationConfig`, `Context`, `Effect`, `MessageContext`, runtime events, and the public runner. |
+| `nive_core::actions` | `Action`, `ActionId`, `ActionMap`, and the shared neutral shortcuts. |
+| `nive_runtime::input` | Shortcuts and keyboard navigation. |
+| `nive_runtime::lifecycle` | Bootstrap, close/exit decisions, `WindowCommand`, window specs and registry. |
+| `nive_runtime::state` | `Resource`, `Operation`, `OperationRegistry`, `RequestId`, `Settled`, and time helpers. |
+| `nive_runtime::feedback` | `Toast`, `ToastState`, `UserFacingError`, and related types. |
+| `nive_runtime::screen` | `ScreenView`, `ScreenEffect`, and the dialog contracts. |
+| `nive_runtime::settings` | `SettingsConfig`, `RuntimeSession`, and the window session. |
+| `nive_runtime::support` | Diagnostics, the panic hook, and the runtime event log. |
 
-O crate root continua como conveniência beta. Apps devem preferir `nive::prelude::*`,
-`nive::prelude::ui::*` ou os módulos por área acima quando quiserem imports mais
-explícitos. Helpers de runner, como abertura direta de janela Iced, permanecem internos;
-apps emitem `WindowCommand` por `Effect`.
+The crate root remains an alpha convenience. Apps should prefer
+`nive::prelude::*`, `nive::prelude::ui::*`, or the per-area modules above when
+they want more explicit imports. Runner helpers such as opening an Iced window
+directly stay internal; apps emit `WindowCommand` through `Effect`.
 
 ---
 
-## 3. O contrato `Application`
+## 3. The `Application` contract
 
-Quatro métodos obrigatórios; o resto tem default. O runtime nunca depende de tipos de
-domínio — clientes/serviços entram via `Bootstrap` em `init`.
+Four required methods; everything else has a default. The runtime never depends
+on domain types — clients and services arrive through `Bootstrap` in `init`.
 
 ```mermaid
 classDiagram
@@ -92,21 +97,22 @@ classDiagram
         <<marker trait>>
     }
     Application <|-- SimpleApplication : blanket impl
-    note for Application "Tipos associados Message/Window/Bootstrap (ou unit). Obrigatorios: config, init, update, view. O resto tem default."
+    note for Application "Associated types Message/Window/Bootstrap (or unit). Required: config, init, update, view. Everything else has a default."
 ```
 
-- **`type Window = ()`** → app de janela única (auto-registra `WindowSpec::app()`).
-- **`type Bootstrap = ()`** → sem splash, init imediato.
-- **`SimpleApplication`** é um marcador automático (blanket impl) — apps nunca o implementam
-  à mão; existe porque defaults de tipo associado são instáveis no Rust stable.
+- **`type Window = ()`** → a single-window app (auto-registers `WindowSpec::app()`).
+- **`type Bootstrap = ()`** → no splash, immediate init.
+- **`SimpleApplication`** is an automatic marker (blanket impl) — apps never
+  implement it by hand. It exists because associated-type defaults are unstable
+  on stable Rust.
 
 ---
 
-## 4. `Effect` — composição de efeitos
+## 4. `Effect` — composing effects
 
-O valor de retorno dos hooks. Combina um `Task` async e comandos de runtime ordenados,
-construídos com construtores diretos (`Effect::task`, `Effect::toast`, ...) e combinadores
-`with_*` para compor múltiplos efeitos.
+The return value of the hooks. It combines an async `Task` with ordered runtime
+commands, built through direct constructors (`Effect::task`, `Effect::toast`, …)
+and `with_*` combinators for composing several effects.
 
 ```mermaid
 classDiagram
@@ -126,61 +132,62 @@ classDiagram
         +with_exit()
     }
     class RuntimeCommand {
-        <<enumeration, interno>>
+        <<enumeration, internal>>
         Toast
         Window
         Theme
         Exit
     }
     Effect o-- RuntimeCommand : runtime[]
-    note for Effect "Effect[M, K = Never]; sem eixo de outcome (outcome tipado de tela/componente vive em ScreenEffect). RuntimeCommand nao e reexportado — apps constroem efeitos via Effect."
+    note for Effect "Effect[M, K = Never]; no outcome axis (a screen or component's typed outcome lives in ScreenEffect). RuntimeCommand is not re-exported — apps build effects through Effect."
 ```
 
-Exemplo de uso direto:
+Direct use:
 
 ```rust
 Effect::task(self.users.load(fetch_users(), Msg::UsersSettled))
-    .with_toast(Toast::success("Salvo"))
+    .with_toast(Toast::success("Saved"))
     .with_window(WindowCommand::Open(Window::Details));
 ```
 
 ---
 
-## 5. Feature flags & modularidade
+## 5. Feature flags and modularity
 
 ```mermaid
 flowchart LR
-    subgraph core["default — core mínimo (zero opt-in)"]
+    subgraph core["default — minimal core (nothing to opt into)"]
         direction TB
         c1["design system + 40 widgets"]
-        c2["Application · lifecycle · multi-janela"]
+        c2["Application · lifecycle · multi-window"]
         c3["Resource/Operation · feedback · settings"]
-        c4["atalhos · navegação por teclado · command palette"]
+        c4["shortcuts · keyboard navigation · command palette"]
     end
     subgraph opt["opt-in"]
         direction TB
-        f1["**devtools**<br/>painel + #[derive(Inspect)] + simuladores"]
+        f1["**devtools**<br/>the panel + #[derive(Inspect)] + simulators"]
         f2["**file-picker**<br/>pick_file/files/folder · save_file (rfd)"]
     end
 
-    nive["nive (umbrella)"] -->|forward| f1
-    nive -->|forward| f2
+    nive["nive (umbrella)"] -->|forwards| f1
+    nive -->|forwards| f2
 
     classDef todo fill:#fff3cd,stroke:#cc9a06,color:#663c00;
     t1["tables (roadmap)"]:::todo
     t2["charts (roadmap)"]:::todo
     t3["i18n (roadmap)"]:::todo
-    opt -.futuro.-> t1 & t2 & t3
+    opt -.future.-> t1 & t2 & t3
 ```
 
-| Feature | Status | Expõe |
-|---------|--------|-------|
-| `devtools` | ✅ | `devtools`, `run_with_devtools`, `Inspect`, simuladores |
+| Feature | Status | Exposes |
+|---------|--------|---------|
+| `devtools` | ✅ | `devtools`, `run_with_devtools`, `Inspect`, the simulators |
 | `file-picker` | ✅ | `pick_*`, `save_file`, `FileFilter`, `PickFileParams`, `SaveFileParams` |
-| `tables`, `charts`, `i18n` | ⬜ roadmap | (ver [`../roadmap.md`](../roadmap.md)) |
+| `tables`, `charts`, `i18n` | ⬜ roadmap | (see [`../roadmap.md`](../roadmap.md)) |
 
-**Estabilidade:** os prelude tiers são o contrato atual de app, mas ainda podem receber
-breaking changes pré-publicação conforme [`api-target.md`](api-target.md). APIs feature-gated
-(devtools/inspect) permanecem beta até 1.0. Restrição a `unsafe` honrada — 2 ocorrências: o
-FFI objc2 do ícone de app (`platform/app_icon.rs`) e um `transmute_copy` da janela-unit no
-program runner (`application/program.rs`).
+**Stability:** the prelude tiers are the current app contract, and can still take
+breaking changes before publication per [`api-target.md`](api-target.md).
+Feature-gated APIs (devtools/inspect) stay unstable until 1.0. The `unsafe`
+restriction holds — two occurrences: the objc2 FFI for the app icon
+(`platform/app_icon.rs`) and a unit-window `transmute_copy` in the program runner
+(`application/program.rs`).

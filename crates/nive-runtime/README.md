@@ -44,17 +44,19 @@ its core-owned action and shortcut contracts.
 | `devtools`   | off     | Enables the optional devtools layer, `run_with_devtools`, and `#[derive(Inspect)]` traversal from `nive-runtime-derive`. The most experimental part of Nive. |
 | `file-picker`| off     | Enables `pick_file`, `pick_files`, `pick_folder`, and `save_file` backed by `rfd`. |
 
-## Usage (monorepo path dependency)
+## Usage
+
+Applications depend on the `nive` umbrella crate, which forwards these features:
 
 ```toml
 [dependencies]
-nive-runtime = { path = "../nive-runtime" }
+nive = { git = "https://github.com/JirlanSouza/nive", tag = "v0.1.0-alpha.1" }
 # optional capabilities:
-# nive-runtime = { path = "../nive-runtime", features = ["devtools", "file-picker"] }
+# nive = { git = "...", tag = "v0.1.0-alpha.1", features = ["devtools", "file-picker"] }
 ```
 
 ```rust
-use nive_runtime::prelude::*;
+use nive::prelude::*;
 ```
 
 See `docs/` for contract details on the application, lifecycle, settings and
@@ -88,7 +90,7 @@ helpers directly.
 
 ## Status
 
-Part of Nive **v0.1.0**, a beta release. Public APIs may change before 1.0.
+Part of Nive **v0.1.0-alpha.1**, a pre-crates.io alpha. Public APIs break between alphas.
 
 The `devtools` feature is the most experimental part of Nive. The full
 `missing_docs` long tail (per-field and per-method docs) is not yet complete and

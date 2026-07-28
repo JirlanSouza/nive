@@ -1,39 +1,39 @@
-# L2 — Diagrama de Contêineres (crates)
+# L2 — Container Diagram (crates)
 
-Os contêineres do Nive são os **crates** do workspace. Cada um é uma unidade compilável
-publicável no crates.io.
+Nive's containers are the workspace's **crates**. Each is a compilable unit
+publishable to crates.io.
 
 ```mermaid
 flowchart LR
     dev([App Developer])
 
-    subgraph nive["Workspace Nive"]
+    subgraph nive["Nive Workspace"]
         direction TB
-        umbrella["nive<br/>crate (umbrella)<br/>Re-exporta ui+runtime; define os prelude tiers estáveis; forwarda features devtools/file-picker"]
-        ui["nive-ui<br/>crate<br/>Design system: tokens, theme semântico por roles, 40+ widgets, hosts de overlay. Depende de iced e nive-core."]
-        rt["nive-runtime<br/>crate<br/>Application/Effect, lifecycle, multi-janela, máquinas de estado async, feedback, settings, devtools"]
-        core["nive-core<br/>crate<br/>Contratos de apresentação neutros (erro, toast, status). Zero dependências."]
-        derive["nive-runtime-derive<br/>proc-macro crate<br/>#[derive(Inspect)] para travessia de estado nos devtools"]
-        cli["nive-cli<br/>binary crate<br/>nive new (scaffold, com --dashboard) e nive icons (manifest provider-neutral)"]
+        umbrella["nive<br/>crate (umbrella)<br/>Re-exports ui+runtime; defines the stable prelude tiers; forwards the devtools/file-picker features"]
+        ui["nive-ui<br/>crate<br/>Design system: tokens, a semantic role-based theme, 40+ widgets, overlay hosts. Depends on iced and nive-core."]
+        rt["nive-runtime<br/>crate<br/>Application/Effect, lifecycle, multi-window, async state machines, feedback, settings, devtools"]
+        core["nive-core<br/>crate<br/>Neutral presentation contracts (error, toast, status). Zero dependencies."]
+        derive["nive-runtime-derive<br/>proc-macro crate<br/>#[derive(Inspect)] for devtools state traversal"]
+        cli["nive-cli<br/>binary crate<br/>nive new (scaffold, with --dashboard), nive init (adopt), and nive icons (provider-neutral manifest)"]
     end
 
-    iced["Iced 0.14<br/>Runtime GUI / wgpu"]
-    rfd["rfd / objc2 / winres<br/>FFI de plataforma (feature-gated)"]
-    icon_providers["Icon providers<br/>Lucide via ureq/cache e SVGs custom locais"]
+    iced["Iced 0.14<br/>GUI runtime / wgpu"]
+    rfd["rfd / objc2 / winres<br/>Platform FFI (feature-gated)"]
+    icon_providers["Icon providers<br/>Lucide over ureq/cache, and local custom SVGs"]
 
     dev -->|use nive::prelude::*| umbrella
-    umbrella -->|re-exporta| ui
-    umbrella -->|re-exporta| rt
-    rt -->|depende (re-exporta APIs estáveis)| ui
-    rt -->|usa<br/>Inspect| derive
-    rt -->|depende (contratos de apresentação)| core
-    ui -->|depende (contratos de apresentação)| core
-    ui -->|depende| iced
-    rt -->|depende| iced
+    umbrella -->|re-exports| ui
+    umbrella -->|re-exports| rt
+    rt -->|depends on, re-exporting its stable APIs| ui
+    rt -->|uses<br/>Inspect| derive
+    rt -->|depends on presentation contracts| core
+    ui -->|depends on presentation contracts| core
+    ui -->|depends on| iced
+    rt -->|depends on| iced
     rt -->|platform/ (file-picker, app_icon)| rfd
     dev -->|cargo install nive-cli| cli
-    cli -->|nive icons compila refs de| icon_providers
-    cli -->|gera projetos que dependem de<br/>templates| umbrella
+    cli -->|nive icons compiles refs from| icon_providers
+    cli -->|generates projects depending on<br/>templates| umbrella
 
     classDef person fill:#f7f7f7,stroke:#666,color:#222;
     classDef container fill:#e8f1ff,stroke:#4b77be,color:#111;
@@ -43,9 +43,10 @@ flowchart LR
     class iced,rfd,icon_providers external;
 ```
 
-## Grafo de dependências (compilação)
+## Dependency graph (compilation)
 
-Camadas estritas, sem ciclos. `nive-ui` é a camada mais baixa e **não conhece** o runtime.
+Strict layers, no cycles. `nive-ui` is the lowest layer and **knows nothing**
+about the runtime.
 
 ```mermaid
 flowchart BT
@@ -55,7 +56,7 @@ flowchart BT
     ui["nive-ui<br/><i>→ iced, core</i>"]
     rt["nive-runtime<br/><i>→ ui, core, derive, iced</i><br/>serde · tokio · log · rfd?"]
     umbrella["nive (umbrella)<br/><i>→ ui, rt</i>"]
-    cli["nive-cli<br/><i>standalone</i><br/>clap · include_dir · toml · ureq"]
+    cli["nive-cli<br/><i>standalone</i><br/>clap · include_dir · toml · toml_edit · ureq"]
 
     ui --> iced
     ui --> core
@@ -70,19 +71,23 @@ flowchart BT
     class iced ext;
 ```
 
-## Notas
+## Notes
 
-| Crate | Papel | Features | Observação |
-|-------|-------|----------|------------|
-| `nive-core` | Contratos de apresentação | `default = []` | Camada mais baixa; **zero dependências**, nem `iced` |
-| `nive-ui` | Design system | `default = []` | Camada base de UI; depende de `iced` e `nive-core` |
-| `nive-runtime` | Runtime/lifecycle | `devtools`, `file-picker` | Cola tudo; re-exporta APIs estáveis de `nive-ui` e implementa os contratos de `nive-core` |
-| `nive-runtime-derive` | Proc-macro | `devtools` | `#[derive(Inspect)]`; vira no-op sem a feature |
-| `nive` | Umbrella + prelude | `devtools`, `file-picker` (forward) | Superfície estável recomendada para apps |
-| `nive-cli` | Ferramenta de DX | — | **Não** depende dos crates do framework; gera/baixa via templates e rede |
+| Crate | Role | Features | Note |
+|-------|------|----------|------|
+| `nive-core` | Presentation contracts | `default = []` | Lowest layer; **zero dependencies**, not even `iced` |
+| `nive-ui` | Design system | `default = []` | Base UI layer; depends on `iced` and `nive-core` |
+| `nive-runtime` | Runtime/lifecycle | `devtools`, `file-picker` | The glue; re-exports `nive-ui`'s stable APIs and implements `nive-core`'s contracts |
+| `nive-runtime-derive` | Proc macro | `devtools` | `#[derive(Inspect)]`; becomes a no-op without the feature |
+| `nive` | Umbrella + prelude | `devtools`, `file-picker` (forwarded) | The stable surface applications should depend on |
+| `nive-cli` | DX tool | — | Does **not** depend on the framework crates; scaffolds and fetches through templates and the network |
 
-- **`nive-cli` é desacoplado:** scaffolda projetos por templates embutidos (`include_dir`) e
-  compila `icons.toml` em módulos/assets checados. Não linka contra
-  `nive`/`nive-ui`/`nive-runtime`.
-- O flag **`nive new --dashboard`** já existe na CLI — gera uma variante de app voltada a
-  dashboard (ponto de partida natural para os exemplos densos do roadmap).
+- **`nive-cli` is decoupled:** it scaffolds projects from embedded templates
+  (`include_dir`) and compiles `icons.toml` into checked modules and assets. It
+  does not link against `nive`, `nive-ui`, or `nive-runtime` — which is why it
+  derives `IconRole` variants from role names rather than holding a table of
+  them: the code it generates is compiled against whichever `nive` the app
+  depends on, not against the CLI's own build.
+- **`nive new --dashboard`** generates a dashboard-shaped app variant, the natural
+  starting point for the roadmap's dense examples. **`nive init`** is the other
+  door: it adopts Nive in a crate that already exists.
