@@ -34,8 +34,15 @@ pub use roles::{
 };
 pub use scheme::{Theme, ThemeCatalog, ThemeData, ThemeId};
 pub use shape::{ShapeScale, ShapeSize, ShapeSpec};
-pub use spacing::{GapRole, PaddingRole, SpaceStep};
+pub use spacing::{GapRole, PaddingRole, SpaceStep, SpacingScale};
 pub use typography::{typography, TextStyle, TypographyRole, TypographyScale};
+
+/// The six colors an application supplies. Every semantic color — surface,
+/// border, control, and tone — is derived from these, never set directly.
+///
+/// Re-exported under a qualified name because a bare `Palette` sits next to
+/// `CommandPalette` in the prelude and reads as the wrong thing.
+pub use iced::theme::Palette as ThemePalette;
 
 pub use crate::tokens::color::{format_hex_color, format_rgb_hex_color, hex, parse_hex_color};
 

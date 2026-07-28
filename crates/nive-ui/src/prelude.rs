@@ -8,7 +8,7 @@ pub use crate::animation::{
     AnimatedLayout, AnimatedVisual, Animation, AnimationFrame, Easing, StaggeredPulse,
 };
 pub use crate::icons::{IconCatalog, IconCatalogEntry, IconGlyph, IconRef, IconRole, IconSource};
-pub use crate::theme::{self, ThemePreference};
+pub use crate::theme::{self, ThemePalette, ThemePreference};
 pub use crate::widgets::primitives::{IconSize, Rotation};
 pub use crate::widgets::*;
 pub use crate::{
