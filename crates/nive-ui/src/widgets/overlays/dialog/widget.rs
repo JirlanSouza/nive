@@ -520,6 +520,42 @@ mod dialog_widget_tests {
         crate::test_support::layout(dialog.into(), max)
     }
 
+    /// `layout` measures the footer against a throwaway `Tree::new(&*footer)` to
+    /// reserve its height. That fresh tree is built from the footer's *current*
+    /// elements, which a previous narrow pass may have left truncated — so a
+    /// child tree can arrive describing a `Tooltip` while its fresh state says
+    /// nothing is truncated, and the unbounded measuring pass then lays a plain
+    /// `Text` against it.
+    ///
+    /// Reaching it needs the real resize path: `relayout` re-runs `layout` on
+    /// the retained tree with no `diff` in between.
+    #[test]
+    fn remeasuring_a_footer_after_a_narrow_pass_does_not_mismatch_its_child_trees() {
+        use crate::test_support::WidgetHarness;
+        use crate::widgets::overlays::dialog::footer::{
+            DialogAction, DialogActionFooter, DialogTerminalAction,
+        };
+
+        let dialog = || -> Element<'static, ()> {
+            Dialog::new(iced::widget::text("Body"))
+                .footer(DialogActionFooter::with_one(
+                    DialogAction::cancel("Discard every unsaved change", ()),
+                    DialogTerminalAction::primary("Save and close this document now", ()),
+                ))
+                .into()
+        };
+
+        let mut harness = WidgetHarness::new(dialog(), Size::new(900.0, 900.0));
+        harness.draw();
+
+        // Narrow first, so the action labels truncate and the footer's elements
+        // are left holding tooltip-wrapped content.
+        for width in [200.0, 900.0, 160.0, 900.0] {
+            harness.relayout(Size::new(width, 900.0));
+            harness.draw();
+        }
+    }
+
     #[test]
     fn header_seam_is_hidden_at_the_top_and_visible_once_scrolled() {
         assert!(!header_seam_visible(0.0));

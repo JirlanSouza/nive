@@ -32,6 +32,18 @@ struct State {
     truncated: bool,
 }
 
+impl State {
+    /// The state a freshly built tree starts in: the whole string, nothing
+    /// measured, nothing truncated.
+    fn untruncated(original: &str) -> Self {
+        Self {
+            projection: original.to_string(),
+            finite_width: None,
+            truncated: false,
+        }
+    }
+}
+
 pub(crate) struct MeasuredText<'a, Message> {
     original: Cow<'a, str>,
     strategy: EllipsisStrategy,
@@ -168,15 +180,18 @@ where
     }
 
     fn state(&self) -> tree::State {
-        tree::State::new(State {
-            projection: self.original.to_string(),
-            finite_width: None,
-            truncated: false,
-        })
+        tree::State::new(State::untruncated(&self.original))
     }
 
+    /// Built from what [`Widget::state`] describes, never from `self.content`.
+    ///
+    /// `layout` reassigns `self.content` as truncation comes and goes, so
+    /// building the child tree from it hands a fresh tree — whose state says
+    /// nothing is truncated — a child describing the tooltip-wrapped variant.
     fn children(&self) -> Vec<Tree> {
-        vec![Tree::new(&self.content)]
+        vec![Tree::new(
+            self.content_element(&State::untruncated(&self.original)),
+        )]
     }
 
     fn diff(&self, tree: &mut Tree) {
@@ -213,15 +228,18 @@ where
         );
 
         let state = tree.state.downcast_mut::<State>();
-        let was_truncated = state.truncated;
-        let changed = update_state(state, projection, finite_width);
+        update_state(state, projection, finite_width);
 
+        // Reconciled every pass rather than only when this widget's own state
+        // moved. The tree handed in is not always one this widget last laid out
+        // — `Dialog` measures its footer against a throwaway `Tree::new`, and
+        // `UserInterface::relayout` re-runs layout with no `diff` in between —
+        // so a delta against the previous pass says nothing about whether the
+        // child tree matches the element about to be laid out against it.
+        // `Tree::diff` rebuilds on a tag mismatch, which is exactly the
+        // truncated/untruncated swap between a bare `Text` and a tooltip.
         let content = self.content_element(state);
-        if was_truncated && !state.truncated {
-            tree.children[0] = Tree::new(&content);
-        } else if changed {
-            tree.children[0].diff(content.as_widget());
-        }
+        tree.children[0].diff(content.as_widget());
         self.content = content;
 
         let child_limits = finite_width.map_or(*limits, |width| limits.max_width(width));
@@ -633,14 +651,10 @@ fn fallback_projection(available_width: f32, measure: &mut impl FnMut(&str) -> f
     }
 }
 
-fn update_state(state: &mut State, projection: Projection, finite_width: Option<f32>) -> bool {
-    let changed = state.projection != projection.visible
-        || state.finite_width != finite_width
-        || state.truncated != projection.truncated;
+fn update_state(state: &mut State, projection: Projection, finite_width: Option<f32>) {
     state.projection = projection.visible;
     state.finite_width = finite_width;
     state.truncated = projection.truncated;
-    changed
 }
 
 #[cfg(test)]
@@ -759,16 +773,17 @@ mod tests {
         let mut state = State::default();
 
         let wide = project(original, EllipsisStrategy::Middle, 32.0, grapheme_width);
-        assert!(update_state(&mut state, wide, Some(32.0)));
+        update_state(&mut state, wide, Some(32.0));
+        assert_eq!(state.projection, original);
         assert_eq!(tooltip_source(&state, original), None);
 
         let narrow = project(original, EllipsisStrategy::Middle, 7.0, grapheme_width);
-        assert!(update_state(&mut state, narrow, Some(7.0)));
+        update_state(&mut state, narrow, Some(7.0));
         assert_eq!(tooltip_source(&state, original), Some(original));
         assert_ne!(state.projection, original);
 
         let restored = project(original, EllipsisStrategy::Middle, 32.0, grapheme_width);
-        assert!(update_state(&mut state, restored, Some(32.0)));
+        update_state(&mut state, restored, Some(32.0));
         assert_eq!(state.projection, original);
         assert_eq!(tooltip_source(&state, original), None);
     }
@@ -779,6 +794,30 @@ mod tests {
         let sub_ellipsis = project("x", EllipsisStrategy::End, 0.5, grapheme_width);
         assert!(sub_ellipsis.truncated);
         assert!(sub_ellipsis.visible.is_empty());
+    }
+
+    /// A window resize reaches widgets through `UserInterface::relayout`, which
+    /// re-runs `layout` against the retained tree **without** a `diff` pass.
+    /// Truncation flips the child from a bare `Text` to a `Tooltip`-wrapped one,
+    /// so every crossing of that threshold has to reconcile the child tree
+    /// inside `layout` itself — nothing else will do it.
+    #[test]
+    fn crossing_the_truncation_threshold_on_resize_keeps_the_child_tree_valid() {
+        let label = || -> Element<'static, ()> {
+            MeasuredText::new_inherited(
+                "A deliberately long constrained label",
+                EllipsisStrategy::End,
+                TypographyRole::ControlStrong,
+            )
+            .into()
+        };
+        let mut harness = WidgetHarness::new(label(), Size::new(800.0, 40.0));
+        harness.draw();
+
+        for width in [40.0, 800.0, 40.0, 24.0, 800.0] {
+            harness.relayout(Size::new(width, 40.0));
+            harness.draw();
+        }
     }
 
     #[test]
