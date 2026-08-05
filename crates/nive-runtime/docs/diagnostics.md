@@ -8,14 +8,14 @@ error reporting service.
 
 ## Public API
 
-- `RuntimeEvent` — one entry with `timestamp` (Unix seconds), `kind`
+- `DiagnosticEvent` — one entry with `timestamp` (Unix seconds), `kind`
   (`Info` / `Warning` / `Error` / `Panic`), `category` (a `Cow<'static,
   str>` like `"settings"`, `"window"`, `"panic"`), and `message`
   (also `Cow<'static, str>`).
-- `RuntimeEventLog` — `Arc<...>`-friendly ring buffer with a bounded
+- `DiagnosticEventLog` — `Arc<...>`-friendly ring buffer with a bounded
   capacity (default 256). `record` drops the oldest event when full.
   `recent(limit)` and `snapshot()` are the read paths.
-- `install_diagnostic_panic_hook(log: Arc<RuntimeEventLog>)` — captures
+- `install_diagnostic_panic_hook(log: Arc<DiagnosticEventLog>)` — captures
   the previously installed panic hook, installs a new hook that records
   the panic (with `file:line`) into the log and then calls the
   previous hook. The app can install additional diagnostic hooks
@@ -36,7 +36,7 @@ error reporting service.
   helper captures whatever hook was in place at that moment, so apps
   should call it after any earlier hook installation (for example, a
   custom logger).
-- `RuntimeEventLog` is `Send + Sync` (the inner `VecDeque` is guarded
+- `DiagnosticEventLog` is `Send + Sync` (the inner `VecDeque` is guarded
   by a `Mutex`). Apps that want lock-free logging can layer a
   channel-based collector on top; the runtime does not need to.
 
@@ -44,9 +44,12 @@ error reporting service.
 
 ```rust
 use std::sync::Arc;
-use nive_runtime::{install_diagnostic_panic_hook, RuntimeEventLog, DiagnosticSnapshot};
 
-let diagnostics = Arc::new(RuntimeEventLog::new());
+use nive_runtime::{
+    install_diagnostic_panic_hook, DiagnosticEventLog, DiagnosticSnapshot,
+};
+
+let diagnostics = Arc::new(DiagnosticEventLog::new());
 install_diagnostic_panic_hook(Arc::clone(&diagnostics));
 
 // "Copy diagnostics" button
@@ -76,8 +79,7 @@ std::fs::write("diagnostics.json", report).expect("write report");
 
 ```text
 rtk cargo fmt --package nive-runtime
-rtk cargo test -p nive-runtime
-rtk cargo check -p app-gui --all-targets
-rtk cargo test -p app-gui --test nive_contract
-rtk cargo test -p app-gui --features dev --test nive_contract
+rtk cargo check -p nive-runtime --all-targets --all-features
+rtk cargo test -p nive-runtime --all-features
+rtk just doc-check
 ```
