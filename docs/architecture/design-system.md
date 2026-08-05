@@ -152,8 +152,9 @@ only chooses which fills the state precedence draws from, never the precedence
 itself: selection resolves before the role, so the selected ladder is identical
 for all of them.
 
-> **Roadmap gap:** `tokens::color` is hex/RGB today. The migration to **OKLCH**
-> (M0) lands exactly at this token layer, without touching the role API above.
+> **Current gap:** `tokens::color` is hex/RGB today. A future **OKLCH**
+> implementation belongs at this token layer without touching the role API
+> above; delivery is tracked in the GitHub Project.
 
 ---
 
@@ -639,6 +640,7 @@ suggestion's value, not an index. `TabBar::on_select` delivers only the tab's id
 `TreeDrag::enabled()` and `TreeDrag::disabled()` are the documented exception,
 because they build configuration presets rather than mutable widget state.
 
-> **Roadmap gaps (Phase 2):** the catalogue covers general and dense apps *except*
-> the two heavy analytical widgets — a **virtualised table** and a **time-series
-> chart** — which arrive as the opt-in `tables` and `charts` features.
+> **Current gaps:** the catalogue covers general and dense apps *except* the two
+> heavy analytical widgets — a **virtualised table** and a **time-series chart**.
+> Their proposed opt-in `tables` and `charts` features are tracked in the GitHub
+> Project and are not part of the current API.

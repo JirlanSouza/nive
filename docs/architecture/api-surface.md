@@ -173,9 +173,9 @@ flowchart LR
     nive -->|forwards| f2
 
     classDef todo fill:#fff3cd,stroke:#cc9a06,color:#663c00;
-    t1["tables (roadmap)"]:::todo
-    t2["charts (roadmap)"]:::todo
-    t3["i18n (roadmap)"]:::todo
+    t1["tables (not implemented)"]:::todo
+    t2["charts (not implemented)"]:::todo
+    t3["i18n (not implemented)"]:::todo
     opt -.future.-> t1 & t2 & t3
 ```
 
@@ -183,7 +183,7 @@ flowchart LR
 |---------|--------|---------|
 | `devtools` | ✅ | `devtools`, `run_with_devtools`, `Inspect`, the simulators |
 | `file-picker` | ✅ | `pick_*`, `save_file`, `FileFilter`, `PickFileParams`, `SaveFileParams` |
-| `tables`, `charts`, `i18n` | ⬜ roadmap | (see [`../roadmap.md`](../roadmap.md)) |
+| `tables`, `charts`, `i18n` | Not implemented | Track delivery in the [Nive GitHub Project](https://github.com/users/JirlanSouza/projects/1) |
 
 **Stability:** the prelude tiers are the current app contract, and can still take
 breaking changes before publication per [`api-target.md`](api-target.md).

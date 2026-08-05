@@ -37,7 +37,7 @@ flowchart LR
   domain types; product clients and services are built during *bootstrap* and
   injected into `Application::init`.
 - **Two human consumers:** the *App Developer* (API and DX) and the *End User*
-  (the rendered UI). The roadmap balances both: DX for the developer, density and
+  (the rendered UI). Nive balances both: DX for the developer, density and
   performance for the user.
 - **Two doors in:** `nive new <name>` creates a project — registering it as a
   member when a workspace sits above it, without which Cargo refuses the build —

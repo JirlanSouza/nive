@@ -89,5 +89,5 @@ flowchart BT
   them: the code it generates is compiled against whichever `nive` the app
   depends on, not against the CLI's own build.
 - **`nive new --dashboard`** generates a dashboard-shaped app variant, the natural
-  starting point for the roadmap's dense examples. **`nive init`** is the other
-  door: it adopts Nive in a crate that already exists.
+  starting point for dense examples tracked in the GitHub Project. **`nive init`**
+  is the other door: it adopts Nive in a crate that already exists.

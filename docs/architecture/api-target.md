@@ -3,7 +3,7 @@
 This document records the target public contract for Nive apps before the first
 publication. It complements [`api-surface.md`](api-surface.md), which describes
 the surface that exists; here are the decisions that should steer breaking
-changes, templates, examples, and the next roadmap phases.
+changes, templates, examples, and future work.
 
 ## Principle
 
