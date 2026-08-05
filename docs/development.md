@@ -102,7 +102,24 @@ changes nothing.
 
 ## Architecture
 
-See [docs/agents/architecture.md](agents/architecture.md) for framework architecture.
+See the [architecture overview](architecture/README.md) for the workspace,
+crate boundaries, runtime flows, design system, and public API surface.
+
+## Code Style
+
+Follow default Rust formatting and run `just fmt` before finishing broad Rust
+edits. Keep imports grouped as standard library, external crates, then
+`super::`/`self::`/`crate::`, merging imports from the same path when practical.
+
+Use `snake_case` for files, modules, functions, and tests. Modules follow the
+`<name>.rs` plus `<name>/` layout; workspace Clippy lints reject `mod.rs`.
+Prefer splitting modules beyond roughly 300 to 350 lines and functions beyond
+roughly 150 lines when cohesive helpers or handlers exist. Keep trait
+implementations thin when method bodies can live in inherent implementations in
+sibling modules.
+
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for the complete contribution, commit,
+and pull-request guidelines.
 
 ## Migration (v0.1.0 contract changes)
 
@@ -267,6 +284,19 @@ Run tests for a specific crate:
 cargo test --package nive-ui
 cargo test --package nive-runtime
 ```
+
+Keep Rust tests close to the module they cover and use descriptive `snake_case`
+names without redundant `test_` prefixes. When a test module grows large, split
+it into a `*_tests.rs` entry point, a `support.rs` module for shared fixtures and
+assertions, and cohesive sibling modules. Do not use `mod.rs`.
+
+Add or update tests with every behavior change and scale coverage with risk:
+
+- icon manifests, source generation, path planning, and scaffolding need
+  offline tests or smoke coverage;
+- runtime, widget, and public API changes need focused unit,
+  compile-contract, or integration tests;
+- documentation-only and mechanical changes do not require new automated tests.
 
 ## Readiness Checks
 

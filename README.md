@@ -91,8 +91,9 @@ Building an app:
 
 Working on Nive itself:
 
+- [Contributing](CONTRIBUTING.md)
 - [Development Guide](docs/development.md)
-- [Contributor and agent context](docs/agents/architecture.md)
+- [Architecture](docs/architecture/README.md)
 
 ## Examples
 
@@ -118,14 +119,14 @@ Working on Nive itself:
 From the repository root:
 
 ```bash
-rtk just widget-gallery-dev
-rtk just example-dev forms
-rtk just example-dev workbench-monitor
+just widget-gallery-dev
+just example-dev forms
+just example-dev workbench-monitor
 
-rtk cargo test --manifest-path examples/widget-gallery/Cargo.toml
-rtk cargo test --manifest-path examples/forms/Cargo.toml
-rtk cargo test --manifest-path examples/workbench-monitor/Cargo.toml
-rtk just examples-check
+cargo test --manifest-path examples/widget-gallery/Cargo.toml
+cargo test --manifest-path examples/forms/Cargo.toml
+cargo test --manifest-path examples/workbench-monitor/Cargo.toml
+just examples-check
 ```
 
 The current anchored-overlay contract uses physical LTR Start/End alignment and
@@ -136,12 +137,11 @@ accessibility integration, but native accessibility-tree roles, names,
 expanded state, active-descendant relations, and announcements are not yet
 claimed.
 
-For manual validation, the implementing agent launches and keeps each app
-available. The user captures and attaches the named Light/Dark, density,
-open/focus, nested, narrow, and low-viewport screenshots. The agent reviews
-only those supplied images, lands corrections, and requests replacement images;
-manual sign-off remains incomplete until the user confirms the final evidence.
-The agent does not capture manual-validation screenshots.
+For manual validation, keep each app available while the reviewer captures the
+named Light/Dark, density, open/focus, nested, narrow, and low-viewport
+screenshots. Review the supplied images, apply corrections, and request
+replacement images when needed. Manual sign-off remains incomplete until the
+reviewer confirms the final evidence.
 
 ## Development
 

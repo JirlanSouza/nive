@@ -57,8 +57,8 @@ must map the canonical `validation-error` role while retaining `identity` and
 all other required roles. Regenerate and verify offline:
 
 ```sh
-rtk nive icons sync
-rtk nive icons check
+nive icons sync
+nive icons check
 ```
 
 Nive retains semantic names, labels, requirements and support metadata, but

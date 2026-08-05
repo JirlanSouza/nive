@@ -78,8 +78,8 @@ std::fs::write("diagnostics.json", report).expect("write report");
 ## Verification
 
 ```text
-rtk cargo fmt --package nive-runtime
-rtk cargo check -p nive-runtime --all-targets --all-features
-rtk cargo test -p nive-runtime --all-features
-rtk just doc-check
+cargo fmt --package nive-runtime
+cargo check -p nive-runtime --all-targets --all-features
+cargo test -p nive-runtime --all-features
+just doc-check
 ```

@@ -32,21 +32,21 @@ A responsive typed contact form with validation feedback and a confirmation dial
 ## How to run
 
 ```sh
-rtk just example-dev forms
+just example-dev forms
 ```
 
 Equivalent standalone run from the repository root:
 
 ```sh
-rtk cargo run --manifest-path examples/forms/Cargo.toml
+cargo run --manifest-path examples/forms/Cargo.toml
 ```
 
 Check it from the repository root:
 
 ```sh
-rtk cargo test --manifest-path examples/forms/Cargo.toml
-rtk cargo check --manifest-path examples/forms/Cargo.toml
-rtk just examples-check
+cargo test --manifest-path examples/forms/Cargo.toml
+cargo check --manifest-path examples/forms/Cargo.toml
+just examples-check
 ```
 
 Select and Autocomplete use the public Nive popup contracts without a second
@@ -55,11 +55,11 @@ Popup visuals are immediate; Start/End placement is physical LTR; and retained
 name/open/value/highlight metadata does not yet emit native accessibility-tree
 roles, names, expanded state, active-descendant relations, or announcements.
 
-For manual sign-off, the agent launches the dev command and keeps the app
-available. The user captures and attaches initial, Select open, Autocomplete
+For manual sign-off, keep the dev command running while the reviewer captures
+and attaches initial, Select open, Autocomplete
 Suggestions/Loading/Empty/retrieval-error, invalid submit, corrected typed
 choices, clear, Enter-without-highlight submit, pointer-before-blur, disabled/
 display-only, submitted, narrow, and low-viewport screenshots in representative
-Light/Dark densities. The agent reviews only those supplied images, applies
-corrections, and requests replacements; it does not capture screenshots itself.
-Sign-off remains open until the user confirms the final supplied evidence.
+Light/Dark densities. Review those images, apply corrections, and request
+replacements when needed. Sign-off remains open until the reviewer confirms the
+final supplied evidence.

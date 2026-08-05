@@ -183,7 +183,7 @@ flowchart LR
 |---------|--------|---------|
 | `devtools` | ✅ | `devtools`, `run_with_devtools`, `Inspect`, the simulators |
 | `file-picker` | ✅ | `pick_*`, `save_file`, `FileFilter`, `PickFileParams`, `SaveFileParams` |
-| `tables`, `charts`, `i18n` | Not implemented | Track delivery in the [Nive GitHub Project](https://github.com/users/JirlanSouza/projects/1) |
+| `tables`, `charts`, `i18n` | Not implemented | Not part of the current public API |
 
 **Stability:** the prelude tiers are the current app contract, and can still take
 breaking changes before publication per [`api-target.md`](api-target.md).
