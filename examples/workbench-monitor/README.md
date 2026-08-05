@@ -227,40 +227,39 @@ Dialog, and Toast are hosted through their real application paths.
 Run it:
 
 ```sh
-rtk just example-dev workbench-monitor
+just example-dev workbench-monitor
 ```
 
 Run it in deterministic frozen mode for review:
 
 ```sh
-rtk just workbench-monitor-frozen
+just workbench-monitor-frozen
 ```
 
 Equivalent standalone runs from the repository root:
 
 ```sh
-rtk cargo run --manifest-path examples/workbench-monitor/Cargo.toml
-NIVE_MONITOR_FROZEN=1 rtk cargo run --manifest-path examples/workbench-monitor/Cargo.toml
+cargo run --manifest-path examples/workbench-monitor/Cargo.toml
+NIVE_MONITOR_FROZEN=1 cargo run --manifest-path examples/workbench-monitor/Cargo.toml
 ```
 
 Check it:
 
 ```sh
-rtk cargo test --manifest-path examples/workbench-monitor/Cargo.toml
-rtk cargo check --manifest-path examples/workbench-monitor/Cargo.toml
-rtk just examples-check
+cargo test --manifest-path examples/workbench-monitor/Cargo.toml
+cargo check --manifest-path examples/workbench-monitor/Cargo.toml
+just examples-check
 ```
 
-For manual sign-off, the agent launches
-`rtk just workbench-monitor-frozen` and keeps
-it running so the review is frame-for-frame reproducible. The user captures and attaches Light/Dark screenshots at
+For manual sign-off, run `just workbench-monitor-frozen` and keep it available
+so the review is frame-for-frame reproducible. The reviewer captures and
+attaches Light/Dark screenshots at
 `1440x900`, `800x600`, and `1024x480`, including Tooltip, all-tabs Menu,
 nested/outside dismissal, service-filter states, the CommandPalette
 (rendering, query, and action projection), the Explorer Tree
 (expanded hosts/services, the failed `diagnostics` row with retry, and the
 hosted context-menu-via-Menu), and Toast (success, status-bar-safe position,
 error-summary with `ErrorDetailsDialog` diagnostics, and beneath-scrim/
-modal-pause behavior). The agent reviews only
-those user-supplied images, applies corrections, and requests replacements; it
-does not capture screenshots itself. Sign-off remains open until the user
-confirms the final supplied evidence.
+modal-pause behavior). Review those images, apply corrections, and request
+replacements when needed. Sign-off remains open until the reviewer confirms the
+final supplied evidence.

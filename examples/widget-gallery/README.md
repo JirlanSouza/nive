@@ -98,27 +98,27 @@ Composite or utility exports are covered through their owning widgets:
 Run it with:
 
 ```bash
-rtk cargo run --manifest-path examples/widget-gallery/Cargo.toml
+cargo run --manifest-path examples/widget-gallery/Cargo.toml
 ```
 
 From the repository root, run it with terminal-triggered rebuild/reload:
 
 ```bash
-rtk just widget-gallery-dev
+just widget-gallery-dev
 ```
 
 Run devtools explicitly when inspecting simulator integration:
 
 ```bash
-rtk just widget-gallery-devtools
+just widget-gallery-devtools
 ```
 
 Check it with:
 
 ```bash
-rtk cargo test --manifest-path examples/widget-gallery/Cargo.toml
-rtk cargo check --manifest-path examples/widget-gallery/Cargo.toml
-rtk just examples-check
+cargo test --manifest-path examples/widget-gallery/Cargo.toml
+cargo check --manifest-path examples/widget-gallery/Cargo.toml
+just examples-check
 ```
 
 For visual review, inspect light and dark themes at wide, narrow, and low
@@ -202,17 +202,16 @@ active-descendant relations, or announcements; and Toast's tone-to-politeness
 mapping and "announce only the newest toast" semantics are preparatory only,
 since no native AccessKit live-region emission exists in this Iced version.
 
-The agent launches the review app with `rtk just widget-gallery-dev` and keeps
-it running. The user captures and attaches the named Standard Light/Dark,
+Run `just widget-gallery-dev` and keep the review app available while the
+reviewer captures the named Standard Light/Dark,
 Compact Xs, Comfortable Lg, wide/narrow/low, hover/focus/open, nested,
 truncation, result-state, keyboard, Tree (expansion, loading/failed-with-
 retry/empty child states, selection modes, keyboard focus versus selection,
 context-menu-via-Menu, drag/drop), and Toast (tone, queue/promotion, hover/
 focus pause and resume, action, error-summary, beneath-scrim/modal-pause,
-narrow-width) screenshots. The agent reviews only those supplied images,
-applies corrections, and requests replacement images.
-The agent does not capture manual-validation screenshots, and sign-off remains
-open until the user confirms the final supplied evidence.
+narrow-width) screenshots. Review the supplied images, apply corrections, and
+request replacements when needed. Sign-off remains open until the reviewer
+confirms the final supplied evidence.
 
 With devtools enabled, open the panel with Cmd+Option+I on macOS or Ctrl+Alt+I
 on other platforms to force the inspected feedback sample states.
