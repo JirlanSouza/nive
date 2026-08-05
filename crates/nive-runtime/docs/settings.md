@@ -11,9 +11,9 @@ settings and session persistence slice.
 - per-window size and position keyed by stable window keys
 - future runtime session fields such as most-recent app window
 
-Product settings remain app-owned. RAG Studio provider configuration,
-project/database settings, indexing/chunking preferences and domain-specific
-recent data must not move into `nive-runtime`.
+Product settings remain app-owned. Provider configuration, project or database
+settings, domain-specific processing preferences, and recent product data must
+not move into `nive-runtime`.
 
 ## Public API Direction
 
@@ -169,8 +169,7 @@ Final verification for the settings implementation:
 
 ```text
 rtk cargo fmt --package nive-runtime
-rtk cargo test -p nive-runtime
-rtk cargo check -p app-gui --all-targets
-rtk cargo test -p app-gui --test nive_contract
-rtk cargo test -p app-gui --features dev --test nive_contract
+rtk cargo check -p nive-runtime --all-targets --all-features
+rtk cargo test -p nive-runtime --all-features
+rtk just doc-check
 ```
