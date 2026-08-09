@@ -52,13 +52,49 @@ and the available validation commands.
 
 ## Commits
 
-Use imperative, specific Conventional Commit messages, for example:
+Use imperative, specific Conventional Commit messages in this form:
+
+```text
+type(scope)!: summary
+```
+
+The scope and `!` are optional. Keep the summary concise, omit the trailing
+period, and use a body when the reason or tradeoff is not obvious. Recommended
+types are `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`,
+`style`, and `chore`. Useful scopes include `core`, `ui`, `runtime`, `cli`,
+`workbench`, `examples`, `docs`, and `ci`.
+
+Examples:
 
 - `feat: add logical toast positions`
 - `fix(runtime): ignore stale resource results`
 - `refactor(ui): centralize popup row state`
 
+Mark an incompatible change with `!` and explain the migration in a
+`BREAKING CHANGE:` footer:
+
+```text
+feat(ui)!: replace legacy popup alignment
+
+BREAKING CHANGE: migrate callers to the logical placement API.
+```
+
+Reference or close Issues in a footer when applicable, such as `Closes #123`.
+
+## Changelog
+
+Add a concise entry under [`CHANGELOG.md`](CHANGELOG.md) `Unreleased` for
+user-visible API or behavior changes, compatibility changes, deprecations,
+removals, migrations, security changes, and important bug fixes. Link migration
+guidance when users must take action.
+
+Internal refactors, tests, CI, formatting, and documentation maintenance without
+user-visible impact do not need a changelog entry.
+
 ## Pull Requests
+
+Nive uses squash merging. The pull request title becomes the final commit and
+must follow the Conventional Commit format above.
 
 Pull requests should include:
 
@@ -69,3 +105,4 @@ Pull requests should include:
 - screenshots or recordings for visual UI changes;
 - explicit notes for breaking API changes, migrations, or compatibility impact.
 
+Use the repository pull request template and complete every applicable item.

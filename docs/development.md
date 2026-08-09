@@ -375,18 +375,22 @@ irreversible crates.io publication. The distribution channel is
    smoke (`just workspace-smoke`), which proves `nive new` and `nive init`
    inside a Cargo workspace the user owns.
 
-3. **Create an annotated tag:**
+3. **Finalize the changelog** — move qualifying entries from `Unreleased` in
+   [`CHANGELOG.md`](../CHANGELOG.md) into a `0.1.0-alpha.N` section with the
+   release date. Leave a fresh `Unreleased` section for subsequent work.
+
+4. **Create an annotated tag:**
 
    ```bash
    git tag -a v0.1.0-alpha.1 -m "v0.1.0-alpha.1 — initial GitHub dogfood release"
    git push origin v0.1.0-alpha.1
    ```
 
-4. **Create a GitHub pre-release** for the tag. Mark it as a pre-release (not
-   a latest release). Include install and dependency snippets in the release
-   notes (see template below).
+5. **Create a GitHub pre-release** for the tag. Mark it as a pre-release (not
+   a latest release). Use the versioned changelog section as the change summary,
+   then include the install and dependency snippets below.
 
-5. **Dogfood verification** — install the CLI from the tag on a clean machine
+6. **Dogfood verification** — install the CLI from the tag on a clean machine
    and create a test app:
 
    ```bash
@@ -411,6 +415,10 @@ For the public API semantics cleanup, use
 ## v0.1.0-alpha.1
 
 Pre-crates.io dogfood release. Install from GitHub:
+
+### What's changed
+
+- Copy the curated entries from the matching `CHANGELOG.md` version section.
 
 ### Install the CLI
 

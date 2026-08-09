@@ -91,7 +91,9 @@ Building an app:
 
 Working on Nive itself:
 
+- [Roadmap](https://github.com/users/JirlanSouza/projects/1)
 - [Contributing](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
 - [Development Guide](docs/development.md)
 - [Architecture](docs/architecture/README.md)
 
