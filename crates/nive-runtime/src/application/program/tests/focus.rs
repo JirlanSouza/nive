@@ -1,5 +1,9 @@
 use super::*;
 
+mod runtime_ui;
+
+use runtime_ui::RuntimeUiState;
+
 fn assert_single_focus_root<'a, Message: 'a>(element: nive_ui::Element<'a, Message>) {
     let tree = iced::advanced::widget::Tree::new(&element);
     let probe: nive_ui::Element<'a, Message> =
@@ -233,4 +237,75 @@ fn native_input_pointer_blur_keeps_the_runtime_traversal_anchor() {
     assert!(harness.managed_targets().iter().any(|target| {
         target.id.as_ref() == Some(&next) && target.current && target.active && target.visible
     }));
+}
+
+/// End-to-end acceptance for the modal/toast contract, through the real
+/// `view()` composition and the runtime's own event order rather than a
+/// hand-fed `ModalActive` message: an open dialog must make the window report
+/// modal activity on the follow-up frame, and a closed one must report it
+/// gone, so toast expiry pauses for exactly as long as the dialog is up.
+#[test]
+fn an_open_dialog_pauses_toast_expiry_through_the_real_frame_path() {
+    let now = Instant::now();
+    let mut program = program();
+    let main_id = main_window_id(&program);
+    let _toast = program.core.toasts.push(Toast::info("Saved"), now, None);
+    if let Some(app) = program.app.as_mut() {
+        app.show_dialog = true;
+    }
+
+    let mut runtime = RuntimeUiState::new(Size::new(480.0, 180.0));
+    let opened = runtime.dispatch(program.view(main_id), redraw_requested());
+
+    assert!(
+        opened
+            .messages
+            .iter()
+            .any(|message| matches!(message, NiveMessage::Core(CoreMessage::ModalActive(true)))),
+        "an open dialog must report modal activity on a plain frame, or the \
+         runtime never learns a modal is up"
+    );
+    assert_eq!(
+        opened.status,
+        iced::event::Status::Ignored,
+        "the frame must stay ignored so the runtime retains the overlay for drawing"
+    );
+    for message in opened.messages {
+        let _task = program.update(message);
+    }
+
+    let _task = program.update_core(CoreMessage::ToastTick(now + Duration::from_secs(5)));
+    assert!(
+        program.core.toasts.has_visible(),
+        "toast expiry must pause while the dialog is open"
+    );
+
+    if let Some(app) = program.app.as_mut() {
+        app.show_dialog = false;
+    }
+
+    // The runtime cache carries the same window state into the rebuilt view,
+    // which is the only way the closing edge is observable at all.
+    let closed = runtime.dispatch(program.view(main_id), redraw_requested());
+
+    assert!(
+        closed
+            .messages
+            .iter()
+            .any(|message| matches!(message, NiveMessage::Core(CoreMessage::ModalActive(false)))),
+        "closing the dialog must report modal activity gone"
+    );
+    for message in closed.messages {
+        let _task = program.update(message);
+    }
+
+    let _task = program.update_core(CoreMessage::ToastTick(now + Duration::from_secs(9)));
+    assert!(
+        !program.core.toasts.has_visible(),
+        "toast expiry must resume once the dialog closes"
+    );
+}
+
+fn redraw_requested() -> iced::Event {
+    iced::Event::Window(window::Event::RedrawRequested(Instant::now()))
 }

@@ -8,7 +8,7 @@ use iced::{
 };
 
 use super::initial_focus::InitialFocusFn;
-use super::overlay::ModalOverlay;
+use super::overlay::{is_frame_signal, ModalOverlay};
 use crate::{
     focus::{contains_focus_target, FocusTarget, FocusTargetContext},
     Element, Renderer, Theme,
@@ -218,7 +218,15 @@ where
         viewport: &Rectangle,
     ) {
         if self.modal.is_some() {
-            shell.capture_event();
+            // Base content stays inert either way, but the reported status
+            // differs: `UserInterface` drops the overlay for the rest of the
+            // frame when the base tree captures an event, and a dropped
+            // overlay is not drawn. Capturing a frame signal here would blank
+            // the modal for that frame; leaving it `Ignored` keeps the session
+            // painted while still forwarding nothing to the base.
+            if !is_frame_signal(event) {
+                shell.capture_event();
+            }
             return;
         }
 

@@ -57,6 +57,13 @@ mod modal_host_tests {
             .messages
     }
 
+    /// The follow-up frame a real event asks for, as the runtime delivers it.
+    fn frame() -> Event {
+        Event::Window(iced::window::Event::RedrawRequested(
+            iced::time::Instant::now(),
+        ))
+    }
+
     #[test]
     fn an_open_session_publishes_modal_activity_to_the_focus_root() {
         let mut harness = WidgetHarness::new(rooted(true), Size::new(300.0, 200.0));
@@ -97,6 +104,37 @@ mod modal_host_tests {
         let mut harness = WidgetHarness::new(rooted(false), Size::new(300.0, 200.0));
 
         assert!(pump(&mut harness).is_empty());
+    }
+
+    #[test]
+    fn a_frame_signal_reaches_the_focus_root_through_an_open_modal() {
+        let mut harness = WidgetHarness::new(rooted(true), Size::new(300.0, 200.0));
+
+        assert!(
+            harness.overlay_bounds().is_some(),
+            "the session must already be overlaying, or the dispatch below \
+             would reach the root through an empty overlay phase and pass for \
+             the wrong reason"
+        );
+
+        assert_eq!(
+            harness.dispatch(frame()).messages,
+            vec!["modal-open"],
+            "a frame signal is not input: capturing it in the overlay starves \
+             the only pass that recounts modal activity"
+        );
+    }
+
+    /// `UserInterface` drops the overlay for the rest of the frame whenever
+    /// the base tree captures an event, and an overlay it dropped is never
+    /// drawn — so reporting `Captured` here would blank the open modal for a
+    /// frame. The paint consequence is out of a widget harness's reach; the
+    /// status it hinges on is not.
+    #[test]
+    fn a_frame_signal_is_not_reported_as_captured_by_an_open_modal() {
+        let mut harness = WidgetHarness::new(rooted(true), Size::new(300.0, 200.0));
+
+        assert!(!harness.dispatch(frame()).captured);
     }
 
     #[test]
@@ -166,5 +204,37 @@ mod modal_host_tests {
         )));
 
         assert!(result.messages.is_empty());
+    }
+
+    /// Guards the frame-signal carve-out from widening into real input: the
+    /// inertia above must survive the overlay-first order the runtime uses.
+    #[test]
+    fn a_modal_still_captures_real_input_through_the_full_dispatch() {
+        let base = button::primary("Base")
+            .id(iced::widget::Id::new("base"))
+            .on_press("base-pressed");
+        let host: Element<'static, &'static str> = ModalHost::new(base)
+            .modal(
+                iced::widget::text("content"),
+                None,
+                None,
+                no_op_initial_focus(),
+                ModalAlignment::Centered,
+            )
+            .into();
+        let mut harness = WidgetHarness::new(host, Size::new(300.0, 200.0));
+        let base_bounds = harness.bounds();
+        harness.set_cursor(Point::new(base_bounds.x + 5.0, base_bounds.y + 5.0));
+
+        let result = harness.dispatch(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+
+        assert!(result.messages.is_empty());
+        assert!(
+            result.captured,
+            "the base stays inert because the overlay captured the press, not \
+             by accident"
+        );
     }
 }

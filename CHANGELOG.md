@@ -7,7 +7,10 @@ user-visible impact are omitted.
 
 ## [Unreleased]
 
-No user-visible changes have been recorded since `v0.1.0-alpha.1`.
+### Fixed
+
+- Ensure hosted dialogs report modal activity so Toast expiry pauses while a
+  dialog is open.
 
 ## [0.1.0-alpha.1] - 2026-07-28
 

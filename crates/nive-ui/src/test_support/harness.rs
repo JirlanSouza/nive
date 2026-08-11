@@ -6,7 +6,7 @@ use iced::{
         widget::{operation, Id, Operation as _, Tree},
         Clipboard, Shell,
     },
-    event, Event, Font, Pixels, Point, Rectangle, Size, Vector,
+    event, window, Event, Font, Pixels, Point, Rectangle, Size, Vector,
 };
 
 use super::focus::{ManagedFocusProbe, ManagedFocusSnapshot};
@@ -761,6 +761,85 @@ impl<'a, Message> WidgetHarness<'a, Message> {
             layout_invalid,
             redraw_request,
             input_method_enabled,
+        }
+    }
+
+    /// Routes an event through both phases in the order
+    /// `iced_runtime::UserInterface::update` uses: the overlay tree sees it
+    /// first, and the base tree only runs when the overlay left it `Ignored`.
+    ///
+    /// [`Self::update`] drives the base tree directly, so it cannot observe an
+    /// overlay that swallows an event the base tree still needs. Reach for
+    /// `dispatch` whenever the behaviour under test depends on that handoff.
+    ///
+    /// Two deliberate departures from the runtime: the base phase keeps the
+    /// harness cursor rather than the runtime's overlay-aware `base_cursor`,
+    /// and an overlay that invalidates layout relayouts the base without the
+    /// runtime's mid-event overlay rebuild.
+    pub(crate) fn dispatch(&mut self, event: Event) -> UpdateResult<Message> {
+        let mut messages = Vec::new();
+
+        // Scoped so the overlay's borrow of `element`/`tree` and the shell's
+        // borrow of `messages` both end before the base phase claims them.
+        let (overlay_captured, overlay_layout_invalid, overlay_redraw, overlay_input_method) = {
+            let viewport = Rectangle::new(Point::ORIGIN, self.maximum);
+
+            match self.element.as_widget_mut().overlay(
+                &mut self.tree,
+                Layout::new(&self.node),
+                &self.renderer,
+                &viewport,
+                Vector::ZERO,
+            ) {
+                Some(overlay) => {
+                    let mut nested = overlay::Nested::new(overlay);
+                    let node = nested.layout(&self.renderer, self.maximum);
+                    let mut shell = Shell::new(&mut messages);
+                    nested.update(
+                        &event,
+                        Layout::new(&node),
+                        self.cursor,
+                        &self.renderer,
+                        &mut self.clipboard,
+                        &mut shell,
+                    );
+
+                    (
+                        shell.event_status() == event::Status::Captured,
+                        shell.is_layout_invalid(),
+                        shell.redraw_request(),
+                        shell.input_method().is_enabled(),
+                    )
+                }
+                None => (false, false, window::RedrawRequest::Wait, false),
+            }
+        };
+
+        if overlay_layout_invalid {
+            self.relayout(self.maximum);
+        }
+
+        if overlay_captured {
+            return UpdateResult {
+                messages,
+                captured: true,
+                layout_invalid: overlay_layout_invalid,
+                redraw_request: overlay_redraw,
+                input_method_enabled: overlay_input_method,
+            };
+        }
+
+        let base = self.update(event);
+        messages.extend(base.messages);
+
+        UpdateResult {
+            messages,
+            captured: base.captured,
+            layout_invalid: overlay_layout_invalid || base.layout_invalid,
+            // `RedrawRequest` orders by urgency, so the sooner of the two wins;
+            // taking either phase alone would drop a follow-up frame.
+            redraw_request: overlay_redraw.min(base.redraw_request),
+            input_method_enabled: overlay_input_method || base.input_method_enabled,
         }
     }
 }

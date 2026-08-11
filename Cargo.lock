@@ -2228,6 +2228,7 @@ version = "0.1.0-alpha.1"
 dependencies = [
  "iced",
  "iced_renderer",
+ "iced_runtime",
  "iced_tiny_skia",
  "log",
  "nive-core",

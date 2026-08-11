@@ -201,6 +201,15 @@ where
             return;
         }
 
+        // An open session makes the base content inert to *input*, and the
+        // blanket capture below is what enforces that. A frame signal is not
+        // input: swallowing it here would starve the enclosing `FocusRoot`'s
+        // per-event pass, which is the only place window-level modal activity
+        // is recounted. The modal subtree above already saw it either way.
+        if is_frame_signal(event) {
+            return;
+        }
+
         shell.capture_event();
     }
 
@@ -383,6 +392,16 @@ fn is_primary_outside_press(
         event,
         Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | Event::Touch(iced::touch::Event::FingerPressed { .. })
+    )
+}
+
+/// A frame signal is the runtime's "paint the next frame" tick rather than
+/// user input, so modal inertia does not apply to it. Shared with
+/// [`super::widget`], which has to reach the same verdict on the base tree.
+pub(super) fn is_frame_signal(event: &Event) -> bool {
+    matches!(
+        event,
+        Event::Window(iced::window::Event::RedrawRequested(_))
     )
 }
 

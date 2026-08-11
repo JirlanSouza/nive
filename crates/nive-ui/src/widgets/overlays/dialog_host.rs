@@ -12,7 +12,9 @@ mod dialog_focus_tests;
 mod dialog_identity_tests;
 #[cfg(test)]
 mod dialog_initial_focus_tests;
-/// Covers tasks 4.13/4.15/5.9/5.12: a real Dialog-owned nested `Popover`
+#[cfg(test)]
+mod dialog_modal_activity_tests;
+/// A real Dialog-owned nested `Popover`
 /// (not a synthetic rectangle) hosted inside a `Dialog` body inside
 /// `DialogHost`, exercised through the same `overlay::Nested`
 /// infrastructure the popover-in-popover and Menu-submenu tests already

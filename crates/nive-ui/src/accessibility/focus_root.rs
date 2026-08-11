@@ -208,6 +208,16 @@ impl<Message> Widget<Message, Theme, Renderer> for FocusRoot<'_, Message> {
         // never pause. One extra redraw per real input event catches the
         // rebuilt tree up within a frame; excluding `RedrawRequested` itself
         // keeps this from chaining into a self-sustaining redraw loop.
+        //
+        // The other half of that contract lives in the modal kernel: this
+        // whole method only runs for a follow-up frame because
+        // `ModalHost`/`ModalOverlay` deliberately leave `RedrawRequested`
+        // uncaptured while a session is open. An open modal makes base content
+        // inert to input, and `UserInterface` skips the base tree entirely
+        // once an overlay captures — so a kernel that captured the frame
+        // signal too would starve the pass above of the very event it needs,
+        // silently pinning modal activity to whatever it was before the modal
+        // opened.
         if !matches!(event, Event::Window(window::Event::RedrawRequested(_))) {
             shell.request_redraw();
         }
