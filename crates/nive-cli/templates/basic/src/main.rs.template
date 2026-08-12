@@ -24,19 +24,39 @@ impl Application for {{app_name_title}}App {
         ApplicationConfig::new("{{app_name}}").theme_catalog(app_theme_catalog())
     }
 
-    fn init(_context: Context<'_, Self::Window>, _bootstrap: Self::Bootstrap) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
+    fn init(
+        _context: Context<'_, Self::Window>,
+        _bootstrap: Self::Bootstrap,
+    ) -> (Self, impl Into<Effect<Self::Message, Self::Window>>) {
         (Self { counter: 0 }, ())
     }
 
-    fn update(&mut self, _context: Context<'_, Self::Window>, _message_context: MessageContext<Self::Window>, message: Self::Message) -> impl Into<Effect<Self::Message, Self::Window>> {
+    fn update(
+        &mut self,
+        _context: Context<'_, Self::Window>,
+        _message_context: MessageContext<Self::Window>,
+        message: Self::Message,
+    ) -> impl Into<Effect<Self::Message, Self::Window>> {
         match message {
             Message::Increment => self.counter += 1,
             Message::Decrement => self.counter -= 1,
         }
     }
 
-    fn view(&self, _context: Context<'_, Self::Window>, _window: WindowContext<Self::Window>) -> ScreenView<'_, Self::Message> {
-        ScreenView::new(nive::prelude::column![button("+").on_press(Message::Increment), text(self.counter), button("-").on_press(Message::Decrement)].padding(20).spacing(10))
+    fn view(
+        &self,
+        _context: Context<'_, Self::Window>,
+        _window: WindowContext<Self::Window>,
+    ) -> ScreenView<'_, Self::Message> {
+        ScreenView::new(
+            nive::prelude::column![
+                button("+").on_press(Message::Increment),
+                text(self.counter),
+                button("-").on_press(Message::Decrement)
+            ]
+            .padding(20)
+            .spacing(10),
+        )
     }
 }
 

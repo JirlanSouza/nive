@@ -76,6 +76,16 @@ nive icons gallery --provider lucide
 modules, generated SVG assets, custom SVG paths, and stale files without
 fetching provider data.
 
+Generated Rust is deterministic and compatible with the default `rustfmt`
+configuration. Repeating `nive icons sync` does not change the generated
+modules, and the supported verification sequence is:
+
+```bash
+nive icons sync
+nive icons check
+cargo fmt --check
+```
+
 Your manifest is *additive* over the framework catalog: declare only the roles
 you override. A role you never mention resolves to Nive's default glyph, and a
 new `IconRole` in a later Nive release will not invalidate your manifest.

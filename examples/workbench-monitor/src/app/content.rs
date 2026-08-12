@@ -5,8 +5,8 @@ use nive::widgets::{button as nive_button, text as nive_text};
 use super::format::grouped;
 use super::tone::tone_label;
 use super::{AppCommand, Message, MonitorFilter, ServiceScope, WorkbenchMonitor};
-use crate::sim::{Environment, Service};
 use crate::icons::IconSymbol;
+use crate::sim::{Environment, Service};
 
 /// Maximum readable measure for document content columns. Surplus canvas
 /// width falls outside the content instead of stretching the gaps inside

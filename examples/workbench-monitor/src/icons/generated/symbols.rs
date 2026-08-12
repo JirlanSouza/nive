@@ -15,9 +15,15 @@ pub enum IconSymbol {
 impl IconSource for IconSymbol {
     fn svg_bytes(self) -> &'static [u8] {
         match self {
-            Self::Dashboard => include_bytes!("../../../assets/icons/generated/lucide/layout-dashboard.svg"),
-            Self::Dependency => include_bytes!("../../../assets/icons/generated/lucide/network.svg"),
-            Self::Diagnostics => include_bytes!("../../../assets/icons/generated/lucide/stethoscope.svg"),
+            Self::Dashboard => {
+                include_bytes!("../../../assets/icons/generated/lucide/layout-dashboard.svg")
+            }
+            Self::Dependency => {
+                include_bytes!("../../../assets/icons/generated/lucide/network.svg")
+            }
+            Self::Diagnostics => {
+                include_bytes!("../../../assets/icons/generated/lucide/stethoscope.svg")
+            }
             Self::Event => include_bytes!("../../../assets/icons/generated/lucide/zap.svg"),
             Self::Job => include_bytes!("../../../assets/icons/generated/lucide/play.svg"),
             Self::Server => include_bytes!("../../../assets/icons/generated/lucide/server.svg"),
