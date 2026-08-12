@@ -107,6 +107,9 @@ icons-sync:
 # Check framework icons are up to date
 icons-check:
     cd crates/nive-ui && cargo run -p nive-cli -- icons check --framework
+    cd examples/icons && ../../target/debug/nive icons check
+    cd examples/workbench-monitor && ../../target/debug/nive icons check
+    rustfmt --edition 2021 --check crates/nive-ui/src/icons/generated.rs crates/nive-ui/src/icons/generated/*.rs examples/icons/src/icons/generated.rs examples/icons/src/icons/generated/*.rs examples/workbench-monitor/src/icons/generated.rs examples/workbench-monitor/src/icons/generated/*.rs
 
 # Add framework icon symbol. Usage: just icons-add-symbol User user
 icons-add-symbol variant provider_ref:
