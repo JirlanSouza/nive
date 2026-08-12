@@ -9,6 +9,8 @@ user-visible impact are omitted.
 
 ### Fixed
 
+- Keep generated icon Rust deterministic and compatible with `cargo fmt
+  --check` across application scaffolds and framework-owned manifests.
 - Ensure hosted dialogs report modal activity so Toast expiry pauses while a
   dialog is open.
 

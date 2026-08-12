@@ -318,12 +318,13 @@ just icons-check
 
 `just icons-check` must remain offline: it validates checked-in `icons.toml`,
 generated Rust modules, generated SVG assets, custom SVG references, stale
-assets, and required role coverage without fetching Lucide data.
+assets, required role coverage, and generated-module formatting without
+fetching Lucide data.
 
 `just scaffold-smoke` creates temporary apps outside the workspace, patches the
 generated app to the local `nive` checkout via `[patch.crates-io]`, and runs
-`nive icons check` plus `cargo check` for both the basic and dashboard
-templates.
+two deterministic icon syncs, `nive icons check`, `cargo fmt --check`, and
+`cargo check` for both the basic and dashboard templates.
 
 `just scaffold-smoke-github` creates temporary apps outside the workspace using
 a temporary Git snapshot of the current working tree. This validates the exact

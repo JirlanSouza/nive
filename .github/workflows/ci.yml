@@ -85,5 +85,15 @@ jobs:
         run: bash scripts/workspace-smoke.sh init
 
       - name: Icons check
-        run: ../../target/release/nive icons check
-        working-directory: crates/nive-ui
+        shell: bash
+        run: |
+          (cd crates/nive-ui && ../../target/release/nive icons check --framework)
+          (cd examples/icons && ../../target/release/nive icons check)
+          (cd examples/workbench-monitor && ../../target/release/nive icons check)
+          rustfmt --edition 2021 --check \
+            crates/nive-ui/src/icons/generated.rs \
+            crates/nive-ui/src/icons/generated/*.rs \
+            examples/icons/src/icons/generated.rs \
+            examples/icons/src/icons/generated/*.rs \
+            examples/workbench-monitor/src/icons/generated.rs \
+            examples/workbench-monitor/src/icons/generated/*.rs

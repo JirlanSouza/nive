@@ -59,5 +59,15 @@ esac
 
 app_dir="$tmpdir/$app_name"
 
+(cd "$app_dir" && "$cli" icons sync)
+first_generated="$tmpdir/first-generated-$template"
+mkdir -p "$first_generated"
+cp "$app_dir/src/icons.rs" "$first_generated/icons.rs"
+cp -R "$app_dir/src/icons" "$first_generated/icons"
+
+(cd "$app_dir" && "$cli" icons sync)
+diff -ru "$first_generated/icons.rs" "$app_dir/src/icons.rs"
+diff -ru "$first_generated/icons" "$app_dir/src/icons"
 (cd "$app_dir" && "$cli" icons check)
+cargo fmt --manifest-path "$app_dir/Cargo.toml" -- --check
 cargo check --manifest-path "$app_dir/Cargo.toml"

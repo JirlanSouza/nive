@@ -11,6 +11,13 @@ use super::{
     IconGenerationTarget, IconPaths, IconsManifest, LucideProviderConfig, ProviderRef, Result,
 };
 
+const RUSTFMT_MAX_WIDTH: usize = 100;
+const CATALOG_VALUE_INDENT: &str = "            ";
+const CATALOG_LITERAL_INDENT: &str = "                ";
+const MATCH_ARM_INDENT: &str = "            ";
+const MATCH_BODY_INDENT: &str = "                ";
+const MATCH_VALUE_INDENT: &str = "                    ";
+
 pub(super) fn ensure_icon_module_files(
     paths: &IconPaths,
     target: IconGenerationTarget,
@@ -158,8 +165,15 @@ pub(super) fn generate_catalog_source(
         format!("use {path}::{{IconCatalog, IconCatalogEntry, IconGlyph, IconRole}};")
     };
     let mut source = format!(
-        "// Bundled Lucide icons are sourced from Lucide (https://lucide.dev) and distributed under the ISC License.\n{import}\n\npub const APP_ICON_CATALOG: IconCatalog = IconCatalog::new(&[\n",
+        "// Bundled Lucide icons are sourced from Lucide (https://lucide.dev) and distributed under the ISC License.\n{import}\n\n",
     );
+
+    if manifest.roles.is_empty() {
+        source.push_str("pub const APP_ICON_CATALOG: IconCatalog = IconCatalog::new(&[]);\n");
+        return Ok(source);
+    }
+
+    source.push_str("pub const APP_ICON_CATALOG: IconCatalog = IconCatalog::new(&[\n");
 
     for (role_name, value) in &manifest.roles {
         let icon_ref = ProviderRef::parse(value)?;
@@ -168,9 +182,7 @@ pub(super) fn generate_catalog_source(
         source.push_str(&role_variant(role_name)?);
         source.push_str(",\n");
         source.push_str("        IconGlyph::new(\n");
-        source.push_str("            include_bytes!(\"");
-        source.push_str(&include_path_for_ref(&icon_ref));
-        source.push_str("\"),\n");
+        push_catalog_include_bytes(&mut source, &include_path_for_ref(&icon_ref));
         source.push_str("            \"");
         source.push_str(&icon_ref.provider_slug());
         source.push_str("\",\n");
@@ -180,6 +192,97 @@ pub(super) fn generate_catalog_source(
 
     source.push_str("]);\n");
     Ok(source)
+}
+
+fn push_catalog_include_bytes(source: &mut String, include_path: &str) {
+    let expression = MatchArmExpression::IncludeBytes(include_path);
+    let inline_width = CATALOG_VALUE_INDENT.len() + expression.inline_width() + ",".len();
+
+    source.push_str(CATALOG_VALUE_INDENT);
+    if inline_width <= RUSTFMT_MAX_WIDTH {
+        expression.push_inline(source);
+        source.push_str(",\n");
+    } else {
+        source.push_str("include_bytes!(\n");
+        source.push_str(CATALOG_LITERAL_INDENT);
+        source.push('"');
+        source.push_str(include_path);
+        source.push_str("\"\n");
+        source.push_str(CATALOG_VALUE_INDENT);
+        source.push_str("),\n");
+    }
+}
+
+enum MatchArmExpression<'a> {
+    IncludeBytes(&'a str),
+    StringLiteral(&'a str),
+}
+
+impl MatchArmExpression<'_> {
+    fn inline_width(&self) -> usize {
+        match self {
+            Self::IncludeBytes(include_path) => "include_bytes!(\"\")".len() + include_path.len(),
+            Self::StringLiteral(value) => "\"\"".len() + value.len(),
+        }
+    }
+
+    fn push_inline(&self, source: &mut String) {
+        match self {
+            Self::IncludeBytes(include_path) => {
+                source.push_str("include_bytes!(\"");
+                source.push_str(include_path);
+                source.push_str("\")");
+            }
+            Self::StringLiteral(value) => {
+                source.push('"');
+                source.push_str(value);
+                source.push('"');
+            }
+        }
+    }
+
+    fn push_block(&self, source: &mut String) {
+        match self {
+            Self::IncludeBytes(include_path)
+                if MATCH_BODY_INDENT.len() + self.inline_width() > RUSTFMT_MAX_WIDTH =>
+            {
+                source.push_str("include_bytes!(\n");
+                source.push_str(MATCH_VALUE_INDENT);
+                source.push('"');
+                source.push_str(include_path);
+                source.push_str("\"\n");
+                source.push_str(MATCH_BODY_INDENT);
+                source.push(')');
+            }
+            _ => self.push_inline(source),
+        }
+    }
+}
+
+fn push_match_arm(source: &mut String, variant: &str, expression: MatchArmExpression<'_>) {
+    let inline_width = MATCH_ARM_INDENT.len()
+        + "Self::".len()
+        + variant.len()
+        + " => ".len()
+        + expression.inline_width()
+        + ",".len();
+
+    source.push_str(MATCH_ARM_INDENT);
+    source.push_str("Self::");
+    source.push_str(variant);
+    source.push_str(" => ");
+
+    if inline_width <= RUSTFMT_MAX_WIDTH {
+        expression.push_inline(source);
+        source.push_str(",\n");
+    } else {
+        source.push_str("{\n");
+        source.push_str(MATCH_BODY_INDENT);
+        expression.push_block(source);
+        source.push('\n');
+        source.push_str(MATCH_ARM_INDENT);
+        source.push_str("}\n");
+    }
 }
 
 pub(super) fn generate_symbols_source(
@@ -215,11 +318,13 @@ pub(super) fn generate_symbols_source(
 
         for (variant, value) in &manifest.symbols {
             let icon_ref = ProviderRef::parse(value)?;
-            source.push_str("            Self::");
-            source.push_str(variant);
-            source.push_str(" => include_bytes!(\"");
-            source.push_str(&include_path_for_ref(&icon_ref));
-            source.push_str("\"),\n");
+            let include_path = include_path_for_ref(&icon_ref);
+
+            push_match_arm(
+                &mut source,
+                variant,
+                MatchArmExpression::IncludeBytes(&include_path),
+            );
         }
 
         source.push_str("        }\n");
@@ -234,11 +339,13 @@ pub(super) fn generate_symbols_source(
 
         for (variant, value) in &manifest.symbols {
             let icon_ref = ProviderRef::parse(value)?;
-            source.push_str("            Self::");
-            source.push_str(variant);
-            source.push_str(" => \"");
-            source.push_str(&icon_ref.provider_slug());
-            source.push_str("\",\n");
+            let provider_slug = icon_ref.provider_slug();
+
+            push_match_arm(
+                &mut source,
+                variant,
+                MatchArmExpression::StringLiteral(&provider_slug),
+            );
         }
 
         source.push_str("        }\n");

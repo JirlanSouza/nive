@@ -214,6 +214,20 @@ fn custom_svg_sync_and_check_are_offline() {
     }
     write_generated_modules(&paths, &manifest, IconGenerationTarget::App).expect("write generated");
 
+    let first_catalog = fs::read(&paths.generated_catalog).expect("read first catalog");
+    let first_symbols = fs::read(&paths.generated_symbols).expect("read first symbols");
+    write_generated_modules(&paths, &manifest, IconGenerationTarget::App)
+        .expect("write generated again");
+
+    assert_eq!(
+        fs::read(&paths.generated_catalog).expect("read second catalog"),
+        first_catalog
+    );
+    assert_eq!(
+        fs::read(&paths.generated_symbols).expect("read second symbols"),
+        first_symbols
+    );
+
     icons_check(&paths, IconGenerationTarget::App).expect("offline check");
 }
 
@@ -412,4 +426,69 @@ fn init_and_scaffold_agree_on_the_starting_manifest() {
     );
 
     icons_check(&paths, IconGenerationTarget::App).expect("a freshly initialised app checks clean");
+}
+
+#[test]
+fn empty_catalog_source_is_rustfmt_canonical() {
+    let manifest = manifest_with_refs(&[], &[], &[]);
+    let catalog =
+        generate_catalog_source(&manifest, IconGenerationTarget::App).expect("catalog source");
+
+    assert!(
+        catalog.contains("IconCatalog::new(&[]);"),
+        "expected a canonical empty slice in:\n{catalog}"
+    );
+}
+
+#[test]
+fn long_symbol_source_is_rustfmt_block_arm() {
+    let manifest = manifest_with_refs(
+        &[],
+        &[("BrandMark", "custom:brand-mark")],
+        &[("brand-mark", "assets/icons/custom/brand-mark.svg")],
+    );
+
+    let symbols =
+        generate_symbols_source(&manifest, IconGenerationTarget::App).expect("symbols source");
+
+    assert!(
+        symbols.contains(concat!(
+            "            Self::BrandMark => {\n",
+            "                include_bytes!(",
+        )),
+        "expected a rustfmt-compatible block arm in:\n{symbols}"
+    );
+}
+
+#[test]
+fn very_long_generated_sources_wrap_include_bytes_macro() {
+    let custom_name = "a-very-long-custom-icon-name-that-requires-multiline-source-generation";
+    let provider_ref = format!("custom:{custom_name}");
+    let source_path = format!("assets/icons/custom/{custom_name}.svg");
+    let manifest = manifest_with_refs(
+        &[("window-close", provider_ref.as_str())],
+        &[("BrandMark", provider_ref.as_str())],
+        &[(custom_name, source_path.as_str())],
+    );
+
+    let catalog =
+        generate_catalog_source(&manifest, IconGenerationTarget::App).expect("catalog source");
+    let symbols =
+        generate_symbols_source(&manifest, IconGenerationTarget::App).expect("symbols source");
+    let multiline_include = concat!(
+        "include_bytes!(\n",
+        "                    \"../../../assets/icons/generated/custom/",
+    );
+
+    assert!(
+        symbols.contains(multiline_include),
+        "expected a multiline include_bytes macro in:\n{symbols}"
+    );
+    assert!(
+        catalog.contains(concat!(
+            "include_bytes!(\n",
+            "                \"../../../assets/icons/generated/custom/",
+        )),
+        "expected a multiline catalog include_bytes macro in:\n{catalog}"
+    );
 }

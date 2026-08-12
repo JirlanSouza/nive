@@ -32,6 +32,16 @@ esac
 
 app_dir="$tmpdir/$app_name"
 
+(cd "$app_dir" && "$cli" icons sync)
+first_generated="$tmpdir/first-generated-$template"
+mkdir -p "$first_generated"
+cp "$app_dir/src/icons.rs" "$first_generated/icons.rs"
+cp -R "$app_dir/src/icons" "$first_generated/icons"
+
+(cd "$app_dir" && "$cli" icons sync)
+diff -ru "$first_generated/icons.rs" "$app_dir/src/icons.rs"
+diff -ru "$first_generated/icons" "$app_dir/src/icons"
+
 # Pin nive to the exact workspace version so [patch.crates-io] resolves
 # correctly even when the workspace version is a pre-release (e.g. 0.1.0-alpha.1).
 nive_ver="$(grep '^version = ' "$root/crates/nive/Cargo.toml" | head -1 | sed 's/version = "\(.*\)"/\1/')"
@@ -94,4 +104,5 @@ if [[ "$template" == "dashboard" ]]; then
 fi
 
 (cd "$app_dir" && "$cli" icons check)
+cargo fmt --manifest-path "$app_dir/Cargo.toml" -- --check
 cargo check --manifest-path "$app_dir/Cargo.toml"
