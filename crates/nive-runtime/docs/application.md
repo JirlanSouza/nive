@@ -13,7 +13,8 @@ depending on runner module paths. The public contract includes:
 - lifecycle/window contracts such as `WindowSpec`, `WindowCommand`,
   `CloseDecision`, `ExitDecision`, `BootstrapSpec` and `RuntimeEvent`
 - reusable feedback/state helpers such as `Toast`, `UserFacingError`,
-  `Resource`, `Operation`, `Settled`, `RequestId` and clock helpers
+  `Resource`, `Operation`, tracked requests/scopes, settlement, cancellation,
+  and clock helpers
 - `Task`, `Subscription`, `time`, `window`, `Point` and `Size`
   aliases/reexports used by app hooks
 - settings/session contracts such as `SettingsConfig`, `RuntimeSession`,
@@ -122,7 +123,7 @@ behavior remains consistent.
 
 ## Operation Registry
 
-`OperationRegistry` is the app-wide store of long-running operations.
+`OperationRegistry` is the app-wide presentation store for long-running operations.
 It complements the per-operation `Operation<C>` state machine and
 is the surface app-wide progress, cancellation, and retry UI can read
 from.
@@ -160,11 +161,10 @@ Invariants:
 - `clear_terminal` removes only completed/failed/cancelled entries
   and returns the count. Apps can use it to bound the visible history.
 
-Cancellation remains app-owned: `OperationRegistry::cancel` only
-flips the status. The app's reducer receives a `Cancel` action,
-breaks the underlying Iced task through its own cancellation path, and then calls `registry.cancel(id)`
-so the UI reflects the user intent immediately. The runtime does not
-spawn or cancel Iced tasks on the app's behalf.
+`OperationRegistry::cancel` only changes registry presentation state. A tracked
+`Operation<C, T>` uses its separate `cancel()` descriptor and
+`Effect::cancel` to stop the underlying request. Apps keep both models aligned
+when they choose to display a tracked request in the registry.
 
 Slice 10 does not introduce UI components. The registry is the
 runtime model only; presentation can be added in a later slice that
@@ -174,17 +174,44 @@ the registry to a specific widget.
 `ApplicationConfig` declares product windows, initial windows, theme preference,
 optional custom `ThemeCatalog`, toast position, fonts, a shared window icon and
 optional bootstrap configuration. `Context` and `WindowContext` are read-only
-views; runtime-owned mutable state is not exposed.
+views; their `app_scope()` and `task_scope()` methods expose only opaque
+lifetime capabilities, not runtime-owned mutable state.
 
 Runtime settings/session persistence is opt-in and documented in `settings.md`.
 Apps supply the settings file path; runtime-owned persistence must not absorb
 product/domain settings.
 
-`Effect<M, K = Never>` combines an Iced task with ordered runtime side effects:
-toasts, window commands, theme changes and application exit requests.
+`Effect<M, K = Never>` combines raw Iced tasks, tracked `RequestTask` values,
+linear request cancellations, and ordered runtime side effects: toasts, window
+commands, theme changes and application exit requests.
 Application hooks return `impl Into<Effect<...>>`; returning `()` is equivalent
 to `Effect::none()`. Typed child-to-parent outputs live in `ScreenEffect`, not
 in the application effect contract.
+
+## Tracked Async Requests
+
+State machines mint a process-unique request only after admission. `Resource`
+uses restart semantics by default; `Operation<C, T>` uses drop-new semantics so
+a busy submit lane creates no second request. `Request<T, I>::perform` connects
+application-owned intent and services to an observation-only `CancelSignal` and
+returns an opaque `RequestTask<Message>`.
+
+The runtime registers tracked work before returning it to Iced and removes the
+entry before delivering its optional terminal application message. Explicit
+cancel/reset and replacement transition local state immediately and suppress a
+duplicate message. Scope closure remains message-borne as
+`Settled::Cancelled`, because a surviving app state must apply its own terminal
+transition. Timeout/deadline settle as failure.
+
+Use `Context::app_scope()` for work that must survive individual windows,
+`WindowContext::task_scope()` for window-owned work, and an owned child
+`TaskScope` for a screen/component lifetime. Dropping a child scope cancels its
+descendants without affecting its parent or siblings. Messages routed after a
+screen was removed must be treated as a normal no-op by the parent router.
+
+The four supported tiers are direct (`load`/`run`), reducer-friendly handle
+(`request*` then `perform`), external-owner (`into_settled`), and manual
+(`begin` plus raw `RequestId`). Only the first two are Nive-owned and scoped.
 
 `run::<A>()` owns the private Iced daemon state. Product view messages are
 correlated with their source window automatically. `Application::update`

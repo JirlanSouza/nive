@@ -20,7 +20,7 @@ examples, and docs should treat the preludes as the primary contract.
 | Path | Role | Should contain |
 |------|------|----------------|
 | `nive::prelude::*` | Default app tier and simple scaffold | `Application`, `ApplicationConfig`, `run`, `Effect`, `MessageContext`, `MessageSource`, `Context`, `ScreenView`, `Task`, `Subscription`, basic theming, `Toast`, `Action`, `ActionId`, `ActionMap`, `RuntimeEvent`, window declaration types (`WindowSpec`, `WindowRole`, `WindowCardinality`, `WindowCommand`), basic settings/session, runtime errors, Iced geometry, and `nive_ui::prelude::*`. |
-| `nive::prelude::ui::*` | Extended app tier | Everything in the default tier plus `Resource`, `Operation`, `OperationRegistry`, `DialogRequest`, `DialogDismiss`, `ScreenEffect`, `UserFacingError`, `BootstrapSpec`, `BrandContent`, `ToastDuration`, `ToastTone`, `WindowHandle`, `WindowRegistry`, `WindowMode`, `WindowChrome`, and the file-picker params when that feature is on. |
+| `nive::prelude::ui::*` | Extended app tier | Everything in the default tier plus tracked request/scope types, `Resource`, `Operation`, `OperationRegistry`, `DialogRequest`, `DialogDismiss`, `ScreenEffect`, `UserFacingError`, `BootstrapSpec`, `BrandContent`, `ToastDuration`, `ToastTone`, `WindowHandle`, `WindowRegistry`, `WindowMode`, `WindowChrome`, and the file-picker params when that feature is on. |
 | `nive::runtime::prelude::*` | Direct runtime consumer | The same runtime slice as the tiers above, without depending on the umbrella facade. Should stay useful for crates that do not want to import widgets. |
 | `nive::ui::prelude::*` | Direct design-system consumer | `Element`, `Renderer`, common Iced layout, the theme, hosts, presentation contracts, and the UI facade's public widgets. |
 
@@ -61,9 +61,10 @@ contract.
 
 `RuntimeCommand<K>` is no longer re-exported from the prelude or crate root: it
 became a crate-internal type, drained by the runner. App authors build effects
-through direct constructors (`Effect::task`, `Effect::toast`, `Effect::window`,
-`Effect::theme`, `Effect::exit`) and compose with `with_task`, `with_toast`,
-`with_window`, `with_theme`, and `with_exit` — never naming `RuntimeCommand`.
+through direct constructors (`Effect::task`, `Effect::request`,
+`Effect::cancel`, `Effect::toast`, `Effect::window`, `Effect::theme`,
+`Effect::exit`) and the corresponding `with_*` combinators — never naming
+`RuntimeCommand`.
 
 `RuntimeCommand<K>` still represents only the effects the runtime executes after
 the app's `update`:
@@ -81,9 +82,10 @@ effect the runtime must drain — while the type itself stays internal to the cr
 
 Decision: `Context` stays small, cheap, and read-only.
 
-It should expose app identity, the active and preferred theme, window lookup, and
-exit state. It must not become a service locator. Product clients, repositories,
-and external services arrive through `Bootstrap` and live in the app's state.
+It exposes app identity, the active and preferred theme, window lookup, exit
+state, and the application task scope. `WindowContext` exposes its window task
+scope. Neither context is a service locator: product clients, repositories,
+and external services arrive through `Bootstrap` and live in app state.
 
 New runtime capabilities should enter `Context` only when they are:
 
@@ -93,17 +95,21 @@ New runtime capabilities should enter `Context` only when they are:
 
 ## Resource and Operation
 
-Decision: keep `Resource`, `Operation`, `OperationRegistry`, `RequestId`, and
-`Settled` as the target vocabulary for async state.
+Decision: keep `Resource`, `Operation`, `OperationRegistry`, `Request`,
+`RequestTask`, `RequestId`, `Settled`, and `SettleOutcome` as the target
+vocabulary for async state.
 
 - `Resource<T>` represents an asynchronously loaded value with
   stale-while-revalidate and stale-response rejection.
-- `Operation<C>` represents an async mutation with no persistent value,
-  preserving its input while running or after failing.
+- `Operation<C, T = ()>` represents an async mutation, preserving its input
+  while running or after failure/cancellation and returning typed `T` output.
 - `OperationRegistry` represents a panel or register of named in-flight
   operations, particularly for global status, progress, and cancellation.
-- `RequestId` and `Settled<T>` stay public because they are part of the contract
-  for receiving tasks, but belong to the extended tier.
+- `Request<T, I>` and `RequestTask<M>` are affine tracked handles. `ScopeId`,
+  `TaskScope`, and `CancelSignal` provide structured lifetime without exposing
+  executor abort handles.
+- `RequestId`, `Settled<T>`, and `SettleOutcome<P>` remain public for terminal
+  correlation and the explicit manual tier, but belong to the extended tier.
 
 Do not create another family of names such as `AsyncResource`, `AsyncTask`, or
 `Mutation` before the first real app. The next evolution should improve helpers,

@@ -88,6 +88,10 @@ where
         }
 
         let (window_id, task) = window::open(spec.settings(self.core.window_icon.clone()));
+        self.core.window_scopes.insert(
+            window_id,
+            self.core.app_scope.child(format!("window:{window_id:?}")),
+        );
         self.core.registry.set_opening(WindowHandle {
             kind,
             id: window_id,
@@ -142,6 +146,10 @@ where
         }
 
         let (next_id, task) = window::open(spec.settings(self.core.window_icon.clone()));
+        self.core.window_scopes.insert(
+            next_id,
+            self.core.app_scope.child(format!("window:{next_id:?}")),
+        );
         self.core.registry.set_opening(WindowHandle {
             kind: next,
             id: next_id,
@@ -223,6 +231,8 @@ where
 
     pub(super) fn accept_exit(&mut self) -> Task<RuntimeMessage<A, P>> {
         self.core.exiting = true;
+        self.core.app_scope.cancel();
+        self.core.running_requests.clear();
         let close_auxiliary = self
             .core
             .registry

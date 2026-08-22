@@ -3,7 +3,7 @@ use std::convert::Infallible;
 use iced::Task;
 use nive_ui::theme::ThemePreference;
 
-use crate::{Toast, WindowCommand};
+use crate::{RequestCancellation, RequestTask, Toast, WindowCommand};
 
 /// Alias for a window-kind type parameter that is never used.
 pub type Never = Infallible;
@@ -18,8 +18,17 @@ pub type Never = Infallible;
 #[derive(Debug)]
 pub struct Effect<M, K = Never> {
     task: Task<M>,
+    requests: Vec<RequestTask<M>>,
+    cancellations: Vec<RequestCancellation>,
     runtime: Vec<RuntimeCommand<M, K>>,
 }
+
+pub(crate) type EffectParts<M, K> = (
+    Task<M>,
+    Vec<RequestTask<M>>,
+    Vec<RequestCancellation>,
+    Vec<RuntimeCommand<M, K>>,
+);
 
 /// A runtime-level command emitted by an [`Effect`], drained by the runner.
 ///
@@ -52,6 +61,8 @@ impl<M, K> Effect<M, K> {
     pub fn none() -> Self {
         Self {
             task: Task::none(),
+            requests: Vec::new(),
+            cancellations: Vec::new(),
             runtime: Vec::new(),
         }
     }
@@ -59,6 +70,26 @@ impl<M, K> Effect<M, K> {
     pub fn task(task: Task<M>) -> Self {
         Self {
             task,
+            requests: Vec::new(),
+            cancellations: Vec::new(),
+            runtime: Vec::new(),
+        }
+    }
+
+    pub fn request(request: RequestTask<M>) -> Self {
+        Self {
+            task: Task::none(),
+            requests: vec![request],
+            cancellations: Vec::new(),
+            runtime: Vec::new(),
+        }
+    }
+
+    pub fn cancel(cancellation: Option<RequestCancellation>) -> Self {
+        Self {
+            task: Task::none(),
+            requests: Vec::new(),
+            cancellations: cancellation.into_iter().collect(),
             runtime: Vec::new(),
         }
     }
@@ -66,6 +97,8 @@ impl<M, K> Effect<M, K> {
     pub fn window(command: WindowCommand<K>) -> Self {
         Self {
             task: Task::none(),
+            requests: Vec::new(),
+            cancellations: Vec::new(),
             runtime: vec![RuntimeCommand::Window(command)],
         }
     }
@@ -73,6 +106,8 @@ impl<M, K> Effect<M, K> {
     pub fn toast(toast: Toast<M>) -> Self {
         Self {
             task: Task::none(),
+            requests: Vec::new(),
+            cancellations: Vec::new(),
             runtime: vec![RuntimeCommand::Toast(toast)],
         }
     }
@@ -80,6 +115,8 @@ impl<M, K> Effect<M, K> {
     pub fn theme(preference: ThemePreference) -> Self {
         Self {
             task: Task::none(),
+            requests: Vec::new(),
+            cancellations: Vec::new(),
             runtime: vec![RuntimeCommand::Theme(preference)],
         }
     }
@@ -87,6 +124,8 @@ impl<M, K> Effect<M, K> {
     pub fn exit() -> Self {
         Self {
             task: Task::none(),
+            requests: Vec::new(),
+            cancellations: Vec::new(),
             runtime: vec![RuntimeCommand::Exit],
         }
     }
@@ -101,6 +140,16 @@ impl<M, K> Effect<M, K> {
 
     pub fn with_window(mut self, command: WindowCommand<K>) -> Self {
         self.runtime.push(RuntimeCommand::Window(command));
+        self
+    }
+
+    pub fn with_request(mut self, request: RequestTask<M>) -> Self {
+        self.requests.push(request);
+        self
+    }
+
+    pub fn with_cancellation(mut self, cancellation: RequestCancellation) -> Self {
+        self.cancellations.push(cancellation);
         self
     }
 
@@ -119,8 +168,8 @@ impl<M, K> Effect<M, K> {
         self
     }
 
-    pub(crate) fn into_parts(self) -> (Task<M>, Vec<RuntimeCommand<M, K>>) {
-        (self.task, self.runtime)
+    pub(crate) fn into_parts(self) -> EffectParts<M, K> {
+        (self.task, self.requests, self.cancellations, self.runtime)
     }
 
     pub fn map_message<N>(self, map: impl Fn(M) -> N + Send + Sync + 'static) -> Effect<N, K>
@@ -132,6 +181,17 @@ impl<M, K> Effect<M, K> {
         let task_map = std::sync::Arc::clone(&map);
         Effect {
             task: self.task.map(move |value| task_map(value)),
+            requests: self
+                .requests
+                .into_iter()
+                .map(|request| {
+                    request.map({
+                        let map = std::sync::Arc::clone(&map);
+                        move |message| map(message)
+                    })
+                })
+                .collect(),
+            cancellations: self.cancellations,
             runtime: self
                 .runtime
                 .into_iter()
@@ -146,9 +206,15 @@ impl<M, K> Effect<M, K> {
     {
         let mut runtime = self.runtime;
         runtime.extend(other.runtime);
+        let mut requests = self.requests;
+        requests.extend(other.requests);
+        let mut cancellations = self.cancellations;
+        cancellations.extend(other.cancellations);
 
         Self {
             task: Task::batch([self.task, other.task]),
+            requests,
+            cancellations,
             runtime,
         }
     }
@@ -165,6 +231,12 @@ impl<M, K> Default for Effect<M, K> {
 impl<M, K> From<()> for Effect<M, K> {
     fn from(_: ()) -> Self {
         Self::none()
+    }
+}
+
+impl<M, K> From<RequestTask<M>> for Effect<M, K> {
+    fn from(request: RequestTask<M>) -> Self {
+        Self::request(request)
     }
 }
 
@@ -185,7 +257,7 @@ mod effect_tests {
         let merged = first.merge(second);
 
         assert!(matches!(
-            merged.into_parts().1.as_slice(),
+            merged.into_parts().3.as_slice(),
             [
                 RuntimeCommand::Window(WindowCommand::Open(Window::Main)),
                 RuntimeCommand::Exit
@@ -202,7 +274,7 @@ mod effect_tests {
             .with_exit();
 
         assert!(matches!(
-            effect.into_parts().1.as_slice(),
+            effect.into_parts().3.as_slice(),
             [
                 RuntimeCommand::Toast(_),
                 RuntimeCommand::Window(WindowCommand::Open(Window::Main)),
@@ -216,6 +288,6 @@ mod effect_tests {
     fn unit_converts_to_none() {
         let effect: Effect<(), Window> = ().into();
 
-        assert!(effect.into_parts().1.is_empty());
+        assert!(effect.into_parts().3.is_empty());
     }
 }

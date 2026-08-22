@@ -30,7 +30,11 @@ where
                     return Task::none();
                 };
 
-                let opened = self.emit_runtime_event(RuntimeEvent::WindowOpened(handle.into()));
+                let opened = self.emit_runtime_event(RuntimeEvent::WindowOpened(
+                    self.core
+                        .window_context(handle.id)
+                        .expect("opened window has context"),
+                ));
                 let Some(current_id) = self.core.pending_replacements.remove(&window_id) else {
                     return opened;
                 };
@@ -61,9 +65,14 @@ where
                 let Some(handle) = self.core.registry.get(window_id) else {
                     return Task::none();
                 };
+                let window = self
+                    .core
+                    .window_context(window_id)
+                    .expect("registered window has context");
                 self.core.registry.set_closed(window_id);
+                self.core.window_scopes.remove(&window_id);
 
-                let closed = self.emit_runtime_event(RuntimeEvent::WindowClosed(handle.into()));
+                let closed = self.emit_runtime_event(RuntimeEvent::WindowClosed(window));
                 if handle.role == WindowRole::App && self.core.registry.app_window_count() == 0 {
                     let last_closed = self.emit_runtime_event(RuntimeEvent::LastAppWindowClosed);
                     let exit = if self.core.exiting {
@@ -89,7 +98,11 @@ where
                 };
                 self.core.toasts.set_window_active(true, Instant::now());
 
-                self.emit_runtime_event(RuntimeEvent::WindowFocused(handle.into()))
+                self.emit_runtime_event(RuntimeEvent::WindowFocused(
+                    self.core
+                        .window_context(handle.id)
+                        .expect("focused window has context"),
+                ))
             }
             CoreMessage::WindowUnfocused(window_id) => {
                 if self.is_bootstrap_window(window_id) || self.is_devtools_window(window_id) {
@@ -201,8 +214,8 @@ where
         &mut self,
         update: impl Into<Effect<A::Message, A::Window>>,
     ) -> (RuntimeTask<A, P>, RuntimeTask<A, P>) {
-        let (task, commands) = update.into().into_parts();
-        let app_task = task.map(|message| NiveMessage::App {
+        let (task, requests, cancellations, commands) = update.into().into_parts();
+        let app_task = task.map(move |message| NiveMessage::App {
             window_id: None,
             source: MessageSource::Task,
             message,
@@ -210,8 +223,9 @@ where
         let runtime_task = commands.into_iter().fold(Task::none(), |task, command| {
             task.chain(self.handle_runtime_command(command, None))
         });
+        let request_task = self.apply_requests(requests, cancellations, None);
 
-        (app_task, runtime_task)
+        (Task::batch([app_task, request_task]), runtime_task)
     }
 
     pub(super) fn apply_update(
@@ -226,17 +240,49 @@ where
         update: impl Into<Effect<A::Message, A::Window>>,
         origin_window: Option<window::Id>,
     ) -> Task<RuntimeMessage<A, P>> {
-        let (task, commands) = update.into().into_parts();
-        let app_task = task.map(|message| NiveMessage::App {
-            window_id: None,
+        let (task, requests, cancellations, commands) = update.into().into_parts();
+        let app_task = task.map(move |message| NiveMessage::App {
+            window_id: origin_window,
             source: MessageSource::Task,
             message,
         });
+        let request_task = self.apply_requests(requests, cancellations, origin_window);
         let runtime_task = commands.into_iter().fold(Task::none(), |task, command| {
             task.chain(self.handle_runtime_command(command, origin_window))
         });
 
-        Task::batch([app_task, runtime_task])
+        Task::batch([app_task, request_task, runtime_task])
+    }
+
+    fn apply_requests(
+        &mut self,
+        requests: Vec<crate::RequestTask<A::Message>>,
+        cancellations: Vec<crate::RequestCancellation>,
+        origin_window: Option<window::Id>,
+    ) -> Task<RuntimeMessage<A, P>> {
+        for cancellation in cancellations {
+            cancellation.apply();
+        }
+
+        let tasks = requests.into_iter().map(|request| {
+            let (task, mut registration) = request.into_parts();
+            if let Some(replaced) = registration.replaces.take() {
+                replaced.apply();
+            }
+            self.core.running_requests.insert(
+                registration.request,
+                super::RunningRequest {
+                    scope_key: registration.scope_key,
+                    control: registration.control,
+                },
+            );
+            task.map(move |event| NiveMessage::Request {
+                window_id: origin_window,
+                event,
+            })
+        });
+
+        Task::batch(tasks)
     }
 
     pub(super) fn handle_runtime_command(

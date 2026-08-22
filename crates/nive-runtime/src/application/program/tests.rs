@@ -3,7 +3,9 @@ mod support;
 
 use std::time::Duration;
 
-use super::shortcuts::{devtools_toggle_from_event, shortcut_message_from_event};
+#[cfg(feature = "devtools")]
+use super::shortcuts::devtools_toggle_from_event;
+use super::shortcuts::shortcut_message_from_event;
 use super::*;
 use crate::application::update::RuntimeCommand;
 use crate::application::{ApplicationConfig, CommandRejectionReason, WindowCommand};
@@ -103,8 +105,10 @@ fn open_main_window(program: &mut Program<TestApp>) -> window::Id {
 
 mod focus;
 
+#[cfg(feature = "devtools")]
 mod devtools;
 mod replace;
+mod requests;
 mod routing;
 mod session;
 mod shortcuts;

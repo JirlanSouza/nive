@@ -81,6 +81,25 @@ where
                 };
                 self.apply_update_from(effect, window_id)
             }
+            NiveMessage::Request { window_id, event } => {
+                self.core.running_requests.remove(&event.request);
+                let Some(message) = event.message else {
+                    return Task::none();
+                };
+                let effect: Effect<A::Message, A::Window> = {
+                    let Some(app) = self.app.as_mut() else {
+                        return Task::none();
+                    };
+                    let window = window_id.and_then(|id| self.core.window_context(id));
+                    let message_context = MessageContext {
+                        window,
+                        source: MessageSource::Task,
+                    };
+                    let context = self.core.context();
+                    app.update(context, message_context, message).into()
+                };
+                self.apply_update_from(effect, window_id)
+            }
             #[cfg(feature = "devtools")]
             NiveMessage::Devtools(message) => self.update_devtools(message),
             NiveMessage::Probe(_) => Task::none(),
@@ -117,13 +136,13 @@ where
             return iced::widget::text("").into();
         };
 
-        let mut screen =
-            app.view(self.core.context(), window)
-                .map(move |message| NiveMessage::App {
-                    window_id: Some(window_id),
-                    source: MessageSource::View,
-                    message,
-                });
+        let mut screen = app
+            .view(self.core.context(), window.clone())
+            .map(move |message| NiveMessage::App {
+                window_id: Some(window_id),
+                source: MessageSource::View,
+                message,
+            });
 
         if window.role != WindowRole::App {
             return screen.into_element();

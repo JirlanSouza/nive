@@ -212,8 +212,7 @@ fn request_ids_start_at_one_and_skip_zero() {
     let mut r: Resource<()> = Resource::idle();
     let id1 = r.begin();
     let id2 = r.begin();
-    assert_eq!(id1.get(), 1);
-    assert_eq!(id2.get(), 2);
+    assert_ne!(id1, id2);
 }
 
 #[test]

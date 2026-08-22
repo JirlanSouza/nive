@@ -198,13 +198,14 @@ impl<'a, T> ResourceSimulator<'a, T> {
 
     fn load_value(&mut self, value: T) {
         let token = self.state.begin();
-        self.state.settle(Settled::new(token, Ok(value)));
+        let _ = self.state.settle(Settled::succeeded(token, value));
     }
 
     fn force_error(&mut self, message: &str) {
         let token = self.state.begin();
-        self.state
-            .settle(Settled::new(token, Err(UserFacingError::devtools(message))));
+        let _ = self
+            .state
+            .settle(Settled::failed(token, UserFacingError::devtools(message)));
     }
 }
 
@@ -331,8 +332,9 @@ impl<'a, C> OperationSimulator<'a, C> {
         match self.input {
             Some(factory) => {
                 let token = self.state.begin(factory());
-                self.state
-                    .settle(Settled::new(token, Err(UserFacingError::devtools(message))));
+                let _ = self
+                    .state
+                    .settle(Settled::failed(token, UserFacingError::devtools(message)));
                 SimulateResult::applied()
             }
             None => SimulateResult::unsupported(INPUT_CAPABILITY_HINT),

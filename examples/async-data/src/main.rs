@@ -1,5 +1,5 @@
 use nive::prelude::*;
-use nive::prelude::ui::{Resource, Settled, UserFacingError};
+use nive::prelude::ui::{Resource, SettleOutcome, Settled, UserFacingError};
 use nive::widget::column;
 use std::borrow::Cow;
 
@@ -15,6 +15,7 @@ struct AsyncDataApp {
 #[derive(Debug, Clone)]
 enum Message {
     Load,
+    Cancel,
     ProjectsSettled(Settled<Vec<Project>>),
 }
 
@@ -36,17 +37,25 @@ impl Application for AsyncDataApp {
 
     fn update(
         &mut self,
-        _context: Context<'_, Self::Window>,
+        context: Context<'_, Self::Window>,
         _message_context: MessageContext<Self::Window>,
         message: Self::Message,
     ) -> impl Into<Effect<Self::Message, Self::Window>> {
         match message {
             Message::Load => {
-                let task = self.projects.load(fetch_projects(), Message::ProjectsSettled);
-                Effect::task(task)
+                self.projects
+                    .load(
+                        context.app_scope(),
+                        |_cancel| fetch_projects(),
+                        Message::ProjectsSettled,
+                    )
+                    .into()
+            }
+            Message::Cancel => {
+                Effect::cancel(self.projects.cancel())
             }
             Message::ProjectsSettled(settled) => {
-                self.projects.settle(settled);
+                let _outcome: SettleOutcome = self.projects.settle(settled);
                 Effect::none()
             }
         }
@@ -57,12 +66,12 @@ impl Application for AsyncDataApp {
         _context: Context<'_, Self::Window>,
         _window: WindowContext<Self::Window>,
     ) -> ScreenView<'_, Self::Message> {
-        let data_view: Element<'_, Message> = if self.projects.is_loading() {
-            text("Loading...").into()
-        } else if let Some(projects) = self.projects.value() {
+        let data_view: Element<'_, Message> = if let Some(projects) = self.projects.value() {
             let items: Vec<Element<'_, Message>> =
                 projects.iter().map(|p| text(&p.name).into()).collect();
             column(items).spacing(8).into()
+        } else if self.projects.is_loading() {
+            text("Loading...").into()
         } else if let Some(error) = self.projects.error() {
             text(format!("Error: {}", error.summary())).into()
         } else {
@@ -73,6 +82,8 @@ impl Application for AsyncDataApp {
             text("Async Data Example").size(24),
             text("Demonstrates Resource with automatic stale-request guarding"),
             button("Load Projects").on_press(Message::Load),
+            button("Cancel Load").on_press_maybe(self.projects.is_loading().then_some(Message::Cancel)),
+            text(if self.projects.is_refreshing() { "Refreshing retained data…" } else { "" }),
             data_view,
         ]
         .padding(40)
