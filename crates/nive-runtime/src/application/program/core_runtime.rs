@@ -5,8 +5,8 @@ use iced::{window, Size};
 use super::{NiveCore, SettingsRuntime};
 use crate::application::{ApplicationConfig, Context, WindowContext, WindowQuery};
 use crate::{
-    ThemeController, ToastInsets, ToastPosition, ToastState, WindowHandle, WindowRegistry,
-    WindowRole, WindowSpec,
+    ScopeId, ThemeController, ToastInsets, ToastPosition, ToastState, WindowRegistry, WindowRole,
+    WindowSpec,
 };
 
 pub(super) fn clamp_window_size(
@@ -39,6 +39,7 @@ where
         config: &ApplicationConfig<K, B>,
         settings: Option<SettingsRuntime>,
     ) -> Self {
+        let app_scope = ScopeId::root("application");
         let core = Self {
             app_id: config.app_id.clone(),
             app_name: config.app_name.clone(),
@@ -49,6 +50,9 @@ where
                 .collect(),
             initial_windows: config.initial_windows.clone(),
             registry: WindowRegistry::new(),
+            app_scope,
+            window_scopes: HashMap::new(),
+            running_requests: HashMap::new(),
             theme: ThemeController::with_catalog(config.theme_preference, config.theme_catalog),
             exiting: false,
             window_icon: config.window_icon.clone(),
@@ -71,13 +75,25 @@ where
             theme_preference: self.theme.preference(),
             windows: WindowQuery {
                 registry: &self.registry,
+                scopes: &self.window_scopes,
+                app_scope: &self.app_scope,
             },
+            app_scope: &self.app_scope,
             exiting: self.exiting,
         }
     }
 
     pub(super) fn window_context(&self, window_id: window::Id) -> Option<WindowContext<K>> {
-        self.registry.get(window_id).map(Into::into)
+        self.registry.get(window_id).map(|handle| WindowContext {
+            id: handle.id,
+            kind: handle.kind,
+            role: handle.role,
+            task_scope: self
+                .window_scopes
+                .get(&window_id)
+                .map(crate::TaskScope::id)
+                .unwrap_or_else(|| self.app_scope.id()),
+        })
     }
 
     pub(super) fn window_spec(&self, kind: K) -> Option<WindowSpec> {
@@ -148,16 +164,6 @@ where
             } else {
                 seen.push(key);
             }
-        }
-    }
-}
-
-impl<K> From<WindowHandle<K>> for WindowContext<K> {
-    fn from(handle: WindowHandle<K>) -> Self {
-        Self {
-            id: handle.id,
-            kind: handle.kind,
-            role: handle.role,
         }
     }
 }

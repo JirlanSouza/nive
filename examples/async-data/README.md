@@ -1,19 +1,20 @@
 # Async Data Example
 
-Demonstrates `Resource` with stale-request guarding and an app-owned `OperationRegistry`.
+Demonstrates the direct, scoped `Resource` path with tracked cancellation.
 
 ## What it demonstrates
 
-Loading data asynchronously with protection against stale responses from outdated requests.
+Loading and refreshing data while retaining the last usable value, rejecting
+stale delivery, and cancelling the underlying tracked request.
 
 ## Concepts exercised
 
-- `Resource<T>` with `begin()` / `settle(Settled<T>)`
-- Internal request IDs carried through `Settled<T>`
-- App-owned `OperationRegistry` registration and completion
-- `OperationDescriptor` with `cancellable` flag
-- `perform` for async background work not tied to a `Resource`
-- Stale-request guarding: clicking "Load" twice quickly discards the first response
+- `Resource::load(context.app_scope(), …)` returning `RequestTask`
+- `CancelSignal` available to the application future
+- retained values while `is_refreshing()` is true
+- explicit `Resource::cancel()` forwarded through `Effect::cancel`
+- typed `Settled<T>` and `SettleOutcome`
+- restart policy: clicking “Load” again stops and replaces the prior request
 
 ## How to run
 

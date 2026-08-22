@@ -8,8 +8,9 @@ handshake, and the asynchronous state machines.
 ## 1. The update loop (Elm architecture)
 
 The private *program runner* mediates between Iced and your `Application`. Every
-`update` returns an `Effect` combining a `Task` with an ordered list of
-`RuntimeCommand`s (internal) that the runtime **drains** after the update.
+`update` returns an `Effect` combining raw tasks, tracked request tasks,
+request cancellations, and an ordered list of `RuntimeCommand`s (internal)
+that the runtime **drains** after the update.
 
 ```mermaid
 sequenceDiagram
@@ -21,7 +22,7 @@ sequenceDiagram
     User->>Iced: input (click, key, …)
     Iced->>Runner: event
     Runner->>App: update(ctx, message_context, Message)
-    App-->>Runner: Effect { task, runtime[] }
+    App-->>Runner: Effect { task, requests[], cancellations[], runtime[] }
     Runner->>Runner: drains RuntimeCommand[]
     Note right of Runner: Toast → ToastState<br/>Window → WindowRegistry<br/>Theme → ThemeController<br/>Exit → shuts down
     Runner->>Iced: Task<Message> (async effects)
@@ -139,59 +140,105 @@ and conditional restoration.
 
 ---
 
-## 5. State machine: `Resource<T>` (request/response)
+## 5. Tracked requests, settlement, and cancellation
 
-An asynchronously loaded value with *stale-while-revalidate* — it keeps the
-previous value while reloading — and discards stale responses by `RequestId`.
+`Resource<T>` and `Operation<C, T = ()>` own logical UI state. They mint an
+affine `Request<T, I>` with a process-unique opaque `RequestId`; application
+code supplies services and consumes the handle with `perform`. The resulting
+`RequestTask<Message>` keeps identity, scope, replacement, timing, and
+cancellation metadata until the private runner registers it.
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Idle
-    Idle --> Loading: begin()
-    Loaded --> Loading: begin() (keeps the value)
-    Failed --> Loading: begin() (keeps the value)
-    Loading --> Loaded: settle Ok (current token)
-    Loading --> Failed: settle Err (current token, keeps the value)
-    Loading --> Loading: settle stale (ignored)
-    Failed --> Loaded: dismiss_error (had a value)
-    Failed --> Idle: dismiss_error (no value)
-    Loaded --> Idle: reset
-    Loading --> Idle: reset
-    Failed --> Idle: reset
+flowchart LR
+    state["Resource / Operation"] -->|request_with| request["Request<T, I>"]
+    request -->|perform with app service| tracked["RequestTask<Message>"]
+    tracked --> effect["Effect::request"]
+    effect --> registry["runner registry"]
+    registry --> terminal["Settled<T>"]
+    terminal --> outcome["SettleOutcome<P>"]
 ```
 
-Sugar: `Resource::load(future, Msg::Settled)` fuses `begin()` with spawning the
-`Task` and maps the result into `Settled<T>`, leaving the token as invisible
-plumbing.
+`Settled<T>` distinguishes `Succeeded`, `Failed`, and `Cancelled`.
+`SettleOutcome<P>` distinguishes applied success, failure, cancellation, and a
+stale duplicate. A `Resource` keeps its last value while refreshing and after
+failure or cancellation. `Operation<C, T>` keeps `C` on failure/cancellation
+and returns `(C, T)` on an applied success. Neither state machine is `Clone`,
+because one active lane has one logical cancellation owner.
+
+`Resource` defaults to `RequestPolicy::Restart`: registering the replacement
+stops the prior tracked future before the new one can poll. `Operation`
+defaults to `DropNew`: a busy lane rejects the new request before minting an ID
+or allocating request state. `cancel()` and `reset()` return a linear
+`RequestCancellation` for `Effect::cancel`; local state changes immediately and
+the redundant terminal application message is suppressed.
+
+### Structured scopes
+
+`Context::app_scope()` and `WindowContext::task_scope()` expose cloneable
+`ScopeId` capabilities. A screen can own a child `TaskScope`; dropping or
+closing it cancels every descendant without cancelling its parent or siblings.
+Tracked futures receive an observation-only `CancelSignal`. Hard cancellation
+is the default; `Request::graceful(duration)` permits bounded cleanup.
+`timeout` and `deadline` are failures, while explicit, replacement, and scope
+closure are typed cancellation reasons.
+
+The runner removes its registry entry before delivering the optional app
+message. Closing a window cancels its window scope; application exit cancels
+the root scope.
+
+### Four send-side tiers
+
+| Tier | API | Lifetime |
+| --- | --- | --- |
+| Direct | `Resource::load` / `Operation::run` | Nive-tracked and scoped |
+| Handle | `request*` then `Request::perform` | Nive-tracked and scoped |
+| External | `request*` then `into_settled` | Owned by the external actor/runtime |
+| Manual | `begin`, raw `RequestId`, `Settled` constructor | Explicitly untracked |
+
+### Migrating the direct tier
+
+Before, `load` accepted a ready future and returned an untracked Iced task:
+
+```rust,ignore
+Effect::task(resource.load(fetch_projects(), Message::ProjectsSettled))
+```
+
+Pass an explicit lifetime, build the future from its cancellation signal, and
+return the tracked carrier through `Effect`:
+
+```rust,ignore
+resource
+    .load(
+        context.app_scope(),
+        |cancel| services.fetch_projects(cancel),
+        Message::ProjectsSettled,
+    )
+    .into()
+```
+
+Settlement is now explicit:
+
+```rust,ignore
+match resource.settle(settled) {
+    SettleOutcome::Succeeded(()) => {}
+    SettleOutcome::Failed => {}
+    SettleOutcome::Cancelled(_) | SettleOutcome::Stale => {}
+    _ => {}
+}
+```
+
+`Operation::run` follows the same pattern and returns
+`Option<RequestTask<_>>`; `None` means the default `DropNew` policy rejected a
+busy lane.
+
+Continuous event streams do not pass through this machinery. A subscription
+tick can update plain state and return `Effect::none()` without minting an ID,
+allocating request state, or touching the registry. Only discrete
+request/response control-plane work opts into a request tier.
 
 ---
 
-## 6. State machine: `Operation<C>` (command/action)
-
-An asynchronous action with no persistent return value — saving, deleting. On
-success it hands the `input` back to the caller; on failure it keeps `input` plus
-the error.
-
-```mermaid
-stateDiagram-v2
-    [*] --> Idle
-    Idle --> Running: begin(input)
-    Running --> Idle: settle Ok (returns input)
-    Running --> Failed: settle Err (keeps input + error)
-    Failed --> Idle: reset / dismiss_error
-    Running --> Idle: reset
-    note right of Running
-        a RequestId token discards
-        stale responses
-    end note
-```
-
-Collections of in-flight actions are managed by `OperationRegistry` — several
-table rows saving in parallel, for instance.
-
----
-
-## 7. The toast queue
+## 6. The toast queue
 
 `ToastState` holds active slots plus a `VecDeque` of pending ones. Each toast has
 a severity (`ToastTone`) and a position (`ToastPosition`); short and long
@@ -209,7 +256,7 @@ flowchart LR
 
 ---
 
-## 8. Dialog hosting (`ScreenView` → `DialogHost`)
+## 7. Dialog hosting (`ScreenView` → `DialogHost`)
 
 `Application::view()` returns a `ScreenView` carrying content plus an optional
 `DialogRequest`. `ScreenView::into_element()` — called by the runner, not by the

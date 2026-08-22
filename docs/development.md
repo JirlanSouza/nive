@@ -194,13 +194,14 @@ switch to `.clone()` (Cow is not `Copy`).
 field read-only through `#[derive(Inspect)]`; there is no runtime-managed mirror
 and no `Effect::op_*` API.
 
-### `Resource` stale-request guarding
+### Tracked `Resource` requests
 
-`Resource<T>` owns its request counter. `begin()` transitions to loading and
-returns a `RequestId`; `settle(Settled<T>)` applies only when the carried token
-matches the most recent `begin`. The blessed `load` helper hides the token in
-the message value, while manual code can still construct `Settled::new(token,
-result)`.
+`Resource<T>` mints process-unique request identities. The direct `load` helper
+requires a `ScopeId`, gives the future a `CancelSignal`, and returns a tracked
+`RequestTask`. The reducer-friendly path uses `request*` followed by
+`Request::perform`. The manual tier remains available through `begin()` and
+the explicit `Settled::succeeded`, `Settled::failed`, and
+`Settled::cancelled` constructors.
 
 ### `ErrorCode::new` returns `Result`
 
@@ -240,17 +241,17 @@ removed in favour of a token-based `begin`/`settle` contract:
 | `OperationState<C>` | `Operation<C>` |
 | `state.set_loading()` | `let tok = resource.begin()` |
 | `state.set_loading_with(id)` | `let tok = resource.begin()` (token is the guard) |
-| `state.set_loaded(val)` | `resource.settle(Settled::new(tok, Ok(val)))` |
-| `state.set_loaded_with(id, val)` | `resource.settle(Settled::new(tok, Ok(val)))` |
-| `state.set_failed(err)` | `resource.settle(Settled::new(tok, Err(err)))` |
+| `state.set_loaded(val)` | `resource.settle(Settled::succeeded(tok, val))` |
+| `state.set_loaded_with(id, val)` | `resource.settle(Settled::succeeded(tok, val))` |
+| `state.set_failed(err)` | `resource.settle(Settled::failed(tok, err))` |
 | `AppUpdate::op_start(id, desc)` | removed — use `Operation<C>` fields + `#[derive(Inspect)]` |
 | `AppUpdate::op_complete(id)` | removed |
 | `AppUpdate::op_fail(id, err)` | removed |
 | `#[probe]` / `ProbeCatalog` | `#[derive(Inspect)]` on state struct |
 
-Stale-request safety is automatic: `Resource::settle` silently drops results
-whose token doesn't match the most recent `begin` call, so the explicit `_with`
-variants are no longer needed.
+Stale-request safety is automatic: `Resource::settle` changes no state and
+returns `SettleOutcome::Stale` when the request does not match the active lane,
+so the explicit `_with` variants are no longer needed.
 
 ### Devtools: `#[derive(Inspect)]` replaces probe catalog
 

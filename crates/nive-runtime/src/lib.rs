@@ -113,8 +113,10 @@ pub use settings::{
     WindowSessionPosition, WindowSessionSize,
 };
 pub use state::{
-    relative_time_label, unix_now, Operation, OperationDescriptor, OperationEntry, OperationId,
-    OperationProgress, OperationRegistry, OperationStatus, RequestId, Resource, Settled,
+    relative_time_label, unix_now, CancelSignal, CancellationReason, Operation,
+    OperationDescriptor, OperationEntry, OperationId, OperationProgress, OperationRegistry,
+    OperationStatus, Request, RequestCancellation, RequestId, RequestPolicy, RequestTask, Resource,
+    ScopeId, SettleOutcome, Settled, TaskScope,
 };
 pub use support::{
     install_diagnostic_panic_hook, DiagnosticEvent, DiagnosticEventKind, DiagnosticEventLog,
@@ -170,13 +172,15 @@ pub mod prelude {
     pub mod ui {
         pub use super::*;
         pub use crate::{
-            BackgroundFit, BootstrapSpec, BrandContent, DialogDismiss, DialogRequest, ErrorCode,
-            InvalidErrorCode, NamedShortcutKey, Operation, OperationDescriptor, OperationEntry,
-            OperationId, OperationProgress, OperationRegistry, OperationStatus, Resource,
-            ScreenEffect, Settled, ShortcutBinding, ShortcutKey, ShortcutMap, ShortcutModifiers,
-            SplashBackground, ThemeBuilder, ThemeCatalog, ThemeMode, ToastDuration, ToastInsets,
-            ToastTone, UserFacingError, UserFacingErrorKind, UserFacingResult, WindowChrome,
-            WindowHandle, WindowMode, WindowRegistry,
+            BackgroundFit, BootstrapSpec, BrandContent, CancelSignal, CancellationReason,
+            DialogDismiss, DialogRequest, ErrorCode, InvalidErrorCode, NamedShortcutKey, Operation,
+            OperationDescriptor, OperationEntry, OperationId, OperationProgress, OperationRegistry,
+            OperationStatus, Request, RequestCancellation, RequestPolicy, RequestTask, Resource,
+            ScopeId, ScreenEffect, SettleOutcome, Settled, ShortcutBinding, ShortcutKey,
+            ShortcutMap, ShortcutModifiers, SplashBackground, TaskScope, ThemeBuilder,
+            ThemeCatalog, ThemeMode, ToastDuration, ToastInsets, ToastTone, UserFacingError,
+            UserFacingErrorKind, UserFacingResult, WindowChrome, WindowHandle, WindowMode,
+            WindowRegistry,
         };
 
         /// File-picker param structs surfaced in the extended tier only when

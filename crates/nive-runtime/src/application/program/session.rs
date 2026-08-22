@@ -40,6 +40,12 @@ where
                 id: handle.id,
                 kind: handle.kind,
                 role: handle.role,
+                task_scope: self
+                    .core
+                    .window_scopes
+                    .get(&handle.id)
+                    .map(crate::TaskScope::id)
+                    .unwrap_or_else(|| self.core.app_scope.id()),
             })
     }
 

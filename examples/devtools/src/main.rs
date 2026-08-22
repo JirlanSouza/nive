@@ -1,5 +1,5 @@
 use nive::prelude::*;
-use nive::prelude::ui::{Operation, Resource, Settled};
+use nive::prelude::ui::{Operation, Resource, SettleOutcome, Settled};
 use nive::widget::column;
 use std::borrow::Cow;
 
@@ -55,20 +55,24 @@ impl Application for DevtoolsExample {
 
     fn update(
         &mut self,
-        _context: Context<'_, Self::Window>,
+        context: Context<'_, Self::Window>,
         _message_context: MessageContext<Self::Window>,
         message: Self::Message,
     ) -> impl Into<Effect<Self::Message, Self::Window>> {
         match message {
             Message::Load => {
-                let task = self
+                self
                     .state
                     .projects
-                    .load(fetch_projects(), Message::ProjectsSettled);
-                Effect::task(task)
+                    .load(
+                        context.app_scope(),
+                        |_cancel| fetch_projects(),
+                        Message::ProjectsSettled,
+                    )
+                    .into()
             }
             Message::ProjectsSettled(settled) => {
-                self.state.projects.settle(settled);
+                let _outcome: SettleOutcome = self.state.projects.settle(settled);
                 Effect::none()
             }
         }

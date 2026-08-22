@@ -1,7 +1,7 @@
 use iced::window;
 use nive_ui::theme::{Theme, ThemePreference};
 
-use crate::{WindowRegistry, WindowRole};
+use crate::{ScopeId, TaskScope, WindowRegistry, WindowRole};
 
 /// Read-only runtime context handed to [`Application`](super::Application) hooks.
 ///
@@ -14,6 +14,7 @@ pub struct Context<'a, K> {
     pub(super) theme: Theme,
     pub(super) theme_preference: ThemePreference,
     pub(super) windows: WindowQuery<'a, K>,
+    pub(super) app_scope: &'a TaskScope,
     pub(super) exiting: bool,
 }
 
@@ -43,6 +44,11 @@ impl<'a, K> Context<'a, K> {
         self.windows
     }
 
+    /// Returns the application lifetime used by critical tracked requests.
+    pub fn app_scope(self) -> ScopeId {
+        self.app_scope.id()
+    }
+
     /// Whether the runtime is currently shutting down.
     pub fn is_exiting(self) -> bool {
         self.exiting
@@ -50,7 +56,7 @@ impl<'a, K> Context<'a, K> {
 }
 
 /// Identifies a single open window within an [`Application`](super::Application).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WindowContext<K> {
     /// The Iced window id.
     pub id: window::Id,
@@ -58,6 +64,14 @@ pub struct WindowContext<K> {
     pub kind: K,
     /// The window's role (app, auxiliary, etc.).
     pub role: WindowRole,
+    pub(super) task_scope: ScopeId,
+}
+
+impl<K> WindowContext<K> {
+    /// Returns the lifetime cancelled when this window closes.
+    pub fn task_scope(&self) -> ScopeId {
+        self.task_scope.clone()
+    }
 }
 
 /// Identifies why a message reached
@@ -77,7 +91,7 @@ pub enum MessageSource {
 
 /// The context passed to [`Application::update`](super::Application::update):
 /// the source window, if any, and why the message was dispatched.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MessageContext<K> {
     /// The window this message is associated with, if any.
     pub window: Option<WindowContext<K>>,
@@ -89,6 +103,8 @@ pub struct MessageContext<K> {
 #[derive(Clone, Copy)]
 pub struct WindowQuery<'a, K> {
     pub(super) registry: &'a WindowRegistry<K>,
+    pub(super) scopes: &'a std::collections::HashMap<window::Id, crate::TaskScope>,
+    pub(super) app_scope: &'a TaskScope,
 }
 
 impl<'a, K> WindowQuery<'a, K>
@@ -100,6 +116,11 @@ where
             id: handle.id,
             kind: handle.kind,
             role: handle.role,
+            task_scope: self
+                .scopes
+                .get(&handle.id)
+                .map(TaskScope::id)
+                .unwrap_or_else(|| self.app_scope.id()),
         })
     }
 
@@ -113,6 +134,11 @@ where
             id: handle.id,
             kind: handle.kind,
             role: handle.role,
+            task_scope: self
+                .scopes
+                .get(&handle.id)
+                .map(TaskScope::id)
+                .unwrap_or_else(|| self.app_scope.id()),
         })
     }
 
@@ -127,6 +153,11 @@ where
             id: handle.id,
             kind: handle.kind,
             role: handle.role,
+            task_scope: self
+                .scopes
+                .get(&handle.id)
+                .map(TaskScope::id)
+                .unwrap_or_else(|| self.app_scope.id()),
         })
     }
 

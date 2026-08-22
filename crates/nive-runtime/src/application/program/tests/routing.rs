@@ -14,7 +14,7 @@ fn view_message_carries_view_source_and_window() {
     let context = program
         .app
         .as_ref()
-        .and_then(|app| app.last_message_context)
+        .and_then(|app| app.last_message_context.clone())
         .expect("message context recorded");
     assert_eq!(context.source, MessageSource::View);
     assert_eq!(context.window.map(|window| window.id), Some(main_id));
@@ -33,7 +33,7 @@ fn task_message_carries_task_source_without_window() {
     let context = program
         .app
         .as_ref()
-        .and_then(|app| app.last_message_context)
+        .and_then(|app| app.last_message_context.clone())
         .expect("message context recorded");
     assert_eq!(context.source, MessageSource::Task);
     assert!(context.window.is_none());
@@ -52,7 +52,7 @@ fn subscription_message_carries_subscription_source() {
     let context = program
         .app
         .as_ref()
-        .and_then(|app| app.last_message_context)
+        .and_then(|app| app.last_message_context.clone())
         .expect("message context recorded");
     assert_eq!(context.source, MessageSource::Subscription);
 }

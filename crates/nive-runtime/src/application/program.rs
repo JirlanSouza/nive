@@ -14,10 +14,11 @@ use crate::devtools::DevtoolsPanelMessage;
 #[cfg(feature = "devtools")]
 use crate::devtools::{DevtoolsConfig, DevtoolsHostState};
 use crate::lifecycle::bootstrap::BootstrapController;
+use crate::state::{RequestControl, RequestEvent};
 use crate::{
-    BootstrapSpec, KeyboardNavigation, RuntimeSession, SettingsConfig, SettingsError,
-    ThemeController, ThemeEvent, ToastId, ToastInsets, ToastPosition, ToastState, UserFacingResult,
-    WindowRegistry, WindowSpec,
+    BootstrapSpec, KeyboardNavigation, RequestId, RuntimeSession, SettingsConfig, SettingsError,
+    TaskScope, ThemeController, ThemeEvent, ToastId, ToastInsets, ToastPosition, ToastState,
+    UserFacingResult, WindowRegistry, WindowSpec,
 };
 
 #[cfg(not(feature = "devtools"))]
@@ -120,6 +121,10 @@ enum NiveMessage<K, M, B, P> {
         source: MessageSource,
         message: M,
     },
+    Request {
+        window_id: Option<window::Id>,
+        event: RequestEvent<M>,
+    },
     #[cfg(feature = "devtools")]
     Devtools(DevtoolsPanelMessage),
     Probe(std::marker::PhantomData<P>),
@@ -202,6 +207,10 @@ where
                 source: *source,
                 message: message.clone(),
             },
+            Self::Request { window_id, event } => Self::Request {
+                window_id: *window_id,
+                event: event.clone(),
+            },
             #[cfg(feature = "devtools")]
             Self::Devtools(message) => Self::Devtools(message.clone()),
             Self::Probe(marker) => Self::Probe(*marker),
@@ -230,6 +239,9 @@ struct NiveCore<K, Message> {
     windows: Vec<(K, WindowSpec)>,
     initial_windows: Vec<K>,
     registry: WindowRegistry<K>,
+    app_scope: TaskScope,
+    window_scopes: HashMap<window::Id, TaskScope>,
+    running_requests: HashMap<RequestId, RunningRequest>,
     theme: ThemeController,
     exiting: bool,
     window_icon: Option<window::Icon>,
@@ -242,6 +254,13 @@ struct NiveCore<K, Message> {
     /// that should close once the target finishes opening (or is rejected).
     pending_replacements: HashMap<window::Id, window::Id>,
     settings: Option<SettingsRuntime>,
+}
+
+struct RunningRequest {
+    #[allow(dead_code)]
+    scope_key: std::num::NonZeroU64,
+    #[allow(dead_code)]
+    control: RequestControl,
 }
 
 #[derive(Debug, Clone)]

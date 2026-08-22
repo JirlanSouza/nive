@@ -101,12 +101,13 @@ pub mod prelude {
         // Extended runtime tier. `Application`, `ApplicationConfig`, etc.
         // come in through `super::*`.
         pub use crate::{
-            BackgroundFit, BootstrapSpec, BrandContent, DialogDismiss, DialogRequest, ErrorCode,
-            InvalidErrorCode, Operation, OperationDescriptor, OperationEntry, OperationId,
-            OperationProgress, OperationRegistry, OperationStatus, RequestId, Resource,
-            ScreenEffect, Settled, Toast, ToastDuration, ToastInsets, UserFacingError,
-            UserFacingErrorKind, UserFacingResult, WindowChrome, WindowHandle, WindowMode,
-            WindowRegistry,
+            BackgroundFit, BootstrapSpec, BrandContent, CancelSignal, CancellationReason,
+            DialogDismiss, DialogRequest, ErrorCode, InvalidErrorCode, Operation,
+            OperationDescriptor, OperationEntry, OperationId, OperationProgress, OperationRegistry,
+            OperationStatus, Request, RequestCancellation, RequestId, RequestPolicy, RequestTask,
+            Resource, ScopeId, ScreenEffect, SettleOutcome, Settled, TaskScope, Toast,
+            ToastDuration, ToastInsets, UserFacingError, UserFacingErrorKind, UserFacingResult,
+            WindowChrome, WindowHandle, WindowMode, WindowRegistry,
         };
         #[cfg(feature = "file-picker")]
         pub use crate::{FileFilter, PickFileParams, SaveFileParams};

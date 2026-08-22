@@ -21,7 +21,7 @@ flowchart TD
 
     subgraph tiers["nive::prelude"]
         minimal["**minimal tier** (template-stable)<br/>Application · Effect · MessageContext · MessageSource · Context · run · ScreenView<br/>Toast · ToastPosition · Theme · ThemeBuilder · ThemePalette · ThemeController · ThemePreference · ThemeMode<br/>ShortcutMap · Action · ActionMap · RuntimeEvent · DiagnosticEventLog<br/>WindowSpec · WindowRole · WindowCardinality · WindowCommand · CloseDecision · ExitDecision · Size/Point"]
-        extended["**extended tier (ui)** = minimal +<br/>Resource · Operation · OperationRegistry<br/>DialogRequest · WindowHandle · WindowRegistry · WindowMode<br/>UserFacingError · BootstrapSpec · BrandContent<br/>ToastDuration · ScreenEffect"]
+        extended["**extended tier (ui)** = minimal +<br/>Resource · Operation · OperationRegistry<br/>Request · RequestTask · Settled · SettleOutcome<br/>ScopeId · TaskScope · CancelSignal<br/>DialogRequest · WindowHandle · WindowRegistry · WindowMode<br/>UserFacingError · BootstrapSpec · BrandContent<br/>ToastDuration · ScreenEffect"]
         extended --> minimal
     end
 
@@ -55,7 +55,7 @@ consumers of the runtime layer:
 | `nive_core::actions` | `Action`, `ActionId`, `ActionMap`, and the shared neutral shortcuts. |
 | `nive_runtime::input` | Shortcuts and keyboard navigation. |
 | `nive_runtime::lifecycle` | Bootstrap, close/exit decisions, `WindowCommand`, window specs and registry. |
-| `nive_runtime::state` | `Resource`, `Operation`, `OperationRegistry`, `RequestId`, `Settled`, and time helpers. |
+| `nive_runtime::state` | Async state, tracked requests, structured scopes, cancellation, settlement, operation registry, and time helpers. |
 | `nive_runtime::feedback` | `Toast`, `ToastState`, `UserFacingError`, and related types. |
 | `nive_runtime::screen` | `ScreenView`, `ScreenEffect`, and the dialog contracts. |
 | `nive_runtime::settings` | `SettingsConfig`, `RuntimeSession`, and the window session. |
@@ -110,22 +110,29 @@ classDiagram
 
 ## 4. `Effect` — composing effects
 
-The return value of the hooks. It combines an async `Task` with ordered runtime
-commands, built through direct constructors (`Effect::task`, `Effect::toast`, …)
-and `with_*` combinators for composing several effects.
+The return value of the hooks. It combines raw async tasks, tracked request
+tasks, request cancellations, and ordered runtime commands. Raw
+`Effect::task` remains deliberately untracked; use `Effect::request` or convert
+a `RequestTask` directly when Nive must own lifetime and cleanup.
 
 ```mermaid
 classDiagram
     class Effect {
         -task : Task
+        -requests : Vec~RequestTask~
+        -cancellations : Vec~RequestCancellation~
         -runtime : Vec~RuntimeCommand~
         +none()
         +task(task)
+        +request(request)
+        +cancel(cancellation)
         +toast(Toast)
         +window(WindowCommand)
         +theme(ThemePreference)
         +exit()
         +with_task(task)
+        +with_request(request)
+        +with_cancellation(cancellation)
         +with_toast(Toast)
         +with_window(WindowCommand)
         +with_theme(ThemePreference)
@@ -145,10 +152,18 @@ classDiagram
 Direct use:
 
 ```rust
-Effect::task(self.users.load(fetch_users(), Msg::UsersSettled))
+Effect::from(self.users.load(
+        context.app_scope(),
+        |cancel| fetch_users(cancel),
+        Msg::UsersSettled,
+    ))
     .with_toast(Toast::success("Saved"))
     .with_window(WindowCommand::Open(Window::Details));
 ```
+
+`ScreenEffect` has matching `request`/`with_request` storage. Message mapping
+and merge preserve each tracked registration so later screen-to-application
+promotion does not collapse it into an untracked raw task.
 
 ---
 

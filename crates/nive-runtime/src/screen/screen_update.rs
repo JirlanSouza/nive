@@ -1,5 +1,7 @@
 use iced::Task;
 
+use crate::RequestTask;
+
 /// The return value of a screen or component action: an Iced task, an
 /// optional semantic output for the parent, and any toasts to surface.
 ///
@@ -12,6 +14,7 @@ use iced::Task;
 pub struct ScreenEffect<Message, Output = (), Toast = crate::Toast> {
     /// The Iced task to run after the action.
     pub task: Task<Message>,
+    requests: Vec<RequestTask<Message>>,
     /// The action's typed output for the parent, if any.
     pub output: Option<Output>,
     /// Toasts to surface from this action, in order.
@@ -22,6 +25,7 @@ impl<Message, Output, Toast> ScreenEffect<Message, Output, Toast> {
     pub fn none() -> Self {
         Self {
             task: Task::none(),
+            requests: Vec::new(),
             output: None,
             toasts: Vec::new(),
         }
@@ -30,6 +34,7 @@ impl<Message, Output, Toast> ScreenEffect<Message, Output, Toast> {
     pub fn task(task: Task<Message>) -> Self {
         Self {
             task,
+            requests: Vec::new(),
             output: None,
             toasts: Vec::new(),
         }
@@ -38,6 +43,7 @@ impl<Message, Output, Toast> ScreenEffect<Message, Output, Toast> {
     pub fn output(output: Output) -> Self {
         Self {
             task: Task::none(),
+            requests: Vec::new(),
             output: Some(output),
             toasts: Vec::new(),
         }
@@ -46,6 +52,7 @@ impl<Message, Output, Toast> ScreenEffect<Message, Output, Toast> {
     pub fn toast(toast: Toast) -> Self {
         Self {
             task: Task::none(),
+            requests: Vec::new(),
             output: None,
             toasts: vec![toast],
         }
@@ -66,6 +73,20 @@ impl<Message, Output, Toast> ScreenEffect<Message, Output, Toast> {
         self
     }
 
+    pub fn request(request: RequestTask<Message>) -> Self {
+        Self {
+            task: Task::none(),
+            requests: vec![request],
+            output: None,
+            toasts: Vec::new(),
+        }
+    }
+
+    pub fn with_request(mut self, request: RequestTask<Message>) -> Self {
+        self.requests.push(request);
+        self
+    }
+
     pub fn with_toast(mut self, toast: Toast) -> Self {
         self.toasts.push(toast);
         self
@@ -73,14 +94,24 @@ impl<Message, Output, Toast> ScreenEffect<Message, Output, Toast> {
 
     pub fn map_message<N>(
         self,
-        map: impl FnMut(Message) -> N + Send + 'static,
+        map: impl Fn(Message) -> N + Send + Sync + 'static,
     ) -> ScreenEffect<N, Output, Toast>
     where
         Message: Send + 'static,
         N: Send + 'static,
     {
+        let map = std::sync::Arc::new(map);
+        let task_map = std::sync::Arc::clone(&map);
         ScreenEffect {
-            task: self.task.map(map),
+            task: self.task.map(move |message| task_map(message)),
+            requests: self
+                .requests
+                .into_iter()
+                .map(|request| {
+                    let map = std::sync::Arc::clone(&map);
+                    request.map(move |message| map(message))
+                })
+                .collect(),
             output: self.output,
             toasts: self.toasts,
         }
@@ -89,6 +120,7 @@ impl<Message, Output, Toast> ScreenEffect<Message, Output, Toast> {
     pub fn map_output<P>(self, map: impl FnOnce(Output) -> P) -> ScreenEffect<Message, P, Toast> {
         ScreenEffect {
             task: self.task,
+            requests: self.requests,
             output: self.output.map(map),
             toasts: self.toasts,
         }
@@ -100,9 +132,12 @@ impl<Message, Output, Toast> ScreenEffect<Message, Output, Toast> {
     {
         let mut toasts = self.toasts;
         toasts.extend(other.toasts);
+        let mut requests = self.requests;
+        requests.extend(other.requests);
 
         Self {
             task: Task::batch([self.task, other.task]),
+            requests,
             output: self.output.or(other.output),
             toasts,
         }

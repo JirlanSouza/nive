@@ -7,6 +7,16 @@ user-visible impact are omitted.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** replace per-state async tokens with affine, scoped tracked
+  requests. `Resource` and `Operation<C, T>` now return explicit settlement
+  outcomes, distinguish cancellation from failure, support typed mutation
+  output, and are no longer `Clone`. Direct `load`/`run` callers must pass a
+  scope and return the resulting `RequestTask` through `Effect`; see
+  [runtime flows](docs/architecture/runtime-flows.md#5-tracked-requests-settlement-and-cancellation)
+  for the direct, handle, external-owner, and manual migration tiers.
+
 ### Fixed
 
 - Keep generated icon Rust deterministic and compatible with `cargo fmt
